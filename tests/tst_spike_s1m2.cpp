@@ -26,6 +26,8 @@ private slots:
     void cleanupTestCase();
     void renameIntoTabFilterAppearsAtTick();
     void renameOutOfTabFilterDisappearsAtTick();
+    void expansionSurvivesRenameOfExpandedTab();
+    void selectionSurvivesChurnTick();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -145,6 +147,108 @@ void SpikeS1M2Test::renameOutOfTabFilterDisappearsAtTick()
     QVERIFY(fixture.window->SpikeThrottlePending());
     QTest::qWait(300);
     QCOMPARE(visibleBucketHeaders(*tree).size(), 0);
+}
+
+// Post-freeze review finding 3: the hands-on rename check picks a random
+// tab, which almost never hits one the operator expanded — this scenario
+// deliberately renames THE expanded tab and requires its expansion to
+// survive the throttled tick (R6-3 (1), stable keys).
+void SpikeS1M2Test::expansionSurvivesRenameOfExpandedTab()
+{
+    MainWindowFixture fixture;
+    SpikeDataset dataset({.tab_count = 10, .mean_items_per_tab = 5, .seed = 42});
+    fixture.itemsManager->OnItemsRefreshed(dataset.allItems(), dataset.locations(), true);
+    QObject::connect(fixture.itemsManager.get(),
+                     &ItemsManager::TabRefreshed,
+                     fixture.window.get(),
+                     &MainWindow::OnTabRefreshed);
+
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tree);
+    QAbstractItemModel *model = tree->model();
+    QVERIFY(model);
+
+    // Unfiltered search: all tabs are buckets. Expand tab 3's bucket.
+    const QString oldName = dataset.tabName(3);
+    int bucketRow = -1;
+    for (int row = 0; row < model->rowCount(); ++row) {
+        if (model->index(row, 0).data().toString().contains(oldName)) {
+            bucketRow = row;
+            break;
+        }
+    }
+    QVERIFY(bucketRow >= 0);
+    tree->expand(model->index(bucketRow, 0));
+    QVERIFY(tree->isExpanded(model->index(bucketRow, 0)));
+
+    // Rename that same tab and deliver it as a delta.
+    fixture.window->SpikeSetThrottleInterval(100);
+    dataset.RenameTab(3, "Freshly Renamed 3");
+    fixture.buyoutFixture.manager->SetStashTabLocations(dataset.locations());
+    fixture.itemsManager->SpikeApplyTabDelta(dataset.location(3), dataset.tabItems(3));
+    QVERIFY(fixture.window->SpikeThrottlePending());
+    QTest::qWait(300);
+
+    // The bucket renders the new name and is still expanded.
+    int renamedRow = -1;
+    for (int row = 0; row < model->rowCount(); ++row) {
+        if (model->index(row, 0).data().toString().contains("Freshly Renamed 3")) {
+            renamedRow = row;
+            break;
+        }
+    }
+    QVERIFY(renamedRow >= 0);
+    QVERIFY(tree->isExpanded(model->index(renamedRow, 0)));
+}
+
+// Post-freeze review finding 3: selection survival across a churn tick was
+// hands-judged but not automated. A delta replaces every Item object in the
+// selected item's tab (same stable ids, new shared_ptrs); the selection
+// must survive by stable identity (R6-3 (2)).
+void SpikeS1M2Test::selectionSurvivesChurnTick()
+{
+    MainWindowFixture fixture;
+    SpikeDataset dataset({.tab_count = 10, .mean_items_per_tab = 5, .seed = 42});
+    fixture.itemsManager->OnItemsRefreshed(dataset.allItems(), dataset.locations(), true);
+    QObject::connect(fixture.itemsManager.get(),
+                     &ItemsManager::TabRefreshed,
+                     fixture.window.get(),
+                     &MainWindow::OnTabRefreshed);
+
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tree);
+    QAbstractItemModel *model = tree->model();
+    QVERIFY(model);
+
+    // Select the first item of tab 3's bucket.
+    const QString tabName = dataset.tabName(3);
+    int bucketRow = -1;
+    for (int row = 0; row < model->rowCount(); ++row) {
+        if (model->index(row, 0).data().toString().contains(tabName)) {
+            bucketRow = row;
+            break;
+        }
+    }
+    QVERIFY(bucketRow >= 0);
+    const QModelIndex bucket = model->index(bucketRow, 0);
+    tree->expand(bucket);
+    const QModelIndex item = model->index(0, 0, bucket);
+    QVERIFY(item.isValid());
+    const QString itemName = item.data().toString();
+    tree->selectionModel()->setCurrentIndex(item,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+
+    // tabItems() materializes NEW Item objects with the same stable ids —
+    // exactly what an M2 delta does to pointer identity.
+    fixture.window->SpikeSetThrottleInterval(100);
+    fixture.itemsManager->SpikeApplyTabDelta(dataset.location(3), dataset.tabItems(3));
+    QVERIFY(fixture.window->SpikeThrottlePending());
+    QTest::qWait(300);
+
+    const QModelIndexList selected = tree->selectionModel()->selectedRows();
+    QCOMPARE(selected.size(), 1);
+    QCOMPARE(selected.front().data().toString(), itemName);
 }
 
 QTEST_MAIN(SpikeS1M2Test)

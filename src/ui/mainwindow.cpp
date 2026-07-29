@@ -1042,12 +1042,21 @@ void MainWindow::SpikeRestoreScroll(const SpikeScrollAnchor &anchor)
             }
             QModelIndex index = m_current_search->model().index(static_cast<int>(row), 0);
             if (!anchor.item_id.isEmpty()) {
+                // An item anchor may only be restored exactly. If the item
+                // was churned away, fall through to the raw scrollbar value
+                // instead of yanking the bucket header to the top
+                // (post-freeze review finding 1).
+                bool found = false;
                 const auto &items = buckets[row].items();
                 for (size_t n = 0; n < items.size(); ++n) {
                     if (items[n]->id() == anchor.item_id) {
                         index = m_current_search->model().index(static_cast<int>(n), 0, index);
+                        found = true;
                         break;
                     }
+                }
+                if (!found) {
+                    break;
                 }
             }
             ui->treeView->scrollTo(index, QAbstractItemView::PositionAtTop);
