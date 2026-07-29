@@ -1,8 +1,8 @@
 # S1-M2 spike result (input to items-pipeline-m2 revision 9)
 
-Status: DRAFT — measured half complete; the subjective cadence and
-restore-fidelity judgment is Tom's and is recorded in the last section
-when he has driven the harness.
+Status: **FINAL** — measured July 29, 2026; hands-on judgment made by
+Tom the same day. Result: **outcome (a), S confirmed at 60 s.** Ready
+to be recorded in spec revision 9.
 
 This document lives on the throwaway branch `spike/s1-m2-throttle` and
 is the written result the spec's "Open items requiring spike or
@@ -180,16 +180,24 @@ Run: `./build-s1m2/tests/spike_s1m2_harness --preset 100k`
   a design argument for revision 9 to record as considered-or-
   deferred, not something this spike is chartered to decide.
 
-## Result scaffold for revision 9
+## Result for revision 9 (Tom's call, July 29, 2026)
 
-- Outcome — (a) acceptable (S confirmed at 60 s / tuned to N) or
-  (b) degrade rule 2 to final-emit-only + the R7-1 affordance
-  contract: **TBD (Tom's hands-on judgment)**.
-- Reset latency at 100k / 1m: **recorded above** (Release, offscreen,
+- **Outcome (a). S confirmed at 60 s.** The steady-state
+  reset-plus-restore cadence at the driving scale (~100k items /
+  2,000 tabs) is acceptable with the R6-3 fidelity contract in place.
+- Reset latency at 100k / 1m: recorded above (Release, offscreen,
   worst-case unfiltered search; re-sort dominates at ~86% / ~94%).
-- Fidelity contract verdict (expansion / selection / scroll under
-  reset, rename survival): mechanically verified in the harness and
-  by the 33-test suite passing with the stable-key/stable-id
-  machinery in place; felt verdict **TBD (hands-on)**.
-- Anything else the spike surfaced: the re-sort attribution above;
-  the fidelity contract costs ~nothing at either scale.
+- Fidelity contract verdict: **holds.** Expansion, selection, and
+  scroll survive ticks, including tab renames (stable keys) and
+  sorted-column stress; mechanically pinned by `tst_spike_s1m2` and
+  the suite passing with the stable-key/stable-id machinery in place.
+- Hands-on observation worth carrying into implementation: a rename
+  into an active Tab filter surfaces only at the next tick (bounded
+  by S, verified by test) — the S-window staleness is *felt* most on
+  discrete user-watched events. Judged acceptable at S = 60 s.
+- For revision 9 to note: at ~1m unfiltered the reset is ~5.4 s and
+  outcome (a)'s constants are judged at the driving scale, not there;
+  the dominant cost is the post-reset whole-model re-sort (a
+  born-sorted-buckets change is a possible lever, deliberately not
+  decided here; M3's bucket-scoped ops are the real retirement). The
+  fidelity machinery itself costs ~0 ms at either scale.
