@@ -50,6 +50,8 @@ qt_add_executable(spike_s1m2_harness spike_s1m2_harness.cpp)
 target_include_directories(spike_s1m2_harness PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(spike_s1m2_harness PRIVATE acquisition_core)
 
+acq_add_test(tst_spike_s1m2)
+
 acq_add_test(tst_buyout)
 acq_add_test(tst_buyoutmanager)
 acq_add_test(tst_itemlocation)
