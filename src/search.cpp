@@ -3,6 +3,8 @@
 
 #include "search.h"
 
+#include <QElapsedTimer> // SPIKE(S1-M2)
+
 #include <memory>
 #include <type_traits>
 
@@ -171,14 +173,21 @@ const QModelIndex Search::index(const std::shared_ptr<Item> &item) const
         // Check each search bucket against the item's location.
         const auto &bucket = bucket_list[row];
         const auto &bucket_id = bucket.location().id();
-        if (location_id == bucket_id) {
+        // SPIKE(S1-M2): the ByItem view's single catch-all bucket has an
+        // invalid location, so accept it too instead of never matching.
+        if ((location_id == bucket_id) || !bucket.location().IsValid()) {
             // Check each item in the bucket.
             const QModelIndex parent = m_model.index(row);
             const auto &items = bucket.items();
             const int item_count = static_cast<int>(items.size());
             for (int n = 0; n < item_count; ++n) {
                 const auto &model_item = items[n];
-                if (item == model_item) {
+                // SPIKE(S1-M2): R6-3 — reselect by stable item identity, not
+                // shared_ptr identity; a delta replaces the pointer while the
+                // item survives.
+                const bool same = (item == model_item)
+                                  || (!item->id().isEmpty() && (item->id() == model_item->id()));
+                if (same) {
                     // Found the index of a match.
                     return m_model.index(n, 0, parent);
                 }
@@ -209,9 +218,14 @@ void Search::FilterItems(const Items &items)
     // filter state changed since we last filtered. That happens when a form
     // edit writes through to this search and the debounced refresh lands on a
     // different one: the buckets and caption would otherwise stay stale.
-    if ((m_refresh_reason == RefreshReason::TabChanged) && !m_states_dirty) {
+    // SPIKE(S1-M2): the gate also tests items-dirty (D9 rule 1's extended
+    // refilter-on-next-activation gate).
+    if ((m_refresh_reason == RefreshReason::TabChanged) && !m_states_dirty && !m_items_dirty) {
         return;
     }
+
+    QElapsedTimer filter_timer; // SPIKE(S1-M2)
+    filter_timer.start();
 
     m_model.beginUpdate();
 
@@ -231,6 +245,7 @@ void Search::FilterItems(const Items &items)
     m_items.clear();
     m_filtered = false;
     m_filtered_item_count = 0;
+    m_visible_sources.clear(); // SPIKE(S1-M2)
 
     // A single bucket with null location is used to view all items at once.
     m_bucket_by_item.clear();
@@ -261,6 +276,10 @@ void Search::FilterItems(const Items &items)
             // add it to the list of items and total count.
             m_items.push_back(item);
             m_filtered_item_count += item->count();
+
+            // SPIKE(S1-M2): record the fetch source for the intersection
+            // removal-half test (D9).
+            m_visible_sources.insert(item->location().fetchSourceKey());
 
             // Add this item to the "By Item" bucket.
             m_bucket_by_item.front().AddItem(item);
@@ -297,6 +316,20 @@ void Search::FilterItems(const Items &items)
     m_model.endUpdate();
 
     m_states_dirty = false;
+    m_items_dirty = false;                    // SPIKE(S1-M2): D9 rule 3
+    m_last_filter_ms = filter_timer.elapsed(); // SPIKE(S1-M2)
+}
+
+// SPIKE(S1-M2)
+bool Search::MatchesActiveFilters(const Item &item) const
+{
+    for (qsizetype index = 0; index < static_cast<qsizetype>(m_filter_states.size()); ++index) {
+        const auto &state = m_filter_states.at(static_cast<size_t>(index));
+        if (IsActive(state) && !MatchesFilter(item, m_filter_catalog[index], state)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 void Search::RenameCaption(const QString &newName)

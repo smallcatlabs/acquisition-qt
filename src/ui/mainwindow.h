@@ -17,6 +17,7 @@
 #include <spdlog/spdlog.h>
 
 #include "filters/filterspec.h"
+#include "item.h"
 #include "itemlocation.h"
 #include "util/programstate.h"
 
@@ -51,6 +52,21 @@ class MainWindow : public QMainWindow
 {
     Q_OBJECT
 public:
+    // SPIKE(S1-M2): D9 throttle prototype — injectable S, reset-latency
+    // record, and the pending-tick state, exposed for the harness panel.
+    struct SpikeResetRecord
+    {
+        qint64 total_ms = 0;   // capture -> restore complete
+        qint64 filter_ms = 0;  // FilterItems (filter loop + model reset)
+        qint64 restore_ms = 0; // expansion + reselect + scroll restore
+        int visible_items = 0;
+        int buckets = 0;
+    };
+    void SpikeSetThrottleInterval(int ms);
+    int SpikeThrottleInterval() const;
+    bool SpikeThrottlePending() const;
+    int SpikeThrottleRemainingMs() const;
+
     explicit MainWindow(QSettings &m_settings,
                         NetworkManager &network_manager,
                         RateLimiter &rate_limiter,
@@ -64,11 +80,17 @@ public:
     void LoadSettings();
 
 signals:
+    // SPIKE(S1-M2): one record per throttled reset, for the harness panel.
+    void SpikeResetApplied(const MainWindow::SpikeResetRecord &record);
+
     void UpdateCheckRequested();
     void SetSessionId(const QString &poesessid);
     void SetTheme(const QString &theme);
     void GetImage(const QString &url);
 public slots:
+    // SPIKE(S1-M2): consumer of the prototype streamed delta (D9 rules 1-2).
+    void OnTabRefreshed(const ItemLocation &location, const Items &delta_items);
+
     void OnCurrentItemChanged(const QModelIndex &current, const QModelIndex &previous);
     void OnSearchFormChange();
     void OnDelayedSearchFormChange();
@@ -126,6 +148,18 @@ private slots:
     void OnUploadToImgur();
 
 private:
+    // SPIKE(S1-M2)
+    void SpikeThrottleFired();
+    bool SpikeDeltaIntersectsCurrent(const ItemLocation &location, const Items &delta_items) const;
+    struct SpikeScrollAnchor
+    {
+        QString bucket_key;
+        QString item_id;
+        int scrollbar_value = 0;
+    };
+    SpikeScrollAnchor SpikeCaptureScroll() const;
+    void SpikeRestoreScroll(const SpikeScrollAnchor &anchor);
+
     void ModelViewRefresh();
     void ReselectCurrentItem();
     void ReselectCurrentBucket();
@@ -186,4 +220,8 @@ private:
     QMetaObject::Connection m_current_item_conn;
     RateLimitDialog *m_rate_limit_dialog;
     bool m_quitting;
+
+    // SPIKE(S1-M2): the current search's pending tick — a non-resetting
+    // trailing throttle with period S (D9 rule 2).
+    QTimer m_spike_throttle;
 };

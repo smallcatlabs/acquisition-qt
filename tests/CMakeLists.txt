@@ -44,6 +44,12 @@ add_test(NAME filters_boundary
         -D "FILTERS_ARCHIVE=$<TARGET_FILE:acquisition_filters>"
         -P "${acquisition_SOURCE_DIR}/cmake/filters_boundary_check.cmake")
 
+# SPIKE(S1-M2): interactive cadence-spike harness. Not a test, not run by
+# ctest, and never merged — it lives only on the throwaway spike branch.
+qt_add_executable(spike_s1m2_harness spike_s1m2_harness.cpp)
+target_include_directories(spike_s1m2_harness PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(spike_s1m2_harness PRIVATE acquisition_core)
+
 acq_add_test(tst_buyout)
 acq_add_test(tst_buyoutmanager)
 acq_add_test(tst_itemlocation)

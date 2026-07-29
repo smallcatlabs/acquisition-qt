@@ -42,6 +42,12 @@ public:
     void ApplyAutoTabBuyouts();
     void ApplyAutoItemBuyouts();
     void PropagateTabBuyouts();
+
+    // SPIKE(S1-M2): apply one simulated per-tab delta — replace this fetch
+    // source's items in the collection and emit TabRefreshed. This stands in
+    // for the M2 worker's streamed delta; D7 pricing is deliberately out of
+    // the spike's scope.
+    void SpikeApplyTabDelta(const ItemLocation &tab, const Items &tab_items);
 public slots:
     void OnAutoRefreshTimer();
     void OnStatusUpdate(ProgramState state, const QString &status);
@@ -51,6 +57,9 @@ public slots:
 signals:
     void UpdateSignal(Util::TabSelection type, const std::vector<ItemLocation> &tab_names = {});
     void ItemsRefreshed(bool initial_refresh);
+
+    // SPIKE(S1-M2): prototype of the M2 streamed per-tab delta signal.
+    void TabRefreshed(const ItemLocation &location, const Items &delta_items);
     void StatusUpdate(ProgramState state, const QString &status);
     void UpdateModListSignal();
 

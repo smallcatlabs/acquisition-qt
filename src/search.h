@@ -69,6 +69,24 @@ public:
     // background still forces a refilter when it is next shown.
     void setFilterState(qsizetype index, FilterState state);
 
+    // SPIKE(S1-M2): D9 rule 1 — every delta marks every search items-dirty;
+    // the flag is cleared by this search's own successful refilter and is
+    // consumed by the same refilter-on-next-activation gate as m_states_dirty.
+    bool itemsDirty() const { return m_items_dirty; }
+    void setItemsDirty(bool dirty) { m_items_dirty = dirty; }
+
+    // SPIKE(S1-M2): intersection half A — does this item pass the current
+    // active filter set?
+    bool MatchesActiveFilters(const Item &item) const;
+
+    // SPIKE(S1-M2): intersection half B — fetch-source keys of the items in
+    // the current filtered result, rebuilt by every refilter.
+    const std::set<QString> &visibleSources() const { return m_visible_sources; }
+
+    // SPIKE(S1-M2): duration of the last FilterItems pass (filter loop plus
+    // the model reset), for the reset-latency record.
+    qint64 lastFilterMs() const { return m_last_filter_ms; }
+
 private:
     std::vector<Bucket> &active_buckets();
 
@@ -83,6 +101,12 @@ private:
     // actually filtered. A tab change alone does not need a refilter; a tab
     // change after a state change does.
     bool m_states_dirty{false};
+
+    // SPIKE(S1-M2): see itemsDirty() above.
+    bool m_items_dirty{false};
+    std::set<QString> m_visible_sources;
+    qint64 m_last_filter_ms{0};
+
     std::vector<std::unique_ptr<Column>> m_columns;
 
     ItemsModel m_model;

@@ -19,9 +19,11 @@
 #include <QMouseEvent>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QElapsedTimer> // SPIKE(S1-M2)
 #include <QPainter>
 #include <QPushButton>
 #include <QScrollArea>
+#include <QScrollBar> // SPIKE(S1-M2)
 #include <QSettings>
 #include <QString>
 #include <QStringList>
@@ -64,6 +66,11 @@ constexpr const char *POE_WEBCDN
 
 constexpr int CURRENT_ITEM_UPDATE_DELAY_MS = 100;
 constexpr int SEARCH_UPDATE_DELAY_MS = 350;
+
+// SPIKE(S1-M2): provisional S = 60 s (D9 rule 2), injectable via
+// SpikeSetThrottleInterval and the settings key below.
+constexpr int SPIKE_THROTTLE_DEFAULT_MS = 60'000;
+constexpr const char *SPIKE_THROTTLE_SETTINGS_KEY = "spike_s1m2_throttle_ms";
 
 struct ImgurStatus
 {
@@ -128,6 +135,13 @@ MainWindow::MainWindow(QSettings &settings,
     m_delayed_resize_columns.setInterval(0);
     m_delayed_resize_columns.setSingleShot(true);
     connect(&m_delayed_resize_columns, &QTimer::timeout, this, &MainWindow::ResizeTreeColumns);
+
+    // SPIKE(S1-M2): single-shot, started by the first intersecting delta and
+    // never re-armed by later arrivals (the non-resetting half of D9 rule 2).
+    m_spike_throttle.setInterval(
+        m_settings.value(SPIKE_THROTTLE_SETTINGS_KEY, SPIKE_THROTTLE_DEFAULT_MS).toInt());
+    m_spike_throttle.setSingleShot(true);
+    connect(&m_spike_throttle, &QTimer::timeout, this, &MainWindow::SpikeThrottleFired);
 
     LoadSettings();
     NewSearch();
@@ -698,6 +712,8 @@ void MainWindow::OnSearchFormChange()
     ModelViewRefresh();
 }
 
+// SPIKE(S1-M2): expansion is keyed by the stable (type, id) key instead of
+// the mutable header text, so a renamed tab keeps its expansion (R6-3 (1)).
 void MainWindow::SaveViewExpansion(Search &search)
 {
     std::set<QString> expanded;
@@ -706,7 +722,7 @@ void MainWindow::SaveViewExpansion(Search &search)
         for (int row = 0; row < rows; ++row) {
             const QModelIndex index = search.model().index(row, 0);
             if (index.isValid() && ui->treeView->isExpanded(index) && search.has_bucket(row)) {
-                expanded.emplace(search.bucket(row).location().GetHeader());
+                expanded.emplace(search.bucket(row).location().stableKey());
             }
         }
     }
@@ -725,7 +741,7 @@ void MainWindow::RestoreViewExpansion(Search &search)
         const QModelIndex index = search.model().index(row, 0);
         if (headers.empty()) {
             ui->treeView->collapse(index);
-        } else if (headers.count(search.bucket(row).location().GetHeader()) > 0) {
+        } else if (headers.count(search.bucket(row).location().stableKey()) > 0) {
             ui->treeView->expand(index);
         } else {
             ui->treeView->collapse(index);
@@ -736,6 +752,12 @@ void MainWindow::RestoreViewExpansion(Search &search)
 void MainWindow::ModelViewRefresh()
 {
     spdlog::trace("MainWindow::ModelViewRefresh() entered");
+
+    // SPIKE(S1-M2): any refresh of the shown view retires the current
+    // search's pending tick — a successful refilter pays for the work
+    // (R5-5), and a tab switch hands the update to the dirty flag (rule 4).
+    m_spike_throttle.stop();
+
     disconnect(m_current_item_conn);
 
     m_buyout_manager.Save();
@@ -860,6 +882,17 @@ void MainWindow::ReselectCurrentItem()
                                                QItemSelectionModel::Current
                                                    | QItemSelectionModel::Select
                                                    | QItemSelectionModel::Rows);
+
+        // SPIKE(S1-M2): the stable-identity match may have landed on a
+        // replacement object for the same item; adopt it so the details
+        // panel doesn't keep the superseded copy alive (R6-3 (2)).
+        const int bucket_row = index.parent().isValid() ? index.parent().row() : -1;
+        if ((bucket_row >= 0) && m_current_search->has_bucket(bucket_row)) {
+            const Bucket &bucket = m_current_search->bucket(bucket_row);
+            if (bucket.has_item(index.row())) {
+                m_current_item = bucket.item(index.row());
+            }
+        }
     }
 }
 
@@ -881,6 +914,158 @@ void MainWindow::ReselectCurrentBucket()
     spdlog::trace("MainWindow::ReselectCurrentBucket() the previously selected bucket is gone");
     m_current_bucket_location.reset();
     ClearCurrentItem();
+}
+
+// SPIKE(S1-M2): D9's five-rule state machine, prototyped for the S1-M2
+// cadence spike. Rules 3-5's cancellations live in ModelViewRefresh; the
+// items-dirty flags are cleared by each search's own FilterItems.
+void MainWindow::OnTabRefreshed(const ItemLocation &location, const Items &delta_items)
+{
+    // Rule 1: every delta marks every search items-dirty, the current search
+    // and non-intersecting deltas included.
+    for (auto &search : m_searches) {
+        search->setItemsDirty(true);
+    }
+
+    // Rule 2: an intersecting delta schedules the current search's throttled
+    // refilter; the timer is not re-armed by later arrivals.
+    if (!m_current_search || m_spike_throttle.isActive()) {
+        return;
+    }
+    if (SpikeDeltaIntersectsCurrent(location, delta_items)) {
+        m_spike_throttle.start();
+        spdlog::debug("SPIKE(S1-M2): throttle armed by tab '{}' ({} items), S = {} ms",
+                      location.GetHeader(),
+                      delta_items.size(),
+                      m_spike_throttle.interval());
+    }
+}
+
+bool MainWindow::SpikeDeltaIntersectsCurrent(const ItemLocation &location,
+                                             const Items &delta_items) const
+{
+    // Half A: any delta item matches the current filter set.
+    for (const auto &item : delta_items) {
+        if (m_current_search->MatchesActiveFilters(*item)) {
+            return true;
+        }
+    }
+    // Half B (removal): any item in the visible filtered result was fetched
+    // from this delta's fetch source — an empty or shrunken replacement must
+    // count as a visible change.
+    return m_current_search->visibleSources().count(location.fetchSourceKey()) > 0;
+}
+
+// Rule 3: the tick fires, the current search refilters once, and the R6-3
+// fidelity contract runs — expansion, selection, and scroll are captured
+// immediately before the reset and restored by stable identity after it.
+void MainWindow::SpikeThrottleFired()
+{
+    if (!m_current_search) {
+        return;
+    }
+    spdlog::debug("SPIKE(S1-M2): throttle fired, refiltering the current search");
+
+    QElapsedTimer timer;
+    timer.start();
+
+    // R6-3 (4): capture-before-reset. Selection is already tracked in
+    // m_current_item / m_current_bucket_location.
+    SaveViewExpansion(*m_current_search);
+    const SpikeScrollAnchor anchor = SpikeCaptureScroll();
+
+    m_current_search->SetRefreshReason(RefreshReason::ItemsChanged);
+    ModelViewRefresh();
+
+    SpikeRestoreScroll(anchor);
+
+    SpikeResetRecord record;
+    record.total_ms = timer.elapsed();
+    record.filter_ms = m_current_search->lastFilterMs();
+    // Everything that isn't the filter loop + model reset: form save,
+    // expansion restore, reselection, and the scroll restore.
+    record.restore_ms = record.total_ms - record.filter_ms;
+    record.visible_items = static_cast<int>(m_current_search->items().size());
+    record.buckets = static_cast<int>(m_current_search->buckets().size());
+    spdlog::info("SPIKE(S1-M2): reset applied in {} ms (filter+model {} ms, "
+                 "restore {} ms) over {} visible items in {} buckets",
+                 record.total_ms,
+                 record.filter_ms,
+                 record.restore_ms,
+                 record.visible_items,
+                 record.buckets);
+    emit SpikeResetApplied(record);
+}
+
+MainWindow::SpikeScrollAnchor MainWindow::SpikeCaptureScroll() const
+{
+    // R6-3 (3): anchor the top visible row by stable identity, with the raw
+    // scrollbar value as the fallback.
+    SpikeScrollAnchor anchor;
+    anchor.scrollbar_value = ui->treeView->verticalScrollBar()->value();
+    const QModelIndex top = ui->treeView->indexAt(QPoint(4, 4));
+    if (!top.isValid()) {
+        return anchor;
+    }
+    if (top.parent().isValid()) {
+        const int bucket_row = top.parent().row();
+        if (m_current_search->has_bucket(bucket_row)) {
+            const Bucket &bucket = m_current_search->bucket(bucket_row);
+            anchor.bucket_key = bucket.location().stableKey();
+            if (bucket.has_item(top.row())) {
+                anchor.item_id = bucket.item(top.row())->id();
+            }
+        }
+    } else if (m_current_search->has_bucket(top.row())) {
+        anchor.bucket_key = m_current_search->bucket(top.row()).location().stableKey();
+    }
+    return anchor;
+}
+
+void MainWindow::SpikeRestoreScroll(const SpikeScrollAnchor &anchor)
+{
+    if (!anchor.bucket_key.isEmpty()) {
+        const auto &buckets = m_current_search->buckets();
+        for (size_t row = 0; row < buckets.size(); ++row) {
+            if (buckets[row].location().stableKey() != anchor.bucket_key) {
+                continue;
+            }
+            QModelIndex index = m_current_search->model().index(static_cast<int>(row), 0);
+            if (!anchor.item_id.isEmpty()) {
+                const auto &items = buckets[row].items();
+                for (size_t n = 0; n < items.size(); ++n) {
+                    if (items[n]->id() == anchor.item_id) {
+                        index = m_current_search->model().index(static_cast<int>(n), 0, index);
+                        break;
+                    }
+                }
+            }
+            ui->treeView->scrollTo(index, QAbstractItemView::PositionAtTop);
+            return;
+        }
+    }
+    ui->treeView->verticalScrollBar()->setValue(anchor.scrollbar_value);
+}
+
+void MainWindow::SpikeSetThrottleInterval(int ms)
+{
+    m_spike_throttle.setInterval(ms);
+    m_settings.setValue(SPIKE_THROTTLE_SETTINGS_KEY, ms);
+}
+
+int MainWindow::SpikeThrottleInterval() const
+{
+    return m_spike_throttle.interval();
+}
+
+bool MainWindow::SpikeThrottlePending() const
+{
+    return m_spike_throttle.isActive();
+}
+
+int MainWindow::SpikeThrottleRemainingMs() const
+{
+    return m_spike_throttle.isActive() ? m_spike_throttle.remainingTime() : 0;
 }
 
 void MainWindow::OnDelayedSearchFormChange()

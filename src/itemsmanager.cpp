@@ -146,6 +146,16 @@ void ItemsManager::OnItemsRefreshed(const Items &items,
     emit ItemsRefreshed(initial_refresh);
 }
 
+// SPIKE(S1-M2)
+void ItemsManager::SpikeApplyTabDelta(const ItemLocation &tab, const Items &tab_items)
+{
+    const QString key = tab.fetchSourceKey();
+    std::erase_if(m_items,
+                  [&key](const auto &item) { return item->location().fetchSourceKey() == key; });
+    m_items.insert(m_items.end(), tab_items.begin(), tab_items.end());
+    emit TabRefreshed(tab, tab_items);
+}
+
 void ItemsManager::Update(TabSelection type, const std::vector<ItemLocation> &locations)
 {
     spdlog::trace("ItemsManager::Update() entered");

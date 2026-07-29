@@ -61,6 +61,19 @@ public:
     QString fetch_id() const { return m_fetch_id; }
     void setFetchId(const QString &id) { m_fetch_id = id; }
 
+    // SPIKE(S1-M2): stable display-tab key (type, id) for the R6-3 restore
+    // fidelity contract, and the fetch-source key for D9's removal-half
+    // intersection test. Non-production prototype helpers.
+    QString stableKey() const
+    {
+        return QString("%1|%2").arg(static_cast<int>(m_type)).arg(m_unique_id);
+    }
+    QString fetchSourceKey() const
+    {
+        const QString &fetch = m_fetch_id.isEmpty() ? m_unique_id : m_fetch_id;
+        return QString("%1|%2").arg(static_cast<int>(m_type)).arg(fetch);
+    }
+
     // Refresh the tab-level metadata (label, colours, position, type,
     // character name) from a freshly listed location for the same tab,
     // keeping the per-item fields (slot position, size, sockets,
