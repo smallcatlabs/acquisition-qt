@@ -278,8 +278,9 @@ int main(int argc, char *argv[])
         config.tab_count = 50;
         config.mean_items_per_tab = 20;
     } else if (preset == "1m") {
-        config.tab_count = 2000;
-        config.mean_items_per_tab = 500;
+        config.tab_count = 2600;
+        config.mean_items_per_tab = 400;
+        config.quad_share = 0.8;
     } else {
         config.tab_count = 2000;
         config.mean_items_per_tab = 50;

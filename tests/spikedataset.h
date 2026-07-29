@@ -31,6 +31,9 @@ public:
     {
         int tab_count = 2000;
         int mean_items_per_tab = 50;
+        // Fraction of quad tabs (24x24, 576-item cap). A ~1m-item account is
+        // realistically quad-heavy; the default matches a typical mix.
+        double quad_share = 0.1;
         uint32_t seed = 20260729;
     };
 
@@ -66,7 +69,7 @@ public:
             tab.stash.name = QString("%1 %2")
                                  .arg(kTabNames[static_cast<size_t>(t) % kTabNames.size()])
                                  .arg(t);
-            const bool quad = (t % 10) == 9;
+            const bool quad = (t % 100) < static_cast<int>(config.quad_share * 100.0);
             tab.stash.type = quad ? "QuadStash" : "PremiumStash";
             tab.stash.index = static_cast<unsigned>(t);
             tab.stash.metadata.colour = QString("%1").arg((t * 37) % 0xffffff, 6, 16, QChar('0'));

@@ -731,8 +731,11 @@ void MainWindow::SaveViewExpansion(Search &search)
 
 void MainWindow::RestoreViewExpansion(Search &search)
 {
+    QElapsedTimer timer; // SPIKE(S1-M2)
+    timer.start();
     if (search.defaultExpanded()) {
         ui->treeView->expandToDepth(0);
+        m_spike_expansion_ms = timer.elapsed();
         return;
     }
     const auto &headers = search.expandedHeaders();
@@ -747,6 +750,7 @@ void MainWindow::RestoreViewExpansion(Search &search)
             ui->treeView->collapse(index);
         }
     }
+    m_spike_expansion_ms = timer.elapsed(); // SPIKE(S1-M2)
 }
 
 void MainWindow::ModelViewRefresh()
@@ -771,7 +775,10 @@ void MainWindow::ModelViewRefresh()
         ui->treeView->setModel(&model);
     }
     ui->treeView->header()->setSortIndicator(model.GetSortColumn(), model.GetSortOrder());
+    QElapsedTimer sort_timer; // SPIKE(S1-M2): re-enabling sorting re-sorts the model
+    sort_timer.start();
     ui->treeView->setSortingEnabled(true);
+    m_spike_sort_ms = sort_timer.elapsed();
     RestoreViewExpansion(*m_current_search);
     ScheduleResizeTreeColumns();
 
@@ -988,10 +995,13 @@ void MainWindow::SpikeThrottleFired()
     record.visible_items = static_cast<int>(m_current_search->items().size());
     record.buckets = static_cast<int>(m_current_search->buckets().size());
     spdlog::info("SPIKE(S1-M2): reset applied in {} ms (filter+model {} ms, "
-                 "restore {} ms) over {} visible items in {} buckets",
+                 "restore {} ms of which sort {} ms, expansion {} ms) over {} visible items "
+                 "in {} buckets",
                  record.total_ms,
                  record.filter_ms,
                  record.restore_ms,
+                 m_spike_sort_ms,
+                 m_spike_expansion_ms,
                  record.visible_items,
                  record.buckets);
     emit SpikeResetApplied(record);

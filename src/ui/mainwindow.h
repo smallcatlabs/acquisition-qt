@@ -224,4 +224,6 @@ private:
     // SPIKE(S1-M2): the current search's pending tick — a non-resetting
     // trailing throttle with period S (D9 rule 2).
     QTimer m_spike_throttle;
+    qint64 m_spike_expansion_ms = 0;
+    qint64 m_spike_sort_ms = 0;
 };
