@@ -58,7 +58,9 @@ public:
     {
         qint64 total_ms = 0;   // capture -> restore complete
         qint64 filter_ms = 0;  // FilterItems (filter loop + model reset)
-        qint64 restore_ms = 0; // expansion + reselect + scroll restore
+        qint64 restore_ms = 0; // total - filter: includes the whole-model
+                               // re-sort (logged separately) plus expansion,
+                               // reselect, scroll, and form/buyout bookkeeping
         int visible_items = 0;
         int buckets = 0;
     };
