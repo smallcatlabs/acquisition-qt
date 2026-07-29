@@ -67,6 +67,11 @@ public:
     bool SpikeThrottlePending() const;
     int SpikeThrottleRemainingMs() const;
 
+    // SPIKE(S1-M2): the tracked selection, exposed so tests can assert
+    // stable-identity reselection on the GGG item id and details-panel
+    // adoption of the replacement object (not just display text).
+    std::shared_ptr<Item> SpikeCurrentItem() const { return m_current_item; }
+
     explicit MainWindow(QSettings &m_settings,
                         NetworkManager &network_manager,
                         RateLimiter &rate_limiter,
