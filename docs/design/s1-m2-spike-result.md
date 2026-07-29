@@ -197,7 +197,19 @@ Run: `./build-s1m2/tests/spike_s1m2_harness --preset 100k`
   discrete user-watched events. Judged acceptable at S = 60 s.
 - For revision 9 to note: at ~1m unfiltered the reset is ~5.4 s and
   outcome (a)'s constants are judged at the driving scale, not there;
-  the dominant cost is the post-reset whole-model re-sort (a
-  born-sorted-buckets change is a possible lever, deliberately not
-  decided here; M3's bucket-scoped ops are the real retirement). The
-  fidelity machinery itself costs ~0 ms at either scale.
+  the dominant cost is the post-reset whole-model re-sort. M2
+  deliberately does not touch this — it is the reset-based
+  application, whose retirement is M3's charter, and M2 builds M3's
+  inputs (stable keys, per-source deltas) rather than optimizing the
+  path M3 deletes. The fidelity machinery itself costs ~0 ms at
+  either scale.
+- **Explicit M3-inbox note (raised by Tom, July 29):** M3's
+  bucket-scoped ops fix the *streaming* cost, but a user-initiated
+  full refilter at ~1m still rebuilds and re-sorts everything and
+  would still cost seconds. The measured levers, all model-layer and
+  therefore M3's to weigh: precomputed sort keys (the current column
+  comparators are string/QVariant-heavy and dominate the 5 s),
+  lazily sorting only expanded/visible buckets, and born-sorted
+  buckets (filtering from a pre-sorted master). Revision 9 should
+  carry this into the parent plan's M3 inbox so the opportunity is
+  recorded, not remembered.
