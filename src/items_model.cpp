@@ -8,6 +8,7 @@
 #include "itemlocation.h"
 #include "search.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
+#include "util/spikeprofile.h" // SPIKE(m3-sort-profile)
 #include "util/util.h"
 
 #include <algorithm>
@@ -240,10 +241,14 @@ void ItemsModel::sort(int column, Qt::SortOrder order)
         std::shared_ptr<Item> item;
     };
 
+    const int64_t spike_t0 = spike_profile::now_ns(); // SPIKE(m3-sort-profile)
+
     // Emit before snapshotting: listeners such as QItemSelectionModel create
     // persistent indexes inside their layoutAboutToBeChanged handlers, and
     // those must be included in the remapping below.
     emit layoutAboutToBeChanged({}, QAbstractItemModel::VerticalSortHint);
+
+    const int64_t spike_t1 = spike_profile::now_ns(); // SPIKE(m3-sort-profile)
 
     std::vector<ItemIndexSnapshot> snapshots;
     const auto persistent_indexes = persistentIndexList();
@@ -268,7 +273,11 @@ void ItemsModel::sort(int column, Qt::SortOrder order)
             {persistent_index, bucket_row, persistent_index.column(), bucket.item(item_row)});
     }
 
+    const int64_t spike_t2 = spike_profile::now_ns(); // SPIKE(m3-sort-profile)
+
     m_search.Sort(column, order);
+
+    const int64_t spike_t3 = spike_profile::now_ns(); // SPIKE(m3-sort-profile)
 
     QModelIndexList from;
     QModelIndexList to;
@@ -292,8 +301,20 @@ void ItemsModel::sort(int column, Qt::SortOrder order)
         to.push_back(index(item_row, snapshot.column, parent_index));
     }
     changePersistentIndexList(from, to);
+    const int64_t spike_t4 = spike_profile::now_ns(); // SPIKE(m3-sort-profile)
     emit layoutChanged({}, QAbstractItemModel::VerticalSortHint);
     SetSorted(true);
+
+    // SPIKE(m3-sort-profile): section attribution for the model sort.
+    {
+        const int64_t spike_t5 = spike_profile::now_ns();
+        spike_profile::sort_layout_about_ns = spike_t1 - spike_t0;
+        spike_profile::sort_snapshot_ns = spike_t2 - spike_t1;
+        spike_profile::sort_search_sort_ns = spike_t3 - spike_t2;
+        spike_profile::sort_remap_ns = spike_t4 - spike_t3;
+        spike_profile::sort_layout_changed_ns = spike_t5 - spike_t4;
+        spike_profile::model_sort_total_ns = spike_t5 - spike_t0;
+    }
 }
 
 QModelIndex ItemsModel::parent(const QModelIndex &index) const

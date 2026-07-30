@@ -56,6 +56,7 @@
 #include "util/glaze_qt.h" // IWYU pragma: keep
 #include "util/networkmanager.h"
 #include "util/spdlog_qt.h"
+#include "util/spikeprofile.h" // SPIKE(m3-sort-profile)
 #include "util/updatechecker.h"
 #include "util/util.h"
 #include "version_defines.h"
@@ -845,14 +846,19 @@ void MainWindow::ModelViewRefresh()
 
     spdlog::trace("MainWindow::ModelViewRefresh() activating current search");
     m_search_form->saveTo(*m_current_search);
+    const int64_t spike_t0 = spike_profile::now_ns(); // SPIKE(m3-sort-profile)
     m_current_search->FilterItems(m_items_manager.items());
+    const int64_t spike_t1 = spike_profile::now_ns(); // SPIKE(m3-sort-profile)
     ui->treeView->setSortingEnabled(false);
     if (ui->treeView->model() != &model) {
         ui->treeView->setModel(&model);
     }
     ui->treeView->header()->setSortIndicator(model.GetSortColumn(), model.GetSortOrder());
+    const int64_t spike_t2 = spike_profile::now_ns(); // SPIKE(m3-sort-profile)
     ui->treeView->setSortingEnabled(true);
+    const int64_t spike_t3 = spike_profile::now_ns(); // SPIKE(m3-sort-profile)
     RestoreViewExpansion(*m_current_search);
+    const int64_t spike_t4 = spike_profile::now_ns(); // SPIKE(m3-sort-profile)
     ScheduleResizeTreeColumns();
 
     // This updates the item information when current item changes.
@@ -873,8 +879,22 @@ void MainWindow::ModelViewRefresh()
         }
     }
 
+    const int64_t spike_t5 = spike_profile::now_ns(); // SPIKE(m3-sort-profile)
     ReselectCurrentItem();
     RestoreViewScroll(*m_current_search);
+
+    // SPIKE(m3-sort-profile): ModelViewRefresh attribution. The window runs
+    // from the FilterItems call through scroll restore — the same span the
+    // S1-M2 reset numbers cover minus capture/save, which are timed by the
+    // harness around the whole call.
+    {
+        const int64_t spike_t6 = spike_profile::now_ns();
+        spike_profile::mvr_filter_ns = spike_t1 - spike_t0;
+        spike_profile::mvr_sort_enable_ns = spike_t3 - spike_t2;
+        spike_profile::mvr_restore_expansion_ns = spike_t4 - spike_t3;
+        spike_profile::mvr_restore_rest_ns = spike_t6 - spike_t5;
+        spike_profile::mvr_total_ns = spike_t6 - spike_t0;
+    }
 
     // D9 rules 3/R5-5: any successful refilter of the current search pays
     // for the pending tick — cancel it so the next intersecting delta

@@ -45,6 +45,12 @@ qt_add_executable(m2m2_benchmark EXCLUDE_FROM_ALL m2m2_benchmark.cpp)
 target_include_directories(m2m2_benchmark PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(m2m2_benchmark PRIVATE acquisition_core)
 
+# SPIKE-ONLY (spike/m3-sort-profile, R3-4): the M3 sort-profiling harness.
+# Never merged; build explicitly with --target m3_sort_benchmark.
+qt_add_executable(m3_sort_benchmark EXCLUDE_FROM_ALL m3_sort_benchmark.cpp)
+target_include_directories(m3_sort_benchmark PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(m3_sort_benchmark PRIVATE acquisition_core)
+
 # The filter core must stay free of the UI (Phase 5, D5). A STATIC archive has
 # no link step, so this cannot be left to target_link_libraries.
 add_test(NAME filters_boundary

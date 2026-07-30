@@ -14,6 +14,7 @@
 #include "items_model.h"
 #include "util/fatalerror.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
+#include "util/spikeprofile.h" // SPIKE(m3-sort-profile)
 
 Search::Search(BuyoutManager &bo_manager,
                const QString &caption,
@@ -203,7 +204,11 @@ void Search::Sort(int column, Qt::SortOrder order)
     if ((column >= 0) && (column < column_count)) {
         auto &col = *m_columns[column];
         for (auto &bucket : active_buckets()) {
+            // SPIKE(m3-sort-profile): per-bucket sort attribution.
+            const int64_t t0 = spike_profile::now_ns();
             bucket.Sort(col, order);
+            spike_profile::bucket_sort_samples.emplace_back(static_cast<int>(bucket.items().size()),
+                                                            spike_profile::now_ns() - t0);
         }
     }
 }
@@ -222,7 +227,13 @@ void Search::FilterItems(const Items &items)
         return;
     }
 
+    // SPIKE(m3-sort-profile): refilter split — begin reset / filter loop /
+    // bucket ordering / end reset.
+    const int64_t spike_t0 = spike_profile::now_ns();
+
     m_model.beginUpdate();
+
+    const int64_t spike_t1 = spike_profile::now_ns(); // SPIKE(m3-sort-profile)
 
     // Create a temporary vector of only the filters that are
     // active, so we don't have to check every filter against
@@ -327,6 +338,8 @@ void Search::FilterItems(const Items &items)
         }
     }
 
+    const int64_t spike_t2 = spike_profile::now_ns(); // SPIKE(m3-sort-profile)
+
     // Move the "By Tab" buckets into their final location, ordered by their
     // rendered locations — the map above is keyed for identity, not display
     // order. Stable ids break positional ties so two tabs colliding on one
@@ -348,9 +361,21 @@ void Search::FilterItems(const Items &items)
         return la.id() < lb.id();
     });
 
+    const int64_t spike_t3 = spike_profile::now_ns(); // SPIKE(m3-sort-profile)
+
     // Let the model know that current sort order has been invalidated
     m_model.SetSorted(false);
     m_model.endUpdate();
+
+    // SPIKE(m3-sort-profile): record the split.
+    {
+        const int64_t spike_t4 = spike_profile::now_ns();
+        spike_profile::filter_begin_reset_ns = spike_t1 - spike_t0;
+        spike_profile::filter_loop_ns = spike_t2 - spike_t1;
+        spike_profile::filter_bucket_order_ns = spike_t3 - spike_t2;
+        spike_profile::filter_end_reset_ns = spike_t4 - spike_t3;
+        spike_profile::filter_total_ns = spike_t4 - spike_t0;
+    }
 
     m_states_dirty = false;
     m_items_dirty = false; // a successful refilter clears its own flag (D9 rule 3)

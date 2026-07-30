@@ -13,6 +13,7 @@
 #include "buyoutmanager.h"
 #include "influence.h"
 #include "itemconstants.h"
+#include "util/spikeprofile.h" // SPIKE(m3-sort-profile)
 #include "util/util.h"
 
 const double EPS = 1e-6;
@@ -40,8 +41,10 @@ Column::sort_tuple Column::multivalue(const Item *item) const
     QRegularExpressionMatch match;
 
     if (str.contains(sort_double_match, &match)) {
+        ++spike_profile::mv_path_double; // SPIKE(m3-sort-profile)
         first_double = match.captured(1).toDouble();
     } else if (str.contains(sort_two_values, &match)) {
+        ++spike_profile::mv_path_range; // SPIKE(m3-sort-profile)
         if (match.captured(2).startsWith("-")) {
             first_double = 0.5 * (match.captured(1).toDouble() + match.captured(3).toDouble());
         } else {
@@ -49,6 +52,7 @@ Column::sort_tuple Column::multivalue(const Item *item) const
             second_double = match.captured(1).toDouble();
         }
     } else {
+        ++spike_profile::mv_path_string; // SPIKE(m3-sort-profile)
         first_string = str;
         second_string = item->PrettyName();
     }
@@ -58,6 +62,7 @@ Column::sort_tuple Column::multivalue(const Item *item) const
 
 bool Column::lt(const Item *lhs, const Item *rhs) const
 {
+    ++spike_profile::lt_calls_base; // SPIKE(m3-sort-profile)
     return multivalue(lhs) < multivalue(rhs);
 }
 
@@ -432,6 +437,7 @@ std::tuple<int, double, const Item &> PriceColumn::multivalue(const Item *item) 
 
 bool PriceColumn::lt(const Item *lhs, const Item *rhs) const
 {
+    ++spike_profile::lt_calls_price; // SPIKE(m3-sort-profile)
     return multivalue(lhs) < multivalue(rhs);
 }
 
@@ -452,6 +458,7 @@ QVariant DateColumn::value(const Item &item) const
 
 bool DateColumn::lt(const Item *lhs, const Item *rhs) const
 {
+    ++spike_profile::lt_calls_date; // SPIKE(m3-sort-profile)
     const QDateTime lhs_update_time = m_bo_manager.Get(*lhs).last_update;
     const QDateTime rhs_update_time = m_bo_manager.Get(*rhs).last_update;
     return (std::tie(lhs_update_time, *lhs) < std::tie(rhs_update_time, *rhs));

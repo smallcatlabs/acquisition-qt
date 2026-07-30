@@ -17,6 +17,7 @@
 #include "modlist.h"
 #include "poe/types/displaymode.h"
 #include "poe/types/item.h"
+#include "util/spikeprofile.h" // SPIKE(m3-sort-profile)
 #include "util/util.h"
 
 const std::array<Item::CategoryReplaceMap, Item::k_CategoryLevels> Item::m_replace_map = {
@@ -666,6 +667,7 @@ void Item::CalculateHash(const poe::Item &json)
 
 bool Item::operator<(const Item &rhs) const
 {
+    ++spike_profile::item_lt_calls; // SPIKE(m3-sort-profile)
     const QString name = PrettyName();
     const QString rhs_name = rhs.PrettyName();
     return std::tie(name, m_uid, m_hash) < std::tie(rhs_name, rhs.m_uid, m_hash);
