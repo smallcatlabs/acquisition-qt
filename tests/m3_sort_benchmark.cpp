@@ -25,6 +25,12 @@
 //     (build once, cheap compare) and sorting only a handful of "expanded"
 //     buckets, both on the same bucket shapes the live path sorts, plus the
 //     By-Item single flat bucket both ways.
+//
+//  4. KEY MEMORY (pre-freeze extension, July 30 hold-point decision): bytes
+//     per precomputed key for the whole published collection, with the
+//     intended (multivalue, name, uid, hash) tie-break order (F67). RSS
+//     delta plus an accounted inline/heap breakdown that separates fresh
+//     allocations from strings CoW-shared with the Item.
 
 #include <QApplication>
 #include <QCommandLineParser>
@@ -44,6 +50,10 @@
 #include <spdlog/sinks/dist_sink.h>
 #include <spdlog/spdlog.h>
 
+#ifdef Q_OS_MACOS
+#include <mach/mach.h>
+#endif
+
 #include "bucket.h"
 #include "buyoutmanager.h"
 #include "column.h"
@@ -58,6 +68,22 @@ namespace {
     double toMs(int64_t ns)
     {
         return static_cast<double>(ns) / 1e6;
+    }
+
+    int64_t residentBytes()
+    {
+#ifdef Q_OS_MACOS
+        mach_task_basic_info info;
+        mach_msg_type_number_t count = MACH_TASK_BASIC_INFO_COUNT;
+        if (task_info(mach_task_self(),
+                      MACH_TASK_BASIC_INFO,
+                      reinterpret_cast<task_info_t>(&info),
+                      &count)
+            == KERN_SUCCESS) {
+            return static_cast<int64_t>(info.resident_size);
+        }
+#endif
+        return -1;
     }
 
     int64_t median(std::vector<int64_t> values)
@@ -608,6 +634,100 @@ int main(int argc, char *argv[])
         std::printf("     precomputed keys           %9.3f ms build + %9.3f ms sort\n",
                     toMs(build_ns),
                     toMs(sort_ns));
+    }
+
+    // =====================================================================
+    // 4. KEY MEMORY (pre-freeze spike extension, July 30 hold point)
+    // =====================================================================
+    //
+    // The key shape the M3 spec will carry: the multivalue tuple plus the
+    // *intended* (name, uid, hash) tie-break (F67 fixed as a side effect).
+    // Built for every published item on the Name column — the string-heavy
+    // worst case (both regexes fail, so s1/s2 are both populated).
+    //
+    // Two numbers, because they answer different questions:
+    //  - RSS delta: ground truth for this build, but the allocator may reuse
+    //    pages freed by earlier sections, so it can understate.
+    //  - Accounted bytes: sizeof-based inline cost plus a 24-byte-header +
+    //    2*capacity estimate per heap string, split into fresh allocations
+    //    (s1, s2, pretty) vs strings CoW-shared with the Item (uid, hash) —
+    //    the shared ones cost nothing while the Item is alive.
+
+    std::printf("\n=== 4. KEY MEMORY (Name column, published items) ===\n");
+    {
+        struct MemKey
+        {
+            double d1 = 0.0;
+            QString s1;
+            double d2 = 0.0;
+            QString s2;
+            QString pretty;
+            QString uid;
+            QString hash;
+            const Item *item = nullptr;
+        };
+        const auto deepBytes = [](const QString &s) -> int64_t {
+            return s.isNull() ? 0 : 24 + 2 * static_cast<int64_t>(s.capacity());
+        };
+
+        std::vector<MemKey> keys;
+        keys.reserve(published.size());
+        const int64_t rss0 = residentBytes();
+        for (const auto &item : published) {
+            MemKey k;
+            SortKey base = makeKey(name_column, *item);
+            k.d1 = base.d1;
+            k.d2 = base.d2;
+            k.s1 = std::move(base.s1);
+            k.s2 = std::move(base.s2);
+            k.pretty = std::move(base.pretty);
+            k.uid = std::move(base.uid); // CoW with Item::m_uid (item.id() copy)
+            k.hash = item->hash_v4();    // CoW with Item::m_hash
+            k.item = item.get();
+            keys.push_back(std::move(k));
+        }
+        const int64_t rss1 = residentBytes();
+
+        int64_t fresh_heap = 0;
+        int64_t shared_heap = 0;
+        int64_t dedupe_saving = 0;
+        for (const auto &k : keys) {
+            fresh_heap += deepBytes(k.s1) + deepBytes(k.s2) + deepBytes(k.pretty);
+            shared_heap += deepBytes(k.uid) + deepBytes(k.hash);
+            // s2 and pretty are separate allocations of the same PrettyName()
+            // content on the string path; an implementation that shares one
+            // buffer saves this much.
+            if (!k.s2.isNull() && k.s2 == k.pretty) {
+                dedupe_saving += deepBytes(k.pretty);
+            }
+        }
+        const int64_t inline_bytes = static_cast<int64_t>(keys.capacity() * sizeof(MemKey));
+        const double count = static_cast<double>(keys.size());
+        const auto mb = [](int64_t b) { return static_cast<double>(b) / (1024.0 * 1024.0); };
+
+        std::printf("  keys: %lld   sizeof(key): %zu B\n",
+                    static_cast<long long>(keys.size()),
+                    sizeof(MemKey));
+        std::printf("  inline (vector storage)      %8.1f MB   %6.1f B/item\n",
+                    mb(inline_bytes),
+                    static_cast<double>(inline_bytes) / count);
+        std::printf("  heap, fresh (s1/s2/pretty)   %8.1f MB   %6.1f B/item\n",
+                    mb(fresh_heap),
+                    static_cast<double>(fresh_heap) / count);
+        std::printf("  heap, CoW-shared (uid/hash)  %8.1f MB   %6.1f B/item (no extra cost while "
+                    "Item lives)\n",
+                    mb(shared_heap),
+                    static_cast<double>(shared_heap) / count);
+        std::printf("  accounted total (inline+fresh) %6.1f MB   %6.1f B/item\n",
+                    mb(inline_bytes + fresh_heap),
+                    static_cast<double>(inline_bytes + fresh_heap) / count);
+        std::printf("  s2/pretty dedupe would save  %8.1f MB\n", mb(dedupe_saving));
+        if (rss0 >= 0 && rss1 >= 0) {
+            std::printf("  RSS delta                    %8.1f MB (allocator page reuse can "
+                        "understate)\n",
+                        mb(rss1 - rss0));
+        }
+        g_sink += static_cast<int64_t>(keys.size());
     }
 
     std::printf("\ndone (sink %lld)\n", static_cast<long long>(g_sink));

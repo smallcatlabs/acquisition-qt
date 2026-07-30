@@ -43,6 +43,11 @@ Three groups, at both scales (100k and 1m presets):
    By-Item single flat bucket both ways. **Born-sorted buckets
    (filtering from a pre-sorted master) was not prototyped** — its
    ceiling is implied by the keyed numbers but not measured.
+4. **Key memory** (added July 30 at the M3 lever hold point, as the
+   pre-freeze extension that hold point requested): bytes per
+   precomputed key for the whole published collection, measured for
+   the key shape the M3 spec carries — the multivalue tuple plus the
+   *intended* `(name, uid, hash)` tie-break (F67). See section 4.
 
 Instrumentation: `src/util/spikeprofile.h` (spike-only globals) with
 probes in `search.cpp`, `items_model.cpp`, `column.cpp`, `item.cpp`,
@@ -230,6 +235,39 @@ entire sort.
 The flat sort is ~2.5× worse than the By-Tab sort of the same items
 (larger n per `std::sort`, higher tie rate) — **~12.9 s at 1m today**
 — and the keyed variant collapses it to ~0.77 s.
+
+## 4. Key memory (pre-freeze extension, July 30)
+
+Measured after the lever hold point selected levers A + B and the
+intended `(name, uid, hash)` tie-break order (see the M3 spec); the
+harness gained a section that builds the full-collection key vector
+(Name column — the string-heavy worst case, since both regexes fail
+and both string slots populate) and reports an accounted breakdown
+plus the RSS delta. The key struct is 2 doubles + 5 `QString`s + an
+`Item*` (`sizeof` 144 B).
+
+| | 100k | 1m |
+|---|---|---|
+| keys | 101,048 | 975,711 |
+| inline (vector storage) | 13.9 MB (144.0 B/item) | 134.0 MB (144.0 B/item) |
+| heap, fresh (`s1`/`s2`/`pretty`) | 13.7 MB (141.8 B/item) | 131.8 MB (141.7 B/item) |
+| heap, CoW-shared (`uid`/`hash`) | 15.6 MB | 150.7 MB |
+| **accounted total (inline + fresh)** | **27.5 MB (285.8 B/item)** | **265.8 MB (285.7 B/item)** |
+| `s2`/`pretty` dedupe would save | 4.6 MB | 43.9 MB |
+| RSS delta | 13.9 MB | 134.0 MB |
+
+Reading: a naive full-collection key store for the active sort column
+costs **~286 B/item accounted — ~266 MB at 1m**. The `uid` and `hash`
+strings are copies of the `Item`'s own members, so Qt's implicit
+sharing makes them free while the item lives (they are tallied
+separately above, not in the accounted total). Roughly a third of the
+fresh-heap term (44 MB at 1m) disappears if the two identical
+`PrettyName` strings (`s2`/`pretty`) share one buffer, which any real
+implementation would do. The RSS delta understates the accounted
+total because the allocator reuses pages freed by earlier harness
+sections; the accounted number is the honest per-item figure. Memory
+for anything smaller than the whole collection (per-expanded-bucket
+keys under lever B) scales down linearly with the keyed item count.
 
 ## Attribution notes and honest caveats
 
