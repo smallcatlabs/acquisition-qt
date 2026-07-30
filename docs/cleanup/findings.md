@@ -127,6 +127,29 @@ of proportion to the risk; this finding is the hook if a collision
 ever materializes or the stores are otherwise reworked (M3 is the
 natural opportunity).
 
+### F67. `Item::operator<` compares `m_hash` against itself — Confirmed; harmless today
+
+Found July 30, 2026, while reading the sort path for the M3
+sort-profiling spike (`docs/design/m3-sort-profile-result.md`). The
+tie-break tuple in `Item::operator<` (`item.cpp`) is
+
+```cpp
+return std::tie(name, m_uid, m_hash) < std::tie(rhs_name, rhs.m_uid, m_hash);
+```
+
+— the third element is the *left-hand* item's `m_hash` on both sides
+(should be `rhs.m_hash`), so the hash term always compares equal and
+is dead code. The ordering is still a valid strict weak ordering:
+`(PrettyName, m_uid)` decides, and two items tying on both (possible
+only when both lack a server id, since `m_uid` is the GGG item id)
+compare equivalent. Consequence is only that the intended
+hash-level determinism for id-less items does not exist; no
+user-visible misbehavior is known. Fix is a one-token change
+(`rhs.m_hash`) whenever the comparator is next touched — M3's sort
+work is the natural opportunity; a precomputed-sort-key design must
+decide whether to reproduce the intended `(name, uid, hash)` order
+or the actual `(name, uid)` one.
+
 ## Standing constraints and lessons
 
 Rules distilled from resolved findings that remain binding on future work.
