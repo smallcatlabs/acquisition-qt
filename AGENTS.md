@@ -12,8 +12,8 @@
 - Read `BUILD.md` before changing build, packaging, or platform setup.
 - Configure and build with `cmake -S . -B build` and `cmake --build build`.
 - CMake requires Qt 6.11+, the Qt Network Authorization module, and the private Qt Gui module that the fetched QXlsx dependency links against. Linux also requires OpenSSL.
-- A distribution's Qt packages often ship neither of those modules, so a bare `cmake -S . -B build` can pick up a system Qt and fail in `build/_deps/qxlsx-src` with `Failed to find required Qt component "GuiPrivate"`. Point CMake at an official Qt kit instead: `cmake -S . -B build -DCMAKE_PREFIX_PATH=<qt-install>/6.11.1/<compiler>`.
-- If `build/` already holds Qt Creator kit trees (`build/Desktop_Qt_6_11_1_Release` and similar), build and test in one of those rather than configuring a second tree at `build/` itself.
+- A distribution's Qt packages often ship neither of those modules, so a bare `cmake -S . -B build` can pick up a system Qt and fail in `build/_deps/qxlsx-src` with `Failed to find required Qt component "GuiPrivate"`. Point CMake at an official Qt kit instead: `cmake -S . -B build -DCMAKE_PREFIX_PATH=<qt-install>/6.12.0/<compiler>`.
+- If `build/` already holds Qt Creator kit trees (`build/Desktop_Qt_6_12_0_Release` and similar), build and test in one of those rather than configuring a second tree at `build/` itself.
 - Run locally with `./build/acquisition --data-dir /tmp/acq-data` to avoid touching a user's real Acquisition data.
 - Run the checked-in Qt Test suite with `ctest --test-dir build --output-on-failure` after building.
 
