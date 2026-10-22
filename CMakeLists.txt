@@ -202,7 +202,7 @@ if(NOT TARGET sentry-native)
     FetchContent_Declare(
         sentry-native
         GIT_REPOSITORY https://github.com/getsentry/sentry-native
-        GIT_TAG        0.16.1
+        GIT_TAG        0.17.4
         GIT_SHALLOW    TRUE
     )
     FetchContent_MakeAvailable(sentry-native)
