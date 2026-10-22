@@ -9,7 +9,7 @@ cmake_minimum_required(VERSION 3.24)
 # tags on github are prefixed with a 'v'.
 
 project(acquisition
-    VERSION 0.18.7
+    VERSION 0.18.8
     DESCRIPTION "Stash and forum shop management for Path of Exile (TM)"
     HOMEPAGE_URL "https://github.com/smallcatlabs/acquisition-qt"
     LANGUAGES CXX
@@ -202,7 +202,7 @@ if(NOT TARGET sentry-native)
     FetchContent_Declare(
         sentry-native
         GIT_REPOSITORY https://github.com/getsentry/sentry-native
-        GIT_TAG        0.16.1
+        GIT_TAG        0.17.4
         GIT_SHALLOW    TRUE
     )
     FetchContent_MakeAvailable(sentry-native)
@@ -224,7 +224,7 @@ if(NOT TARGET glaze)
     FetchContent_Declare(
         glaze
         GIT_REPOSITORY https://github.com/stephenberry/glaze.git
-        GIT_TAG        v7.9.1
+        GIT_TAG        v8.4.0
         GIT_SHALLOW    TRUE
     )
     FetchContent_MakeAvailable(glaze)

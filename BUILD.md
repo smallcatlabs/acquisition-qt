@@ -204,7 +204,7 @@ Release artifacts are built by GitHub Actions:
 
 The workflows run on `workflow_dispatch` and on tags matching `v*`. Tag builds
 create draft GitHub releases and attach the platform artifacts. They currently
-install Qt 6.11.1 with the `qtnetworkauth` module.
+install Qt 6.12.0 with the `qtnetworkauth` module.
 
 ## Platform Notes
 

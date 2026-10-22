@@ -113,7 +113,6 @@ int main(int argc, char *argv[])
     sentry_options_set_database_path(options, sentryPath.constData());
     sentry_options_set_release(options, SENTRY_RELEASE);
     sentry_options_set_environment(options, SENTRY_ENVIRONMENT);
-    sentry_options_set_enable_logs(options, 1);
     sentry_init(options);
 
     // Make sure sentry closes when the program terminates.
