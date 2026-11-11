@@ -20,7 +20,10 @@ permissions:
 jobs:
   analyze:
     name: Analyze C++
-    runs-on: ubuntu-latest
+    # Pinned (November 2026): ubuntu-latest moved to 26.04, where the
+    # runner could not resolve the Ubuntu package hosts during "Setup Qt"
+    # (PR 235). The last green runs used 24.04. Revisit when 26.04 works.
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout code
