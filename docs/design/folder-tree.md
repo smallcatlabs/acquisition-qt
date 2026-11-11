@@ -425,3 +425,22 @@ amendment changes one, the amendment governs.
   level, so one multi-row move cannot replace them. A metadata delta
   that does not move its bucket stays O(1) plus one key lookup (a
   neighbour check, `Search::BucketInPlace`).
+- **November 11, 2026 — review: a reselection never expands.** D9 keeps
+  a user-collapsed folder collapsed. A refresh that replaced the
+  selected item re-opened the folder holding it: making the re-adopted
+  row current had the view expand every collapsed ancestor, and the
+  expanded signal dropped the folder from the user-collapsed set. The
+  refresh's reselections (`MainWindow::SelectWithoutExpanding`) now make
+  the row current where it is, hidden or not. The mechanism predates the
+  folder level, so a collapsed tab holding the selected item now stays
+  collapsed through a refresh too. Pinned by
+  `collapsedRowsSurviveReselectionOnRefresh`.
+- **November 11, 2026 — review: Expand All in one pass.** As first
+  built, Expand All expanded one header at a time; each first expansion
+  sorted its tab and forced a full relayout at the next one (38–55 s
+  against under a second, on a 2,000-tab model in a Debug build). It now
+  marks every tab materialized and sorts them in one pass, expands the
+  top level with one `expandToDepth(0)`, then the nested tab headers.
+  D9's rule stands: bucket headers only, nothing stored for item rows.
+  Pinned by `expandAllSortsEveryTabInOnePass` and
+  `expandAllOverExpandedNestedTabsSortsNothing`.
