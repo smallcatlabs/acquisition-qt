@@ -5,8 +5,9 @@ never in the game, and are what the [forum shop](forum-shop.md) publishes.
 
 ## Setting a price
 
-Select an item, or a whole stash tab or character, in the item list. The three
-controls under the list are:
+Select an item, or a whole stash tab or character, in the item list. Folders
+cannot be priced: with a folder selected the controls are disabled. Price the
+tabs inside it instead. The three controls under the list are:
 
 1. **Buyout type**
 2. **Currency**

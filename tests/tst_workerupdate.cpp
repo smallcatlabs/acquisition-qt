@@ -3,8 +3,13 @@
 #include <QEventLoop>
 #include <QSettings>
 
+#include <memory>
+#include <sstream>
 #include <stdexcept>
 #include <stop_token>
+
+#include <spdlog/sinks/ostream_sink.h>
+#include <spdlog/spdlog.h>
 
 #include "datastore/characterrepo.h"
 #include "datastore/stashrepo.h"
@@ -127,6 +132,13 @@ private slots:
     void parseFailureSkipsTabAndUpdateCompletes();
     void missingStashWrapperSkipsTab();
     void missingCharacterWrapperSkipsTab();
+
+    // Folder-tree D12: worker guards for folders.
+    void folderItemsAreDiscardedWithWarning();
+    void misfiledFolderChildWarns();
+    void folderReplyChildDisplaysUnderItsOwnTab();
+    // Folder-tree A2 / R9: the checked selection's folder rule.
+    void checkedSelectionIncludesFoldersOfCheckedMembers();
 };
 
 namespace {
@@ -270,6 +282,48 @@ namespace {
         }
         return list;
     }
+
+    // Captures what the default logger writes at warn and above while in
+    // scope (folder-tree D12's warnings), then restores the previous
+    // default logger. Tests only: production sinks go through the main
+    // logger's hub (F42) and are never touched here.
+    class ScopedLogCapture
+    {
+    public:
+        ScopedLogCapture()
+            : m_previous(spdlog::default_logger())
+        {
+            auto sink = std::make_shared<spdlog::sinks::ostream_sink_mt>(m_stream);
+            sink->set_pattern("%v");
+            auto logger = std::make_shared<spdlog::logger>("worker-update-capture", sink);
+            logger->set_level(spdlog::level::warn);
+            spdlog::set_default_logger(logger);
+        }
+        ~ScopedLogCapture() { spdlog::set_default_logger(m_previous); }
+        ScopedLogCapture(const ScopedLogCapture &) = delete;
+        ScopedLogCapture &operator=(const ScopedLogCapture &) = delete;
+
+        // The captured lines containing every one of `needles`.
+        QStringList lines(const QStringList &needles) const
+        {
+            QStringList matched;
+            const auto all = QString::fromStdString(m_stream.str()).split('\n', Qt::SkipEmptyParts);
+            for (const QString &line : all) {
+                bool hit = true;
+                for (const QString &needle : needles) {
+                    hit = hit && line.contains(needle);
+                }
+                if (hit) {
+                    matched.append(line);
+                }
+            }
+            return matched;
+        }
+
+    private:
+        std::ostringstream m_stream;
+        std::shared_ptr<spdlog::logger> m_previous;
+    };
 
     QStringList sortedItemIds(const Items &items)
     {
@@ -3575,6 +3629,189 @@ void WorkerUpdateTest::missingCharacterWrapperSkipsTab()
     QCOMPARE(skipped[0].source.fetch_id, QString("charid0001"));
     QCOMPARE(f.deltas.size(), size_t(0));
     QVERIFY(f.status_updates.back().message.contains("1 skipped"));
+}
+
+// Folder-tree D12 / R8 / A4: a Folder-type stash holds tabs, never items.
+// Items one carries — in a cached row or a live reply — are discarded in the
+// worker with one warning naming the tab and the count, so they never enter
+// the item store and the two view modes cannot disagree about them. The
+// folder itself is still requested (R9) and its empty delta still lands.
+void WorkerUpdateTest::folderItemsAreDiscardedWithWarning()
+{
+    WorkerFixture f("folder-items-discarded");
+
+    auto folder = json::readStash(
+        stashJson("folder0001", "Loot Folder", 0, QStringList{"cached-f1", "cached-f2"}, "Folder"));
+    auto member = json::readStash(stashJson("stashmmmm1", "Member", 1, QStringList{"m1"}));
+    QVERIFY(folder && member);
+    member->folder = "folder0001";
+    {
+        UserStore store(QDir(f.dataDir()), "folder-items-discarded");
+        QVERIFY(store.stashes().saveStashList({*folder, *member}, kRealm, kLeague));
+        QVERIFY(saveStashFixture(store.stashes(), *folder, kRealm, kLeague));
+        QVERIFY(saveStashFixture(store.stashes(), *member, kRealm, kLeague));
+    }
+
+    // Cached row.
+    {
+        ScopedLogCapture log;
+        f.start();
+        QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+        QCOMPARE(sortedItemIds(f.last_items), QStringList({"m1"}));
+        QCOMPARE(log.lines({"Loot Folder", "folder0001", "2 items"}).size(), 1);
+    }
+
+    // Live reply.
+    ScopedLogCapture log;
+    f.worker->Update(TabSelection::All);
+    f.deliverCharacterList({});
+    auto list = stashList({stashJson("folder0001", "Loot Folder", 0, {}, "Folder"),
+                           stashJson("stashmmmm1", "Member", 1)});
+    list[1].folder = "folder0001";
+    f.deliverStashList(list);
+    QVERIFY(f.hasPendingStash("folder0001"));
+    QVERIFY(f.hasPendingStash("stashmmmm1"));
+    f.deliverStash("folder0001",
+                   stashOf(stashJson("folder0001",
+                                     "Loot Folder",
+                                     0,
+                                     QStringList{"live-f1", "live-f2", "live-f3"},
+                                     "Folder")));
+    QCOMPARE(log.lines({"Loot Folder", "folder0001", "3 items"}).size(), 1);
+    // The folder's delta still lands, empty.
+    QVERIFY(!f.deltas.empty());
+    QCOMPARE(f.deltas.back().location.id(), QString("folder0001"));
+    QVERIFY(f.deltas.back().items.empty());
+
+    f.deliverStash("stashmmmm1", stashOf(stashJson("stashmmmm1", "Member", 1, QStringList{"m2"})));
+    QCOMPARE(f.refresh_count, 2);
+    QCOMPARE(sortedItemIds(f.last_items), QStringList({"m2"}));
+    // One warning per discarding tab, never one per item.
+    QCOMPARE(log.lines({"folder0001"}).size(), 1);
+}
+
+// Folder-tree D12: a tab listed under a folder's `children` whose own
+// `folder` is missing or names another folder is logged. No fallback: the
+// tab is processed as listed.
+void WorkerUpdateTest::misfiledFolderChildWarns()
+{
+    WorkerFixture f("misfiled-folder-child");
+    f.start();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+
+    auto good = stashOf(stashJson("stashgood1", "Good", 1));
+    good.folder = "folder0001";
+    auto missing = stashOf(stashJson("stashmiss1", "Missing", 2));
+    auto other = stashOf(stashJson("stashothr1", "Other", 3));
+    other.folder = "folder0002";
+    auto folder = stashOf(stashJson("folder0001", "Folder One", 0, {}, "Folder"));
+    folder.children = std::vector<poe::StashTab>{good, missing, other};
+
+    ScopedLogCapture log;
+    f.worker->Update(TabSelection::All);
+    f.deliverCharacterList({});
+    f.deliverStashList({folder});
+
+    QCOMPARE(log.lines({"Folder One", "Missing", "stashmiss1"}).size(), 1);
+    QCOMPARE(log.lines({"Folder One", "Other", "stashothr1", "folder0002"}).size(), 1);
+    QCOMPARE(log.lines({"stashgood1"}).size(), 0);
+
+    // No fallback: every listed child is still requested as listed.
+    QVERIFY(f.hasPendingStash("stashgood1"));
+    QVERIFY(f.hasPendingStash("stashmiss1"));
+    QVERIFY(f.hasPendingStash("stashothr1"));
+    f.deliverStash("folder0001", stashOf(stashJson("folder0001", "Folder One", 0, {}, "Folder")));
+    f.deliverStash("stashgood1", stashOf(stashJson("stashgood1", "Good", 1)));
+    f.deliverStash("stashmiss1", stashOf(stashJson("stashmiss1", "Missing", 2)));
+    f.deliverStash("stashothr1", stashOf(stashJson("stashothr1", "Other", 3)));
+    QCOMPARE(f.refresh_count, 2);
+}
+
+// Folder-tree amendment (S1): the defensive reply-child path on a Folder
+// parent (unobserved live — F49) files each child's items under the child's
+// own tab, the way a folder's listed children and the cached rows of the
+// same children already display. No item ever displays under a folder's
+// location, so a folder bucket holds no items (D2).
+void WorkerUpdateTest::folderReplyChildDisplaysUnderItsOwnTab()
+{
+    WorkerFixture f("folder-reply-child-own-tab");
+    f.start();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+
+    f.worker->Update(TabSelection::All);
+    f.deliverCharacterList({});
+    f.deliverStashList(stashList({stashJson("folder0001", "Folder", 0, {}, "Folder")}));
+    f.deliverStash("folder0001",
+                   stashOf(stashJson(
+                       "folder0001",
+                       "Folder",
+                       0,
+                       {},
+                       "Folder",
+                       {},
+                       {stashJson("folderchild1", "Sub", 0, {}, "PremiumStash", "folder0001")})));
+    f.deliverChild("folder0001",
+                   "folderchild1",
+                   stashOf(stashJson("folderchild1",
+                                     "Sub",
+                                     0,
+                                     QStringList{"fc1"},
+                                     "PremiumStash",
+                                     "folder0001")));
+    QCOMPARE(f.refresh_count, 2);
+    QCOMPARE(f.last_items.size(), size_t(1));
+    const ItemLocation &location = f.last_items.front()->location();
+    QCOMPARE(location.id(), QString("folderchild1"));
+    QCOMPARE(location.fetch_id(), QString("folderchild1"));
+    QVERIFY(!location.IsFolder());
+    QCOMPARE(f.deltas.back().location.id(), QString("folderchild1"));
+}
+
+// Folder-tree A2 / R9 / D10: a Refresh Checked requests a Folder tab when
+// at least one of its member tabs is in the checked selection — the
+// folder is still fetched (R9) — and never because of a stored refresh
+// flag on the folder id, which is neither read nor written.
+void WorkerUpdateTest::checkedSelectionIncludesFoldersOfCheckedMembers()
+{
+    WorkerFixture f("checked-folder-selection");
+    auto folder_f = json::readStash(stashJson("folderffff", "Folder F", 0, {}, "Folder"));
+    auto member_a = json::readStash(stashJson("stashaaaa1", "Alpha", 1));
+    auto folder_g = json::readStash(stashJson("foldergggg", "Folder G", 2, {}, "Folder"));
+    auto member_c = json::readStash(stashJson("stashcccc1", "Gamma", 3));
+    auto loose_d = json::readStash(stashJson("stashdddd1", "Delta", 4));
+    QVERIFY(folder_f && member_a && folder_g && member_c && loose_d);
+    member_a->folder = "folderffff";
+    member_c->folder = "foldergggg";
+    const std::vector<poe::StashTab> listed{*folder_f, *member_a, *folder_g, *member_c, *loose_d};
+    {
+        UserStore store(QDir(f.dataDir()), "checked-folder-selection");
+        QVERIFY(store.stashes().saveStashList(listed, kRealm, kLeague));
+    }
+    f.start();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+
+    // F's member is checked though F's own stored flag says no; every
+    // member of G is unchecked though G's own stored flag says yes.
+    auto &buyouts = *f.bm.manager;
+    buyouts.SetRefreshChecked(ItemLocation(*folder_f), false);
+    buyouts.SetRefreshChecked(ItemLocation(*member_a), true);
+    buyouts.SetRefreshChecked(ItemLocation(*folder_g), true);
+    buyouts.SetRefreshChecked(ItemLocation(*member_c), false);
+    buyouts.SetRefreshChecked(ItemLocation(*loose_d), false);
+
+    f.worker->Update(TabSelection::Checked);
+    f.deliverStashList(listed);
+    QVERIFY(f.hasPendingStash("folderffff"));
+    QVERIFY(f.hasPendingStash("stashaaaa1"));
+    QVERIFY(!f.hasPendingStash("foldergggg"));
+    QVERIFY(!f.hasPendingStash("stashcccc1"));
+    QVERIFY(!f.hasPendingStash("stashdddd1"));
+    f.deliverStash("folderffff", *folder_f);
+    f.deliverStash("stashaaaa1", *member_a);
+    QCOMPARE(f.refresh_count, 2);
+    // Neither folder's stored flag was written.
+    QVERIFY(!buyouts.GetRefreshChecked(ItemLocation(*folder_f)));
+    QVERIFY(buyouts.GetRefreshChecked(ItemLocation(*folder_g)));
 }
 
 QTEST_GUILESS_MAIN(WorkerUpdateTest)

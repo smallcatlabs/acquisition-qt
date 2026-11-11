@@ -14,7 +14,10 @@ The **Tabs** menu:
 | Get map stashes / Get unique stashes | Checkable; also download the sub-tabs of Map and Unique stash tabs |
 
 Right-click one or more tabs in the item list and choose **Refresh Selected** to
-update just those. Tabs whose price is set in the game are always refreshed.
+update just those. Refresh Selected on a folder updates the ticked tabs shown
+under it in the current search. Tabs whose price is set in the game are always
+refreshed. Acquisition also requests the folders themselves, during **Refresh
+checked tabs** whenever at least one of a folder's tabs is ticked.
 
 Items already on disk are shown immediately at startup; the refresh replaces
 them tab by tab as downloads finish.

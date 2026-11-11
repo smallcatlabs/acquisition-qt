@@ -13,8 +13,18 @@ From top to bottom:
   *Mods*. Searches update as you type.
 - **View selector.** *By Tab* groups items under the stash tab or character they
   came from; *By Item* is a flat list.
-- **Item list.** A tree of tabs/characters and their items. The check box on a
-  tab or character controls whether it is included in **Refresh checked tabs**.
+- **Item list.** A tree of tabs/characters and their items. In *By Tab*, a stash
+  folder is a row of its own with the tabs it holds underneath it. Folders start
+  expanded; a folder you collapse stays collapsed in that search until you
+  expand it again. While a search filter is active, a folder is shown only when
+  at least one of its tabs has a match.
+  The check box on a tab or character controls whether it is included in
+  **Refresh checked tabs**. A folder's check box covers the tabs shown under it
+  in the current search: it is ticked when all of them are, empty when none
+  are, and partly filled when some are. Ticking or clearing it ticks or clears
+  those tabs. (A tab that has a price, or holds a priced item, also shows a
+  partly filled box: it is always refreshed so its prices stay current, and
+  cannot be cleared.)
   Right-click for **Refresh Selected**, **Check Selected**, **Uncheck Selected**,
   **Check All**, **Uncheck All**, **Expand All**, and **Collapse All**.
 - **Buyout controls** under the list — see [Pricing](pricing.md).

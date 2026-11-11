@@ -32,6 +32,8 @@ ItemLocation::ItemLocation(const poe::StashTab &stash)
     , m_fetch_id{stash.id}
     , m_tab_type{stash.type}
     , m_tab_label{stash.name}
+    , m_folder_id{stash.folder.value_or(QString())}
+    , m_is_folder{stash.type == "Folder"}
 {
     Util::GetTabColor(stash, m_red, m_green, m_blue);
 }
@@ -67,6 +69,8 @@ void ItemLocation::rebaseTabMetadata(const ItemLocation &fresh)
     m_tab_label = fresh.m_tab_label;
     m_character = fresh.m_character;
     m_character_sortname = fresh.m_character_sortname;
+    m_folder_id = fresh.m_folder_id;
+    m_is_folder = fresh.m_is_folder;
 }
 
 QString ItemLocation::GetHeader() const

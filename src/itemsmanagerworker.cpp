@@ -67,6 +67,50 @@ namespace {
         }
     }
 
+    // Folder-tree D12 (R8, A4): a Folder-type stash holds tabs, never items.
+    // Items one carries — in a live reply or a cached row — are discarded
+    // here, so they never enter the item store and the two view modes
+    // cannot disagree about them. One warning per tab, naming the count.
+    bool DiscardFolderItems(const poe::StashTab &stash)
+    {
+        if ((stash.type != "Folder") || !stash.items || stash.items->empty()) {
+            return false;
+        }
+        spdlog::warn("Discarding {} items carried by folder '{}' ({}): folders hold tabs, "
+                     "not items",
+                     stash.items->size(),
+                     stash.name,
+                     stash.id);
+        return true;
+    }
+
+    // Folder-tree D12: a tab listed under a folder's `children` should name
+    // that folder as its own `folder`. A mismatch is logged, as an API-change
+    // tripwire; no fallback is applied.
+    void WarnMisfiledFolderChildren(const poe::StashTab &folder)
+    {
+        if ((folder.type != "Folder") || !folder.children) {
+            return;
+        }
+        for (const auto &child : *folder.children) {
+            if (!child.folder) {
+                spdlog::warn("Folder '{}' ({}) lists tab '{}' ({}) whose folder id is missing",
+                             folder.name,
+                             folder.id,
+                             child.name,
+                             child.id);
+            } else if (*child.folder != folder.id) {
+                spdlog::warn("Folder '{}' ({}) lists tab '{}' ({}) whose folder id names "
+                             "another folder ({})",
+                             folder.name,
+                             folder.id,
+                             child.name,
+                             child.id,
+                             *child.folder);
+            }
+        }
+    }
+
 } // namespace
 
 ItemsManagerWorker::ItemsManagerWorker(QSettings &settings,
@@ -285,7 +329,7 @@ void ItemsManagerWorker::LoadItems(const poe::StashTab &stash,
                                    ParseResult &result) const
 {
     const auto items = stash.items;
-    if (!items) {
+    if (!items || DiscardFolderItems(stash)) {
         return;
     }
     result.items.reserve(result.items.size() + items->size());
@@ -405,10 +449,16 @@ void ItemsManagerWorker::Update(TabSelection type, const std::vector<ItemLocatio
         break;
     case TabSelection::Checked:
         // Use the buyout manager to determine which tabs are checked.
+        // Folder-tree A2 (R9, D10): a folder id is never read from the
+        // stored flags; a Folder tab joins the selection — and keeps being
+        // fetched — when at least one of its member tabs is in it.
         spdlog::trace("ItemsManagerWorker: updating checked tabs.");
         for (auto const &tab : m_tabs) {
-            if ((tab.IsValid()) && (m_buyout_manager.GetRefreshChecked(tab) == true)) {
+            if (tab.IsValid() && !tab.IsFolder() && m_buyout_manager.GetRefreshChecked(tab)) {
                 m_tabs_to_update.emplace(tab.id());
+                if (!tab.folder_id().isEmpty()) {
+                    m_tabs_to_update.emplace(tab.folder_id());
+                }
             }
         }
         break;
@@ -751,6 +801,7 @@ void ItemsManagerWorker::ProcessTab(const poe::StashTab &tab, std::vector<ItemsR
     }
 
     // Process any children.
+    WarnMisfiledFolderChildren(tab);
     if (tab.children) {
         // These children need to be added to the database, since they weren't included
         // in the original list.
@@ -982,7 +1033,10 @@ void ItemsManagerWorker::OnStashReceived(const Result<poe::StashPayload> &result
     // swap in the source-keyed store — O(replaced + delta), never a pass
     // over the collection (D3, post-M2-M2).
     Items delta;
-    if (stash.items) {
+    if (DiscardFolderItems(stash)) {
+        // Folder-tree D12: nothing enters the store; the empty delta below
+        // still carries the folder's metadata anchor (R9 keeps it fetched).
+    } else if (stash.items) {
         const auto &items = *stash.items;
         if (items.size() > 0) {
             ParseItems(items, location, delta);
@@ -1016,6 +1070,7 @@ void ItemsManagerWorker::OnStashReceived(const Result<poe::StashPayload> &result
     }
 
     std::vector<ItemsRequest> batch;
+    WarnMisfiledFolderChildren(stash);
     if (get_children && stash.children) {
         spdlog::debug("ItemsManagerWorker: getting children ({}) of {} '{}' ({})",
                       stash.children->size(),
@@ -1043,7 +1098,15 @@ void ItemsManagerWorker::OnStashReceived(const Result<poe::StashPayload> &result
             // Accumulate the whole child batch first; LaunchContent below counts
             // it into m_stashes_needed before launching any of it, so a ready
             // child future cannot complete against a half-tallied count.
+            //
+            // Folder-tree amendment (S1): a Folder's reply-discovered child
+            // (defensive — unobserved live, F49) displays under its own tab,
+            // as the folder's listed children and the cached rows of the
+            // same children do, so no item ever displays under a folder.
             ItemLocation child_location = location;
+            if (stash.type == "Folder") {
+                child_location = ItemLocation(child);
+            }
             child_location.setFetchId(child.id);
             batch.push_back(ItemsRequest{StashFetch{stash.id, child.id}, child_location});
         }
