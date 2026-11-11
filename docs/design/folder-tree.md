@@ -333,3 +333,26 @@ with the whole suite passing at every commit.
 - A buyout that cascades from a folder to its tabs.
 - Stopping the request for Folder tabs (R9).
 - More than one level of nesting.
+
+## Amendments
+
+Dated, with reasons. The decisions above stay as written; where an
+amendment changes one, the amendment governs.
+
+- **November 11, 2026 — S0 result.** Both Qt assumptions hold on Qt
+  6.12.0, pinned permanently by `tst_qtassumptions`:
+  (a) `crossParentMoveKeepsExpansionAndChildIndexes`: a `beginMoveRows`
+  of a row with children between two parents, from a parent to the top
+  level, back, within one parent, and of a top-level row carrying its
+  subtree, under `QTreeView` with `QAbstractItemModelTester` attached,
+  keeps the moved row expanded, keeps its children's persistent indexes
+  valid and pointing at the same rows, and keeps a selected child
+  selected. The test model encodes indexes the way `ItemsModel` does
+  (internalId 0 at the top level, otherwise the parent's serial). A
+  mutant replacing the move with remove-then-insert fails the test.
+  D8 therefore uses `beginMoveRows` between parents; the
+  remove-then-insert fallback is not built.
+  (b) `partialCheckboxClickDeliversChecked`: a mouse click on the check
+  indicator of a partially-checked, user-checkable, non-tristate item
+  delivers `Qt::Checked` to `setData`, and the next click delivers
+  `Qt::Unchecked`. D10's click rule stands as written.
