@@ -84,6 +84,8 @@ private slots:
     void insertedFolderExpands_data();
     void insertedFolderExpands();
     void expandAllAndCollapseAllCoverNestedHeaders();
+    void expandAllOverExpandedNestedTabsSortsNothing();
+    void expandAllSortsEveryTabInOnePass();
     void folderExpansionMaterializesNothing();
     void nestedTabExpansionSurvivesRefilter();
     void folderHeaderSelectionShowsHeaderText();
@@ -1387,6 +1389,78 @@ void FolderTreeTest::collapsedRowsSurviveReselectionOnRefresh()
     QVERIFY(!h.tree->isExpanded(headerFor(*h.model, collapse)));
     h.refiltered();
     QVERIFY(!h.tree->isExpanded(headerFor(*h.model, collapse)));
+}
+
+// D9: Expand All over a tree whose nested tabs are already expanded keeps
+// them expanded and materialized and sorts nothing. Its top-level pass
+// drops every deeper expansion before the nested headers are expanded
+// again; order and the sorted flag persist through that (M3 D2 rule 3),
+// and a delta afterwards still merges into the sorted order.
+void FolderTreeTest::expandAllOverExpandedNestedTabsSortsNothing()
+{
+    World seed = baseWorld();
+    seed.items["tab-a"] = {makeItem("a1", "Zulu", "Sword", seed.tab("tab-a")),
+                           makeItem("a2", "Alpha", "Sword", seed.tab("tab-a"))};
+    Harness h(seed, false);
+    h.tree->header()->setSortIndicator(0, Qt::AscendingOrder);
+    h.fixture.window->OnExpandAll();
+    const QStringList all_expanded({"#1, \"Folder F\" +",
+                                    "  #2, \"Alpha\" +",
+                                    "  #3, \"Beta\" +",
+                                    "#4, \"Folder G\" +",
+                                    "  #5, \"Gamma\" +",
+                                    "#6, \"Delta\" +",
+                                    "#7, \"Echo\" +"});
+    QCOMPARE(expansionSignature(*h.tree), all_expanded);
+
+    auto &probes = ModelProbes::instance();
+    probes.reset();
+    probes.enabled = true;
+    h.fixture.window->OnExpandAll();
+    const int sorts = probes.bucket_sorts;
+    probes.enabled = false;
+    QCOMPARE(sorts, 0);
+    QCOMPARE(expansionSignature(*h.tree), all_expanded);
+
+    const ItemLocation tab = h.world.tab("tab-a");
+    h.delta(tab,
+            {makeItem("a1", "Zulu", "Sword", tab),
+             makeItem("a3", "Mike", "Sword", tab),
+             makeItem("a2", "Alpha", "Sword", tab)});
+    const QModelIndex alpha = headerFor(*h.model, "#2, \"Alpha\"");
+    QStringList rows;
+    for (int row = 0; row < h.model->rowCount(alpha); ++row) {
+        rows.append(h.model->index(row, 0, alpha).data().toString());
+    }
+    QCOMPARE(rows, QStringList({"Alpha Sword", "Mike Sword", "Zulu Sword"}));
+}
+
+// D9: the first Expand All establishes every tab's order in one layout
+// change, not one per tab. A sort-on-expand per header leaves the view a
+// pending relayout each time, and the next visible expansion performs it
+// — a full relayout per nested tab, measured at 68 s for 2,000 nested
+// tabs where the single pass takes well under a second.
+void FolderTreeTest::expandAllSortsEveryTabInOnePass()
+{
+    Harness h(baseWorld(), false);
+    auto &probes = ModelProbes::instance();
+    probes.reset();
+    probes.enabled = true;
+    QSignalSpy layouts(h.model, &QAbstractItemModel::layoutChanged);
+    h.fixture.window->OnExpandAll();
+    const int sorts = probes.bucket_sorts;
+    probes.enabled = false;
+    // Alpha, Beta, Gamma, Delta and Echo: each sorted once, together.
+    QCOMPARE(sorts, 5);
+    QCOMPARE(layouts.count(), 1);
+    QCOMPARE(expansionSignature(*h.tree),
+             QStringList({"#1, \"Folder F\" +",
+                          "  #2, \"Alpha\" +",
+                          "  #3, \"Beta\" +",
+                          "#4, \"Folder G\" +",
+                          "  #5, \"Gamma\" +",
+                          "#6, \"Delta\" +",
+                          "#7, \"Echo\" +"}));
 }
 
 // D9: expanding or collapsing a folder sorts nothing, builds no keys and

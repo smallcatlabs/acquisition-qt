@@ -598,20 +598,48 @@ void MainWindow::OnExpandAll()
     spdlog::trace("MainWindow::OnExpandAll() entered");
     // Every bucket header — folders, top-level and nested tabs, characters
     // (folder-tree D9) — and never an item row: expandToDepth(1) would
-    // store expansion state for the items of every top-level tab. The
-    // expanded() signals emitted during this operation coalesce into a
-    // single deferred column resize, and clear the folders from the
-    // user-collapsed set.
+    // store expansion state for the items of every top-level tab.
+    //
+    // One pass for the top level, as before folders: expandToDepth(0) lays
+    // out every top-level header at once, where expanding them one at a
+    // time measured about three times slower on a 2,000-tab account. The
+    // nested tab headers follow one by one. expandToDepth() first drops
+    // every deeper expansion, so a nested tab that was already expanded is
+    // collapsed and expanded again here; its order and sorted flag persist
+    // through that (M3 D2 rule 3), so nothing re-sorts.
+    //
+    // The expanded() signals emitted during this operation coalesce into a
+    // single deferred column resize. Folders leave the user-collapsed set.
     setCursor(Qt::WaitCursor);
-    const ItemsModel &model = m_current_search->model();
+    ItemsModel &model = m_current_search->model();
     const int bucket_count = static_cast<int>(m_current_search->buckets().size());
+    if (m_current_search->GetViewMode() == Search::ViewMode::ByTab) {
+        // Every tab is about to be materialized, so mark them all and
+        // establish their order in one pass first (as FilterItems does for
+        // a default-expanded search): the expansions below then find valid
+        // flags and sort nothing. Left to sort-on-expand, each nested tab's
+        // sort would leave the view a pending relayout that the next
+        // visible expansion performs — a full relayout per nested tab.
+        bool unsorted = false;
+        for (int bucket_row = 0; bucket_row < bucket_count; ++bucket_row) {
+            if (!m_current_search->isFolderBucket(bucket_row)) {
+                m_current_search->MarkBucketExpanded(bucket_row);
+                unsorted = unsorted || !m_current_search->bucket(bucket_row).sorted();
+            }
+        }
+        if (unsorted) {
+            model.Resort();
+        }
+    }
+    ui->treeView->expandToDepth(0);
     for (int bucket_row = 0; bucket_row < bucket_count; ++bucket_row) {
         if (m_current_search->isFolderBucket(bucket_row)) {
             m_current_search->setFolderCollapsed(LocationInventory::KeyFor(
                                                      m_current_search->bucket(bucket_row).location()),
                                                  false);
+        } else if (m_current_search->parentBucketRow(bucket_row) >= 0) {
+            ui->treeView->expand(model.BucketIndex(bucket_row));
         }
-        ui->treeView->expand(model.BucketIndex(bucket_row));
     }
     ScheduleResizeTreeColumns();
     unsetCursor();
