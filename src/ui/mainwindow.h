@@ -176,6 +176,13 @@ private:
     // selection-intent pass. `model_changed` (any model operation, not
     // just item rows — S6 review round 1) gates the column resize, so a
     // metadata-only delta or a new empty bucket resizes too.
+    // The view's expanded/collapsed signals (folder-tree D9): the
+    // materialization hooks for bucket headers, and the user-collapsed
+    // folder set of the current search.
+    void OnTreeExpansionChanged(const QModelIndex &index, bool expanded);
+    // The view-side tail for buckets a delta or the snapshot inserted:
+    // folders by the user-collapsed set, tabs by the default-expanded rule.
+    void ExpandInsertedBuckets(const std::vector<int> &bucket_rows);
     void FinishDeltaApplication(bool processed,
                                 bool model_changed,
                                 const std::vector<int> &inserted_bucket_rows);

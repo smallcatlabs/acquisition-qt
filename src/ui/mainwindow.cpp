@@ -392,21 +392,15 @@ void MainWindow::InitializeUi()
     // collapsing evicts its keys while order and flag persist. Programmatic
     // expansion (RestoreViewExpansion, expandToDepth) emits the same
     // signals, so restored expansions sort exactly the restored buckets.
+    //
+    // The same signals maintain the search's set of user-collapsed folders
+    // (folder-tree D9): programmatic expansion follows the set, so only a
+    // user's collapse or expand changes it.
     connect(ui->treeView, &QTreeView::expanded, this, [this](const QModelIndex &index) {
-        if (auto *model = qobject_cast<ItemsModel *>(ui->treeView->model())) {
-            const ItemsModel::RowRef ref = model->Locate(index);
-            if (ref.isBucket()) {
-                model->OnBucketExpanded(ref.bucket_row);
-            }
-        }
+        OnTreeExpansionChanged(index, true);
     });
     connect(ui->treeView, &QTreeView::collapsed, this, [this](const QModelIndex &index) {
-        if (auto *model = qobject_cast<ItemsModel *>(ui->treeView->model())) {
-            const ItemsModel::RowRef ref = model->Locate(index);
-            if (ref.isBucket()) {
-                model->OnBucketCollapsed(ref.bucket_row);
-            }
-        }
+        OnTreeExpansionChanged(index, false);
     });
 
     // Resize columns when a tab is expanded/collapsed. Programmatic expansion
@@ -557,14 +551,68 @@ void MainWindow::LoadSettings()
     ui->itemInfoTypeTabs->setCurrentIndex(m_settings.value("tooltip_tab").toInt());
 }
 
+void MainWindow::OnTreeExpansionChanged(const QModelIndex &index, bool expanded)
+{
+    auto *model = qobject_cast<ItemsModel *>(ui->treeView->model());
+    if (!model) {
+        return;
+    }
+    const ItemsModel::RowRef ref = model->Locate(index);
+    if (!ref.isBucket()) {
+        return;
+    }
+    if (m_current_search && (model == &m_current_search->model())
+        && m_current_search->isFolderBucket(ref.bucket_row)) {
+        m_current_search->setFolderCollapsed(LocationInventory::KeyFor(
+                                                 m_current_search->bucket(ref.bucket_row).location()),
+                                             !expanded);
+    }
+    if (expanded) {
+        model->OnBucketExpanded(ref.bucket_row);
+    } else {
+        model->OnBucketCollapsed(ref.bucket_row);
+    }
+}
+
+void MainWindow::ExpandInsertedBuckets(const std::vector<int> &bucket_rows)
+{
+    // A folder inserted into any search expands unless its user collapsed
+    // it (folder-tree D9); a tab bucket inserted into a default-expanded
+    // search expands now (today's rule) — the expand signal materializes
+    // and sorts it (D2 rule 2).
+    const ItemsModel &model = m_current_search->model();
+    for (const int row : bucket_rows) {
+        if (m_current_search->isFolderBucket(row)) {
+            if (!m_current_search->folderCollapsed(
+                    LocationInventory::KeyFor(m_current_search->bucket(row).location()))) {
+                ui->treeView->expand(model.BucketIndex(row));
+            }
+        } else if (m_current_search->defaultExpanded()) {
+            ui->treeView->expand(model.BucketIndex(row));
+        }
+    }
+}
+
 void MainWindow::OnExpandAll()
 {
     spdlog::trace("MainWindow::OnExpandAll() entered");
-    // Only need to expand the top level, which corresponds to buckets,
-    // aka stash tabs and characters. The expanded() signals emitted during
-    // this operation coalesce into a single deferred column resize.
+    // Every bucket header — folders, top-level and nested tabs, characters
+    // (folder-tree D9) — and never an item row: expandToDepth(1) would
+    // store expansion state for the items of every top-level tab. The
+    // expanded() signals emitted during this operation coalesce into a
+    // single deferred column resize, and clear the folders from the
+    // user-collapsed set.
     setCursor(Qt::WaitCursor);
-    ui->treeView->expandToDepth(0);
+    const ItemsModel &model = m_current_search->model();
+    const int bucket_count = static_cast<int>(m_current_search->buckets().size());
+    for (int bucket_row = 0; bucket_row < bucket_count; ++bucket_row) {
+        if (m_current_search->isFolderBucket(bucket_row)) {
+            m_current_search->setFolderCollapsed(LocationInventory::KeyFor(
+                                                     m_current_search->bucket(bucket_row).location()),
+                                                 false);
+        }
+        ui->treeView->expand(model.BucketIndex(bucket_row));
+    }
     ScheduleResizeTreeColumns();
     unsetCursor();
 }
@@ -579,11 +627,24 @@ void MainWindow::OnCollapseAll()
     //
     // The collapsed() signals emitted during the loop coalesce into a
     // single deferred column resize.
+    //
+    // Every bucket header, folders included (folder-tree D9), in reverse
+    // tree order so a nested tab is collapsed while its folder still shows
+    // it. collapse() emits nothing for a header it cannot see, so the
+    // materialization mark and the user-collapsed folder set are synced
+    // explicitly (both idempotent).
     setCursor(Qt::WaitCursor);
-    const ItemsModel &model = m_current_search->model();
+    ItemsModel &model = m_current_search->model();
     const int bucket_count = static_cast<int>(m_current_search->buckets().size());
-    for (int bucket_row = 0; bucket_row < bucket_count; ++bucket_row) {
+    for (int bucket_row = bucket_count - 1; bucket_row >= 0; --bucket_row) {
         ui->treeView->collapse(model.BucketIndex(bucket_row));
+        if (m_current_search->isFolderBucket(bucket_row)) {
+            m_current_search->setFolderCollapsed(LocationInventory::KeyFor(
+                                                     m_current_search->bucket(bucket_row).location()),
+                                                 true);
+        } else {
+            model.OnBucketCollapsed(bucket_row);
+        }
     }
     ScheduleResizeTreeColumns();
     unsetCursor();
@@ -1157,13 +1218,7 @@ void MainWindow::FinishDeltaApplication(bool processed,
         m_current_search->setItemsDirty(true);
         return;
     }
-    if (m_current_search->defaultExpanded()) {
-        // A bucket inserted into a default-expanded search expands now;
-        // the expand signal materializes and sorts it (D2 rule 2).
-        for (const int row : inserted_bucket_rows) {
-            ui->treeView->expand(m_current_search->model().BucketIndex(row));
-        }
-    }
+    ExpandInsertedBuckets(inserted_bucket_rows);
     // The caption renders the maintained count.
     for (size_t i = 0; i < m_searches.size(); ++i) {
         if (m_searches[i].get() == m_current_search) {
@@ -1302,12 +1357,15 @@ void MainWindow::SaveViewExpansion(Search &search)
     // header text mutates when a delta renames a tab, which would orphan a
     // header-keyed save exactly when a restore (D6 user refilter, mode
     // switch) needs it.
+    // Folders are not saved here: their state is the search's
+    // user-collapsed set, maintained from the view's signals (D9).
     std::set<LocationInventory::Key> expanded;
     if (!search.defaultExpanded()) {
         const int bucket_count = static_cast<int>(search.buckets().size());
         for (int bucket_row = 0; bucket_row < bucket_count; ++bucket_row) {
             const QModelIndex index = search.model().BucketIndex(bucket_row);
-            if (index.isValid() && ui->treeView->isExpanded(index)) {
+            if (index.isValid() && !search.isFolderBucket(bucket_row)
+                && ui->treeView->isExpanded(index)) {
                 expanded.emplace(LocationInventory::KeyFor(search.bucket(bucket_row).location()));
             }
         }
@@ -1318,17 +1376,25 @@ void MainWindow::SaveViewExpansion(Search &search)
 void MainWindow::RestoreViewExpansion(Search &search)
 {
     ++ModelProbes::instance().expansion_restores;
-    if (search.defaultExpanded()) {
-        ui->treeView->expandToDepth(0);
-        return;
-    }
+    // Folders follow the user-collapsed set (folder-tree D9, R3); tab
+    // buckets keep today's rule (A3) — every one expanded in a
+    // default-expanded search, the saved keys otherwise. Bucket headers
+    // only: nothing stores expansion state for item rows.
+    const bool default_expanded = search.defaultExpanded();
     const auto &keys = search.expandedKeys();
     const int bucket_count = static_cast<int>(search.buckets().size());
     for (int bucket_row = 0; bucket_row < bucket_count; ++bucket_row) {
         const QModelIndex index = search.model().BucketIndex(bucket_row);
-        if (!keys.empty()
-            && (keys.count(LocationInventory::KeyFor(search.bucket(bucket_row).location()))
-                > 0)) {
+        const auto key = LocationInventory::KeyFor(search.bucket(bucket_row).location());
+        if (search.isFolderBucket(bucket_row)) {
+            if (search.folderCollapsed(key)) {
+                ui->treeView->collapse(index);
+            } else {
+                ui->treeView->expand(index);
+            }
+            continue;
+        }
+        if (default_expanded || (keys.count(key) > 0)) {
             ui->treeView->expand(index);
         } else {
             ui->treeView->collapse(index);
@@ -1849,14 +1915,9 @@ void MainWindow::OnItemsRefreshed(bool initial_refresh)
     m_applying_delta = true;
     const auto result = m_current_search->ReconcileFinalSnapshot(m_items_manager.items());
     m_applying_delta = false;
-    if (m_current_search->defaultExpanded()) {
-        // Buckets the reconciliation inserted expand now; the expand
-        // signal materializes and sorts them (D2 rule 2) — the same
-        // view-side tail a delta's inserted bucket gets.
-        for (const int row : result.inserted_bucket_rows) {
-            ui->treeView->expand(m_current_search->model().BucketIndex(row));
-        }
-    }
+    // Buckets the reconciliation inserted expand by the same rules as a
+    // delta's inserted buckets.
+    ExpandInsertedBuckets(result.inserted_bucket_rows);
     for (size_t i = 0; i < m_searches.size(); ++i) {
         if (m_searches[i].get() == m_current_search) {
             m_tab_bar->setTabText(static_cast<int>(i), m_current_search->GetCaption());

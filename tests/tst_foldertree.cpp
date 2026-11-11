@@ -18,6 +18,8 @@
 #include <QItemSelectionModel>
 #include <QLabel>
 #include <QLineEdit>
+#include <QScrollBar>
+#include <QTabBar>
 #include <QTreeView>
 
 #include <map>
@@ -71,6 +73,19 @@ private slots:
     void foldersUnaffectedAccountKeepsFlatTree();
     void folderStormConverges_data();
     void folderStormConverges();
+
+    // S4: the view (D9).
+    void foldersExpandByDefault_data();
+    void foldersExpandByDefault();
+    void collapsedFolderStaysCollapsed_data();
+    void collapsedFolderStaysCollapsed();
+    void insertedFolderExpands_data();
+    void insertedFolderExpands();
+    void expandAllAndCollapseAllCoverNestedHeaders();
+    void folderExpansionMaterializesNothing();
+    void nestedTabExpansionSurvivesRefilter();
+    void folderHeaderSelectionShowsHeaderText();
+    void nestedScrollAnchorSurvivesRefilter();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -1113,6 +1128,291 @@ void FolderTreeTest::folderStormConverges()
     QVERIFY(applied.size() > 3);
     QCOMPARE(h.resets->count(), 0);
     QCOMPARE(h.refiltered(), applied);
+}
+
+namespace {
+
+    QModelIndex headerFor(const QAbstractItemModel &model, const QString &header)
+    {
+        for (int row = 0; row < model.rowCount(); ++row) {
+            const QModelIndex top = model.index(row, 0);
+            if (top.data().toString().startsWith(header)) {
+                return top;
+            }
+            for (int child = 0; child < model.rowCount(top); ++child) {
+                const QModelIndex nested = model.index(child, 0, top);
+                if (nested.data().toString().startsWith(header)) {
+                    return nested;
+                }
+            }
+        }
+        return QModelIndex();
+    }
+
+    // Every bucket header's expansion, as "header: expanded" lines.
+    QStringList expansionSignature(const QTreeView &view)
+    {
+        const auto *model = qobject_cast<const ItemsModel *>(view.model());
+        QStringList lines;
+        for (int row = 0; row < model->rowCount(); ++row) {
+            const QModelIndex top = model->index(row, 0);
+            lines.append(top.data().toString() + (view.isExpanded(top) ? " +" : " -"));
+            for (int child = 0; child < model->rowCount(top); ++child) {
+                const QModelIndex nested = model->index(child, 0, top);
+                if (model->Locate(nested).isBucket()) {
+                    lines.append("  " + nested.data().toString()
+                                 + (view.isExpanded(nested) ? " +" : " -"));
+                }
+            }
+        }
+        return lines;
+    }
+
+    QTabBar *findSearchTabs(MainWindow &window)
+    {
+        for (auto *tabs : window.findChildren<QTabBar *>()) {
+            if ((tabs->count() > 0) && (tabs->tabText(tabs->count() - 1) == "+")) {
+                return tabs;
+            }
+        }
+        return nullptr;
+    }
+
+} // namespace
+
+void FolderTreeTest::foldersExpandByDefault_data()
+{
+    addFilteredColumn();
+}
+
+// D9 / R3 / A3: folders are expanded after a reset; tab buckets keep
+// today's rule — collapsed in an unfiltered search, expanded in a filtered
+// one — whether top-level or nested.
+void FolderTreeTest::foldersExpandByDefault()
+{
+    QFETCH(bool, filtered);
+    Harness h(baseWorld(), filtered);
+    const QString tab = filtered ? " +" : " -";
+    QStringList expected({"#1, \"Folder F\" +",
+                          "  #2, \"Alpha\"" + tab,
+                          "  #3, \"Beta\"" + tab,
+                          "#4, \"Folder G\" +",
+                          "  #5, \"Gamma\"" + tab,
+                          "#6, \"Delta\"" + tab});
+    if (!filtered) {
+        expected.append("#7, \"Echo\" -"); // a filtered search hides it
+    }
+    QCOMPARE(expansionSignature(*h.tree), expected);
+}
+
+void FolderTreeTest::collapsedFolderStaysCollapsed_data()
+{
+    addFilteredColumn();
+}
+
+// D9: each search keeps the folders the user collapsed; such a folder
+// stays collapsed across resets and re-insertion, and expanding it again
+// clears the mark. Another search keeps its own set.
+void FolderTreeTest::collapsedFolderStaysCollapsed()
+{
+    QFETCH(bool, filtered);
+    Harness h(baseWorld(), filtered);
+    h.tree->collapse(headerFor(*h.model, "#1, \"Folder F\""));
+
+    h.refiltered();
+    QVERIFY(!h.tree->isExpanded(headerFor(*h.model, "#1, \"Folder F\"")));
+    QVERIFY(h.tree->isExpanded(headerFor(*h.model, "#4, \"Folder G\"")));
+
+    // Re-insertion: the folder leaves and comes back — through its last
+    // member in a filtered search, through the snapshot in an unfiltered
+    // one.
+    if (filtered) {
+        h.delta(h.world.tab("tab-a"), {});
+        h.delta(h.world.tab("tab-b"), {});
+        QVERIFY(!headerFor(*h.model, "#1, \"Folder F\"").isValid());
+        h.delta(h.world.tab("tab-a"), {makeItem("a2", "A2", "Sword", h.world.tab("tab-a"))});
+    } else {
+        const ItemLocation folder = h.world.tab("folder-f");
+        h.world.removeTab("folder-f");
+        h.snapshot();
+        QVERIFY(!headerFor(*h.model, "#1, \"Folder F\"").isValid());
+        h.world.setTab(folder);
+        h.snapshot();
+    }
+    QVERIFY(headerFor(*h.model, "#1, \"Folder F\"").isValid());
+    QVERIFY(!h.tree->isExpanded(headerFor(*h.model, "#1, \"Folder F\"")));
+
+    // Another search has its own set.
+    auto *tabs = findSearchTabs(*h.fixture.window);
+    QVERIFY(tabs);
+    tabs->setCurrentIndex(1);
+    QCOMPARE(tabs->currentIndex(), 1);
+    QVERIFY(h.tree->isExpanded(headerFor(*h.tree->model(), "#1, \"Folder F\"")));
+    tabs->setCurrentIndex(0);
+    QVERIFY(!h.tree->isExpanded(headerFor(*h.tree->model(), "#1, \"Folder F\"")));
+
+    // Expanding it again clears the mark.
+    h.tree->expand(headerFor(*h.tree->model(), "#1, \"Folder F\""));
+    h.fixture.window->OnSearchFormChange();
+    QVERIFY(h.tree->isExpanded(headerFor(*h.tree->model(), "#1, \"Folder F\"")));
+}
+
+void FolderTreeTest::insertedFolderExpands_data()
+{
+    addFilteredColumn();
+}
+
+// D9: a folder inserted by a delta or the snapshot is expanded, in either
+// kind of search.
+void FolderTreeTest::insertedFolderExpands()
+{
+    QFETCH(bool, filtered);
+    Harness h(baseWorld(), filtered);
+    const ItemLocation hotel = makeTab("tab-h", "Hotel", 10, "folder-k");
+    h.delta(hotel, {makeItem("h1", "H1", "Sword", hotel)});
+    h.delta(makeFolder("folder-k", "Folder K", 9), {});
+    const QModelIndex folder = headerFor(*h.model, "#10, \"Folder K\"");
+    QVERIFY(folder.isValid());
+    QVERIFY(h.tree->isExpanded(folder));
+    QCOMPARE(h.tree->isExpanded(headerFor(*h.model, "#11, \"Hotel\"")), filtered);
+
+    // A folder the snapshot inserts.
+    h.world.setTab(makeFolder("folder-l", "Folder L", 11));
+    h.world.setTab(makeTab("tab-i", "India", 12, "folder-l"));
+    h.world.items["tab-i"] = {makeItem("i1", "I1", "Sword", h.world.tab("tab-i"))};
+    h.snapshot();
+    QVERIFY(h.tree->isExpanded(headerFor(*h.model, "#12, \"Folder L\"")));
+}
+
+// D9: Expand All and Collapse All apply to every bucket header, folders
+// and nested tabs included, and to no item row; Collapse All's folder
+// collapses are user collapses (sticky), Expand All's expansions clear
+// them.
+void FolderTreeTest::expandAllAndCollapseAllCoverNestedHeaders()
+{
+    Harness h(baseWorld(), false);
+    h.fixture.window->OnExpandAll();
+    QCOMPARE(expansionSignature(*h.tree),
+             QStringList({"#1, \"Folder F\" +",
+                          "  #2, \"Alpha\" +",
+                          "  #3, \"Beta\" +",
+                          "#4, \"Folder G\" +",
+                          "  #5, \"Gamma\" +",
+                          "#6, \"Delta\" +",
+                          "#7, \"Echo\" +"}));
+    const QModelIndex alpha = headerFor(*h.model, "#2, \"Alpha\"");
+    QVERIFY(!h.tree->isExpanded(h.model->index(0, 0, alpha)));
+
+    h.fixture.window->OnCollapseAll();
+    const QStringList collapsed({"#1, \"Folder F\" -",
+                                 "  #2, \"Alpha\" -",
+                                 "  #3, \"Beta\" -",
+                                 "#4, \"Folder G\" -",
+                                 "  #5, \"Gamma\" -",
+                                 "#6, \"Delta\" -",
+                                 "#7, \"Echo\" -"});
+    QCOMPARE(expansionSignature(*h.tree), collapsed);
+    h.fixture.window->OnSearchFormChange();
+    QCOMPARE(expansionSignature(*h.tree), collapsed);
+
+    h.fixture.window->OnExpandAll();
+    h.fixture.window->OnSearchFormChange();
+    QCOMPARE(expansionSignature(*h.tree),
+             QStringList({"#1, \"Folder F\" +",
+                          "  #2, \"Alpha\" +",
+                          "  #3, \"Beta\" +",
+                          "#4, \"Folder G\" +",
+                          "  #5, \"Gamma\" +",
+                          "#6, \"Delta\" +",
+                          "#7, \"Echo\" +"}));
+}
+
+// D9: expanding or collapsing a folder sorts nothing, builds no keys and
+// evicts none; a tab expanded inside a collapsed folder stays
+// materialized.
+void FolderTreeTest::folderExpansionMaterializesNothing()
+{
+    World seed = baseWorld();
+    seed.items["tab-a"] = {makeItem("a1", "Zulu", "Sword", seed.tab("tab-a")),
+                           makeItem("a2", "Alpha", "Sword", seed.tab("tab-a"))};
+    Harness h(seed, false);
+    h.tree->header()->setSortIndicator(0, Qt::AscendingOrder);
+    h.tree->expand(headerFor(*h.model, "#2, \"Alpha\""));
+
+    auto &probes = ModelProbes::instance();
+    probes.reset();
+    probes.enabled = true;
+    const std::int64_t live = probes.live_key_bytes;
+    QVERIFY(live > 0);
+    const QModelIndex folder = headerFor(*h.model, "#1, \"Folder F\"");
+    h.tree->collapse(folder);
+    QCOMPARE(probes.live_key_bytes, live);
+    h.tree->expand(folder);
+    QCOMPARE(probes.bucket_sorts, 0);
+    QCOMPARE(probes.key_builds, 0);
+    QCOMPARE(probes.live_key_bytes, live);
+    QVERIFY(h.tree->isExpanded(headerFor(*h.model, "#2, \"Alpha\"")));
+    probes.enabled = false;
+}
+
+// D9: a nested tab's expansion is saved and restored across a user
+// refilter like a top-level tab's.
+void FolderTreeTest::nestedTabExpansionSurvivesRefilter()
+{
+    Harness h(baseWorld(), false);
+    h.tree->expand(headerFor(*h.model, "#2, \"Alpha\""));
+    h.tree->expand(headerFor(*h.model, "#6, \"Delta\""));
+    h.fixture.window->OnSearchFormChange();
+    QCOMPARE(expansionSignature(*h.tree),
+             QStringList({"#1, \"Folder F\" +",
+                          "  #2, \"Alpha\" +",
+                          "  #3, \"Beta\" -",
+                          "#4, \"Folder G\" +",
+                          "  #5, \"Gamma\" -",
+                          "#6, \"Delta\" +",
+                          "#7, \"Echo\" -"}));
+}
+
+// D9: selecting a folder header shows its header text in the details pane.
+void FolderTreeTest::folderHeaderSelectionShowsHeaderText()
+{
+    Harness h(baseWorld(), false);
+    auto *nameLabel = h.fixture.window->findChild<QLabel *>("nameLabel");
+    QVERIFY(nameLabel);
+    h.tree->selectionModel()->setCurrentIndex(headerFor(*h.model, "#4, \"Folder G\""),
+                                              QItemSelectionModel::ClearAndSelect
+                                                  | QItemSelectionModel::Rows);
+    QCOMPARE(nameLabel->text(), QString("#4, \"Folder G\""));
+}
+
+// D9: the scroll anchor resolves a nested tab's item through the
+// conversions — the same item is back on top after a user refilter.
+void FolderTreeTest::nestedScrollAnchorSurvivesRefilter()
+{
+    World seed = baseWorld();
+    Items many;
+    for (int n = 0; n < 60; ++n) {
+        many.push_back(makeItem(QString("b%1").arg(n),
+                                QString("Item %1").arg(n, 2, 10, QChar('0')),
+                                "Sword",
+                                seed.tab("tab-b")));
+    }
+    seed.items["tab-b"] = many;
+    Harness h(seed, false);
+    h.fixture.window->resize(900, 500);
+    h.fixture.window->show();
+    h.tree->header()->setSortIndicator(0, Qt::AscendingOrder);
+    const QModelIndex beta = headerFor(*h.model, "#3, \"Beta\"");
+    h.tree->expand(beta);
+    QTRY_VERIFY_WITH_TIMEOUT(h.tree->verticalScrollBar()->maximum() > 0, 2000);
+
+    const QModelIndex anchor = h.model->index(30, 0, headerFor(*h.model, "#3, \"Beta\""));
+    QCOMPARE(anchor.data().toString(), "Item 30 Sword");
+    h.tree->scrollTo(anchor, QAbstractItemView::PositionAtTop);
+    QCOMPARE(h.tree->indexAt(QPoint(0, 0)).data().toString(), "Item 30 Sword");
+
+    h.fixture.window->OnSearchFormChange();
+    QCOMPARE(h.tree->indexAt(QPoint(0, 0)).data().toString(), "Item 30 Sword");
 }
 
 QTEST_MAIN(FolderTreeTest)

@@ -59,6 +59,24 @@ public:
     const std::set<LocationInventory::Key> &expandedKeys() const { return m_expanded_keys; }
     void setExpandedKeys(std::set<LocationInventory::Key> keys);
 
+    // Folder expansion (folder-tree D9, R3): folders are expanded unless
+    // the user collapsed them. The folders this search's user collapsed,
+    // by stable key, maintained from the view's expanded and collapsed
+    // signals; a folder in the set stays collapsed across resets and
+    // re-insertion.
+    bool folderCollapsed(const LocationInventory::Key &key) const
+    {
+        return m_collapsed_folder_keys.count(key) > 0;
+    }
+    void setFolderCollapsed(const LocationInventory::Key &key, bool collapsed)
+    {
+        if (collapsed) {
+            m_collapsed_folder_keys.insert(key);
+        } else {
+            m_collapsed_folder_keys.erase(key);
+        }
+    }
+
     // The scroll state captured immediately before the last reset of this
     // search's model (M2 R6-3): a top-row anchor plus the raw scrollbar
     // value as the fallback when the anchored row no longer exists.
@@ -485,6 +503,7 @@ private:
     bool m_filtered;
     size_t m_filtered_item_count;
     std::set<LocationInventory::Key> m_expanded_keys;
+    std::set<LocationInventory::Key> m_collapsed_folder_keys;
     ScrollAnchor m_scroll_anchor;
     std::shared_ptr<Item> m_current_item;
     std::optional<ItemLocation> m_current_bucket;
