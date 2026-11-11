@@ -47,6 +47,9 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Qt
+        # Normally 30 to 75 seconds. Without a limit, a runner that cannot
+        # reach the package servers retries for about 47 minutes.
+        timeout-minutes: 5
         uses: jurplel/install-qt-action@v4
         with:
           version: '6.12.0'
