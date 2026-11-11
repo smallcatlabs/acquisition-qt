@@ -356,3 +356,17 @@ amendment changes one, the amendment governs.
   indicator of a partially-checked, user-checkable, non-tristate item
   delivers `Qt::Checked` to `setData`, and the next click delivers
   `Qt::Unchecked`. D10's click rule stands as written.
+- **November 11, 2026 — S1: a Folder reply's children display under
+  their own tabs.** D2 says a folder bucket holds no items and D12 keeps
+  a folder's own items out, but the worker's defensive reply-child path
+  (a Folder reply that carries `children`, unobserved live — F49) filed
+  each child's items under the folder's location, Map/Unique style, so
+  they would have rendered inside a folder bucket. That path now files
+  each child under `ItemLocation(child)`, still fetched by the child's
+  id. This matches how the same children already displayed when loaded
+  from the cache (their rows are not Map/Unique children, so
+  `ParseCachedItems` gives them their own location) and how a folder's
+  listed children display. The existing pin
+  `folderReplyChildrenAreFetchedButNotReconciled` is unchanged and
+  passes; `folderReplyChildDisplaysUnderItsOwnTab` pins the new filing.
+  With this, no item displays under a folder's location.
