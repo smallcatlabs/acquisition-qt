@@ -27,11 +27,11 @@ when this map and a header disagree, the header wins.
   cleanup notes, and conventions follow-ups.
 - `design/folder-tree.md` — spec for the collapsible folder level in the
   By-Tab items tree (issue #234): owner rulings R1–R9, assumptions A1–A4
-  awaiting a ruling, decisions D1–D12, stages S0–S6 and acceptance
-  criteria, with dated amendments (S0's Qt results among them).
-  Implemented November 11, 2026 on branch `claude/folder-tree-30fd5c`,
-  not merged and not externally reviewed. Supersedes, for By-Tab
-  searches only, M3's "a bucket is a top-level row".
+  (approved), decisions D1–D12, stages S0–S6 and acceptance criteria,
+  with dated amendments (S0's Qt results among them). Implemented and
+  merged November 11, 2026 (pull request 235); not externally reviewed.
+  Supersedes, for By-Tab searches only, M3's "a bucket is a top-level
+  row".
 - `design/items-pipeline.md` — plan for the delta-native redesign of the
   items refresh pipeline. Milestone 1 shipped July 2026; M2 merged and
   M3 implemented July 30–31, 2026, each against its own frozen spec.

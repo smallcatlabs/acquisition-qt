@@ -1,11 +1,11 @@
 # Folder Level in the Items Tree
 
-Status: **IMPLEMENTED** (November 11, 2026, stages S0–S6 on branch
-`claude/folder-tree-30fd5c`; not merged). Accepted for implementation
+Status: **IMPLEMENTED AND MERGED** (November 11, 2026, stages S0–S6;
+pull request 235, merge commit 8aca25c8). Accepted for implementation
 the same day, on Tom's go. Not externally reviewed. Assumptions A1–A4
-are built as written and still await the owner's ruling. Changes after
-acceptance are recorded as dated amendments with reasons, never silent
-edits; S0's Qt results are among them.
+were approved by the owner the same day and bind as written. Changes
+after acceptance are recorded as dated amendments with reasons, never
+silent edits; S0's Qt results are among them.
 
 Origin: <https://github.com/smallcatlabs/acquisition-qt/issues/234> —
 tabs inside stash folders are not marked as such.
@@ -73,10 +73,10 @@ children and no items.
 - R9. Folder tabs keep being requested; the request helps detect API
   changes.
 
-## Assumptions awaiting a ruling
+## Assumptions, approved
 
-Made by the spec author to keep the build unblocked. Each is a
-one-function change if overruled.
+Made by the spec author to keep the build unblocked, and approved by
+the owner on November 11, 2026. They bind as written.
 
 - A1. In R6, the folder tab itself is sent along with its members (R9).
 - A2. A folder has no stored refresh flag. On Refresh Checked the worker
@@ -444,3 +444,9 @@ amendment changes one, the amendment governs.
   D9's rule stands: bucket headers only, nothing stored for item rows.
   Pinned by `expandAllSortsEveryTabInOnePass` and
   `expandAllOverExpandedNestedTabsSortsNothing`.
+- **November 11, 2026 — owner approval.** A1–A4 are approved as
+  written. Approved with them: a folder the user collapses stays
+  collapsed across refreshes and refilters (D9); a folder with no
+  present members shows no checkbox (D10); and a collapsed tab holding
+  the selected item stays collapsed through a refresh (the reselection
+  amendment above).
