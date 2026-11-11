@@ -68,7 +68,7 @@ public:
     // GetLegacyHash or GetHeader.
     QString folder_id() const { return m_folder_id; }
     // True for a stash of the game's "Folder" tab type.
-    bool IsFolder() const;
+    bool IsFolder() const { return m_is_folder; }
 
     // Refresh the tab-level metadata (label, colours, position, type,
     // character name, folder) from a freshly listed location for the same
@@ -101,6 +101,8 @@ private:
 
     // The containing folder's stash id; empty outside a folder.
     QString m_folder_id;
+    // m_tab_type == "Folder", cached: the items model asks per data() call.
+    bool m_is_folder{false};
 };
 
 using ItemLocationType = ItemLocation::ItemLocationType;

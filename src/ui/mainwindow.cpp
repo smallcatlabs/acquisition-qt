@@ -1414,6 +1414,28 @@ void MainWindow::RestoreViewExpansion(Search &search)
     const bool default_expanded = search.defaultExpanded();
     const auto &keys = search.expandedKeys();
     const int bucket_count = static_cast<int>(search.buckets().size());
+    if (default_expanded) {
+        // One pass for the top level, as before folders: expandToDepth(0)
+        // lays out every top-level header at once (depth 0 — never an item
+        // row). Its expanded signals would clear the user-collapsed folder
+        // set, so the set is kept aside and restored, then folders in it
+        // collapse and nested tabs expand below.
+        const auto collapsed = search.collapsedFolderKeys();
+        ui->treeView->expandToDepth(0);
+        search.setCollapsedFolderKeys(collapsed);
+        for (int bucket_row = 0; bucket_row < bucket_count; ++bucket_row) {
+            const QModelIndex index = search.model().BucketIndex(bucket_row);
+            if (search.isFolderBucket(bucket_row)) {
+                if (search.folderCollapsed(
+                        LocationInventory::KeyFor(search.bucket(bucket_row).location()))) {
+                    ui->treeView->collapse(index);
+                }
+            } else if (search.parentBucketRow(bucket_row) >= 0) {
+                ui->treeView->expand(index);
+            }
+        }
+        return;
+    }
     for (int bucket_row = 0; bucket_row < bucket_count; ++bucket_row) {
         const QModelIndex index = search.model().BucketIndex(bucket_row);
         const auto key = LocationInventory::KeyFor(search.bucket(bucket_row).location());
@@ -1425,7 +1447,7 @@ void MainWindow::RestoreViewExpansion(Search &search)
             }
             continue;
         }
-        if (default_expanded || (keys.count(key) > 0)) {
+        if (keys.count(key) > 0) {
             ui->treeView->expand(index);
         } else {
             ui->treeView->collapse(index);

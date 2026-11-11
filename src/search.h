@@ -68,6 +68,14 @@ public:
     {
         return m_collapsed_folder_keys.count(key) > 0;
     }
+    const std::set<LocationInventory::Key> &collapsedFolderKeys() const
+    {
+        return m_collapsed_folder_keys;
+    }
+    void setCollapsedFolderKeys(std::set<LocationInventory::Key> keys)
+    {
+        m_collapsed_folder_keys = std::move(keys);
+    }
     void setFolderCollapsed(const LocationInventory::Key &key, bool collapsed)
     {
         if (collapsed) {
