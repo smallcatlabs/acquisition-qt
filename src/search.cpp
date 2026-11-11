@@ -206,7 +206,7 @@ const QModelIndex Search::index(const std::shared_ptr<Item> &item) const
         if ((m_current_mode == ViewMode::ByItem)
             || (LocationInventory::KeyFor(bucket.location()) == item_key)) {
             // Check each item in the bucket.
-            const QModelIndex parent = m_model.index(row);
+            const QModelIndex parent = m_model.BucketIndex(row);
             const auto &items = bucket.items();
             const int item_count = static_cast<int>(items.size());
             for (int n = 0; n < item_count; ++n) {
@@ -599,11 +599,50 @@ void Search::RebuildRowLookups()
     for (size_t row = 0; row < bucket_list.size(); ++row) {
         m_row_by_serial[bucket_list[row].serial()] = static_cast<int>(row);
     }
+    // The row mapping (folder-tree D4): every bucket is a top-level header.
+    const int bucket_count = static_cast<int>(bucket_list.size());
+    m_top_level_rows.resize(static_cast<size_t>(bucket_count));
+    m_parent_rows.assign(static_cast<size_t>(bucket_count), -1);
+    m_rows_in_parent.resize(static_cast<size_t>(bucket_count));
+    for (int row = 0; row < bucket_count; ++row) {
+        m_top_level_rows[static_cast<size_t>(row)] = row;
+        m_rows_in_parent[static_cast<size_t>(row)] = row;
+    }
     m_row_by_key.clear();
     for (size_t row = 0; row < m_bucket_by_tab.size(); ++row) {
         m_row_by_key[LocationInventory::KeyFor(m_bucket_by_tab[row].location())] = static_cast<int>(
             row);
     }
+}
+
+int Search::childBucketRow(int parent_bucket_row, int row) const
+{
+    if ((parent_bucket_row >= 0) || (row < 0)
+        || (row >= static_cast<int>(m_top_level_rows.size()))) {
+        return -1;
+    }
+    return m_top_level_rows[static_cast<size_t>(row)];
+}
+
+int Search::childBucketCount(int parent_bucket_row) const
+{
+    return (parent_bucket_row < 0) ? static_cast<int>(m_top_level_rows.size()) : 0;
+}
+
+int Search::parentBucketRow(int bucket_row) const
+{
+    if ((bucket_row < 0) || (bucket_row >= static_cast<int>(m_parent_rows.size()))) {
+        return -1;
+    }
+    return m_parent_rows[static_cast<size_t>(bucket_row)];
+}
+
+int Search::rowInParent(int bucket_row) const
+{
+    if ((bucket_row < 0) || (bucket_row >= static_cast<int>(m_rows_in_parent.size()))) {
+        return -1;
+    }
+    return m_rows_in_parent[static_cast<size_t>(bucket_row)];
 }
 
 int Search::FindBucketRow(const LocationInventory::Key &key) const
@@ -1403,31 +1442,23 @@ ItemLocation Search::GetTabLocation(const QModelIndex &index) const
     if (!index.isValid()) {
         return ItemLocation();
     }
-    if (index.internalId() > 0) {
+    const ItemsModel::RowRef ref = m_model.Locate(index);
+    if (ref.isItem()) {
         // If index represents an item, get location from item as view may be on 'item' view
         // where bucket location doesn't match items location
-        const int bucket_row = index.parent().row();
-        if (has_bucket(bucket_row)) {
-            const Bucket &b = bucket(bucket_row);
-            const int item_row = index.row();
-            if (b.has_item(item_row)) {
-                return b.item(item_row)->location();
-            } else {
-                spdlog::warn("GetTabLocation(): parent bucket {} does not have {} items",
-                             bucket_row,
-                             item_row);
-            }
+        const Bucket &b = bucket(ref.bucket_row);
+        if (b.has_item(ref.item_row)) {
+            return b.item(ref.item_row)->location();
         } else {
-            spdlog::warn("GetTabLocation(): parent bucket {} does not exist", bucket_row);
+            spdlog::warn("GetTabLocation(): parent bucket {} does not have {} items",
+                         ref.bucket_row,
+                         ref.item_row);
         }
-    } else {
+    } else if (ref.isBucket()) {
         // Otherwise index represents a tab already, get location from there
-        const int bucket_row = index.row();
-        if (has_bucket(bucket_row)) {
-            return bucket(bucket_row).location();
-        } else {
-            spdlog::warn("GetTabLocation(): bucket {} does not exist", bucket_row);
-        }
+        return bucket(ref.bucket_row).location();
+    } else {
+        spdlog::warn("GetTabLocation(): index (row {}) resolves to no bucket", index.row());
     }
     return ItemLocation();
 }

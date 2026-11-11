@@ -20,6 +20,9 @@ private slots:
     void testerSurvivesRebuildModeSwitchAndSort();
     void selectionSurvivesSort();
     void sortDirectionMatchesOrder();
+    // Folder-tree S2 (D4): the two conversions every bucket-or-item
+    // decision goes through.
+    void bucketRowConversionsRoundTrip();
 };
 
 static std::shared_ptr<Item> makeModelItem(const QString &id,
@@ -220,6 +223,73 @@ void ItemsModelTest::sortDirectionMatchesOrder()
     const QStringList descending = rowNames();
     std::reverse(expected.begin(), expected.end());
     QCOMPARE(descending, expected);
+}
+
+// Folder-tree D4: bucket row -> header index and model index -> (bucket row,
+// item row) round-trip for every header and every item, in both view modes,
+// and reject what is not this model's.
+void ItemsModelTest::bucketRowConversionsRoundTrip()
+{
+    BuyoutManagerFixture buyoutFixture;
+    const ItemLocation firstTab = makeTestStashLocation("stash-a", "Alpha Tab", 0);
+    const ItemLocation emptyTab = makeTestStashLocation("stash-e", "Empty Tab", 1);
+    const ItemLocation secondTab = makeTestStashLocation("stash-b", "Beta Tab", 2);
+    buyoutFixture.manager->SetStashTabLocations({firstTab, emptyTab, secondTab});
+
+    Items items;
+    items.push_back(makeModelItem("alpha-1", "Alpha Bite", "Copper Sword", firstTab));
+    items.push_back(makeModelItem("alpha-2", "Zulu Bite", "Vaal Axe", firstTab));
+    items.push_back(makeModelItem("beta-1", "Beta Guard", "Copper Shield", secondTab));
+
+    FilterCatalog catalog({});
+    Search search(*buyoutFixture.manager, "Model", catalog);
+    search.FilterItems(items);
+    auto &model = search.model();
+
+    const auto checkMode = [&]() {
+        int headers = 0;
+        int rows = 0;
+        for (int bucket_row = 0; bucket_row < static_cast<int>(search.buckets().size());
+             ++bucket_row) {
+            const QModelIndex header = model.BucketIndex(bucket_row);
+            QVERIFY(header.isValid());
+            QCOMPARE(header.data().toString(), model.data(header).toString());
+            const auto located = model.Locate(header);
+            QCOMPARE(located.bucket_row, bucket_row);
+            QCOMPARE(located.item_row, -1);
+            QVERIFY(located.isBucket());
+            QCOMPARE(model.BucketIndex(bucket_row, 2).column(), 2);
+            QCOMPARE(model.BucketIndex(bucket_row, 2).row(), header.row());
+            ++headers;
+            for (int item_row = 0; item_row < model.rowCount(header); ++item_row) {
+                const QModelIndex item = model.index(item_row, 1, header);
+                const auto located_item = model.Locate(item);
+                QCOMPARE(located_item.bucket_row, bucket_row);
+                QCOMPARE(located_item.item_row, item_row);
+                QVERIFY(located_item.isItem());
+                ++rows;
+            }
+        }
+        QCOMPARE(headers, static_cast<int>(search.buckets().size()));
+        QCOMPARE(rows, static_cast<int>(search.items().size()));
+        QVERIFY(!model.BucketIndex(-1).isValid());
+        QVERIFY(!model.BucketIndex(static_cast<int>(search.buckets().size())).isValid());
+        QCOMPARE(model.Locate(QModelIndex()).bucket_row, -1);
+        QVERIFY(!model.Locate(QModelIndex()).isBucket());
+        QVERIFY(!model.Locate(QModelIndex()).isItem());
+    };
+    checkMode();
+    QCOMPARE(static_cast<int>(search.buckets().size()), 3);
+
+    search.SetViewMode(Search::ViewMode::ByItem);
+    checkMode();
+    QCOMPARE(static_cast<int>(search.buckets().size()), 1);
+
+    // An index from another model is never located.
+    FilterCatalog other_catalog({});
+    Search other(*buyoutFixture.manager, "Other", other_catalog);
+    other.FilterItems(items);
+    QCOMPARE(model.Locate(other.model().index(0, 0)).bucket_row, -1);
 }
 
 QTEST_MAIN(ItemsModelTest)

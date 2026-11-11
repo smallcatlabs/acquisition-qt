@@ -258,6 +258,25 @@ public:
     // never invalidate a child's parent mapping. -1 for unknown serials.
     int rowForSerial(std::uint64_t serial) const;
 
+    // The row mapping behind ItemsModel's two conversions (folder-tree
+    // D4). A "bucket row" indexes the active mode's bucket vector and is
+    // the bucket handle throughout Search, ItemsModel and MainWindow; the
+    // model row of a bucket header is its row within its parent (the
+    // root, or a folder bucket). Rebuilt with the other row lookups, so
+    // each answers the model's current structure at every notification
+    // boundary. -1 for out-of-range arguments.
+    //
+    // The bucket row of the `row`-th child of `parent_bucket_row` (-1:
+    // the root).
+    int childBucketRow(int parent_bucket_row, int row) const;
+    // The number of bucket headers under `parent_bucket_row` (-1: the
+    // root).
+    int childBucketCount(int parent_bucket_row) const;
+    // The bucket row of a bucket's parent header; -1 at the top level.
+    int parentBucketRow(int bucket_row) const;
+    // A bucket header's model row within its parent.
+    int rowInParent(int bucket_row) const;
+
     // The active-mode bucket row for a stable display key, -1 when
     // absent (S4 review round 2): O(log tabs) through the delta path's
     // key map in By-Tab; the By-Item flat bucket answers only for its
@@ -364,6 +383,13 @@ private:
     // row-position scheme pays the same.
     std::unordered_map<std::uint64_t, int> m_row_by_serial;
     std::map<LocationInventory::Key, int> m_row_by_key;
+    // The active mode's row mapping (folder-tree D4, rebuilt with the maps
+    // above): the bucket rows of the top-level headers in model order, and
+    // per bucket row its parent's bucket row (-1 at the top level) and its
+    // model row within that parent.
+    std::vector<int> m_top_level_rows;
+    std::vector<int> m_parent_rows;
+    std::vector<int> m_rows_in_parent;
     std::uint64_t m_next_bucket_serial{1};
 
     // Staleness marks: the delta path maintains the ACTIVE mode's buckets

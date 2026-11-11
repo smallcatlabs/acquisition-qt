@@ -393,19 +393,19 @@ void MainWindow::InitializeUi()
     // expansion (RestoreViewExpansion, expandToDepth) emits the same
     // signals, so restored expansions sort exactly the restored buckets.
     connect(ui->treeView, &QTreeView::expanded, this, [this](const QModelIndex &index) {
-        if (index.parent().isValid()) {
-            return;
-        }
         if (auto *model = qobject_cast<ItemsModel *>(ui->treeView->model())) {
-            model->OnBucketExpanded(index.row());
+            const ItemsModel::RowRef ref = model->Locate(index);
+            if (ref.isBucket()) {
+                model->OnBucketExpanded(ref.bucket_row);
+            }
         }
     });
     connect(ui->treeView, &QTreeView::collapsed, this, [this](const QModelIndex &index) {
-        if (index.parent().isValid()) {
-            return;
-        }
         if (auto *model = qobject_cast<ItemsModel *>(ui->treeView->model())) {
-            model->OnBucketCollapsed(index.row());
+            const ItemsModel::RowRef ref = model->Locate(index);
+            if (ref.isBucket()) {
+                model->OnBucketCollapsed(ref.bucket_row);
+            }
         }
     });
 
@@ -580,11 +580,10 @@ void MainWindow::OnCollapseAll()
     // The collapsed() signals emitted during the loop coalesce into a
     // single deferred column resize.
     setCursor(Qt::WaitCursor);
-    const auto &model = *ui->treeView->model();
-    const int rowCount = model.rowCount();
-    for (int row = 0; row < rowCount; ++row) {
-        const QModelIndex idx = model.index(row, 0, QModelIndex());
-        ui->treeView->collapse(idx);
+    const ItemsModel &model = m_current_search->model();
+    const int bucket_count = static_cast<int>(m_current_search->buckets().size());
+    for (int bucket_row = 0; bucket_row < bucket_count; ++bucket_row) {
+        ui->treeView->collapse(model.BucketIndex(bucket_row));
     }
     ScheduleResizeTreeColumns();
     unsetCursor();
@@ -710,13 +709,14 @@ void MainWindow::OnBuyoutChange()
             spdlog::trace("MainWindow::OnBuyoutChange() refusing to update locked tab: {}", tab);
             continue;
         }
-        if (!index.parent().isValid()) {
+        const ItemsModel::RowRef ref = m_current_search->model().Locate(index);
+        if (ref.isBucket()) {
             m_buyout_manager.SetTab(location, bo);
         } else {
-            const int bucket_row = index.parent().row();
-            if (m_current_search->has_bucket(bucket_row)) {
+            const int bucket_row = ref.bucket_row;
+            if (ref.isItem()) {
                 const Bucket &bucket = m_current_search->bucket(bucket_row);
-                const int item_row = index.row();
+                const int item_row = ref.item_row;
                 if (bucket.has_item(item_row)) {
                     const Item &item = *bucket.item(item_row);
                     // Don't allow users to manually update locked items (game priced per item in note section)
@@ -1158,7 +1158,7 @@ void MainWindow::FinishDeltaApplication(bool processed, bool model_changed, int 
     if ((inserted_bucket_row >= 0) && m_current_search->defaultExpanded()) {
         // A bucket inserted into a default-expanded search expands now;
         // the expand signal materializes and sorts it (D2 rule 2).
-        ui->treeView->expand(m_current_search->model().index(inserted_bucket_row, 0));
+        ui->treeView->expand(m_current_search->model().BucketIndex(inserted_bucket_row));
     }
     // The caption renders the maintained count.
     for (size_t i = 0; i < m_searches.size(); ++i) {
@@ -1300,11 +1300,11 @@ void MainWindow::SaveViewExpansion(Search &search)
     // switch) needs it.
     std::set<LocationInventory::Key> expanded;
     if (!search.defaultExpanded()) {
-        const int rows = search.model().rowCount();
-        for (int row = 0; row < rows; ++row) {
-            const QModelIndex index = search.model().index(row, 0);
-            if (index.isValid() && ui->treeView->isExpanded(index) && search.has_bucket(row)) {
-                expanded.emplace(LocationInventory::KeyFor(search.bucket(row).location()));
+        const int bucket_count = static_cast<int>(search.buckets().size());
+        for (int bucket_row = 0; bucket_row < bucket_count; ++bucket_row) {
+            const QModelIndex index = search.model().BucketIndex(bucket_row);
+            if (index.isValid() && ui->treeView->isExpanded(index)) {
+                expanded.emplace(LocationInventory::KeyFor(search.bucket(bucket_row).location()));
             }
         }
     }
@@ -1319,18 +1319,19 @@ void MainWindow::RestoreViewExpansion(Search &search)
         return;
     }
     const auto &keys = search.expandedKeys();
-    const int rows = search.model().rowCount();
-    for (int row = 0; row < rows; ++row) {
-        const QModelIndex index = search.model().index(row, 0);
+    const int bucket_count = static_cast<int>(search.buckets().size());
+    for (int bucket_row = 0; bucket_row < bucket_count; ++bucket_row) {
+        const QModelIndex index = search.model().BucketIndex(bucket_row);
         if (!keys.empty()
-            && (keys.count(LocationInventory::KeyFor(search.bucket(row).location())) > 0)) {
+            && (keys.count(LocationInventory::KeyFor(search.bucket(bucket_row).location()))
+                > 0)) {
             ui->treeView->expand(index);
         } else {
             ui->treeView->collapse(index);
             // collapse() emits no signal for an already-collapsed row —
             // the usual state after a reset — so sync the materialization
             // mark explicitly (idempotent; evicts any stale keys).
-            search.model().OnBucketCollapsed(row);
+            search.model().OnBucketCollapsed(bucket_row);
         }
     }
 }
@@ -1405,21 +1406,18 @@ void MainWindow::SaveViewScroll(Search &search)
     Search::ScrollAnchor anchor;
     anchor.scrollbar_value = ui->treeView->verticalScrollBar()->value();
     const QModelIndex top = ui->treeView->indexAt(QPoint(0, 0));
-    if (top.isValid()) {
-        if (top.parent().isValid()) {
-            // The top row is an item: anchor on its bucket key and stable
-            // item id so the same item returns to the top after the reset.
-            if (search.has_bucket(top.parent().row())) {
-                const Bucket &bucket = search.bucket(top.parent().row());
-                anchor.bucket_key = LocationInventory::KeyFor(bucket.location());
-                if (bucket.has_item(top.row())) {
-                    anchor.item_id = bucket.item(top.row())->id();
-                }
-            }
-        } else if (search.has_bucket(top.row())) {
-            // The top row is a bucket header; an empty item_id records that.
-            anchor.bucket_key = LocationInventory::KeyFor(search.bucket(top.row()).location());
+    const ItemsModel::RowRef ref = search.model().Locate(top);
+    if (ref.isItem()) {
+        // The top row is an item: anchor on its bucket key and stable
+        // item id so the same item returns to the top after the reset.
+        const Bucket &bucket = search.bucket(ref.bucket_row);
+        anchor.bucket_key = LocationInventory::KeyFor(bucket.location());
+        if (bucket.has_item(ref.item_row)) {
+            anchor.item_id = bucket.item(ref.item_row)->id();
         }
+    } else if (ref.isBucket()) {
+        // The top row is a bucket header; an empty item_id records that.
+        anchor.bucket_key = LocationInventory::KeyFor(search.bucket(ref.bucket_row).location());
     }
     search.setScrollAnchor(std::move(anchor));
 }
@@ -1435,7 +1433,7 @@ void MainWindow::RestoreViewScroll(Search &search)
             if (LocationInventory::KeyFor(bucket.location()) != *anchor.bucket_key) {
                 continue;
             }
-            const QModelIndex bucket_index = search.model().index(static_cast<int>(row), 0);
+            const QModelIndex bucket_index = search.model().BucketIndex(static_cast<int>(row));
             if (anchor.item_id.isEmpty()) {
                 // The anchor was the bucket header itself.
                 ui->treeView->scrollTo(bucket_index, QAbstractItemView::PositionAtTop);
@@ -1477,14 +1475,15 @@ void MainWindow::OnCurrentItemChanged(const QModelIndex &current, const QModelIn
         return;
     }
 
-    if (current.parent().isValid()) {
+    const ItemsModel::RowRef ref = m_current_search->model().Locate(current);
+    if (!ref.isBucket()) {
         // Clicked on an item. The warning branches reset the stored selection
         // instead of keeping the previous item/bucket pair, so the panel
         // clears rather than rendering stale state (F44).
-        const int bucket_row = current.parent().row();
-        if (m_current_search->has_bucket(bucket_row)) {
+        const int bucket_row = ref.bucket_row;
+        if (ref.isItem()) {
             const Bucket &bucket = m_current_search->bucket(bucket_row);
-            const int item_row = current.row();
+            const int item_row = ref.item_row;
             if (bucket.has_item(item_row)) {
                 m_current_item = bucket.item(item_row);
                 m_current_bucket_location.reset();
@@ -1510,15 +1509,8 @@ void MainWindow::OnCurrentItemChanged(const QModelIndex &current, const QModelIn
         // Clicked on a bucket
         m_current_item = nullptr;
         m_selection_intent_id.clear();
-        const int bucket_row = current.row();
-        if (m_current_search->has_bucket(bucket_row)) {
-            m_current_bucket_location = m_current_search->bucket(bucket_row).location();
-            UpdateCurrentBucket();
-        } else {
-            spdlog::warn("OnCurrentItemChanged(): bucket {} does not exist", bucket_row);
-            m_current_bucket_location.reset();
-            ClearCurrentItem();
-        }
+        m_current_bucket_location = m_current_search->bucket(ref.bucket_row).location();
+        UpdateCurrentBucket();
     }
     if (m_current_item || m_current_bucket_location) {
         UpdateCurrentBuyout();
@@ -1582,7 +1574,7 @@ void MainWindow::ReselectCurrentBucket()
     for (size_t row = 0; row < buckets.size(); ++row) {
         if (buckets[row].location() == *m_current_bucket_location) {
             spdlog::trace("MainWindow::ReselectCurrentBucket() reselecting the previous bucket");
-            const QModelIndex index = m_current_search->model().index(static_cast<int>(row), 0);
+            const QModelIndex index = m_current_search->model().BucketIndex(static_cast<int>(row));
             ui->treeView->selectionModel()->select(index,
                                                    QItemSelectionModel::Current
                                                        | QItemSelectionModel::Select
@@ -1858,7 +1850,7 @@ void MainWindow::OnItemsRefreshed(bool initial_refresh)
         // signal materializes and sorts them (D2 rule 2) — the same
         // view-side tail a delta's inserted bucket gets.
         for (const int row : result.inserted_bucket_rows) {
-            ui->treeView->expand(m_current_search->model().index(row, 0));
+            ui->treeView->expand(m_current_search->model().BucketIndex(row));
         }
     }
     for (size_t i = 0; i < m_searches.size(); ++i) {

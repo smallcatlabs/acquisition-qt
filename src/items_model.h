@@ -16,6 +16,26 @@ class ItemsModel : public QAbstractItemModel
     Q_OBJECT
 public:
     explicit ItemsModel(BuyoutManager &bo_manager, Search &search);
+
+    // A model index resolved to the search's bucket handle (folder-tree
+    // D4): a bucket header is (bucket row, -1), an item is (owning bucket
+    // row, item row), anything else — invalid, foreign, or stale — is
+    // (-1, -1). The item row is not range-checked; callers test
+    // Bucket::has_item as before.
+    struct RowRef
+    {
+        int bucket_row{-1};
+        int item_row{-1};
+        bool isBucket() const { return (bucket_row >= 0) && (item_row < 0); }
+        bool isItem() const { return (bucket_row >= 0) && (item_row >= 0); }
+    };
+    // The two conversions every "bucket or item" decision goes through
+    // (D4): never `index(bucket_row, 0)`, `index.row()` or
+    // `index.parent().row()` directly. BucketIndex is invalid for an
+    // out-of-range bucket row or column.
+    QModelIndex BucketIndex(int bucket_row, int column = 0) const;
+    RowRef Locate(const QModelIndex &index) const;
+
     int rowCount(const QModelIndex &parent = QModelIndex()) const;
     int columnCount(const QModelIndex &parent = QModelIndex()) const;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
