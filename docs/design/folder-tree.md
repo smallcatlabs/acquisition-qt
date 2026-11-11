@@ -415,3 +415,14 @@ amendment changes one, the amendment governs.
   and `MainWindow::FinishDeltaApplication` takes the list. A folder
   bucket's own items, should any reach `Search` despite D12, are
   neither inserted nor rendered.
+- **November 11, 2026 — S3 cost note.** The acceptance criteria keep
+  structural operations at O(tab count). A single insert, remove or move
+  is O(tab count), dominated by the row-lookup rebuild. Two composite
+  operations are k moves: a folder adopting k present top-level members
+  when it is inserted (scenario 7), and a folder releasing k members when
+  it is removed while they survive (scenario 6). That is O(k · tab count).
+  Both are rare, and each move is the one row operation that keeps
+  expansion and selection (S0). Members are not contiguous at the top
+  level, so one multi-row move cannot replace them. A metadata delta
+  that does not move its bucket stays O(1) plus one key lookup (a
+  neighbour check, `Search::BucketInPlace`).
