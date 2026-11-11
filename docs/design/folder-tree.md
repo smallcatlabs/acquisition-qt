@@ -1,10 +1,11 @@
 # Folder Level in the Items Tree
 
-Status: **ACCEPTED FOR IMPLEMENTATION** (November 11, 2026, on Tom's
-go). Not externally reviewed. Changes after this point are recorded as
-dated amendments with reasons, never silent edits. Decisions D8 and
-D10's click rule depend on Qt behaviour that stage S0 must prove first;
-S0's result is recorded here as an amendment.
+Status: **IMPLEMENTED** (November 11, 2026, stages S0–S6 on branch
+`claude/folder-tree-30fd5c`; not merged). Accepted for implementation
+the same day, on Tom's go. Not externally reviewed. Assumptions A1–A4
+are built as written and still await the owner's ruling. Changes after
+acceptance are recorded as dated amendments with reasons, never silent
+edits; S0's Qt results are among them.
 
 Origin: <https://github.com/smallcatlabs/acquisition-qt/issues/234> —
 tabs inside stash folders are not marked as such.
