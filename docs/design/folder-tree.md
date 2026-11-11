@@ -67,7 +67,7 @@ children and no items.
 - R5. A folder's checkbox covers the tabs visible in the current search
   only.
 - R6. Refresh Selected on a folder refreshes the folder's checked
-  members.
+  members that are visible in the current search.
 - R7. No buyouts on folders.
 - R8. Items under a folder are not rendered; warn if any are present.
 - R9. Folder tabs keep being requested; the request helps detect API
@@ -78,8 +78,7 @@ children and no items.
 Made by the spec author to keep the build unblocked. Each is a
 one-function change if overruled.
 
-- A1. In R6, "members" means the members visible in the current search
-  (the R5 scope). The folder tab itself is sent with them (R9).
+- A1. In R6, the folder tab itself is sent along with its members (R9).
 - A2. A folder has no stored refresh flag. On Refresh Checked the worker
   requests a Folder tab when at least one of its member tabs is in the
   checked selection.
