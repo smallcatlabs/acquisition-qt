@@ -370,3 +370,47 @@ amendment changes one, the amendment governs.
   `folderReplyChildrenAreFetchedButNotReconciled` is unchanged and
   passes; `folderReplyChildDisplaysUnderItsOwnTab` pins the new filing.
   With this, no item displays under a folder's location.
+- **November 11, 2026 — S3: the row mapping follows recorded structure,
+  not the nesting function.** D3 says one function decides nesting and
+  is used by both the ordering and the row mapping. Built that way, the
+  mapping would change the moment a folder appeared — before any row
+  operation told Qt — so `QAbstractItemModel`'s contract would break.
+  Instead each bucket records the folder it is currently rendered under
+  (`Bucket::parentSerial`). `RebuildRowLookups` derives the model's
+  structure from that record, and the one function
+  (`Search::NestingParentRow`) decides the *target*: the refilter's
+  ordering (`ArrangeTabTree`) and every structural operation place
+  buckets by it, each through one row operation. The two agree after
+  every operation; the convergence tests check exactly that.
+- **November 11, 2026 — S3: final-snapshot order of work.** D7 says
+  "surviving buckets' metadata is refreshed and membership settled
+  before any folder bucket is removed". The order built is: deleted tab
+  buckets leave; survivors' metadata is refreshed in place; each deleted
+  folder moves its members to the top level and then leaves; membership
+  and sibling order are settled with moves; newly listed buckets are
+  inserted (a member's absent folder first, a new folder adopting its
+  present members). The invariant D7 protects holds — a folder is never
+  removed with members under it — and settling after the folder removal
+  saves moving members of a deleted folder twice. The clean-snapshot
+  check is one pass over the tabs, each step O(1) plus one key-map
+  lookup (O(log tabs), the same lookup the M3 delta path already pays),
+  and runs no moves (`tabMovesBetweenFolders` pins zero `rowsMoved` on a
+  clean snapshot with folders).
+- **November 11, 2026 — S3: a tab whose kind changes.** The spec does
+  not cover a tab changing between Folder and another type (unobserved;
+  the game does not appear to allow it). D5 makes the row kind follow
+  the parent, so such a bucket cannot change kind in place. The built
+  rule: a delta or the snapshot that finds a bucket's kind changed
+  removes the bucket (moving a folder's members to the top level first)
+  and inserts it anew under the ordinary rules.
+- **November 11, 2026 — S3: the folder-entered presence rule applies in
+  every search.** D7 states the "insert the absent but known folder
+  first" rule for filtered searches. It is applied in unfiltered
+  searches too, because a fresh refilter of an unfiltered search shows
+  every known folder. In practice it never fires there: every known
+  folder is already present in an unfiltered search.
+- **November 11, 2026 — S3: `DeltaApplication` reports a list.**
+  `inserted_bucket_row` became `inserted_bucket_rows`, as D7 requires,
+  and `MainWindow::FinishDeltaApplication` takes the list. A folder
+  bucket's own items, should any reach `Search` despite D12, are
+  neither inserted nor rendered.

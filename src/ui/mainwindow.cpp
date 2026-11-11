@@ -1123,7 +1123,7 @@ void MainWindow::OnTabRefreshed(const ItemLocation &location, const Items &items
     m_applying_delta = true;
     const auto result = m_current_search->ApplyTabDelta(location, items);
     m_applying_delta = false;
-    FinishDeltaApplication(result.processed, result.model_changed, result.inserted_bucket_row);
+    FinishDeltaApplication(result.processed, result.model_changed, result.inserted_bucket_rows);
 }
 
 void MainWindow::OnChildrenReconciled(const ItemLocation &parent,
@@ -1144,10 +1144,12 @@ void MainWindow::OnChildrenReconciled(const ItemLocation &parent,
     m_applying_delta = true;
     const auto result = m_current_search->ApplyChildReconciliation(parent, expected);
     m_applying_delta = false;
-    FinishDeltaApplication(result.processed, result.model_changed, result.inserted_bucket_row);
+    FinishDeltaApplication(result.processed, result.model_changed, result.inserted_bucket_rows);
 }
 
-void MainWindow::FinishDeltaApplication(bool processed, bool model_changed, int inserted_bucket_row)
+void MainWindow::FinishDeltaApplication(bool processed,
+                                        bool model_changed,
+                                        const std::vector<int> &inserted_bucket_rows)
 {
     if (!processed) {
         // Fail-safe direction (R1-7): a skipped application leaves the
@@ -1155,10 +1157,12 @@ void MainWindow::FinishDeltaApplication(bool processed, bool model_changed, int 
         m_current_search->setItemsDirty(true);
         return;
     }
-    if ((inserted_bucket_row >= 0) && m_current_search->defaultExpanded()) {
+    if (m_current_search->defaultExpanded()) {
         // A bucket inserted into a default-expanded search expands now;
         // the expand signal materializes and sorts it (D2 rule 2).
-        ui->treeView->expand(m_current_search->model().BucketIndex(inserted_bucket_row));
+        for (const int row : inserted_bucket_rows) {
+            ui->treeView->expand(m_current_search->model().BucketIndex(row));
+        }
     }
     // The caption renders the maintained count.
     for (size_t i = 0; i < m_searches.size(); ++i) {

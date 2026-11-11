@@ -176,7 +176,9 @@ private:
     // selection-intent pass. `model_changed` (any model operation, not
     // just item rows — S6 review round 1) gates the column resize, so a
     // metadata-only delta or a new empty bucket resizes too.
-    void FinishDeltaApplication(bool processed, bool model_changed, int inserted_bucket_row);
+    void FinishDeltaApplication(bool processed,
+                                bool model_changed,
+                                const std::vector<int> &inserted_bucket_rows);
     // R1-3: reconciles the view's selection with the stable-id intent
     // after row operations — a removed selected row lapses visually but
     // keeps the intent; a visible item with the intent's id re-adopts the

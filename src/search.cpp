@@ -39,6 +39,17 @@ namespace {
         return la.id() < lb.id();
     }
 
+    // The location a folder-presence map value stands for (FilterItems maps
+    // keys to buckets, the snapshot reconciliation to locations).
+    const ItemLocation &LocationOf(const Bucket &bucket)
+    {
+        return bucket.location();
+    }
+    const ItemLocation &LocationOf(const ItemLocation &location)
+    {
+        return location;
+    }
+
 } // namespace
 
 Search::Search(BuyoutManager &bo_manager,
@@ -496,22 +507,27 @@ void Search::FilterItems(const Items &items)
             }
         }
     }
+    // Folder presence (folder-tree D2): a folder is present while one of
+    // its members is — in an unfiltered search every known folder already
+    // is, like any listed tab.
+    AddMemberFolders(bucketed_tabs, [](const ItemLocation &location) { return Bucket(location); });
 
-    // Move the "By Tab" buckets into their final location, ordered by their
-    // rendered locations — the map above is keyed for identity, not display
-    // order. Stable ids break positional ties so two tabs colliding on one
-    // position mid-refresh keep a deterministic order.
+    // Move the "By Tab" buckets into their final location, in tree order
+    // (folder-tree D3) by their rendered locations — the map above is
+    // keyed for identity, not display order. Stable ids break positional
+    // ties so two tabs colliding on one position mid-refresh keep a
+    // deterministic order.
     m_bucket_by_tab.clear();
     m_bucket_by_tab.reserve(bucketed_tabs.size());
     for (auto &element : bucketed_tabs) {
         m_bucket_by_tab.emplace_back(std::move(element.second));
     }
-    std::sort(m_bucket_by_tab.begin(), m_bucket_by_tab.end(), bucketDisplayLess);
 
     // Fresh buckets get fresh identities (S4): the reset invalidates every
     // persistent index, so serial continuity across a refilter would buy
     // nothing.
     AssignSerials();
+    ArrangeTabTree();
     RebuildRowLookups();
     m_items_stale = false;
     m_flat_bucket_stale = false;
@@ -523,9 +539,12 @@ void Search::FilterItems(const Items &items)
     // restore's expansion signals find valid flags. Unfiltered fresh
     // buckets start collapsed; RestoreViewExpansion's expand signals sort
     // exactly the restored ones.
+    // A folder bucket holds no items and is never materialized (D9).
     if ((m_current_mode == ViewMode::ByTab) && m_filtered) {
         for (auto &bucket : m_bucket_by_tab) {
-            bucket.SetExpanded(true);
+            if (!bucket.location().IsFolder()) {
+                bucket.SetExpanded(true);
+            }
         }
     }
 
@@ -599,14 +618,28 @@ void Search::RebuildRowLookups()
     for (size_t row = 0; row < bucket_list.size(); ++row) {
         m_row_by_serial[bucket_list[row].serial()] = static_cast<int>(row);
     }
-    // The row mapping (folder-tree D4): every bucket is a top-level header.
+    // The row mapping (folder-tree D4), derived from each bucket's recorded
+    // parent over the depth-first vector: a nested bucket's parent is a
+    // folder bucket earlier in the vector, and a folder's nested buckets
+    // are the contiguous run right after it. O(tabs), like the maps above.
     const int bucket_count = static_cast<int>(bucket_list.size());
-    m_top_level_rows.resize(static_cast<size_t>(bucket_count));
+    m_top_level_rows.clear();
     m_parent_rows.assign(static_cast<size_t>(bucket_count), -1);
-    m_rows_in_parent.resize(static_cast<size_t>(bucket_count));
+    m_rows_in_parent.assign(static_cast<size_t>(bucket_count), 0);
+    m_child_counts.assign(static_cast<size_t>(bucket_count), 0);
     for (int row = 0; row < bucket_count; ++row) {
-        m_top_level_rows[static_cast<size_t>(row)] = row;
-        m_rows_in_parent[static_cast<size_t>(row)] = row;
+        const std::uint64_t parent_serial = bucket_list[static_cast<size_t>(row)].parentSerial();
+        const int parent = (parent_serial != 0) ? rowForSerial(parent_serial) : -1;
+        if (parent < 0) {
+            Q_ASSERT(parent_serial == 0);
+            m_rows_in_parent[static_cast<size_t>(row)] = static_cast<int>(m_top_level_rows.size());
+            m_top_level_rows.push_back(row);
+        } else {
+            int &children = m_child_counts[static_cast<size_t>(parent)];
+            Q_ASSERT(parent + 1 + children == row);
+            m_parent_rows[static_cast<size_t>(row)] = parent;
+            m_rows_in_parent[static_cast<size_t>(row)] = children++;
+        }
     }
     m_row_by_key.clear();
     for (size_t row = 0; row < m_bucket_by_tab.size(); ++row) {
@@ -617,16 +650,31 @@ void Search::RebuildRowLookups()
 
 int Search::childBucketRow(int parent_bucket_row, int row) const
 {
-    if ((parent_bucket_row >= 0) || (row < 0)
-        || (row >= static_cast<int>(m_top_level_rows.size()))) {
+    if ((row < 0) || (row >= childBucketCount(parent_bucket_row))) {
         return -1;
     }
-    return m_top_level_rows[static_cast<size_t>(row)];
+    if (parent_bucket_row < 0) {
+        return m_top_level_rows[static_cast<size_t>(row)];
+    }
+    return parent_bucket_row + 1 + row;
 }
 
 int Search::childBucketCount(int parent_bucket_row) const
 {
-    return (parent_bucket_row < 0) ? static_cast<int>(m_top_level_rows.size()) : 0;
+    if (parent_bucket_row < 0) {
+        return static_cast<int>(m_top_level_rows.size());
+    }
+    if (parent_bucket_row >= static_cast<int>(m_child_counts.size())) {
+        return 0;
+    }
+    return m_child_counts[static_cast<size_t>(parent_bucket_row)];
+}
+
+bool Search::isFolderBucket(int bucket_row) const
+{
+    return (m_current_mode == ViewMode::ByTab) && (bucket_row >= 0)
+           && (bucket_row < static_cast<int>(m_bucket_by_tab.size()))
+           && m_bucket_by_tab[static_cast<size_t>(bucket_row)].location().IsFolder();
 }
 
 int Search::parentBucketRow(int bucket_row) const
@@ -712,7 +760,436 @@ void Search::IndexRemoveVisible(const std::shared_ptr<Item> &item)
     }
 }
 
-int Search::ApplyBucketMetadata(int bucket_row, const ItemLocation &canonical, bool *model_changed)
+int Search::NestingParentRow(const ItemLocation &location) const
+{
+    // Depth is fixed at one level (D2): a folder is always top-level, and a
+    // tab nests exactly when its folder id names a folder bucket present in
+    // the vector.
+    if ((location.type() != ItemLocationType::STASH) || location.IsFolder()
+        || location.folder_id().isEmpty()) {
+        return -1;
+    }
+    const int row = FindBucketRow({ItemLocationType::STASH, location.folder_id()});
+    if ((row < 0) || !m_bucket_by_tab[static_cast<size_t>(row)].location().IsFolder()) {
+        return -1;
+    }
+    return row;
+}
+
+std::optional<ItemLocation> Search::KnownFolderLocation(const QString &folder_id) const
+{
+    if (folder_id.isEmpty()) {
+        return std::nullopt;
+    }
+    const LocationInventory::Key key{ItemLocationType::STASH, folder_id};
+    if (m_location_inventory) {
+        const auto &entries = m_location_inventory->entries();
+        const auto it = entries.find(key);
+        if (it != entries.end()) {
+            return it->second.IsFolder() ? std::optional<ItemLocation>(it->second) : std::nullopt;
+        }
+    }
+    for (const auto &location : m_bo_manager.GetStashTabLocations()) {
+        if (LocationInventory::KeyFor(location) == key) {
+            const ItemLocation &canonical = canonicalLocation(location);
+            return canonical.IsFolder() ? std::optional<ItemLocation>(canonical) : std::nullopt;
+        }
+    }
+    return std::nullopt;
+}
+
+template<typename Map, typename Make>
+void Search::AddMemberFolders(Map &present, Make &&make) const
+{
+    std::set<QString> folder_ids;
+    for (const auto &[key, value] : present) {
+        const ItemLocation &location = LocationOf(value);
+        if ((location.type() == ItemLocationType::STASH) && !location.IsFolder()
+            && !location.folder_id().isEmpty()) {
+            folder_ids.insert(location.folder_id());
+        }
+    }
+    for (const QString &folder_id : folder_ids) {
+        const LocationInventory::Key key{ItemLocationType::STASH, folder_id};
+        if (present.count(key) > 0) {
+            continue;
+        }
+        if (const auto folder = KnownFolderLocation(folder_id)) {
+            present.emplace(key, make(*folder));
+        }
+    }
+}
+
+void Search::ArrangeTabTree()
+{
+    // NestingParentRow reads the key map, so build it over the fresh,
+    // still unordered vector first.
+    m_row_by_key.clear();
+    for (size_t row = 0; row < m_bucket_by_tab.size(); ++row) {
+        m_row_by_key[LocationInventory::KeyFor(m_bucket_by_tab[row].location())] = static_cast<int>(
+            row);
+    }
+    std::vector<int> top_level;
+    std::unordered_map<std::uint64_t, std::vector<int>> nested;
+    for (size_t row = 0; row < m_bucket_by_tab.size(); ++row) {
+        const int parent = NestingParentRow(m_bucket_by_tab[row].location());
+        if (parent < 0) {
+            top_level.push_back(static_cast<int>(row));
+        } else {
+            nested[m_bucket_by_tab[static_cast<size_t>(parent)].serial()].push_back(
+                static_cast<int>(row));
+        }
+    }
+    const auto less = [this](int lhs, int rhs) {
+        return bucketDisplayLess(m_bucket_by_tab[static_cast<size_t>(lhs)],
+                                 m_bucket_by_tab[static_cast<size_t>(rhs)]);
+    };
+    std::sort(top_level.begin(), top_level.end(), less);
+    std::vector<Bucket> arranged;
+    arranged.reserve(m_bucket_by_tab.size());
+    for (const int row : top_level) {
+        Bucket &bucket = m_bucket_by_tab[static_cast<size_t>(row)];
+        const std::uint64_t serial = bucket.serial();
+        bucket.SetParentSerial(0);
+        arranged.push_back(std::move(bucket));
+        const auto it = nested.find(serial);
+        if (it == nested.end()) {
+            continue;
+        }
+        std::sort(it->second.begin(), it->second.end(), less);
+        for (const int child : it->second) {
+            Bucket &member = m_bucket_by_tab[static_cast<size_t>(child)];
+            member.SetParentSerial(serial);
+            arranged.push_back(std::move(member));
+        }
+    }
+    m_bucket_by_tab = std::move(arranged);
+}
+
+int Search::SiblingPosition(int parent_row, const Bucket &bucket, int skip_row) const
+{
+    int position = 0;
+    const int count = childBucketCount(parent_row);
+    for (int n = 0; n < count; ++n) {
+        const int sibling = childBucketRow(parent_row, n);
+        if ((sibling != skip_row)
+            && bucketDisplayLess(m_bucket_by_tab[static_cast<size_t>(sibling)], bucket)) {
+            ++position;
+        }
+    }
+    return position;
+}
+
+int Search::InsertBucketUnder(Bucket bucket, int parent_row)
+{
+    const int position = SiblingPosition(parent_row, bucket, -1);
+    int vector_row = 0;
+    if (parent_row < 0) {
+        vector_row = (position < static_cast<int>(m_top_level_rows.size()))
+                         ? m_top_level_rows[static_cast<size_t>(position)]
+                         : static_cast<int>(m_bucket_by_tab.size());
+    } else {
+        vector_row = parent_row + 1 + position;
+    }
+    bucket.SetParentSerial(
+        (parent_row >= 0) ? m_bucket_by_tab[static_cast<size_t>(parent_row)].serial() : 0);
+    ++m_structural_ops;
+    m_model.BeginInsertBucketRow(parent_row, position);
+    m_bucket_by_tab.insert(m_bucket_by_tab.begin() + vector_row, std::move(bucket));
+    RebuildRowLookups();
+    m_model.EndInsertBucketRow();
+    return vector_row;
+}
+
+void Search::RemoveBucketAt(int bucket_row)
+{
+    Q_ASSERT(childBucketCount(bucket_row) == 0);
+    ++m_structural_ops;
+    m_model.BeginRemoveBucketRow(parentBucketRow(bucket_row), rowInParent(bucket_row));
+    m_bucket_by_tab.erase(m_bucket_by_tab.begin() + bucket_row);
+    RebuildRowLookups();
+    m_model.EndRemoveBucketRow();
+}
+
+int Search::MoveBucketTo(int bucket_row, int parent_row, int position)
+{
+    const int from_parent = parentBucketRow(bucket_row);
+    const int from = rowInParent(bucket_row);
+    if ((from_parent == parent_row) && (from == position)) {
+        return bucket_row;
+    }
+    // The run that moves: the bucket and, for a folder, its nested buckets
+    // (a folder moves with its members — D7; it is never nested itself).
+    const int run = 1 + childBucketCount(bucket_row);
+    Q_ASSERT((run == 1) || (parent_row < 0));
+
+    // The destination vector row before extraction: in front of the
+    // sibling the bucket will precede, else right after the destination's
+    // last child.
+    int target_row = -1;
+    int seen = 0;
+    const int count = childBucketCount(parent_row);
+    for (int n = 0; (n < count) && (target_row < 0); ++n) {
+        const int sibling = childBucketRow(parent_row, n);
+        if (sibling == bucket_row) {
+            continue;
+        }
+        if (seen == position) {
+            target_row = sibling;
+        }
+        ++seen;
+    }
+    if (target_row < 0) {
+        target_row = (parent_row < 0) ? static_cast<int>(m_bucket_by_tab.size())
+                                      : (parent_row + 1 + childBucketCount(parent_row));
+    }
+    const std::uint64_t parent_serial
+        = (parent_row >= 0) ? m_bucket_by_tab[static_cast<size_t>(parent_row)].serial() : 0;
+
+    if (!m_model.BeginMoveBucketRow(from_parent, from, parent_row, position)) {
+        return bucket_row;
+    }
+    ++m_structural_ops;
+    std::vector<Bucket> moving;
+    moving.reserve(static_cast<size_t>(run));
+    const auto first = m_bucket_by_tab.begin() + bucket_row;
+    std::move(first, first + run, std::back_inserter(moving));
+    m_bucket_by_tab.erase(first, first + run);
+    if (target_row > bucket_row) {
+        target_row -= run;
+    }
+    moving.front().SetParentSerial(parent_serial);
+    m_bucket_by_tab.insert(m_bucket_by_tab.begin() + target_row,
+                           std::make_move_iterator(moving.begin()),
+                           std::make_move_iterator(moving.end()));
+    RebuildRowLookups();
+    m_model.EndMoveBucketRow();
+    return target_row;
+}
+
+int Search::MoveBucketUnder(int bucket_row, int parent_row)
+{
+    return MoveBucketTo(bucket_row,
+                        parent_row,
+                        SiblingPosition(parent_row,
+                                        m_bucket_by_tab[static_cast<size_t>(bucket_row)],
+                                        bucket_row));
+}
+
+void Search::AdoptMembers(int folder_row)
+{
+    const std::uint64_t folder_serial = m_bucket_by_tab[static_cast<size_t>(folder_row)].serial();
+    std::vector<std::uint64_t> members;
+    const int count = childBucketCount(-1);
+    for (int n = 0; n < count; ++n) {
+        const int row = childBucketRow(-1, n);
+        if ((row != folder_row)
+            && (NestingParentRow(m_bucket_by_tab[static_cast<size_t>(row)].location())
+                == folder_row)) {
+            members.push_back(m_bucket_by_tab[static_cast<size_t>(row)].serial());
+        }
+    }
+    for (const std::uint64_t serial : members) {
+        MoveBucketUnder(rowForSerial(serial), rowForSerial(folder_serial));
+    }
+}
+
+int Search::EnsureFolderPresent(const QString &folder_id, std::vector<std::uint64_t> *inserted)
+{
+    if (folder_id.isEmpty()) {
+        return -1;
+    }
+    const int row = FindBucketRow({ItemLocationType::STASH, folder_id});
+    if (row >= 0) {
+        return m_bucket_by_tab[static_cast<size_t>(row)].location().IsFolder() ? row : -1;
+    }
+    const auto location = KnownFolderLocation(folder_id);
+    if (!location) {
+        return -1; // unknown: its members stay top-level (D2)
+    }
+    Bucket folder(*location);
+    folder.SetSerial(m_next_bucket_serial++);
+    const std::uint64_t serial = folder.serial();
+    InsertBucketUnder(std::move(folder), -1);
+    if (inserted) {
+        inserted->push_back(serial);
+    }
+    AdoptMembers(rowForSerial(serial));
+    return rowForSerial(serial);
+}
+
+std::vector<std::uint64_t> Search::InsertTabBucket(const ItemLocation &canonical,
+                                                   const Items &accepted)
+{
+    std::vector<std::uint64_t> inserted;
+    const bool folder = canonical.IsFolder();
+    if (!folder) {
+        EnsureFolderPresent(canonical.folder_id(), &inserted);
+    }
+    Bucket bucket(canonical);
+    bucket.SetSerial(m_next_bucket_serial++);
+    const std::uint64_t serial = bucket.serial();
+    // A folder holds no items (D2; the worker discards any, D12).
+    if (!folder) {
+        bucket.AddItems(accepted);
+    }
+    InsertBucketUnder(std::move(bucket), NestingParentRow(canonical));
+    inserted.push_back(serial);
+    if (folder) {
+        AdoptMembers(rowForSerial(serial));
+    } else {
+        for (const auto &item : accepted) {
+            IndexInsertVisible(item);
+        }
+    }
+    return inserted;
+}
+
+bool Search::RemoveTabBucket(int bucket_row, bool cascade)
+{
+    const std::uint64_t serial = m_bucket_by_tab[static_cast<size_t>(bucket_row)].serial();
+    // A folder never leaves with members under it (D7): they move to the
+    // top level first.
+    std::vector<std::uint64_t> members;
+    for (int n = 0; n < childBucketCount(bucket_row); ++n) {
+        members.push_back(
+            m_bucket_by_tab[static_cast<size_t>(childBucketRow(bucket_row, n))].serial());
+    }
+    for (const std::uint64_t member : members) {
+        MoveBucketUnder(rowForSerial(member), -1);
+    }
+    bucket_row = rowForSerial(serial);
+
+    const int parent_row = parentBucketRow(bucket_row);
+    const std::uint64_t parent_serial
+        = (parent_row >= 0) ? m_bucket_by_tab[static_cast<size_t>(parent_row)].serial() : 0;
+    const Bucket &bucket = m_bucket_by_tab[static_cast<size_t>(bucket_row)];
+    const bool had_items = !bucket.items().empty();
+    for (const auto &item : bucket.items()) {
+        IndexRemoveVisible(item);
+    }
+    RemoveBucketAt(bucket_row);
+
+    // D7: in a filtered search, removing a folder's last present member
+    // removes the folder bucket.
+    if (cascade && m_filtered && (parent_serial != 0)) {
+        const int folder_row = rowForSerial(parent_serial);
+        if ((folder_row >= 0) && IsEmptyForFilter(folder_row)) {
+            RemoveTabBucket(folder_row, false);
+        }
+    }
+    return had_items;
+}
+
+bool Search::IsEmptyForFilter(int bucket_row) const
+{
+    if (isFolderBucket(bucket_row)) {
+        return childBucketCount(bucket_row) == 0;
+    }
+    return m_bucket_by_tab[static_cast<size_t>(bucket_row)].items().empty();
+}
+
+bool Search::HasPresentMembers(const QString &folder_id) const
+{
+    for (const auto &bucket : m_bucket_by_tab) {
+        const ItemLocation &location = bucket.location();
+        if (!location.IsFolder() && (location.folder_id() == folder_id)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool Search::BucketInPlace(int bucket_row) const
+{
+    const Bucket &bucket = m_bucket_by_tab[static_cast<size_t>(bucket_row)];
+    const int parent_row = parentBucketRow(bucket_row);
+    if (parent_row != NestingParentRow(bucket.location())) {
+        return false;
+    }
+    const int position = rowInParent(bucket_row);
+    const int previous = childBucketRow(parent_row, position - 1);
+    const int next = childBucketRow(parent_row, position + 1);
+    return ((previous < 0)
+            || !bucketDisplayLess(bucket, m_bucket_by_tab[static_cast<size_t>(previous)]))
+           && ((next < 0) || !bucketDisplayLess(m_bucket_by_tab[static_cast<size_t>(next)], bucket));
+}
+
+bool Search::TabTreeInOrder() const
+{
+    const int bucket_count = static_cast<int>(m_bucket_by_tab.size());
+    for (int row = 0; row < bucket_count; ++row) {
+        if (!BucketInPlace(row)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void Search::SortSiblings(int parent_row)
+{
+    // A selection pass of moves: rare (the clean snapshot never gets here),
+    // and each move is one row operation.
+    const int count = childBucketCount(parent_row);
+    for (int position = 0; position < count; ++position) {
+        int best = position;
+        for (int n = position + 1; n < count; ++n) {
+            if (bucketDisplayLess(
+                    m_bucket_by_tab[static_cast<size_t>(childBucketRow(parent_row, n))],
+                    m_bucket_by_tab[static_cast<size_t>(childBucketRow(parent_row, best))])) {
+                best = n;
+            }
+        }
+        if (best != position) {
+            MoveBucketTo(childBucketRow(parent_row, best), parent_row, position);
+        }
+    }
+}
+
+void Search::SettleTabTree()
+{
+    // Membership first — every bucket under its nesting parent — then each
+    // sibling list into order.
+    std::vector<std::uint64_t> misplaced;
+    for (size_t row = 0; row < m_bucket_by_tab.size(); ++row) {
+        if (parentBucketRow(static_cast<int>(row))
+            != NestingParentRow(m_bucket_by_tab[row].location())) {
+            misplaced.push_back(m_bucket_by_tab[row].serial());
+        }
+    }
+    for (const std::uint64_t serial : misplaced) {
+        const int row = rowForSerial(serial);
+        MoveBucketUnder(row, NestingParentRow(m_bucket_by_tab[static_cast<size_t>(row)].location()));
+    }
+    SortSiblings(-1);
+    std::vector<std::uint64_t> folders;
+    for (const auto &bucket : m_bucket_by_tab) {
+        if (bucket.location().IsFolder()) {
+            folders.push_back(bucket.serial());
+        }
+    }
+    for (const std::uint64_t serial : folders) {
+        SortSiblings(rowForSerial(serial));
+    }
+}
+
+std::vector<int> Search::InsertedRows(const std::vector<std::uint64_t> &serials) const
+{
+    std::vector<int> rows;
+    for (const std::uint64_t serial : serials) {
+        const int row = rowForSerial(serial);
+        if (row >= 0) {
+            rows.push_back(row);
+        }
+    }
+    std::sort(rows.begin(), rows.end());
+    return rows;
+}
+
+int Search::ApplyBucketMetadata(int bucket_row,
+                                const ItemLocation &canonical,
+                                bool *model_changed,
+                                std::vector<std::uint64_t> *inserted)
 {
     Bucket &bucket = m_bucket_by_tab[static_cast<size_t>(bucket_row)];
     const ItemLocation old_location = bucket.location();
@@ -720,75 +1197,53 @@ int Search::ApplyBucketMetadata(int bucket_row, const ItemLocation &canonical, b
                                   || (old_location.getR() != canonical.getR())
                                   || (old_location.getG() != canonical.getG())
                                   || (old_location.getB() != canonical.getB());
+    const std::uint64_t serial = bucket.serial();
+    Q_ASSERT(old_location.IsFolder() == canonical.IsFolder()); // callers handle a kind change
     bucket.SetLocation(canonical);
+    if (m_current_mode != ViewMode::ByTab) {
+        return bucket_row;
+    }
+    const std::uint64_t ops_before = m_structural_ops;
 
-    // Reposition when display ordering changed (D3): the vector is sorted
-    // by display order except possibly this bucket, so its destination is
-    // found by walking outward from its current row.
-    int target = bucket_row;
-    while ((target > 0)
-           && bucketDisplayLess(m_bucket_by_tab[static_cast<size_t>(bucket_row)],
-                                m_bucket_by_tab[static_cast<size_t>(target - 1)])) {
-        --target;
+    // The presence rule for the folder entered (D7): a filtered search may
+    // need it inserted first.
+    if (!canonical.IsFolder() && (canonical.folder_id() != old_location.folder_id())) {
+        EnsureFolderPresent(canonical.folder_id(), inserted);
     }
-    if (target == bucket_row) {
-        while ((target + 1 < static_cast<int>(m_bucket_by_tab.size()))
-               && bucketDisplayLess(m_bucket_by_tab[static_cast<size_t>(target + 1)],
-                                    m_bucket_by_tab[static_cast<size_t>(bucket_row)])) {
-            ++target;
+
+    // Reposition (D3/D7/D8): within the parent when only the index changed,
+    // across parents when the folder id did; a folder carries its run. The
+    // neighbour check keeps the common no-move delta O(1); only a real
+    // move pays the sibling walk and the O(tabs) lookup rebuild.
+    bucket_row = rowForSerial(serial);
+    const int old_parent = parentBucketRow(bucket_row);
+    const std::uint64_t old_parent_serial
+        = (old_parent >= 0) ? m_bucket_by_tab[static_cast<size_t>(old_parent)].serial() : 0;
+    if (!BucketInPlace(bucket_row)) {
+        bucket_row = MoveBucketUnder(bucket_row, NestingParentRow(canonical));
+    }
+
+    // ...and for the folder left: a filtered search drops it when this was
+    // its last present member.
+    if (m_filtered && (old_parent_serial != 0)) {
+        const int folder_row = rowForSerial(old_parent_serial);
+        if ((folder_row >= 0) && (folder_row != parentBucketRow(bucket_row))
+            && IsEmptyForFilter(folder_row)) {
+            RemoveTabBucket(folder_row, false);
+            bucket_row = rowForSerial(serial);
         }
     }
-    if ((target != bucket_row) && (m_current_mode == ViewMode::ByTab)
-        && m_model.BeginMoveBucketRow(bucket_row, target)) {
-        auto first = m_bucket_by_tab.begin();
-        if (target < bucket_row) {
-            std::rotate(first + target, first + bucket_row, first + bucket_row + 1);
-        } else {
-            std::rotate(first + bucket_row, first + bucket_row + 1, first + target + 1);
-        }
-        RebuildRowLookups();
-        m_model.EndMoveBucketRow();
-        bucket_row = target;
-        if (model_changed) {
-            *model_changed = true;
-        }
+
+    if (model_changed && (m_structural_ops != ops_before)) {
+        *model_changed = true;
     }
-    if (rendered_changed && (m_current_mode == ViewMode::ByTab)) {
+    if (rendered_changed) {
         m_model.EmitBucketMetadataChanged(bucket_row);
         if (model_changed) {
             *model_changed = true;
         }
     }
     return bucket_row;
-}
-
-int Search::InsertBucketRow(const ItemLocation &canonical, const Items &accepted)
-{
-    Bucket bucket(canonical);
-    bucket.SetSerial(m_next_bucket_serial++);
-    bucket.AddItems(accepted);
-
-    int row = 0;
-    while ((row < static_cast<int>(m_bucket_by_tab.size()))
-           && bucketDisplayLess(m_bucket_by_tab[static_cast<size_t>(row)], bucket)) {
-        ++row;
-    }
-    m_model.BeginInsertBucketRow(row);
-    m_bucket_by_tab.insert(m_bucket_by_tab.begin() + row, std::move(bucket));
-    RebuildRowLookups();
-    m_model.EndInsertBucketRow();
-    for (const auto &item : accepted) {
-        IndexInsertVisible(item);
-    }
-    return row;
-}
-
-void Search::RemoveBucketRow(int bucket_row)
-{
-    m_model.BeginRemoveBucketRow(bucket_row);
-    m_bucket_by_tab.erase(m_bucket_by_tab.begin() + bucket_row);
-    RebuildRowLookups();
-    m_model.EndRemoveBucketRow();
 }
 
 template<typename Predicate>
@@ -943,57 +1398,84 @@ Search::DeltaApplication Search::ApplyTabDelta(const ItemLocation &location, con
     }
 
     DeltaApplication result;
-    int bucket_row = FindBucketRow(delta_key);
-    if (bucket_row < 0) {
-        // No bucket owns this stable key. One appears when arrivals pass
-        // the filters, or metadata-only in an unfiltered search (R1-4's
-        // new-empty-tab clause); a filtered search with nothing visible
-        // has adjudicated "no visible change".
-        if (accepted.empty() && m_filtered) {
-            result.processed = true;
-            return result;
+    const std::uint64_t ops_before = m_structural_ops;
+    std::vector<std::uint64_t> inserted;
+    const auto finish = [&]() {
+        if (m_structural_ops != ops_before) {
+            result.model_changed = true;
         }
-        result.inserted_bucket_row = InsertBucketRow(canonical, accepted);
-        result.model_changed = true;
-        if (!accepted.empty()) {
+        result.inserted_bucket_rows = InsertedRows(inserted);
+        result.processed = true;
+        return result;
+    };
+
+    int bucket_row = FindBucketRow(delta_key);
+    if ((bucket_row >= 0)
+        && (m_bucket_by_tab[static_cast<size_t>(bucket_row)].location().IsFolder()
+            != canonical.IsFolder())) {
+        // A kind change (folder <-> tab, unobserved) is a different row
+        // kind (D5): the old bucket leaves and the delta inserts it anew.
+        if (RemoveTabBucket(bucket_row, true)) {
             m_items_stale = true;
             m_flat_bucket_stale = true;
             result.content_changed = true;
         }
-        result.processed = true;
-        return result;
+        bucket_row = -1;
+    }
+    if (bucket_row < 0) {
+        // No bucket owns this stable key. One appears when arrivals pass
+        // the filters, or metadata-only in an unfiltered search (R1-4's
+        // new-empty-tab clause), or — for a folder in a filtered search —
+        // when members it would hold are present (D2 folder presence); a
+        // filtered search with nothing visible has adjudicated "no visible
+        // change".
+        const bool wanted = !accepted.empty() || !m_filtered
+                            || (canonical.IsFolder() && HasPresentMembers(canonical.id()));
+        if (!wanted) {
+            return finish();
+        }
+        inserted = InsertTabBucket(canonical, accepted);
+        if (!accepted.empty() && !canonical.IsFolder()) {
+            m_items_stale = true;
+            m_flat_bucket_stale = true;
+            result.content_changed = true;
+        }
+        return finish();
     }
 
     // Metadata half first (R1-4): the anchor renders now, item
     // intersection notwithstanding; the content ops below then target the
     // bucket's settled row.
-    bucket_row = ApplyBucketMetadata(bucket_row, canonical, &result.model_changed);
+    bucket_row = ApplyBucketMetadata(bucket_row, canonical, &result.model_changed, &inserted);
 
     // Content half: a source-scoped replace (R1-1) — remove exactly the
-    // rows fetched from this delta's source, then insert the arrivals.
-    const bool removed = RemoveBucketRows(bucket_row, [&source](const Item &item) {
-        return FetchSourceKey::ForLocation(item.location()) == source;
-    });
-    if (!accepted.empty()) {
-        InsertArrivals(bucket_row, accepted);
-    }
+    // rows fetched from this delta's source, then insert the arrivals. A
+    // folder holds no item rows (D2; the worker discards its items, D12).
+    if (!isFolderBucket(bucket_row)) {
+        const bool removed = RemoveBucketRows(bucket_row, [&source](const Item &item) {
+            return FetchSourceKey::ForLocation(item.location()) == source;
+        });
+        if (!accepted.empty()) {
+            InsertArrivals(bucket_row, accepted);
+        }
 
-    if (removed || !accepted.empty()) {
-        m_items_stale = true;
-        m_flat_bucket_stale = true;
-        result.content_changed = true;
-        result.model_changed = true;
+        if (removed || !accepted.empty()) {
+            m_items_stale = true;
+            m_flat_bucket_stale = true;
+            result.content_changed = true;
+            result.model_changed = true;
+        }
     }
 
     // A filtered search hides empty buckets (S4 review round 1): a bucket
     // this delta emptied leaves the view, converging to the
-    // freshly-refiltered state. Unfiltered searches keep the empty row
-    // (emptyDeltaEmptiesBucketWithoutRemovingIt).
-    if (m_filtered && m_bucket_by_tab[static_cast<size_t>(bucket_row)].items().empty()) {
-        RemoveBucketRow(bucket_row);
-        result.model_changed = true;
-        result.processed = true;
-        return result;
+    // freshly-refiltered state — and so does a folder it was the last
+    // present member of (D7). Unfiltered searches keep the empty row
+    // (emptyDeltaEmptiesBucketWithoutRemovingIt). The one emptiness
+    // predicate keeps a folder with members (D7).
+    if (m_filtered && IsEmptyForFilter(bucket_row)) {
+        RemoveTabBucket(bucket_row, true);
+        return finish();
     }
 
     // Defensive: a visible bucket must never keep stale order past a
@@ -1005,8 +1487,7 @@ Search::DeltaApplication Search::ApplyTabDelta(const ItemLocation &location, con
         m_model.ResortBucket(bucket_row);
     }
 
-    result.processed = true;
-    return result;
+    return finish();
 }
 
 Search::DeltaApplication Search::ApplyFlatDelta(const FetchSourceKey &source, const Items &accepted)
@@ -1112,11 +1593,31 @@ Search::DeltaApplication Search::ApplyChildReconciliation(
     }
 
     int bucket_row = FindBucketRow(parent_key);
+    const ItemLocation &canonical = canonicalLocation(parent);
+    if ((bucket_row >= 0)
+        && (m_bucket_by_tab[static_cast<size_t>(bucket_row)].location().IsFolder()
+            != canonical.IsFolder())) {
+        // A kind change (folder <-> tab) is a different row kind (D5): the
+        // bucket leaves; a later delta or the snapshot inserts it anew.
+        if (RemoveTabBucket(bucket_row, true)) {
+            m_items_stale = true;
+            m_flat_bucket_stale = true;
+            result.content_changed = true;
+        }
+        result.model_changed = true;
+        bucket_row = -1;
+    }
     if (bucket_row < 0) {
         result.processed = true; // nothing visible under the parent
         return result;
     }
-    bucket_row = ApplyBucketMetadata(bucket_row, canonicalLocation(parent), &result.model_changed);
+    std::vector<std::uint64_t> inserted;
+    bucket_row = ApplyBucketMetadata(bucket_row, canonical, &result.model_changed, &inserted);
+    result.inserted_bucket_rows = InsertedRows(inserted);
+    if (isFolderBucket(bucket_row)) {
+        result.processed = true; // a folder holds no item rows (D2)
+        return result;
+    }
 
     // The erase becomes row removals scoped to the parent's bucket (D3):
     // already source-predicate-shaped — keys outside the expected set.
@@ -1130,9 +1631,10 @@ Search::DeltaApplication Search::ApplyChildReconciliation(
         result.content_changed = true;
         result.model_changed = true;
         // Same filtered-empty convergence as the content delta (S4
-        // review round 1).
-        if (m_filtered && m_bucket_by_tab[static_cast<size_t>(bucket_row)].items().empty()) {
-            RemoveBucketRow(bucket_row);
+        // review round 1), through the one emptiness predicate (D7).
+        if (m_filtered && IsEmptyForFilter(bucket_row)) {
+            RemoveTabBucket(bucket_row, true);
+            result.inserted_bucket_rows = InsertedRows(inserted);
         }
     }
     result.processed = true;
@@ -1239,7 +1741,9 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
     // published tab for an unfiltered search (FilterItems' empty-bucket
     // rule — filtered searches still hide empty buckets). emplace keeps
     // FilterItems' precedence: item-derived canonical anchor first, then
-    // the published tab list, then the canonical inventory.
+    // the published tab list, then the canonical inventory — then the
+    // folders present members need (folder-tree D2).
+    const std::uint64_t ops_before = m_structural_ops;
     std::map<LocationInventory::Key, ItemLocation> target_buckets;
     for (const auto &[key, bucket_items] : target_items) {
         target_buckets.emplace(key, canonicalLocation(bucket_items.front()->location()));
@@ -1255,31 +1759,40 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
             }
         }
     }
+    AddMemberFolders(target_buckets, [](const ItemLocation &location) { return location; });
 
-    // Deleted buckets leave first — rows and bucket as one top-level
-    // removal (the subtree goes with the row), indexes unwound per item.
+    // A surviving bucket keeps its key and its kind (folder or tab, D5); a
+    // kind change is a deletion plus a new listing.
+    const auto survives = [&target_buckets](const Bucket &bucket) {
+        const auto it = target_buckets.find(LocationInventory::KeyFor(bucket.location()));
+        return (it != target_buckets.end())
+               && (it->second.IsFolder() == bucket.location().IsFolder());
+    };
+
+    // Deleted tab buckets leave first — rows and bucket as one removal (the
+    // subtree goes with the row), indexes unwound per item. Deleted folders
+    // wait until membership has settled (D7).
     for (int row = static_cast<int>(m_bucket_by_tab.size()) - 1; row >= 0; --row) {
         const Bucket &bucket = m_bucket_by_tab[static_cast<size_t>(row)];
-        if (target_buckets.count(LocationInventory::KeyFor(bucket.location())) > 0) {
+        if (survives(bucket) || bucket.location().IsFolder()) {
             continue;
         }
-        if (!bucket.items().empty()) {
-            // Item rows leave with the bucket; an empty deleted bucket is
-            // a model-only change (S6 review round 1 — it must not mark
-            // the flat bucket stale).
+        // Item rows leave with the bucket; an empty deleted bucket is a
+        // model-only change (S6 review round 1 — it must not mark the flat
+        // bucket stale).
+        if (RemoveTabBucket(row, false)) {
             result.content_changed = true;
         }
-        for (const auto &item : bucket.items()) {
-            IndexRemoveVisible(item);
-        }
-        RemoveBucketRow(row);
-        result.model_changed = true;
     }
 
     // Metadata refreshed against the rebased locations: identity is the
-    // stable key, so only rendered attributes change here.
+    // stable key, so only rendered attributes change here; positions
+    // settle below.
     for (size_t row = 0; row < m_bucket_by_tab.size(); ++row) {
         Bucket &bucket = m_bucket_by_tab[row];
+        if (!survives(bucket)) {
+            continue;
+        }
         const ItemLocation &canonical = target_buckets.at(
             LocationInventory::KeyFor(bucket.location()));
         const ItemLocation old_location = bucket.location();
@@ -1294,36 +1807,34 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
         }
     }
 
-    // Bucket order corrected via move ops. bucketDisplayLess is a TOTAL
-    // order (stable-id tiebreak), so "no move needed" is exactly
-    // is_sorted — the clean snapshot pays one O(tabs) scan (S6 review
-    // round 1: the unguarded selection pass was O(tabs²) on every clean
-    // snapshot, against the 2000+-tab driving use case). The selection
-    // pass survives as the rare displaced-path mechanism only.
-    if (!std::is_sorted(m_bucket_by_tab.begin(), m_bucket_by_tab.end(), bucketDisplayLess)) {
-        const int bucket_count = static_cast<int>(m_bucket_by_tab.size());
-        for (int row = 0; row < bucket_count; ++row) {
-            int best = row;
-            for (int n = row + 1; n < bucket_count; ++n) {
-                if (bucketDisplayLess(m_bucket_by_tab[static_cast<size_t>(n)],
-                                      m_bucket_by_tab[static_cast<size_t>(best)])) {
-                    best = n;
-                }
-            }
-            if ((best != row) && m_model.BeginMoveBucketRow(best, row)) {
-                auto first = m_bucket_by_tab.begin();
-                std::rotate(first + row, first + best, first + best + 1);
-                RebuildRowLookups();
-                m_model.EndMoveBucketRow();
-                result.model_changed = true;
-            }
+    // Deleted folders leave now — each moves its members to the top level
+    // first (D7: never a folder with members), whatever their metadata.
+    std::vector<std::uint64_t> deleted_folders;
+    for (const auto &bucket : m_bucket_by_tab) {
+        if (!survives(bucket)) {
+            deleted_folders.push_back(bucket.serial());
         }
     }
+    for (const std::uint64_t serial : deleted_folders) {
+        RemoveTabBucket(rowForSerial(serial), false);
+    }
 
-    // Newly listed buckets, at their display positions (the vector is
-    // display-ordered after the pass above, so InsertBucketRow's walk is
-    // exact). Rows shift as later insertions land, so track serials and
-    // resolve them to final rows at the end.
+    // Membership and order settled via move ops. bucketDisplayLess is a
+    // TOTAL order (stable-id tiebreak) and nesting is one function, so "no
+    // move needed" is exactly the in-order check — the clean snapshot pays
+    // one pass over the tabs (S6 review round 1: the unguarded selection
+    // pass was O(tabs²) on every clean snapshot, against the 2000+-tab
+    // driving use case). The settle survives as the rare displaced-path
+    // mechanism only.
+    if (!TabTreeInOrder()) {
+        SettleTabTree();
+    }
+
+    // Newly listed buckets, at their tree positions (the vector is in tree
+    // order after the pass above, so each insertion's sibling walk is
+    // exact; a member's absent folder is inserted first, a folder adopts
+    // its present members). Rows shift as later insertions land, so track
+    // serials and resolve them to final rows at the end.
     std::vector<std::uint64_t> inserted_serials;
     static const Items no_items;
     for (const auto &[key, canonical] : target_buckets) {
@@ -1332,10 +1843,10 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
         }
         const auto it = target_items.find(key);
         const Items &bucket_items = (it != target_items.end()) ? it->second : no_items;
-        const int row = InsertBucketRow(canonical, bucket_items);
-        inserted_serials.push_back(m_bucket_by_tab[static_cast<size_t>(row)].serial());
+        const auto inserted = InsertTabBucket(canonical, bucket_items);
+        inserted_serials.insert(inserted_serials.end(), inserted.begin(), inserted.end());
         result.model_changed = true;
-        if (!bucket_items.empty()) {
+        if (!bucket_items.empty() && !canonical.IsFolder()) {
             result.content_changed = true;
         }
     }
@@ -1353,6 +1864,9 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
     // guarantee is also what makes the kRetained mark sound: retained ⇒
     // in exactly its own key's bucket.
     for (int row = 0; row < static_cast<int>(m_bucket_by_tab.size()); ++row) {
+        if (isFolderBucket(row)) {
+            continue; // a folder holds no item rows (D2)
+        }
         const ItemLocation &bucket_location = m_bucket_by_tab[static_cast<size_t>(row)].location();
         bool bucket_changed = RemoveBucketRows(row, [&state, &bucket_location](const Item &item) {
             if (state.find(&item) == state.end()) {
@@ -1401,13 +1915,10 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
     }
     m_items_dirty = false; // authoritative (R1-7)
 
-    for (const std::uint64_t serial : inserted_serials) {
-        const int row = rowForSerial(serial);
-        if (row >= 0) {
-            result.inserted_bucket_rows.push_back(row);
-        }
+    if (m_structural_ops != ops_before) {
+        result.model_changed = true;
     }
-    std::sort(result.inserted_bucket_rows.begin(), result.inserted_bucket_rows.end());
+    result.inserted_bucket_rows = InsertedRows(inserted_serials);
     return result;
 }
 
@@ -1558,15 +2069,17 @@ void Search::RebuildTabBucketsFromFlat()
             }
         }
     }
+    // Folder presence (folder-tree D2), as FilterItems applies it.
+    AddMemberFolders(bucketed_tabs, [](const ItemLocation &location) { return Bucket(location); });
 
     m_bucket_by_tab.clear();
     m_bucket_by_tab.reserve(bucketed_tabs.size());
     for (auto &element : bucketed_tabs) {
         m_bucket_by_tab.emplace_back(std::move(element.second));
     }
-    std::sort(m_bucket_by_tab.begin(), m_bucket_by_tab.end(), bucketDisplayLess);
     for (auto &bucket : m_bucket_by_tab) {
         bucket.SetSerial(m_next_bucket_serial++);
     }
+    ArrangeTabTree();
     m_tab_buckets_stale = false;
 }

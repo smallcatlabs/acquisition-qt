@@ -195,10 +195,12 @@ public:
         bool processed{false};
         bool content_changed{false};
         bool model_changed{false};
-        // A bucket inserted by this delta (new tab, or first filter-passing
-        // items for a hidden one); the caller default-expands it in the
-        // view when the search is default-expanded.
-        int inserted_bucket_row{-1};
+        // Buckets inserted by this delta (new tab, or first filter-passing
+        // items for a hidden one — and the folder such a bucket needed,
+        // folder-tree D7), as final bucket rows, ascending; the caller
+        // default-expands them in the view when the search is
+        // default-expanded.
+        std::vector<int> inserted_bucket_rows;
     };
 
     // Applies a TabRefreshed delta. By-Tab: bucket-scoped operations
@@ -276,6 +278,9 @@ public:
     int parentBucketRow(int bucket_row) const;
     // A bucket header's model row within its parent.
     int rowInParent(int bucket_row) const;
+    // True for a By-Tab bucket whose location is a Folder-type stash
+    // (folder-tree Terms): its children are bucket headers, never items.
+    bool isFolderBucket(int bucket_row) const;
 
     // The active-mode bucket row for a stable display key, -1 when
     // absent (S4 review round 2): O(log tabs) through the delta path's
@@ -296,20 +301,84 @@ private:
     void AssignSerials();
     void RebuildRowLookups();
     int FindBucketRow(const LocationInventory::Key &key) const;
-    // Removes an emptied bucket's top-level row (S4 review round 1): a
-    // filtered search hides empty buckets, so the delta path converges to
-    // the freshly-refiltered state. A row removal, not a tab deletion —
-    // the tab itself still dies only at the snapshot boundary.
-    void RemoveBucketRow(int bucket_row);
+
+    // Folder-tree structure (D2, D3, D7, D8), By-Tab only. The By-Tab
+    // vector is kept in depth-first tree order: each folder bucket is
+    // followed by its nested buckets, and siblings at either level are in
+    // bucketDisplayLess order — which is D3's lexicographic order on
+    // (group anchor, header before members, self). Each bucket records the
+    // folder it is currently rendered under (Bucket::parentSerial), and
+    // the row lookups derive the model's structure from that, so a
+    // primitive's single row notification and its vector change agree at
+    // every notification boundary.
+    //
+    // The one function deciding nesting (D2/D3), used by both the
+    // ordering and the row mapping: the bucket row of the present folder
+    // bucket a bucket with `location` belongs under, -1 for the top level.
+    int NestingParentRow(const ItemLocation &location) const;
+    // A folder's location when the canonical inventory or the published
+    // tab list knows it as a Folder-type stash (D2 folder presence).
+    std::optional<ItemLocation> KnownFolderLocation(const QString &folder_id) const;
+    // D2 folder presence: adds to `present` (stable key -> Bucket or
+    // ItemLocation) each known folder its present members name.
+    template<typename Map, typename Make>
+    void AddMemberFolders(Map &present, Make &&make) const;
+    // Sorts a freshly built By-Tab vector into tree order and records each
+    // bucket's parent (refilter and mode-switch rebuilds).
+    void ArrangeTabTree();
+    // A bucket's position among `parent_row`'s children by
+    // bucketDisplayLess, not counting `skip_row`.
+    int SiblingPosition(int parent_row, const Bucket &bucket, int skip_row) const;
+    // Primitives: one model row operation each; return the bucket's final
+    // bucket row. A folder moves with its nested run; a folder is removed
+    // only with no nested buckets.
+    int InsertBucketUnder(Bucket bucket, int parent_row);
+    void RemoveBucketAt(int bucket_row);
+    int MoveBucketTo(int bucket_row, int parent_row, int position);
+    int MoveBucketUnder(int bucket_row, int parent_row);
+    // D7 Insert: a bucket at its tree position — its known but absent
+    // folder inserted first; a folder adopting its present top-level
+    // members. Returns the serials of every bucket inserted.
+    std::vector<std::uint64_t> InsertTabBucket(const ItemLocation &canonical, const Items &accepted);
+    // The present folder bucket's row for `folder_id`, inserting it (and
+    // adopting its members) when absent but known; -1 when unknown.
+    int EnsureFolderPresent(const QString &folder_id, std::vector<std::uint64_t> *inserted);
+    void AdoptMembers(int folder_row);
+    // D7 Remove: unwinds the visible indexes for the bucket's items and
+    // removes its row — a folder's members first moved to the top level.
+    // With `cascade`, a filtered search also drops the folder the bucket
+    // left when it has no present members left. Returns true when item
+    // rows left with the bucket.
+    bool RemoveTabBucket(int bucket_row, bool cascade);
+    // D7 Emptiness, the one predicate every "filtered searches hide empty
+    // buckets" site goes through: no items for a tab bucket, no present
+    // members for a folder bucket.
+    bool IsEmptyForFilter(int bucket_row) const;
+    // True when a non-folder bucket naming `folder_id` is present.
+    bool HasPresentMembers(const QString &folder_id) const;
+    // Final-snapshot settling (D7): true when every bucket sits under its
+    // nesting parent in sibling order; SettleTabTree restores that with
+    // move operations.
+    bool TabTreeInOrder() const;
+    // True when a bucket sits under its nesting parent and between its
+    // neighbouring siblings in order — O(1) plus one key lookup.
+    bool BucketInPlace(int bucket_row) const;
+    void SettleTabTree();
+    void SortSiblings(int parent_row);
+    // A delta's inserted serials as final bucket rows, ascending.
+    std::vector<int> InsertedRows(const std::vector<std::uint64_t> &serials) const;
+
     // Renders a delta's fresh location anchor on an existing bucket:
-    // dataChanged for header text/color, beginMoveRows when the display
-    // position changes. Returns the bucket's (possibly moved) row; when
-    // `model_changed` is given, ORs in whether any model operation ran.
+    // dataChanged for header text/color, a move when its tree position
+    // changes — within its parent, or across parents when its folder id
+    // changed (D7/D8), applying the presence rule to the folder entered
+    // and the folder left. Returns the bucket's (possibly moved) row; when
+    // `model_changed` is given, ORs in whether any model operation ran;
+    // a folder the move needed is recorded in `inserted`.
     int ApplyBucketMetadata(int bucket_row,
                             const ItemLocation &canonical,
-                            bool *model_changed = nullptr);
-    // Inserts a new display bucket at its display position; returns its row.
-    int InsertBucketRow(const ItemLocation &canonical, const Items &accepted);
+                            bool *model_changed = nullptr,
+                            std::vector<std::uint64_t> *inserted = nullptr);
     // Removes the bucket rows matching `predicate` as contiguous
     // removeRows runs, unwinding the visible indexes per removed item.
     // Returns true when anything was removed.
@@ -390,6 +459,11 @@ private:
     std::vector<int> m_top_level_rows;
     std::vector<int> m_parent_rows;
     std::vector<int> m_rows_in_parent;
+    // Per bucket row, the number of buckets nested under it (folders).
+    std::vector<int> m_child_counts;
+    // Counts structural row operations (insert/remove/move of a bucket
+    // header), so composite operations report model_changed exactly.
+    std::uint64_t m_structural_ops{0};
     std::uint64_t m_next_bucket_serial{1};
 
     // Staleness marks: the delta path maintains the ACTIVE mode's buckets

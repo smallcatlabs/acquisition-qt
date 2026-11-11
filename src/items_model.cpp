@@ -29,7 +29,11 @@ ItemsModel::ItemsModel(BuyoutManager &bo_manager, Search &search)
 /*
     Tree structure:
 
-    + stash tab title (called "bucket" elsewhere)
+    + stash folder (a folder bucket, folder-tree D2)
+    | + stash tab title (called "bucket" elsewhere)
+    | |- item
+    | |- item
+    + stash tab title
     |- item
     |- item
       ...
@@ -37,7 +41,11 @@ ItemsModel::ItemsModel(BuyoutManager &bo_manager, Search &search)
     |- item
     |- item
 
-    and so on
+    and so on. Depth is fixed: a folder holds bucket headers, every other
+    bucket holds items. internalId is 0 for a top-level header and
+    otherwise the serial of the parent bucket, so the row kind follows
+    from the parent (D5): a row under a folder bucket is a bucket header,
+    a row under any other bucket is an item.
 */
 
 QModelIndex ItemsModel::BucketIndex(int bucket_row, int column) const
@@ -71,6 +79,10 @@ ItemsModel::RowRef ItemsModel::Locate(const QModelIndex &index) const
     if (owner < 0) {
         return RowRef{};
     }
+    if (m_search.isFolderBucket(owner)) {
+        // A nested bucket header.
+        return RowRef{m_search.childBucketRow(owner, index.row()), -1};
+    }
     return RowRef{owner, index.row()};
 }
 
@@ -87,6 +99,11 @@ int ItemsModel::rowCount(const QModelIndex &parent) const
     // translation while a flat replacement's notifications are running.
     const RowRef ref = Locate(parent);
     if (ref.isBucket()) {
+        // A folder holds bucket headers (D2); its own items — none, D12 —
+        // are never rendered (R8).
+        if (m_search.isFolderBucket(ref.bucket_row)) {
+            return m_search.childBucketCount(ref.bucket_row);
+        }
         return m_search.bucket(ref.bucket_row).size();
     }
     // Element, contains nothing
@@ -146,9 +163,14 @@ QVariant ItemsModel::data(const QModelIndex &index, int role) const
                 return "All Items";
             }
             QString title(location.GetHeader());
-            const auto bo = m_bo_manager.GetTab(location);
-            if (bo.IsActive()) {
-                title += QString(" [%1]").arg(bo.AsText());
+            // A folder header carries no buyout suffix (folder-tree D6/D11,
+            // R7): a tab buyout stored against a folder id by an earlier
+            // version stays in the store, unrendered.
+            if (!m_search.isFolderBucket(ref.bucket_row)) {
+                const auto bo = m_bo_manager.GetTab(location);
+                if (bo.IsActive()) {
+                    title += QString(" [%1]").arg(bo.AsText());
+                }
             }
             return title;
         }
@@ -295,7 +317,7 @@ void ItemsModel::ResortBucket(int row)
 
 void ItemsModel::OnBucketExpanded(int row)
 {
-    if (!m_search.has_bucket(row)) {
+    if (!m_search.has_bucket(row) || m_search.isFolderBucket(row)) {
         return;
     }
     m_search.MarkBucketExpanded(row);
@@ -313,7 +335,7 @@ void ItemsModel::OnBucketCollapsed(int row)
     if (m_search.GetViewMode() == Search::ViewMode::ByItem) {
         return; // the flat bucket is materialized by definition (D2 rule 6)
     }
-    if (!m_search.has_bucket(row)) {
+    if (!m_search.has_bucket(row) || m_search.isFolderBucket(row)) {
         return;
     }
     m_search.MarkBucketCollapsed(row);
@@ -537,8 +559,9 @@ QModelIndex ItemsModel::index(int row, int column, const QModelIndex &parent) co
     }
 
     if (parent.isValid()) {
-        // item: carry the bucket's stable serial (nonzero by construction)
-        // so a child index never encodes a display position (M3 S4).
+        // item, or a nested header under a folder: carry the parent
+        // bucket's stable serial (nonzero by construction) so a child index
+        // never encodes a display position (M3 S4, folder-tree D5).
         const RowRef ref = Locate(parent);
         if (!ref.isBucket()) {
             return QModelIndex();
@@ -561,22 +584,30 @@ void ItemsModel::BeginInsertItemRows(int bucket_row, int first, int last)
     beginInsertRows(BucketIndex(bucket_row), first, last);
 }
 
-void ItemsModel::BeginInsertBucketRow(int row)
+void ItemsModel::BeginInsertBucketRow(int parent_bucket_row, int row)
 {
-    beginInsertRows(QModelIndex(), row, row);
+    beginInsertRows(BucketIndex(parent_bucket_row), row, row);
 }
 
-void ItemsModel::BeginRemoveBucketRow(int row)
+void ItemsModel::BeginRemoveBucketRow(int parent_bucket_row, int row)
 {
-    beginRemoveRows(QModelIndex(), row, row);
+    beginRemoveRows(BucketIndex(parent_bucket_row), row, row);
 }
 
-bool ItemsModel::BeginMoveBucketRow(int from, int to)
+bool ItemsModel::BeginMoveBucketRow(int from_parent_bucket_row,
+                                    int from,
+                                    int to_parent_bucket_row,
+                                    int to)
 {
     // beginMoveRows takes the destination in pre-move coordinates: moving
-    // down, the row lands before to+1.
-    const int destination = (to > from) ? (to + 1) : to;
-    return beginMoveRows(QModelIndex(), from, from, QModelIndex(), destination);
+    // down within one parent, the row lands before to+1.
+    const bool same_parent = (from_parent_bucket_row == to_parent_bucket_row);
+    const int destination = (same_parent && (to > from)) ? (to + 1) : to;
+    return beginMoveRows(BucketIndex(from_parent_bucket_row),
+                         from,
+                         from,
+                         BucketIndex(to_parent_bucket_row),
+                         destination);
 }
 
 void ItemsModel::EmitBucketMetadataChanged(int row)

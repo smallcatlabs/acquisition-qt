@@ -62,11 +62,13 @@ public:
     // signals, persistent-index walk, sort — to that bucket instead of
     // paying the view-wide dance.
     void ResortBucket(int row);
-    // The view's expand/collapse signals, per top-level row (D2 rules
+    // The view's expand/collapse signals, per bucket row (D2 rules
     // 2-3): expanding marks the bucket materialized and sorts it under
     // the layout-change protocol iff its flag is invalid; collapsing
     // unmarks it and evicts its keys (By-Item's flat bucket ignores
     // collapse — it is materialized by definition). Both are idempotent.
+    // A folder bucket holds no items and materializes nothing either way
+    // (folder-tree D9).
     void OnBucketExpanded(int row);
     void OnBucketCollapsed(int row);
     // Batching rule 5 (M3 R1-6): repaint the affected visible Price/Date
@@ -82,15 +84,21 @@ public:
     void EndRemoveItemRows() { endRemoveRows(); }
     void BeginInsertItemRows(int bucket_row, int first, int last);
     void EndInsertItemRows() { endInsertRows(); }
-    void BeginInsertBucketRow(int row);
+    // Bucket header rows (folder-tree D7): `parent_bucket_row` is the
+    // folder bucket the header sits under, -1 for the top level; `row` is
+    // the header's row within that parent.
+    void BeginInsertBucketRow(int parent_bucket_row, int row);
     void EndInsertBucketRow() { endInsertRows(); }
     // Filtered searches hide empty buckets (S4 review round 1): a bucket
-    // a delta emptied leaves as a top-level row removal.
-    void BeginRemoveBucketRow(int row);
+    // a delta emptied leaves as a row removal under its parent.
+    void BeginRemoveBucketRow(int parent_bucket_row, int row);
     void EndRemoveBucketRow() { endRemoveRows(); }
-    // Repositions a top-level bucket row; returns false when Qt rejects
-    // the move (no-op moves included) — the caller must then not mutate.
-    bool BeginMoveBucketRow(int from, int to);
+    // Moves one bucket header — with its subtree — within its parent or
+    // across parents (D8, S0: beginMoveRows between parents). `to` is the
+    // header's row within the destination AFTER the move. Returns false
+    // when Qt rejects the move (no-op moves included) — the caller must
+    // then not mutate.
+    bool BeginMoveBucketRow(int from_parent_bucket_row, int from, int to_parent_bucket_row, int to);
     void EndMoveBucketRow() { endMoveRows(); }
     // A metadata delta's header repaint: text, color, and the checkbox
     // column all live on the bucket row (R1-4).
