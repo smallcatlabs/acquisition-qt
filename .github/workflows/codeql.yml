@@ -29,6 +29,25 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
+      # TEMPORARY (November 2026, PR 235): hosted runners use Azure's DNS
+      # resolver, which cannot resolve the ubuntu.com package hosts while
+      # part of Canonical's DNS is not answering. Point the runner at
+      # public resolvers that can. Remove this step once a hosted runner
+      # resolves archive.ubuntu.com on its own again.
+      - name: Work around the Ubuntu DNS outage (temporary)
+        run: |
+          iface=$(ip route show default | awk '{print $5; exit}')
+          echo "default interface: ${iface}"
+          sudo resolvectl dns "${iface}" 1.1.1.1 9.9.9.9
+          sudo resolvectl flush-caches
+          # Report only: the steps below are what must succeed.
+          for host in archive.ubuntu.com azure.archive.ubuntu.com security.ubuntu.com; do
+            answer=$(timeout 10 getent ahosts "${host}" | head -1 || true)
+            printf '%-28s %s\n' "${host}" "${answer:-NOT RESOLVED}"
+          done
+          timeout 20 curl -sS -o /dev/null -w 'archive.ubuntu.com over HTTP: %{http_code}\n' \
+            http://archive.ubuntu.com/ubuntu/dists/noble/InRelease || true
+
       - name: Setup Qt
         # Normally 30 to 75 seconds. Without a limit, a runner that cannot
         # resolve the Ubuntu package hosts retries for about 47 minutes
