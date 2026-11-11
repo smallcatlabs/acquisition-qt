@@ -153,6 +153,9 @@ QVariant ItemsModel::data(const QModelIndex &index, int role) const
             if (!location.IsValid()) {
                 return QVariant();
             }
+            if (m_search.isFolderBucket(ref.bucket_row)) {
+                return FolderCheckState(ref.bucket_row);
+            }
             if (m_bo_manager.GetRefreshLocked(location)) {
                 return Qt::PartiallyChecked;
             }
@@ -222,7 +225,16 @@ Qt::ItemFlags ItemsModel::flags(const QModelIndex &index) const
         || (index.column() >= static_cast<int>(m_search.columns().size()))) {
         return Qt::ItemFlags();
     }
-    if ((index.column() == 0) && Locate(index).isBucket()) {
+    const RowRef ref = Locate(index);
+    if ((index.column() == 0) && ref.isBucket()) {
+        // A folder is checkable while it has present members (D10); its id
+        // is never read from the stored refresh state.
+        if (m_search.isFolderBucket(ref.bucket_row)) {
+            if (m_search.childBucketCount(ref.bucket_row) > 0) {
+                return Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsUserCheckable;
+            }
+            return Qt::ItemIsSelectable | Qt::ItemIsEnabled;
+        }
         const ItemLocation &location = m_search.GetTabLocation(index);
         if (location.IsValid() && !m_bo_manager.GetRefreshLocked(location)) {
             return Qt::ItemIsSelectable | Qt::ItemIsEnabled | Qt::ItemIsUserCheckable;
@@ -237,7 +249,11 @@ bool ItemsModel::setData(const QModelIndex &index, const QVariant &value, int ro
         return false;
     }
 
-    if (role == Qt::CheckStateRole && index.column() == 0 && Locate(index).isBucket()) {
+    const RowRef ref = Locate(index);
+    if (role == Qt::CheckStateRole && index.column() == 0 && ref.isBucket()) {
+        if (m_search.isFolderBucket(ref.bucket_row)) {
+            return SetFolderChecked(ref.bucket_row, value.toInt() != Qt::Unchecked);
+        }
         const ItemLocation &location = m_search.GetTabLocation(index);
         if (!location.IsValid() || m_bo_manager.GetRefreshLocked(location)) {
             return false;
@@ -254,6 +270,12 @@ bool ItemsModel::setData(const QModelIndex &index, const QVariant &value, int ro
             if (m_search.bucket(bucket_row).location().id() == target_hash) {
                 const QModelIndex match_index = BucketIndex(bucket_row);
                 emit dataChanged(match_index, match_index, {Qt::CheckStateRole});
+                // A nested tab's folder derives its state from it (D10).
+                const int folder_row = m_search.parentBucketRow(bucket_row);
+                if (folder_row >= 0) {
+                    const QModelIndex folder_index = BucketIndex(folder_row);
+                    emit dataChanged(folder_index, folder_index, {Qt::CheckStateRole});
+                }
             }
         }
         return true;
@@ -261,11 +283,68 @@ bool ItemsModel::setData(const QModelIndex &index, const QVariant &value, int ro
     return false;
 }
 
+QVariant ItemsModel::FolderCheckState(int folder_row) const
+{
+    // D10 / R5: derived from the members present in this search — all
+    // refreshing, none, or mixed; a refresh-locked member counts as
+    // refreshing (GetRefreshChecked includes the lock). No members, no
+    // checkbox.
+    const int members = m_search.childBucketCount(folder_row);
+    if (members == 0) {
+        return QVariant();
+    }
+    int refreshing = 0;
+    for (int n = 0; n < members; ++n) {
+        const int member = m_search.childBucketRow(folder_row, n);
+        if (m_bo_manager.GetRefreshChecked(m_search.bucket(member).location())) {
+            ++refreshing;
+        }
+    }
+    if (refreshing == members) {
+        return Qt::Checked;
+    }
+    return (refreshing == 0) ? Qt::Unchecked : Qt::PartiallyChecked;
+}
+
+bool ItemsModel::SetFolderChecked(int folder_row, bool checked)
+{
+    // D10: the value goes to each present member that is not
+    // refresh-locked — never to the folder id — then the members and the
+    // folder repaint.
+    const int members = m_search.childBucketCount(folder_row);
+    if (members == 0) {
+        return false;
+    }
+    for (int n = 0; n < members; ++n) {
+        const ItemLocation &location = m_search.bucket(m_search.childBucketRow(folder_row, n))
+                                           .location();
+        if (!m_bo_manager.GetRefreshLocked(location)) {
+            m_bo_manager.SetRefreshChecked(location, checked);
+        }
+    }
+    const QModelIndex folder = BucketIndex(folder_row);
+    emit dataChanged(index(0, 0, folder), index(members - 1, 0, folder), {Qt::CheckStateRole});
+    emit dataChanged(folder, folder, {Qt::CheckStateRole});
+    return true;
+}
+
 void ItemsModel::refreshCheckStates()
 {
+    // Every header row, nested ones included (D10): the top level in one
+    // range, each folder's members in another.
     const int rows = rowCount();
     if (rows > 0) {
         emit dataChanged(index(0, 0), index(rows - 1, 0), {Qt::CheckStateRole});
+    }
+    const int bucket_count = static_cast<int>(m_search.buckets().size());
+    for (int bucket_row = 0; bucket_row < bucket_count; ++bucket_row) {
+        const int members = m_search.childBucketCount(bucket_row);
+        if (members > 0) {
+            const QModelIndex folder = BucketIndex(bucket_row);
+            emit dataChanged(index(0, 0, folder),
+                             index(members - 1, 0, folder),
+                             {Qt::CheckStateRole});
+        }
     }
 }
 

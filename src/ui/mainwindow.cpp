@@ -653,8 +653,11 @@ void MainWindow::OnCollapseAll()
 void MainWindow::OnCheckAll()
 {
     spdlog::trace("MainWindow::OnCheckAll() entered");
+    // Every bucket except folders: a folder id is never written (D10).
     for (auto const &bucket : m_current_search->buckets()) {
-        m_buyout_manager.SetRefreshChecked(bucket.location(), true);
+        if (!bucket.location().IsFolder()) {
+            m_buyout_manager.SetRefreshChecked(bucket.location(), true);
+        }
     }
     static_cast<ItemsModel *>(ui->treeView->model())->refreshCheckStates();
 }
@@ -663,7 +666,9 @@ void MainWindow::OnUncheckAll()
 {
     spdlog::trace("MainWindow::OnUncheckAll() entered");
     for (auto const &bucket : m_current_search->buckets()) {
-        m_buyout_manager.SetRefreshChecked(bucket.location(), false);
+        if (!bucket.location().IsFolder()) {
+            m_buyout_manager.SetRefreshChecked(bucket.location(), false);
+        }
     }
     static_cast<ItemsModel *>(ui->treeView->model())->refreshCheckStates();
 }
@@ -673,10 +678,24 @@ void MainWindow::OnRefreshSelected()
     spdlog::trace("MainWindow::OnRefreshSelected()");
     // Get names of tabs to refresh
     std::vector<ItemLocation> locations;
+    const ItemsModel &model = m_current_search->model();
     const auto &selected_rows = ui->treeView->selectionModel()->selectedRows();
     for (auto const &index : selected_rows) {
         // Fetch tab names per index
         locations.emplace_back(m_current_search->GetTabLocation(index));
+        // Folder-tree R6 / A1: a folder row sends the folder (R9) and its
+        // members present in this search whose refresh state is checked.
+        const ItemsModel::RowRef ref = model.Locate(index);
+        if (ref.isBucket() && m_current_search->isFolderBucket(ref.bucket_row)) {
+            for (int n = 0; n < m_current_search->childBucketCount(ref.bucket_row); ++n) {
+                const ItemLocation &member
+                    = m_current_search->bucket(m_current_search->childBucketRow(ref.bucket_row, n))
+                          .location();
+                if (m_buyout_manager.GetRefreshChecked(member)) {
+                    locations.push_back(member);
+                }
+            }
+        }
     }
     m_items_manager.Update(TabSelection::Selected, locations);
 }
@@ -684,8 +703,17 @@ void MainWindow::OnRefreshSelected()
 void MainWindow::CheckSelected(bool value)
 {
     spdlog::trace("MainWindow::CheckSelected() entered");
+    ItemsModel &model = m_current_search->model();
     const auto &selected_rows = ui->treeView->selectionModel()->selectedRows();
     for (auto const &index : selected_rows) {
+        // A folder row behaves as a click on its checkbox (D10).
+        const ItemsModel::RowRef ref = model.Locate(index);
+        if (ref.isBucket() && m_current_search->isFolderBucket(ref.bucket_row)) {
+            model.setData(model.BucketIndex(ref.bucket_row),
+                          value ? Qt::Checked : Qt::Unchecked,
+                          Qt::CheckStateRole);
+            continue;
+        }
         m_buyout_manager.SetRefreshChecked(m_current_search->GetTabLocation(index), value);
     }
     static_cast<ItemsModel *>(ui->treeView->model())->refreshCheckStates();
@@ -762,6 +790,10 @@ void MainWindow::OnBuyoutChange()
 
     const auto &selected_rows = ui->treeView->selectionModel()->selectedRows();
     for (const auto &index : selected_rows) {
+        const ItemsModel::RowRef ref = m_current_search->model().Locate(index);
+        if (ref.isBucket() && m_current_search->isFolderBucket(ref.bucket_row)) {
+            continue; // no buyouts on folders, no cascade (D11, R7)
+        }
         const auto location = m_current_search->GetTabLocation(index);
         const auto tab = location.id();
 
@@ -770,7 +802,6 @@ void MainWindow::OnBuyoutChange()
             spdlog::trace("MainWindow::OnBuyoutChange() refusing to update locked tab: {}", tab);
             continue;
         }
-        const ItemsModel::RowRef ref = m_current_search->model().Locate(index);
         if (ref.isBucket()) {
             m_buyout_manager.SetTab(location, bo);
         } else {
@@ -1869,6 +1900,11 @@ void MainWindow::UpdateCurrentBuyout()
     spdlog::trace("MainWindow::UpdateCurrentBuyout() entered");
     if (m_current_item) {
         UpdateBuyoutWidgets(m_buyout_manager.Get(*m_current_item));
+    } else if (m_current_bucket_location && m_current_bucket_location->IsFolder()) {
+        // No buyouts on folders (D11, R7): the widgets are disabled, and a
+        // tab buyout an earlier version stored against the folder id is
+        // not rendered.
+        ResetBuyoutWidgets();
     } else if (m_current_bucket_location) {
         UpdateBuyoutWidgets(m_buyout_manager.GetTab(*m_current_bucket_location));
     } else {

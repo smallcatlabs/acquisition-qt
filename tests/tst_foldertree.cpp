@@ -30,6 +30,8 @@
 #include <spdlog/sinks/dist_sink.h>
 #include <spdlog/spdlog.h>
 
+#include "buyout.h"
+#include "currency.h"
 #include "items_model.h"
 #include "mainwindowfixture.h"
 #include "modelprobes.h"
@@ -86,6 +88,19 @@ private slots:
     void nestedTabExpansionSurvivesRefilter();
     void folderHeaderSelectionShowsHeaderText();
     void nestedScrollAnchorSurvivesRefilter();
+
+    // S5: checkboxes, Refresh Selected, buyouts (D10, D11, R5-R7, A1).
+    void folderCheckStateDerivesFromVisibleMembers_data();
+    void folderCheckStateDerivesFromVisibleMembers();
+    void folderClickCascadesToVisibleMembers();
+    void lockedMemberKeepsFolderPartial();
+    void nestedTabCheckRepaintsFolder();
+    void checkSelectedAndCheckAllOnFolders();
+    void refreshCheckStatesCoversNestedHeaders();
+    void refreshSelectedOnFolderSendsCheckedMembers_data();
+    void refreshSelectedOnFolderSendsCheckedMembers();
+    void folderHeaderDisablesBuyoutWidgets();
+    void buyoutEditSkipsFolderRows();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -1413,6 +1428,313 @@ void FolderTreeTest::nestedScrollAnchorSurvivesRefilter()
 
     h.fixture.window->OnSearchFormChange();
     QCOMPARE(h.tree->indexAt(QPoint(0, 0)).data().toString(), "Item 30 Sword");
+}
+
+namespace {
+
+    QVariant checkState(const QModelIndex &index)
+    {
+        return index.data(Qt::CheckStateRole);
+    }
+
+    void selectRows(QTreeView &view, const QModelIndexList &rows)
+    {
+        view.selectionModel()->clearSelection();
+        for (const QModelIndex &row : rows) {
+            view.selectionModel()->select(row,
+                                          QItemSelectionModel::Select | QItemSelectionModel::Rows);
+        }
+        if (!rows.isEmpty()) {
+            view.selectionModel()->setCurrentIndex(rows.front(), QItemSelectionModel::NoUpdate);
+        }
+    }
+
+    QStringList locationIds(const std::vector<ItemLocation> &locations)
+    {
+        QStringList ids;
+        for (const auto &location : locations) {
+            ids.append(location.id());
+        }
+        ids.sort();
+        return ids;
+    }
+
+} // namespace
+
+void FolderTreeTest::folderCheckStateDerivesFromVisibleMembers_data()
+{
+    addFilteredColumn();
+}
+
+// D10 / R5: a folder's check state is derived from its members present in
+// the current search — all refreshing, none, or mixed — and never from a
+// stored flag on the folder id. A folder with no present members shows no
+// checkbox and is not user-checkable.
+void FolderTreeTest::folderCheckStateDerivesFromVisibleMembers()
+{
+    QFETCH(bool, filtered);
+    World seed = baseWorld();
+    // Beta has no match, so a filtered search shows only Alpha under F.
+    seed.items["tab-b"] = {makeItem("b1", "B1", "Shield", seed.tab("tab-b"))};
+    seed.setTab(makeFolder("folder-h", "Folder H", 7));
+    Harness h(seed, filtered);
+    auto &buyouts = *h.fixture.buyoutFixture.manager;
+
+    // A stored flag on the folder id is never read.
+    buyouts.SetRefreshChecked(h.world.tab("folder-f"), false);
+    const QModelIndex folder = headerFor(*h.model, "#1, \"Folder F\"");
+    QCOMPARE(checkState(folder).toInt(), static_cast<int>(Qt::Checked));
+    QVERIFY(h.model->flags(folder) & Qt::ItemIsUserCheckable);
+
+    buyouts.SetRefreshChecked(h.world.tab("tab-b"), false);
+    // R5: a filtered search does not show Beta, so it does not count.
+    QCOMPARE(checkState(folder).toInt(),
+             static_cast<int>(filtered ? Qt::Checked : Qt::PartiallyChecked));
+
+    buyouts.SetRefreshChecked(h.world.tab("tab-a"), false);
+    QCOMPARE(checkState(folder).toInt(), static_cast<int>(Qt::Unchecked));
+
+    // No present members: no checkbox (an unfiltered search shows the
+    // empty folder H; a filtered one hides it).
+    const QModelIndex empty = headerFor(*h.model, "#8, \"Folder H\"");
+    QCOMPARE(empty.isValid(), !filtered);
+    if (!filtered) {
+        QVERIFY(!checkState(empty).isValid());
+        QVERIFY(!(h.model->flags(empty) & Qt::ItemIsUserCheckable));
+    }
+}
+
+// D10: checking or unchecking a folder writes that value to each present
+// member that is not refresh-locked — any value other than unchecked
+// means checked — then repaints the members and the folder. The folder id
+// is never written.
+void FolderTreeTest::folderClickCascadesToVisibleMembers()
+{
+    Harness h(baseWorld(), false);
+    auto &buyouts = *h.fixture.buyoutFixture.manager;
+    buyouts.SetRefreshChecked(h.world.tab("folder-f"), false);
+    const QModelIndex folder = headerFor(*h.model, "#1, \"Folder F\"");
+    const QModelIndex alpha = headerFor(*h.model, "#2, \"Alpha\"");
+    const QModelIndex beta = headerFor(*h.model, "#3, \"Beta\"");
+
+    QSignalSpy changed(h.model, &QAbstractItemModel::dataChanged);
+    QVERIFY(h.model->setData(folder, Qt::Unchecked, Qt::CheckStateRole));
+    QVERIFY(!buyouts.GetRefreshChecked(h.world.tab("tab-a")));
+    QVERIFY(!buyouts.GetRefreshChecked(h.world.tab("tab-b")));
+    QVERIFY(buyouts.GetRefreshChecked(h.world.tab("tab-c"))); // another folder's member
+    QCOMPARE(checkState(folder).toInt(), static_cast<int>(Qt::Unchecked));
+    QCOMPARE(checkState(alpha).toInt(), static_cast<int>(Qt::Unchecked));
+    // The members and the folder were repainted.
+    QSet<QPersistentModelIndex> repainted;
+    for (const auto &arguments : changed) {
+        const QModelIndex top_left = arguments.at(0).value<QModelIndex>();
+        const QModelIndex bottom_right = arguments.at(1).value<QModelIndex>();
+        for (int row = top_left.row(); row <= bottom_right.row(); ++row) {
+            repainted.insert(h.model->index(row, 0, top_left.parent()));
+        }
+    }
+    QVERIFY(repainted.contains(folder));
+    QVERIFY(repainted.contains(alpha));
+    QVERIFY(repainted.contains(beta));
+
+    // Partially checked (the S0 click value is Checked; any non-unchecked
+    // value checks).
+    QVERIFY(h.model->setData(folder, Qt::PartiallyChecked, Qt::CheckStateRole));
+    QVERIFY(buyouts.GetRefreshChecked(h.world.tab("tab-a")));
+    QVERIFY(buyouts.GetRefreshChecked(h.world.tab("tab-b")));
+    QCOMPARE(checkState(folder).toInt(), static_cast<int>(Qt::Checked));
+    // Never written to the folder id.
+    QVERIFY(!buyouts.GetRefreshChecked(h.world.tab("folder-f")));
+}
+
+// D10: a refresh-locked member counts as refreshing and is never written;
+// unchecking a folder that holds one leaves the folder partially checked
+// (the accepted glyph overlap).
+void FolderTreeTest::lockedMemberKeepsFolderPartial()
+{
+    Harness h(baseWorld(), false);
+    auto &buyouts = *h.fixture.buyoutFixture.manager;
+    buyouts.SetRefreshLocked(h.world.tab("tab-a"));
+    const QModelIndex folder = headerFor(*h.model, "#1, \"Folder F\"");
+    QCOMPARE(checkState(folder).toInt(), static_cast<int>(Qt::Checked));
+
+    QVERIFY(h.model->setData(folder, Qt::Unchecked, Qt::CheckStateRole));
+    QVERIFY(buyouts.GetRefreshChecked(h.world.tab("tab-a")));
+    QVERIFY(!buyouts.GetRefreshChecked(h.world.tab("tab-b")));
+    QCOMPARE(checkState(folder).toInt(), static_cast<int>(Qt::PartiallyChecked));
+    QCOMPARE(checkState(headerFor(*h.model, "#2, \"Alpha\"")).toInt(),
+             static_cast<int>(Qt::PartiallyChecked)); // the locked glyph
+
+    QVERIFY(h.model->setData(folder, Qt::Checked, Qt::CheckStateRole));
+    QCOMPARE(checkState(folder).toInt(), static_cast<int>(Qt::Checked));
+}
+
+// D10: changing a nested tab's checkbox repaints its folder header.
+void FolderTreeTest::nestedTabCheckRepaintsFolder()
+{
+    Harness h(baseWorld(), false);
+    const QModelIndex folder = headerFor(*h.model, "#1, \"Folder F\"");
+    const QModelIndex alpha = headerFor(*h.model, "#2, \"Alpha\"");
+    QSignalSpy changed(h.model, &QAbstractItemModel::dataChanged);
+    QVERIFY(h.model->setData(alpha, Qt::Unchecked, Qt::CheckStateRole));
+    bool folder_repainted = false;
+    for (const auto &arguments : changed) {
+        const QModelIndex top_left = arguments.at(0).value<QModelIndex>();
+        const QModelIndex bottom_right = arguments.at(1).value<QModelIndex>();
+        folder_repainted = folder_repainted
+                           || ((top_left.parent() == folder.parent())
+                               && (top_left.row() <= folder.row())
+                               && (bottom_right.row() >= folder.row()));
+    }
+    QVERIFY(folder_repainted);
+    QCOMPARE(checkState(folder).toInt(), static_cast<int>(Qt::PartiallyChecked));
+}
+
+// D10: Check/Uncheck Selected on a folder row behave as a click; Check
+// All/Uncheck All write every bucket except folders.
+void FolderTreeTest::checkSelectedAndCheckAllOnFolders()
+{
+    Harness h(baseWorld(), false);
+    auto &buyouts = *h.fixture.buyoutFixture.manager;
+    buyouts.SetRefreshChecked(h.world.tab("folder-g"), false);
+
+    selectRows(*h.tree, {headerFor(*h.model, "#1, \"Folder F\"")});
+    h.fixture.window->OnUncheckSelected();
+    QVERIFY(!buyouts.GetRefreshChecked(h.world.tab("tab-a")));
+    QVERIFY(!buyouts.GetRefreshChecked(h.world.tab("tab-b")));
+    QVERIFY(buyouts.GetRefreshChecked(h.world.tab("folder-f"))); // never written
+    QVERIFY(buyouts.GetRefreshChecked(h.world.tab("tab-c")));
+    h.fixture.window->OnCheckSelected();
+    QVERIFY(buyouts.GetRefreshChecked(h.world.tab("tab-a")));
+    QVERIFY(buyouts.GetRefreshChecked(h.world.tab("tab-b")));
+
+    h.fixture.window->OnUncheckAll();
+    for (const QString &id : {"tab-a", "tab-b", "tab-c", "tab-d", "tab-e"}) {
+        QVERIFY2(!buyouts.GetRefreshChecked(h.world.tab(id)), qPrintable(id));
+    }
+    QVERIFY(buyouts.GetRefreshChecked(h.world.tab("folder-f")));
+    h.fixture.window->OnCheckAll();
+    for (const QString &id : {"tab-a", "tab-b", "tab-c", "tab-d", "tab-e"}) {
+        QVERIFY2(buyouts.GetRefreshChecked(h.world.tab(id)), qPrintable(id));
+    }
+    QVERIFY(!buyouts.GetRefreshChecked(h.world.tab("folder-g"))); // never written
+}
+
+// D10: refreshCheckStates repaints every header row's check state, nested
+// headers included.
+void FolderTreeTest::refreshCheckStatesCoversNestedHeaders()
+{
+    Harness h(baseWorld(), false);
+    QSignalSpy changed(h.model, &QAbstractItemModel::dataChanged);
+    h.model->refreshCheckStates();
+    QSet<QPersistentModelIndex> repainted;
+    for (const auto &arguments : changed) {
+        const QModelIndex top_left = arguments.at(0).value<QModelIndex>();
+        const QModelIndex bottom_right = arguments.at(1).value<QModelIndex>();
+        QVERIFY(qvariant_cast<QList<int>>(arguments.at(2)).contains(Qt::CheckStateRole));
+        for (int row = top_left.row(); row <= bottom_right.row(); ++row) {
+            repainted.insert(h.model->index(row, 0, top_left.parent()));
+        }
+    }
+    for (const QString &header : {"#1, \"Folder F\"",
+                                  "#2, \"Alpha\"",
+                                  "#3, \"Beta\"",
+                                  "#4, \"Folder G\"",
+                                  "#5, \"Gamma\"",
+                                  "#6, \"Delta\"",
+                                  "#7, \"Echo\""}) {
+        QVERIFY2(repainted.contains(headerFor(*h.model, header)), qPrintable(header));
+    }
+}
+
+void FolderTreeTest::refreshSelectedOnFolderSendsCheckedMembers_data()
+{
+    addFilteredColumn();
+}
+
+// R6 / A1 / R9: Refresh Selected on a folder row sends the folder and its
+// members present in the current search whose refresh state is checked.
+void FolderTreeTest::refreshSelectedOnFolderSendsCheckedMembers()
+{
+    QFETCH(bool, filtered);
+    World seed = baseWorld();
+    seed.setTab(makeTab("tab-i", "India", 3, "folder-f"));
+    seed.items["tab-i"] = {makeItem("i1", "I1", "Shield", seed.tab("tab-i"))};
+    Harness h(seed, filtered);
+    auto &buyouts = *h.fixture.buyoutFixture.manager;
+    buyouts.SetRefreshChecked(h.world.tab("tab-b"), false);
+
+    std::vector<std::pair<Util::TabSelection, std::vector<ItemLocation>>> updates;
+    QObject::connect(h.fixture.itemsManager.get(),
+                     &ItemsManager::UpdateSignal,
+                     h.fixture.itemsManager.get(),
+                     [&updates](Util::TabSelection type, const std::vector<ItemLocation> &tabs) {
+                         updates.emplace_back(type, tabs);
+                     });
+    selectRows(*h.tree, {headerFor(*h.model, "#1, \"Folder F\"")});
+    h.fixture.window->OnRefreshSelected();
+    QCOMPARE(updates.size(), size_t(1));
+    QVERIFY(updates.front().first == Util::TabSelection::Selected);
+    const auto &sent = updates.front().second;
+    // India is a checked member only where it is present (unfiltered).
+    QCOMPARE(locationIds(sent),
+             filtered ? QStringList({"folder-f", "tab-a"})
+                      : QStringList({"folder-f", "tab-a", "tab-i"}));
+}
+
+// D11 / R7: with a folder header current the buyout widgets are disabled,
+// whatever an earlier version stored against the folder id — which is
+// neither rendered nor removed.
+void FolderTreeTest::folderHeaderDisablesBuyoutWidgets()
+{
+    Harness h(baseWorld(), false);
+    auto &buyouts = *h.fixture.buyoutFixture.manager;
+    buyouts.SetTab(h.world.tab("folder-g"), makeChaosBuyout(5));
+    auto *type = h.fixture.window->findChild<QComboBox *>("buyoutTypeComboBox");
+    auto *currency = h.fixture.window->findChild<QComboBox *>("buyoutCurrencyComboBox");
+    auto *value = h.fixture.window->findChild<QLineEdit *>("buyoutValueLineEdit");
+    QVERIFY(type && currency && value);
+
+    // A tab first: its widgets are live.
+    h.tree->selectionModel()->setCurrentIndex(headerFor(*h.model, "#6, \"Delta\""),
+                                              QItemSelectionModel::ClearAndSelect
+                                                  | QItemSelectionModel::Rows);
+    QVERIFY(type->isEnabled());
+
+    const QModelIndex folder = headerFor(*h.model, "#4, \"Folder G\"");
+    h.tree->selectionModel()->setCurrentIndex(folder,
+                                              QItemSelectionModel::ClearAndSelect
+                                                  | QItemSelectionModel::Rows);
+    QVERIFY(!type->isEnabled());
+    QVERIFY(!currency->isEnabled());
+    QVERIFY(!value->isEnabled());
+    QCOMPARE(value->text(), QString());
+    // The stored tab buyout stays in the store and is not rendered.
+    QVERIFY(buyouts.GetTab(h.world.tab("folder-g")).IsActive());
+    QCOMPARE(folder.data().toString(), QString("#4, \"Folder G\""));
+}
+
+// D11: a buyout edit over a multi-selection skips folder rows; nothing
+// cascades to members.
+void FolderTreeTest::buyoutEditSkipsFolderRows()
+{
+    Harness h(baseWorld(), false);
+    auto &buyouts = *h.fixture.buyoutFixture.manager;
+    selectRows(*h.tree,
+               {headerFor(*h.model, "#6, \"Delta\""), headerFor(*h.model, "#1, \"Folder F\"")});
+    auto *type = h.fixture.window->findChild<QComboBox *>("buyoutTypeComboBox");
+    auto *currency = h.fixture.window->findChild<QComboBox *>("buyoutCurrencyComboBox");
+    auto *value = h.fixture.window->findChild<QLineEdit *>("buyoutValueLineEdit");
+    QVERIFY(type && currency && value);
+    type->setCurrentIndex(Buyout::BUYOUT_TYPE_BUYOUT);
+    currency->setCurrentIndex(Currency::CURRENCY_CHAOS_ORB);
+    value->setText("7");
+    h.fixture.window->OnBuyoutChange();
+
+    QVERIFY(buyouts.GetTab(h.world.tab("tab-d")).IsActive());
+    QVERIFY(!buyouts.GetTab(h.world.tab("folder-f")).IsActive());
+    QVERIFY(!buyouts.GetTab(h.world.tab("tab-a")).IsActive());
+    QVERIFY(!buyouts.GetTab(h.world.tab("tab-b")).IsActive());
 }
 
 QTEST_MAIN(FolderTreeTest)

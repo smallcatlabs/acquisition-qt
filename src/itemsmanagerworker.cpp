@@ -449,10 +449,16 @@ void ItemsManagerWorker::Update(TabSelection type, const std::vector<ItemLocatio
         break;
     case TabSelection::Checked:
         // Use the buyout manager to determine which tabs are checked.
+        // Folder-tree A2 (R9, D10): a folder id is never read from the
+        // stored flags; a Folder tab joins the selection — and keeps being
+        // fetched — when at least one of its member tabs is in it.
         spdlog::trace("ItemsManagerWorker: updating checked tabs.");
         for (auto const &tab : m_tabs) {
-            if ((tab.IsValid()) && (m_buyout_manager.GetRefreshChecked(tab) == true)) {
+            if (tab.IsValid() && !tab.IsFolder() && m_buyout_manager.GetRefreshChecked(tab)) {
                 m_tabs_to_update.emplace(tab.id());
+                if (!tab.folder_id().isEmpty()) {
+                    m_tabs_to_update.emplace(tab.folder_id());
+                }
             }
         }
         break;

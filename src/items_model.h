@@ -118,6 +118,11 @@ public:
     void refreshCheckStates();
 
 private:
+    // Folder check state (folder-tree D10): derived from the present
+    // members; a write cascades to them.
+    QVariant FolderCheckState(int folder_row) const;
+    bool SetFolderChecked(int folder_row, bool checked);
+
     // The layout-preserving sort machinery shared by sort(), Resort(),
     // and the expand path: snapshots persistent indexes, sorts the
     // search's buckets, remaps. `only_bucket` scopes the whole dance to

@@ -137,6 +137,8 @@ private slots:
     void folderItemsAreDiscardedWithWarning();
     void misfiledFolderChildWarns();
     void folderReplyChildDisplaysUnderItsOwnTab();
+    // Folder-tree A2 / R9: the checked selection's folder rule.
+    void checkedSelectionIncludesFoldersOfCheckedMembers();
 };
 
 namespace {
@@ -3763,6 +3765,53 @@ void WorkerUpdateTest::folderReplyChildDisplaysUnderItsOwnTab()
     QCOMPARE(location.fetch_id(), QString("folderchild1"));
     QVERIFY(!location.IsFolder());
     QCOMPARE(f.deltas.back().location.id(), QString("folderchild1"));
+}
+
+// Folder-tree A2 / R9 / D10: a Refresh Checked requests a Folder tab when
+// at least one of its member tabs is in the checked selection — the
+// folder is still fetched (R9) — and never because of a stored refresh
+// flag on the folder id, which is neither read nor written.
+void WorkerUpdateTest::checkedSelectionIncludesFoldersOfCheckedMembers()
+{
+    WorkerFixture f("checked-folder-selection");
+    auto folder_f = json::readStash(stashJson("folderffff", "Folder F", 0, {}, "Folder"));
+    auto member_a = json::readStash(stashJson("stashaaaa1", "Alpha", 1));
+    auto folder_g = json::readStash(stashJson("foldergggg", "Folder G", 2, {}, "Folder"));
+    auto member_c = json::readStash(stashJson("stashcccc1", "Gamma", 3));
+    auto loose_d = json::readStash(stashJson("stashdddd1", "Delta", 4));
+    QVERIFY(folder_f && member_a && folder_g && member_c && loose_d);
+    member_a->folder = "folderffff";
+    member_c->folder = "foldergggg";
+    const std::vector<poe::StashTab> listed{*folder_f, *member_a, *folder_g, *member_c, *loose_d};
+    {
+        UserStore store(QDir(f.dataDir()), "checked-folder-selection");
+        QVERIFY(store.stashes().saveStashList(listed, kRealm, kLeague));
+    }
+    f.start();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+
+    // F's member is checked though F's own stored flag says no; every
+    // member of G is unchecked though G's own stored flag says yes.
+    auto &buyouts = *f.bm.manager;
+    buyouts.SetRefreshChecked(ItemLocation(*folder_f), false);
+    buyouts.SetRefreshChecked(ItemLocation(*member_a), true);
+    buyouts.SetRefreshChecked(ItemLocation(*folder_g), true);
+    buyouts.SetRefreshChecked(ItemLocation(*member_c), false);
+    buyouts.SetRefreshChecked(ItemLocation(*loose_d), false);
+
+    f.worker->Update(TabSelection::Checked);
+    f.deliverStashList(listed);
+    QVERIFY(f.hasPendingStash("folderffff"));
+    QVERIFY(f.hasPendingStash("stashaaaa1"));
+    QVERIFY(!f.hasPendingStash("foldergggg"));
+    QVERIFY(!f.hasPendingStash("stashcccc1"));
+    QVERIFY(!f.hasPendingStash("stashdddd1"));
+    f.deliverStash("folderffff", *folder_f);
+    f.deliverStash("stashaaaa1", *member_a);
+    QCOMPARE(f.refresh_count, 2);
+    // Neither folder's stored flag was written.
+    QVERIFY(!buyouts.GetRefreshChecked(ItemLocation(*folder_f)));
+    QVERIFY(buyouts.GetRefreshChecked(ItemLocation(*folder_g)));
 }
 
 QTEST_GUILESS_MAIN(WorkerUpdateTest)
