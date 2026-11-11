@@ -18,63 +18,9 @@ permissions:
   security-events: write
 
 jobs:
-  # TEMPORARY (PR 235): GitHub-hosted runners in this repository cannot
-  # resolve the Ubuntu package hosts. This job prints what the runner's
-  # resolver is and which names it can and cannot resolve. It always
-  # succeeds and is not a required check. Remove it with the fix.
-  dns-probe:
-    name: DNS probe (temporary)
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - name: Probe
-        run: |
-          set +e
-          echo "::group::resolver configuration"
-          echo "--- /etc/resolv.conf"; cat /etc/resolv.conf
-          echo "--- resolvectl status"; resolvectl status 2>&1 | head -60
-          echo "--- /etc/hosts"; cat /etc/hosts
-          echo "--- proxy / network environment"
-          env | grep -i -E 'proxy|firewall|egress|dns' || echo "(none)"
-          echo "::endgroup::"
-
-          echo "::group::name resolution through the system resolver"
-          for host in github.com api.github.com objects.githubusercontent.com \
-                      archive.ubuntu.com azure.archive.ubuntu.com security.ubuntu.com \
-                      download.qt.io pypi.org example.com; do
-            answer=$(timeout 10 getent ahosts "$host" | head -1)
-            printf '%-32s %s\n' "$host" "${answer:-FAILED}"
-          done
-          echo "::endgroup::"
-
-          echo "::group::direct queries for archive.ubuntu.com"
-          for server in default 168.63.129.16 1.1.1.1 8.8.8.8; do
-            if [ "$server" = default ]; then at=""; else at="@$server"; fi
-            answer=$(timeout 10 dig +time=3 +tries=1 +short archive.ubuntu.com $at 2>&1 | head -3 | tr '\n' ' ')
-            printf 'server %-16s %s\n' "$server" "${answer:-NO ANSWER}"
-          done
-          echo "--- resolvectl query"; timeout 15 resolvectl query archive.ubuntu.com 2>&1 | head -6
-          echo "::endgroup::"
-
-          echo "::group::reachability without name resolution"
-          timeout 10 curl -sS -o /dev/null -w 'https://1.1.1.1 -> HTTP %{http_code}\n' https://1.1.1.1 2>&1
-          timeout 10 curl -sS -o /dev/null -w 'https://github.com -> HTTP %{http_code}\n' https://github.com 2>&1
-          timeout 10 curl -sS -o /dev/null -w 'http://archive.ubuntu.com -> HTTP %{http_code}\n' http://archive.ubuntu.com/ubuntu/dists/noble/InRelease 2>&1
-          echo "::endgroup::"
-
-          echo "::group::routes and packet filters"
-          ip route 2>&1 | head -10
-          sudo iptables -S 2>&1 | head -40
-          sudo nft list ruleset 2>&1 | head -60
-          echo "::endgroup::"
-          exit 0
-
   analyze:
     name: Analyze C++
-    # Pinned (November 2026): ubuntu-latest moved to 26.04, where the
-    # runner could not resolve the Ubuntu package hosts during "Setup Qt"
-    # (PR 235). The last green runs used 24.04. Revisit when 26.04 works.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -85,7 +31,8 @@ jobs:
 
       - name: Setup Qt
         # Normally 30 to 75 seconds. Without a limit, a runner that cannot
-        # reach the package servers retries for about 47 minutes.
+        # resolve the Ubuntu package hosts retries for about 47 minutes
+        # (November 2026, PR 235: an upstream DNS failure for ubuntu.com).
         timeout-minutes: 5
         uses: jurplel/install-qt-action@v4
         with:
