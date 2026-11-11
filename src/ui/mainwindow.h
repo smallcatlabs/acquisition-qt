@@ -191,6 +191,10 @@ private:
     // keeps the intent; a visible item with the intent's id re-adopts the
     // selection through the global identity index.
     void ReconcileSelectionIntent();
+    // Makes `index` the current, selected row without the view expanding
+    // its collapsed ancestors: a reselection made for the user never undoes
+    // the user's collapse (folder-tree D9).
+    void SelectWithoutExpanding(const QModelIndex &index);
 
     void ModelViewRefresh();
     void ReselectCurrentItem();

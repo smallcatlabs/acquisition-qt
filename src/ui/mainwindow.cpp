@@ -1265,6 +1265,26 @@ void MainWindow::FinishDeltaApplication(bool processed,
     ReconcileSelectionIntent();
 }
 
+void MainWindow::SelectWithoutExpanding(const QModelIndex &index)
+{
+    // Making a row current has the view scroll to it, and QTreeView's
+    // scrollTo first expands every collapsed ancestor of the row. A
+    // reselection the refresh makes on the user's behalf must not undo a
+    // collapse the user made (folder-tree D9: a collapsed folder stays
+    // collapsed; the same holds for a collapsed tab) — an expanded signal
+    // here would also drop the folder from the user-collapsed set. The
+    // view only expands while its items are expandable, so that is switched
+    // off for the one call: a row hidden under a collapsed ancestor becomes
+    // current and selected where it is, and a visible row is scrolled to as
+    // before.
+    const bool expandable = ui->treeView->itemsExpandable();
+    ui->treeView->setItemsExpandable(false);
+    ui->treeView->selectionModel()->setCurrentIndex(index,
+                                                    QItemSelectionModel::ClearAndSelect
+                                                        | QItemSelectionModel::Rows);
+    ui->treeView->setItemsExpandable(expandable);
+}
+
 void MainWindow::ReconcileSelectionIntent()
 {
     if (!m_current_search) {
@@ -1278,9 +1298,7 @@ void MainWindow::ReconcileSelectionIntent()
             // move even though its persistent index stays valid —
             // re-assert the selection at the surviving index.
             if (!ui->treeView->selectionModel()->isSelected(index)) {
-                ui->treeView->selectionModel()->setCurrentIndex(index,
-                                                                QItemSelectionModel::ClearAndSelect
-                                                                    | QItemSelectionModel::Rows);
+                SelectWithoutExpanding(index);
             }
             // The details pane's location line renders canonical
             // metadata (S4 review round 1): a metadata delta can rename
@@ -1343,9 +1361,7 @@ void MainWindow::ReconcileSelectionIntent()
         if (const auto adopted = m_current_search->visibleItemById(m_selection_intent_id)) {
             const QModelIndex index = m_current_search->index(adopted);
             if (index.isValid()) {
-                ui->treeView->selectionModel()->setCurrentIndex(index,
-                                                                QItemSelectionModel::ClearAndSelect
-                                                                    | QItemSelectionModel::Rows);
+                SelectWithoutExpanding(index);
             }
         }
     }

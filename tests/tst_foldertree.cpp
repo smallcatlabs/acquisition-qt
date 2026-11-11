@@ -88,6 +88,8 @@ private slots:
     void nestedTabExpansionSurvivesRefilter();
     void folderHeaderSelectionShowsHeaderText();
     void nestedScrollAnchorSurvivesRefilter();
+    void collapsedRowsSurviveReselectionOnRefresh_data();
+    void collapsedRowsSurviveReselectionOnRefresh();
 
     // S5: checkboxes, Refresh Selected, buyouts (D10, D11, R5-R7, A1).
     void folderCheckStateDerivesFromVisibleMembers_data();
@@ -1340,6 +1342,51 @@ void FolderTreeTest::expandAllAndCollapseAllCoverNestedHeaders()
                           "  #5, \"Gamma\" +",
                           "#6, \"Delta\" +",
                           "#7, \"Echo\" +"}));
+}
+
+// D9: a refresh that replaces the selected item re-adopts the selection
+// (M3 R1-3) without expanding what the user collapsed around it. Making a
+// row current has the view expand every collapsed ancestor of it, and a
+// folder expanded that way would leave the user-collapsed set for good.
+void FolderTreeTest::collapsedRowsSurviveReselectionOnRefresh_data()
+{
+    QTest::addColumn<QString>("collapse");
+    QTest::newRow("folder") << "#1, \"Folder F\"";
+    QTest::newRow("tab") << "#2, \"Alpha\"";
+}
+
+void FolderTreeTest::collapsedRowsSurviveReselectionOnRefresh()
+{
+    QFETCH(QString, collapse);
+    Harness h(baseWorld(), false);
+    // The view only scrolls to (and expands towards) a new current row
+    // while it is visible.
+    h.fixture.window->show();
+    QVERIFY(QTest::qWaitForWindowExposed(h.fixture.window.get()));
+
+    h.tree->expand(headerFor(*h.model, "#2, \"Alpha\""));
+    const QModelIndex item = h.model->index(0, 0, headerFor(*h.model, "#2, \"Alpha\""));
+    QVERIFY(item.isValid());
+    h.tree->selectionModel()->setCurrentIndex(item,
+                                              QItemSelectionModel::ClearAndSelect
+                                                  | QItemSelectionModel::Rows);
+    h.tree->collapse(headerFor(*h.model, collapse));
+    QVERIFY(!h.tree->isExpanded(headerFor(*h.model, collapse)));
+
+    // The tab's refresh replaces the selected item's object under the same
+    // id: the old row leaves and the selection is re-adopted on the new one.
+    const ItemLocation tab = h.world.tab("tab-a");
+    h.delta(tab, {makeItem("a1", "A1", "Sword", tab)});
+    QVERIFY(!h.tree->isExpanded(headerFor(*h.model, collapse)));
+    const QModelIndex adopted = h.model->index(0, 0, headerFor(*h.model, "#2, \"Alpha\""));
+    QVERIFY(adopted.isValid());
+    QCOMPARE(h.tree->currentIndex(), adopted);
+    QVERIFY(h.tree->selectionModel()->isSelected(adopted));
+
+    h.snapshot();
+    QVERIFY(!h.tree->isExpanded(headerFor(*h.model, collapse)));
+    h.refiltered();
+    QVERIFY(!h.tree->isExpanded(headerFor(*h.model, collapse)));
 }
 
 // D9: expanding or collapsing a folder sorts nothing, builds no keys and
