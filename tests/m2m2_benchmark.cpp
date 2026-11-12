@@ -268,11 +268,7 @@ int main(int argc, char *argv[])
     // production path. (M2's runs excluded the then-asynchronous tick via
     // SetDeltaThrottleInterval, deleted with the timer.)
 
-    ItemsManagerWorker worker(settings,
-                              identity,
-                              QDir(bm.tempDir.filePath("data")),
-                              *bm.manager,
-                              api);
+    ItemsManagerWorker worker(settings, identity, *bm.manager, api);
     WorkerTestAccess access(worker);
 
     Probes probes;
@@ -366,7 +362,10 @@ int main(int argc, char *argv[])
 
     // --- initial load (empty cache) --------------------------------------
 
-    worker.OnRePoEReady();
+    const std::jthread cache_load = StartCacheLoad(worker,
+                                                   QDir(bm.tempDir.filePath("data")),
+                                                   identity,
+                                                   true);
     while (refresh_count < 1) {
         if (!drainUntilIdle()) {
             std::fprintf(stderr, "event loop never settled during the initial load\n");

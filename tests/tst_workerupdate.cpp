@@ -430,17 +430,12 @@ namespace {
         // *ForTest / Set* methods on the worker's production API.
         WorkerTestAccess access() const { return WorkerTestAccess(*worker); }
 
-        // Call after seeding the datastore: the worker reads the cache on
-        // construction paths keyed off the settings file's directory.
+        // Call after seeding the datastore: the cache load reads it the way
+        // the application starts it.
         void start()
         {
-            worker = std::make_unique<ItemsManagerWorker>(settings,
-                                                          makeTestIdentity(account_name,
-                                                                           kRealm,
-                                                                           kLeague),
-                                                          QDir(dataDir()),
-                                                          *bm.manager,
-                                                          api);
+            const SessionIdentity identity = makeTestIdentity(account_name, kRealm, kLeague);
+            worker = std::make_unique<ItemsManagerWorker>(settings, identity, *bm.manager, api);
             access().setSweepObserver(&sweep);
             QObject::connect(worker.get(),
                              &ItemsManagerWorker::ItemsRefreshed,
@@ -530,7 +525,7 @@ namespace {
                              [this](const RefreshOutcome &outcome) {
                                  terminals.push_back({outcome, refresh_count, signal_seq++});
                              });
-            worker->OnRePoEReady();
+            cache_load = StartCacheLoad(*worker, QDir(dataDir()), identity, true);
         }
 
         // Attach an ItemsManager wired the way Application does (M2 stage 2):
@@ -746,6 +741,9 @@ namespace {
         // pointer to it and writes sweep counts through it (W-SWEEP).
         WorkerSweepObserver sweep;
         std::unique_ptr<ItemsManagerWorker> worker;
+        // The cache load that seeds `worker`; declared after it so it is
+        // stopped and joined before the worker goes.
+        std::jthread cache_load;
 
         Items last_items;
         std::vector<ItemLocation> last_tabs;
@@ -4076,11 +4074,8 @@ namespace {
         FakeNetworkManager network;
         RateLimiter limiter(network, &scheduler);
         PoeApiClient api(limiter);
-        ItemsManagerWorker worker(settings,
-                                  makeTestIdentity("status-text", kRealm, kLeague),
-                                  QDir(bm.tempDir.filePath("data")),
-                                  *bm.manager,
-                                  api);
+        const SessionIdentity identity = makeTestIdentity("status-text", kRealm, kLeague);
+        ItemsManagerWorker worker(settings, identity, *bm.manager, api);
 
         int initial = 0;
         QStringList ready;
@@ -4098,7 +4093,10 @@ namespace {
                                  ready.append(message);
                              }
                          });
-        worker.OnRePoEReady();
+        const std::jthread cache_load = StartCacheLoad(worker,
+                                                       QDir(bm.tempDir.filePath("data")),
+                                                       identity,
+                                                       true);
         if (!QTest::qWaitFor([&] { return initial == 1; }, 10000)) {
             qFatal("readyMessagesForFailure: the cache load never finished");
         }

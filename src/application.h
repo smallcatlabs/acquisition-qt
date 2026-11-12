@@ -11,6 +11,7 @@
 #include <QString>
 
 #include <memory>
+#include <thread>
 
 #include "sessionidentity.h"
 
@@ -80,6 +81,8 @@ private:
     {
         UserSession(const Application::CoreServices &core, const SessionIdentity &identity);
 
+        const SessionIdentity identity;
+        const QDir data_dir;
         std::unique_ptr<DataStore> data;
         std::unique_ptr<UserStore> userstore;
         std::unique_ptr<RateLimiter> rate_limiter;
@@ -92,6 +95,11 @@ private:
         std::unique_ptr<Shop> shop;
         std::unique_ptr<CurrencyManager> currency_manager;
         std::unique_ptr<MainWindow, MainWindowDeleter> main_window;
+        // The start-up cache load (#294). Declared last so it is destroyed
+        // first: destruction stops and joins the load before the worker it
+        // seeds goes, and Application is destroyed before logging is torn
+        // down (F29).
+        std::jthread cache_load;
     };
 
     CoreServices &core() const;

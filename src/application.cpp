@@ -13,6 +13,7 @@
 #include <QSettings>
 
 #include "buyoutmanager.h"
+#include "cacheload.h"
 #include "currencymanager.h"
 #include "datastore/buyoutrepo.h"
 #include "datastore/characterrepo.h"
@@ -227,6 +228,8 @@ Application::CoreServices::CoreServices(const QDir &appDataDir)
 
 Application::UserSession::UserSession(const Application::CoreServices &core,
                                       const SessionIdentity &identity)
+    : identity(identity)
+    , data_dir(core.dir.filePath("data"))
 {
     spdlog::trace("Application::UserSession::UserSession() entered");
 
@@ -241,7 +244,6 @@ Application::UserSession::UserSession(const Application::CoreServices &core,
     spdlog::trace("Application::UserSession::UserSession() league = {}", identity.league());
     spdlog::trace("Application::UserSession::UserSession() account = {}", account);
 
-    const QDir data_dir(dir.filePath("data"));
     const QString data_file = SqliteDataStore::MakeFilename(account, identity.league());
     const QString data_path = data_dir.absoluteFilePath(data_file);
     spdlog::trace("Application::UserSession::UserSession() data_path = {}", data_path);
@@ -272,11 +274,7 @@ Application::UserSession::UserSession(const Application::CoreServices &core,
     items_manager = std::make_unique<ItemsManager>(settings, *buyout_manager);
 
     spdlog::trace("Application::UserSession::UserSession() creating items worker");
-    items_worker = std::make_unique<ItemsManagerWorker>(settings,
-                                                        identity,
-                                                        data_dir,
-                                                        *buyout_manager,
-                                                        *api);
+    items_worker = std::make_unique<ItemsManagerWorker>(settings, identity, *buyout_manager, *api);
 
     spdlog::trace("Application::UserSession::UserSession() creating shop");
     shop = std::make_unique<Shop>(settings,
@@ -322,12 +320,21 @@ void Application::OnLogin(const SessionIdentity &identity)
         network_manager().setPoeSessionId(session_id);
     }
 
+    // The cached items are built into Items, which needs the game data, so
+    // the cache load starts once RePoE is ready.
+    const auto start_cache_load = [this] {
+        auto &s = session();
+        s.cache_load = StartCacheLoad(*s.items_worker,
+                                      s.data_dir,
+                                      s.identity,
+                                      s.userstore->isUsable());
+    };
     if (repoe().IsInitialized()) {
         spdlog::debug("Application: RePoE data is available.");
-        items_worker().OnRePoEReady();
+        start_cache_load();
     } else {
         spdlog::debug("Application: Waiting for RePoE data.");
-        connect(&repoe(), &RePoE::finished, &items_worker(), &ItemsManagerWorker::OnRePoEReady);
+        connect(&repoe(), &RePoE::finished, this, start_cache_load, Qt::SingleShotConnection);
     }
 
     spdlog::trace("Application::OnLogin() closing the login dialog");

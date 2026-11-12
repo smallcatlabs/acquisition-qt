@@ -2,19 +2,20 @@
 
 #include <QtTest/QtTest>
 
-#include <QSettings>
+#include <QDir>
+#include <QSqlDatabase>
+#include <QSqlQuery>
+#include <QTemporaryDir>
 
 #include <glaze/glaze.hpp>
 
+#include "cacheload.h"
+#include "datastore/characterrepo.h"
 #include "datastore/stashrepo.h"
 #include "datastore/userstore.h"
-#include "itemsmanagerworker.h"
-#include "poe/poeapiclient.h"
 #include "poe/types/item.h"
-#include "ratelimit/ratelimiter.h"
 #include "testfixtures.h"
 #include "util/glaze_qt.h" // IWYU pragma: keep
-#include "util/networkmanager.h"
 
 class WorkerParseTest : public QObject
 {
@@ -24,6 +25,7 @@ private slots:
     void parsesCachedStashItems();
     void specialChildItemsKeyedByChildFetchId();
     void characterAlongsideSpecialChildLoads();
+    void unusableStoreLoadsNothingAndSaysSo();
 };
 
 static poe::Item makePoeItem(const char *id)
@@ -55,11 +57,12 @@ static poe::Item makePoeItem(const char *id)
 
 void WorkerParseTest::parsesCachedStashItems()
 {
-    BuyoutManagerFixture fixture;
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
     const QString account = "worker-parse-account";
     const QString realm = "pc";
     const QString league = "Worker Parse League";
-    const QString dataDir = fixture.tempDir.filePath("data");
+    const QString dataDir = dir.filePath("data");
 
     poe::StashTab stash;
     stash.id = "stash00001";
@@ -74,24 +77,10 @@ void WorkerParseTest::parsesCachedStashItems()
         QVERIFY(saveStashFixture(store.stashes(), stash, realm, league));
     }
 
-    QSettings settings(fixture.tempDir.filePath("settings.ini"), QSettings::IniFormat);
-    settings.setValue("account", account);
-    settings.setValue("realm", realm);
-    settings.setValue("league", league);
-    settings.sync();
-
-    // The worker needs a PoeApiClient, but ParseCachedItems touches neither
-    // it nor the limiter — this is a pure cache-parse test.
-    NetworkManager network;
-    RateLimiter rateLimiter(network);
-    PoeApiClient api(rateLimiter);
-    ItemsManagerWorker worker(settings,
-                              makeTestIdentity(account, realm, league),
-                              QDir(dataDir),
-                              *fixture.manager,
-                              api);
-
-    const ParseResult result = worker.ParseCachedItems(dataDir);
+    const CachedItems result = LoadCachedItems(QDir(dataDir),
+                                               makeTestIdentity(account, realm, league),
+                                               {});
+    QVERIFY(result.loaded);
 
     QCOMPARE(result.tabs.size(), 1);
     QCOMPARE(result.tabs[0].id(), stash.id);
@@ -110,11 +99,12 @@ void WorkerParseTest::parsesCachedStashItems()
 // (items-pipeline M1).
 void WorkerParseTest::specialChildItemsKeyedByChildFetchId()
 {
-    BuyoutManagerFixture fixture;
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
     const QString account = "worker-parse-account-2";
     const QString realm = "pc";
     const QString league = "Worker Parse League";
-    const QString dataDir = fixture.tempDir.filePath("data");
+    const QString dataDir = dir.filePath("data");
 
     poe::StashTab parent;
     parent.id = "parent0001";
@@ -135,24 +125,10 @@ void WorkerParseTest::specialChildItemsKeyedByChildFetchId()
         QVERIFY(saveStashFixture(store.stashes(), child, realm, league));
     }
 
-    QSettings settings(fixture.tempDir.filePath("settings.ini"), QSettings::IniFormat);
-    settings.setValue("account", account);
-    settings.setValue("realm", realm);
-    settings.setValue("league", league);
-    settings.sync();
-
-    // The worker needs a PoeApiClient, but ParseCachedItems touches neither
-    // it nor the limiter — this is a pure cache-parse test.
-    NetworkManager network;
-    RateLimiter rateLimiter(network);
-    PoeApiClient api(rateLimiter);
-    ItemsManagerWorker worker(settings,
-                              makeTestIdentity(account, realm, league),
-                              QDir(dataDir),
-                              *fixture.manager,
-                              api);
-
-    const ParseResult result = worker.ParseCachedItems(dataDir);
+    const CachedItems result = LoadCachedItems(QDir(dataDir),
+                                               makeTestIdentity(account, realm, league),
+                                               {});
+    QVERIFY(result.loaded);
 
     // Only the parent is a tab; the child is not.
     QCOMPARE(result.tabs.size(), 1);
@@ -170,11 +146,12 @@ void WorkerParseTest::specialChildItemsKeyedByChildFetchId()
 // under the parent.
 void WorkerParseTest::characterAlongsideSpecialChildLoads()
 {
-    BuyoutManagerFixture fixture;
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
     const QString account = "worker-parse-account-3";
     const QString realm = "pc";
     const QString league = "Worker Parse League";
-    const QString dataDir = fixture.tempDir.filePath("data");
+    const QString dataDir = dir.filePath("data");
 
     poe::StashTab parent;
     parent.id = "parent0001";
@@ -207,17 +184,10 @@ void WorkerParseTest::characterAlongsideSpecialChildLoads()
         QVERIFY(saveCharacterFixture(store.characters(), character));
     }
 
-    QSettings settings(fixture.tempDir.filePath("settings.ini"), QSettings::IniFormat);
-    NetworkManager network;
-    RateLimiter rateLimiter(network);
-    PoeApiClient api(rateLimiter);
-    ItemsManagerWorker worker(settings,
-                              makeTestIdentity(account, realm, league),
-                              QDir(dataDir),
-                              *fixture.manager,
-                              api);
-
-    const ParseResult result = worker.ParseCachedItems(dataDir);
+    const CachedItems result = LoadCachedItems(QDir(dataDir),
+                                               makeTestIdentity(account, realm, league),
+                                               {});
+    QVERIFY(result.loaded);
 
     QCOMPARE(result.tabs.size(), 2);
     QCOMPARE(result.tabs[0].id(), parent.id);
@@ -237,6 +207,45 @@ void WorkerParseTest::characterAlongsideSpecialChildLoads()
     QCOMPARE(result.items[1]->location().id(), character.id);
     QCOMPARE(result.items[1]->location().fetch_id(), character.id);
     QCOMPARE(result.items[1]->location().character(), character.name);
+}
+
+// A store the load cannot open (here: written by a newer build) gives an
+// empty result marked not loaded, and the load leaves the file as it was.
+void WorkerParseTest::unusableStoreLoadsNothingAndSaysSo()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString account = "worker-parse-account-4";
+    QDir data_dir(dir.filePath("data"));
+    QVERIFY(data_dir.mkpath("."));
+    const QString file = data_dir.filePath("userstore-" + account + ".db");
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", "newer-store");
+        db.setDatabaseName(file);
+        QVERIFY(db.open());
+        QSqlQuery q(db);
+        QVERIFY(q.exec("PRAGMA user_version = 999"));
+        db.close();
+    }
+    QSqlDatabase::removeDatabase("newer-store");
+
+    const CachedItems result = LoadCachedItems(data_dir,
+                                               makeTestIdentity(account, "pc", "Standard"),
+                                               {});
+    QVERIFY(!result.loaded);
+    QVERIFY(result.tabs.empty());
+    QVERIFY(result.items.empty());
+
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", "newer-store-check");
+        db.setDatabaseName(file);
+        QVERIFY(db.open());
+        QSqlQuery q(db);
+        QVERIFY(q.exec("PRAGMA user_version") && q.next());
+        QCOMPARE(q.value(0).toInt(), 999);
+        db.close();
+    }
+    QSqlDatabase::removeDatabase("newer-store-check");
 }
 
 QTEST_GUILESS_MAIN(WorkerParseTest)

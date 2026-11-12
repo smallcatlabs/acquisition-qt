@@ -260,7 +260,6 @@ namespace {
             }
             worker = std::make_unique<ItemsManagerWorker>(settings,
                                                           makeTestIdentity(account, kRealm, kLeague),
-                                                          QDir(dataDir()),
                                                           *bm.manager,
                                                           *api);
             WorkerTestAccess(*worker).setSweepObserver(&sweep);
@@ -357,16 +356,19 @@ namespace {
             return locations;
         }
 
-        // Seed one stash tab, then run the worker to Idle: OnRePoEReady starts
-        // the (real) parse thread, which reads the cache and emits the initial
+        // Seed one stash tab, then run the worker to Idle: StartCacheLoad
+        // starts the (real) load thread, which reads the cache and emits the initial
         // ItemsRefreshed. Wait for that on the event loop, not the fake scheduler
-        // (the parse thread is a real QThread unrelated to the hub's clock).
+        // (the load thread is a real thread unrelated to the hub's clock).
         // Stores the seeded tabs' locations for Update() to select.
         void seedAndReachIdle(int tab_count = 1)
         {
             selections = seedStashTabs(tab_count);
             selection = selections.front();
-            worker->OnRePoEReady();
+            cache_load = StartCacheLoad(*worker,
+                                        QDir(dataDir()),
+                                        makeTestIdentity(account_name, kRealm, kLeague),
+                                        true);
             QTRY_COMPARE_WITH_TIMEOUT(initial_refreshes, 1, 10000);
         }
 
@@ -386,6 +388,9 @@ namespace {
         // otherwise), so a scenario can read the outcomes the worker received.
         RecordingApiClient *recorder = nullptr;
         std::unique_ptr<ItemsManagerWorker> worker;
+        // The cache load that seeds `worker`; declared after it so it is
+        // stopped and joined before the worker goes.
+        std::jthread cache_load;
 
         int initial_refreshes = 0;
         int update_refreshes = 0;
