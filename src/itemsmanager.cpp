@@ -65,6 +65,15 @@ ItemsManager::ItemsManager(QSettings &settings, BuyoutManager &buyout_manager)
 
 ItemsManager::~ItemsManager() {}
 
+void ConnectRefreshRequests(ItemsManager &manager, ItemsManagerWorker &worker)
+{
+    QObject::connect(&manager, &ItemsManager::UpdateSignal, &worker, &ItemsManagerWorker::Update);
+    QObject::connect(&manager,
+                     &ItemsManager::AutoUpdateSignal,
+                     &worker,
+                     &ItemsManagerWorker::AutoUpdate);
+}
+
 void ItemsManager::OnStatusUpdate(ProgramState state, const QString &status)
 {
     emit StatusUpdate(state, status);

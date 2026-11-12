@@ -92,3 +92,9 @@ private:
     SourceKeyedItems m_items;
     LocationInventory m_location_inventory;
 };
+
+// Route the manager's refresh requests to the worker: the user's through
+// Update, which may notify, and the timer's through AutoUpdate, which never
+// does (#279). The one place these connections are made, for Application and
+// the tests alike.
+void ConnectRefreshRequests(ItemsManager &manager, ItemsManagerWorker &worker);

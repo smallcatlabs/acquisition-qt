@@ -557,19 +557,9 @@ namespace {
                              });
         }
 
-        // Route the manager's refresh requests to the worker the way
-        // Application does. Call after attachManager().
-        void connectRefreshRequests()
-        {
-            QObject::connect(manager.get(),
-                             &ItemsManager::UpdateSignal,
-                             worker.get(),
-                             &ItemsManagerWorker::Update);
-            QObject::connect(manager.get(),
-                             &ItemsManager::AutoUpdateSignal,
-                             worker.get(),
-                             &ItemsManagerWorker::AutoUpdate);
-        }
+        // Route the manager's refresh requests to the worker with the same
+        // function Application uses. Call after attachManager().
+        void connectRefreshRequests() { ConnectRefreshRequests(*manager, *worker); }
 
         QString dataDir() const { return bm.tempDir.filePath("data"); }
 
@@ -4247,7 +4237,8 @@ void WorkerUpdateTest::timerTickWhileInitializingKeepsTheUsersQueuedRequest()
     // still initializing here.
     QCOMPARE(f.refresh_count, 0);
 
-    f.worker->Update(TabSelection::All);
+    // The user's request takes the manager's path, as a menu action does.
+    f.manager->Update(TabSelection::All);
     QCOMPARE(f.notify_messages.size(), 1); // the user is told it is queued
     f.manager->OnAutoRefreshTimer();
     QCOMPARE(f.notify_messages.size(), 1);
