@@ -6,11 +6,9 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QProcess>
 #include <QScopeGuard>
 #include <QSqlError>
 #include <QSqlQuery>
-#include <QTemporaryDir>
 #include <QUuid>
 
 namespace {
@@ -229,62 +227,4 @@ LegacyDataStore::LegacyDataStore(const QString &filename)
     query.finish();
 
     m_valid = true;
-}
-
-bool LegacyDataStore::exportJson(const QString &filename) const
-{
-    QFile file(filename);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        spdlog::error("Export failed: could not open json file: {}", file.errorString());
-        return false;
-    }
-
-    std::string out;
-    if (auto ec = glz::write_json(*this, out); ec) {
-        // For write errors, format_error still gives a readable message.
-        spdlog::error("Export failed: {}", glz::format_error(ec, out));
-        return false;
-    }
-
-    const QByteArray data = QByteArray::fromStdString(out);
-    file.write(data);
-    file.close();
-    return true;
-}
-
-bool LegacyDataStore::exportTgz(const QString &filename) const
-{
-    // Use a temporary working directory.
-    QTemporaryDir dir;
-    if (!dir.isValid()) {
-        spdlog::error("Export failed: could not create a temporary directory: {}",
-                      dir.errorString());
-        return false;
-    }
-
-    // First export to a temporary .json file.
-    const QString tempfile = dir.filePath("export.json");
-    if (!exportJson(tempfile)) {
-        return false;
-    }
-
-    // Next compress the temporary file into a tgz.
-    const QString command = "tar";
-    const QStringList arguments = {"czvf", filename, "-C", dir.path(), "export.json"};
-    QProcess process;
-    process.start(command, arguments);
-    if (!process.waitForFinished()) {
-        spdlog::error("Export failed: process failed: {}", process.errorString());
-        return false;
-    }
-    if (process.exitCode() != 0) {
-        spdlog::error("Export failed: tar error: {}", process.errorString());
-        return false;
-    }
-
-    // Remove the temporary .json file.
-    if (!QFile(tempfile).remove()) {
-        spdlog::warn("Error removing temporary json file: {}", tempfile);
-    }
-    return true;
 }
