@@ -36,7 +36,6 @@ private:
     struct ReleaseTag
     {
         semver::version version;
-        bool draft{false};
         bool prerelease{false};
     };
     std::vector<ReleaseTag> ParseReleaseTags(const QByteArray &bytes);

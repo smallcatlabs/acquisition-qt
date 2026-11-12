@@ -3,11 +3,8 @@
 
 #include "util/oauthtoken.h"
 
-#include <QNetworkReply>
-
 #include "util/json_readers.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
-#include "util/util.h"
 
 // Hard-code the token refresh lifetime for a public client:
 // https://www.pathofexile.com/developer/docs/authorization#clients-public
@@ -19,22 +16,6 @@ OAuthToken OAuthToken::fromJson(const QString &json)
     if (!result) {
         return {};
     }
-    return *result;
-}
-
-OAuthToken OAuthToken::fromReply(QNetworkReply *reply)
-{
-    const QByteArray bytes = reply->readAll();
-    reply->deleteLater();
-
-    auto result = json::readOAuthToken(bytes);
-    if (!result) {
-        return {};
-    }
-
-    // Set birthday and expiration times.
-    const QString timestamp = Util::FixTimezone(reply->rawHeader("Date"));
-    result->setBirthday(QDateTime::fromString(timestamp, Qt::RFC2822Date));
     return *result;
 }
 

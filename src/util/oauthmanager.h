@@ -29,7 +29,6 @@ public:
 private slots:
     void onRequestFailure(const QAbstractOAuth::Error error);
     void onServerError(const QString &error, const QString &errorDescription, const QUrl &uri);
-    void onOAuthError(const QString &error, const QString &errorDescription, const QUrl &uri);
     void receiveToken(const QVariantMap &tokens);
     void receiveGrant();
 
@@ -37,14 +36,11 @@ signals:
     void grantAccess(const OAuthToken &token);
 
 private:
-    void setToken(const OAuthToken &token);
     NetworkManager &m_network_manager;
     DataStore &m_data;
 
     QOAuth2AuthorizationCodeFlow* m_oauth;
     QOAuthHttpServerReplyHandler* m_handler;
-
-    void initOAuth();
 
     OAuthToken m_token;
 };

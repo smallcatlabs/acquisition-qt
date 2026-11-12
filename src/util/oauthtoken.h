@@ -7,12 +7,9 @@
 #include <QString>
 #include <QVariantMap>
 
-class QNetworkReply;
-
 struct OAuthToken
 {
     static OAuthToken fromJson(const QString &json);
-    static OAuthToken fromReply(QNetworkReply *reply);
     static OAuthToken fromTokens(const QVariantMap &tokens);
 
     QString access_token;
