@@ -14,13 +14,12 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       with:
-        submodules: recursive
         fetch-depth: 0
 
     - name: Setup Qt
-      uses: jurplel/install-qt-action@v4
+      uses: jurplel/install-qt-action@b344308e4483fc892e0d27b3cd1b173ebdd95f06 # v4.5.0
       with:
         version: '6.12.0'
         modules: 'qtnetworkauth'
@@ -40,10 +39,21 @@ jobs:
           libxcb-cursor-dev \
           zlib1g-dev
 
+    # linuxdeploy is pinned to a dated release and checked against the sha256
+    # GitHub records for that asset. linuxdeploy-plugin-qt still comes from
+    # the moving `continuous` channel: its only dated release (February 2025)
+    # predates Qt 6.12 and GitHub records no digest for it, so there is
+    # nothing to check it against yet.
     - name: Download linuxdeploy
+      env:
+        LINUXDEPLOY_RELEASE: 1-alpha-20251107-1
+        LINUXDEPLOY_SHA256: c20cd71e3a4e3b80c3483cef793cda3f4e990aca14014d23c544ca3ce1270b4d
       run: |
-        curl -Lo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-        curl -Lo linuxdeploy-plugin-qt https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+        curl -sSfL --retry 3 -o linuxdeploy \
+          "https://github.com/linuxdeploy/linuxdeploy/releases/download/${LINUXDEPLOY_RELEASE}/linuxdeploy-x86_64.AppImage"
+        echo "${LINUXDEPLOY_SHA256}  linuxdeploy" | sha256sum -c -
+        curl -sSfL --retry 3 -o linuxdeploy-plugin-qt \
+          https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
         chmod +x linuxdeploy linuxdeploy-plugin-qt
 
     - name: Configure CMake
@@ -100,14 +110,14 @@ jobs:
           --output appimage
 
     - name: Upload AppImage artifact
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: acquisition-${{ steps.version.outputs.version }}-x86_64.AppImage
         path: acquisition*.AppImage
         retention-days: 30
 
     - name: Upload debug symbols artifact
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: acquisition-${{ steps.version.outputs.version }}-x86_64.debug
         path: build/acquisition.debug
@@ -132,9 +142,11 @@ jobs:
         # Must match SENTRY_RELEASE in src/main.cpp: APP_NAME "@" APP_VERSION_STRING.
         release="acquisition@${{ steps.version.outputs.version }}"
 
+        # Same pinned release and checksum as .github/actions/sentry-symbols.
         cli="${RUNNER_TEMP}/sentry-cli-Linux-x86_64"
         curl -sSfL --retry 3 -o "${cli}" \
-          "https://downloads.sentry-cdn.com/sentry-cli/3.6.2/sentry-cli-Linux-x86_64"
+          "https://github.com/getsentry/sentry-cli/releases/download/3.6.2/sentry-cli-Linux-x86_64"
+        echo "3a4bbf2c0d06378d4e59b337647483751a0a2b1603db5fd4991847d0cfd6478c  ${cli}" | sha256sum -c -
         chmod +x "${cli}"
 
         "${cli}" releases new "${release}"
@@ -146,7 +158,7 @@ jobs:
 
     - name: Create draft release
       if: startsWith(github.ref, 'refs/tags/v')
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
       with:
         files: acquisition*.AppImage
         generate_release_notes: true
