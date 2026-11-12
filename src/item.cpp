@@ -673,9 +673,7 @@ bool Item::operator<(const Item &rhs) const
 
 bool Item::Wearable() const
 {
-    return (m_category == "flasks" || m_category == "amulet" || m_category == "ring"
-            || m_category == "belt" || m_category.contains("armour")
-            || m_category.contains("weapons") || m_category.contains("jewels"));
+    return IsPathOfBuildingBaseType(m_baseType);
 }
 
 QString Item::POBformat() const

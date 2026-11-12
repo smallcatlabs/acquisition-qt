@@ -1,3 +1,6 @@
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QSet>
 #include <QtTest/QtTest>
 
 #include <clocale>
@@ -6,6 +9,7 @@
 #include <string>
 
 #include "item.h"
+#include "itemcategories.h"
 #include "modlist.h"
 #include "testfixtures.h"
 #include "util/util.h"
@@ -36,6 +40,8 @@ private slots:
     void rangeIsAveraged();
     void clusterNotableIsPresent();
     void literalSignWinsOverSignedPlaceholder();
+    void pathOfBuildingTakesGearFlasksAndJewels();
+    void pathOfBuildingClassesMatchGameData();
 };
 
 // Real RePoE stat translations, cut from the game data (see
@@ -558,6 +564,108 @@ void ItemTest::literalSignWinsOverSignedPlaceholder()
     QCOMPARE(table.size(), size_t(1));
     QCOMPARE(table.at("-# to Accuracy Rating per 10 Dexterity on Unallocated Passives in Radius"),
              5.0);
+}
+
+static std::shared_ptr<Item> makeItemOfBase(const QString &baseType, int frameType)
+{
+    const QByteArray json = QString(R"json({
+        "baseType": "%1",
+        "frameType": %2,
+        "frameTypeId": "Rare",
+        "h": 1,
+        "icon": "https://web.poecdn.com/image/test.png",
+        "id": "base-%1",
+        "identified": true,
+        "ilvl": 84,
+        "name": "",
+        "typeLine": "%1",
+        "verified": false,
+        "w": 1,
+        "x": 0,
+        "y": 0
+    })json")
+                                .arg(baseType)
+                                .arg(frameType)
+                                .toUtf8();
+    return std::make_shared<Item>(makeTestItem(json.constData(), makeTestStashLocation()));
+}
+
+static void loadRealItemClasses()
+{
+    InitItemClasses(readRepoeFixture("item_classes.min.json"));
+    InitItemBaseTypes(readRepoeFixture("base_items.json"));
+}
+
+// #264: gear, flasks and jewels can be copied for Path of Building; other
+// items cannot. Real class and base names from RePoE.
+void ItemTest::pathOfBuildingTakesGearFlasksAndJewels()
+{
+    loadRealItemClasses();
+
+    for (const char *base : {"Gold Ring",
+                             "Iron Hat",
+                             "Rusted Sword",
+                             "Small Life Flask",
+                             "Cobalt Jewel",
+                             "Hypnotic Eye Jewel"}) {
+        QVERIFY2(makeItemOfBase(base, 2)->Wearable(), base);
+    }
+    QVERIFY(!makeItemOfBase("Chaos Orb", 5)->Wearable());
+    QVERIFY(!makeItemOfBase("Map (Tier 16)", 2)->Wearable());
+    QVERIFY(!makeItemOfBase("The Doctor", 6)->Wearable());
+}
+
+// #264: the rule's two parts against the game's own class list, so a
+// renamed or added class fails here instead of silently changing what can
+// be copied: every listed flask and jewel id exists, the classes with
+// influence tags are exactly the gear measured for 3.29.3.6, and nothing
+// else is accepted.
+void ItemTest::pathOfBuildingClassesMatchGameData()
+{
+    loadRealItemClasses();
+
+    const QJsonObject classes = QJsonDocument::fromJson(readRepoeFixture("item_classes.min.json"))
+                                    .object();
+    QVERIFY(!classes.isEmpty());
+
+    for (const QString &id : PathOfBuildingNonGearClassIds()) {
+        QVERIFY2(classes.contains(id), qPrintable(id));
+    }
+
+    const QSet<QString> gear{"Amulet",
+                             "Belt",
+                             "Body Armour",
+                             "Boots",
+                             "Bow",
+                             "Claw",
+                             "Dagger",
+                             "Gloves",
+                             "Helmet",
+                             "One Hand Axe",
+                             "One Hand Mace",
+                             "One Hand Sword",
+                             "Quiver",
+                             "Ring",
+                             "Rune Dagger",
+                             "Sceptre",
+                             "Shield",
+                             "Staff",
+                             "Thrusting One Hand Sword",
+                             "Two Hand Axe",
+                             "Two Hand Mace",
+                             "Two Hand Sword",
+                             "Wand",
+                             "Warstaff"};
+    QSet<QString> withInfluenceTags;
+    for (auto it = classes.begin(); it != classes.end(); ++it) {
+        if (it.value().toObject().contains("influence_tags")) {
+            withInfluenceTags.insert(it.key());
+        }
+        const bool expected = gear.contains(it.key())
+                              || PathOfBuildingNonGearClassIds().contains(it.key());
+        QVERIFY2(IsPathOfBuildingItemClass(it.key()) == expected, qPrintable(it.key()));
+    }
+    QCOMPARE(withInfluenceTags, gear);
 }
 
 QTEST_GUILESS_MAIN(ItemTest)
