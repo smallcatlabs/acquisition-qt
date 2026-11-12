@@ -7,7 +7,9 @@ never in the game, and are what the [forum shop](forum-shop.md) publishes.
 
 Select an item, or a whole stash tab or character, in the item list. Folders
 cannot be priced: with a folder selected the controls are disabled. Price the
-tabs inside it instead. The three controls under the list are:
+tabs inside it instead. The same holds for the *All Items* row at the top of the
+*By Item* view, which is not a tab. If a refresh removes the item you had
+selected, the controls are cleared and disabled until a row is selected again. The three controls under the list are:
 
 1. **Buyout type**
 2. **Currency**

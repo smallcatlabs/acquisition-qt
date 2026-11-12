@@ -679,9 +679,10 @@ void MainWindow::OnCollapseAll()
 void MainWindow::OnCheckAll()
 {
     spdlog::trace("MainWindow::OnCheckAll() entered");
-    // Every bucket except folders: a folder id is never written (D10).
+    // Every bucket except folders: a folder id is never written (D10). Nor
+    // is the empty id of the By-Item view's header row.
     for (auto const &bucket : m_current_search->buckets()) {
-        if (!bucket.location().IsFolder()) {
+        if (bucket.location().IsValid() && !bucket.location().IsFolder()) {
             m_buyout_manager.SetRefreshChecked(bucket.location(), true);
         }
     }
@@ -692,7 +693,7 @@ void MainWindow::OnUncheckAll()
 {
     spdlog::trace("MainWindow::OnUncheckAll() entered");
     for (auto const &bucket : m_current_search->buckets()) {
-        if (!bucket.location().IsFolder()) {
+        if (bucket.location().IsValid() && !bucket.location().IsFolder()) {
             m_buyout_manager.SetRefreshChecked(bucket.location(), false);
         }
     }
@@ -825,6 +826,9 @@ void MainWindow::OnBuyoutChange()
             continue; // no buyouts on folders, no cascade (D11, R7)
         }
         const auto location = m_current_search->GetTabLocation(index);
+        if (ref.isBucket() && !location.IsValid()) {
+            continue; // the By-Item header row has no location to price
+        }
         const auto tab = location.id();
 
         // Don't allow users to manually update locked tabs (game priced)
@@ -1351,6 +1355,7 @@ void MainWindow::ReconcileSelectionIntent()
                                                             QItemSelectionModel::NoUpdate);
             m_applying_delta = false;
             ClearCurrentItem();
+            ResetBuyoutWidgets();
         }
     }
     if (!m_current_item && m_current_bucket_location) {
@@ -1865,6 +1870,8 @@ void MainWindow::NewSearch()
 void MainWindow::ClearCurrentItem()
 {
     spdlog::trace("MainWindow::ClearCurrentItem() entered");
+    // A pending details update belongs to an item that is no longer shown.
+    m_delayed_update_current_item.stop();
     ui->imageLabel->hide();
     ui->minimapLabel->hide();
     ui->locationLabel->hide();
@@ -1880,6 +1887,8 @@ void MainWindow::ClearCurrentItem()
 void MainWindow::UpdateCurrentBucket()
 {
     spdlog::trace("MainWindow::UpdateCurrentBucket() entered");
+    // A pending item details update would overwrite the bucket's.
+    m_delayed_update_current_item.stop();
     ui->imageLabel->hide();
     ui->minimapLabel->hide();
     ui->locationLabel->hide();
@@ -1968,10 +1977,12 @@ void MainWindow::UpdateCurrentBuyout()
     spdlog::trace("MainWindow::UpdateCurrentBuyout() entered");
     if (m_current_item) {
         UpdateBuyoutWidgets(m_buyout_manager.Get(*m_current_item));
-    } else if (m_current_bucket_location && m_current_bucket_location->IsFolder()) {
+    } else if (m_current_bucket_location
+               && (m_current_bucket_location->IsFolder() || !m_current_bucket_location->IsValid())) {
         // No buyouts on folders (D11, R7): the widgets are disabled, and a
         // tab buyout an earlier version stored against the folder id is
-        // not rendered.
+        // not rendered. The By-Item view's single header row has no
+        // location at all and is treated the same way.
         ResetBuyoutWidgets();
     } else if (m_current_bucket_location) {
         UpdateBuyoutWidgets(m_buyout_manager.GetTab(*m_current_bucket_location));

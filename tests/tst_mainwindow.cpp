@@ -179,6 +179,9 @@ private slots:
     void priceBoxIgnoresTextThatIsNotAPrice();
     void priceBoxAcceptsDecimalPointOrComma_data();
     void priceBoxAcceptsDecimalPointOrComma();
+    void removedSelectionResetsPriceEditor();
+    void byItemHeaderIsNotPriceable();
+    void headerSelectionSurvivesItemDetailsTimer();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -4096,6 +4099,107 @@ void MainWindowTest::priceBoxAcceptsDecimalPointOrComma()
     QCOMPARE(stored.currency.type, Currency::CURRENCY_CHAOS_ORB);
     QCOMPARE(stored.value, 2.5);
     QCOMPARE(value->text(), text);
+}
+
+// #282: when a refresh removes the selected item, the price editor is reset
+// as it is for any lapsed selection, not left enabled on the old price.
+void MainWindowTest::removedSelectionResetsPriceEditor()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    auto *nameLabel = fixture.window->findChild<QLabel *>("nameLabel");
+    auto *buyoutType = fixture.window->findChild<QComboBox *>("buyoutTypeComboBox");
+    auto *buyoutValue = fixture.window->findChild<QLineEdit *>("buyoutValueLineEdit");
+    QVERIFY(tree);
+    QVERIFY(nameLabel);
+    QVERIFY(buyoutType);
+    QVERIFY(buyoutValue);
+
+    const ItemLocation tab = makeTestStashLocation("stash-gone", "Gone", 0);
+    const auto item = makeMainWindowItem("gone-item", "Gone", "Sword", tab);
+    Items items;
+    items.push_back(item);
+    fixture.itemsManager->OnItemsRefreshed(items, {tab}, false);
+    fixture.buyoutFixture.manager->Set(*item, makeChaosBuyout(5));
+
+    const QModelIndex row = findItemRow(*tree->model(),
+                                        findBucket(*tree->model(), tab.GetHeader()),
+                                        "Gone Sword");
+    QVERIFY(row.isValid());
+    tree->selectionModel()->setCurrentIndex(row,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    QCOMPARE(buyoutValue->text(), "5");
+    QVERIFY(buyoutValue->isEnabled());
+
+    fixture.itemsManager->OnTabRefreshed(tab, {});
+
+    QCOMPARE(nameLabel->text(), "Select an item");
+    QCOMPARE(buyoutValue->text(), "");
+    QVERIFY(!buyoutValue->isEnabled());
+    QVERIFY(!buyoutType->isEnabled());
+}
+
+// #282: the single header row of the By-Item view has no location
+// (ItemLocation::IsValid() is false; the model labels it "All Items"). It
+// cannot be priced, and Check All / Uncheck All skip it, so nothing is
+// stored under an empty id.
+void MainWindowTest::byItemHeaderIsNotPriceable()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    auto *buyoutType = fixture.window->findChild<QComboBox *>("buyoutTypeComboBox");
+    QVERIFY(tree);
+    QVERIFY(buyoutType);
+
+    const ItemLocation tab = makeTestStashLocation("stash-flat", "Flat", 0);
+    Items items;
+    items.push_back(makeMainWindowItem("flat-item", "Flat", "Sword", tab));
+    fixture.itemsManager->OnItemsRefreshed(items, {tab}, false);
+    switchToByItemView(fixture);
+
+    const QModelIndex header = tree->model()->index(0, 0);
+    QCOMPARE(header.data().toString(), "All Items");
+    tree->selectionModel()->setCurrentIndex(header,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    QVERIFY(!buyoutType->isEnabled());
+
+    applyBuyoutCommand(fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "5");
+    QVERIFY(fixture.buyoutFixture.manager->GetTab(ItemLocation()).IsNull());
+
+    fixture.window->OnUncheckAll();
+    QVERIFY(fixture.buyoutFixture.manager->GetRefreshChecked(ItemLocation()));
+}
+
+// #282: selecting a tab header after an item stops the item's pending
+// details update, which would otherwise replace the header's details.
+void MainWindowTest::headerSelectionSurvivesItemDetailsTimer()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    auto *nameLabel = fixture.window->findChild<QLabel *>("nameLabel");
+    QVERIFY(tree);
+    QVERIFY(nameLabel);
+
+    const ItemLocation tab = makeTestStashLocation("stash-head", "Head", 0);
+    Items items;
+    items.push_back(makeMainWindowItem("head-item", "Head", "Sword", tab));
+    fixture.itemsManager->OnItemsRefreshed(items, {tab}, false);
+
+    const QModelIndex bucket = findBucket(*tree->model(), tab.GetHeader());
+    const QModelIndex row = findItemRow(*tree->model(), bucket, "Head Sword");
+    QVERIFY(row.isValid());
+    tree->selectionModel()->setCurrentIndex(row,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    tree->selectionModel()->setCurrentIndex(bucket,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    QCOMPARE(nameLabel->text(), tab.GetHeader());
+
+    QTest::qWait(300); // past the 100 ms details timer
+    QCOMPARE(nameLabel->text(), tab.GetHeader());
 }
 
 QTEST_MAIN(MainWindowTest)
