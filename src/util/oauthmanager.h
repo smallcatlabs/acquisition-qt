@@ -24,7 +24,9 @@ class OAuthManager : public QObject
 
 public:
     explicit OAuthManager(NetworkManager &manager, DataStore &datastore, QObject *parent = nullptr);
-    void initLogin();
+    // Starts a browser login. Returns false, without opening the browser,
+    // when the callback listener cannot be opened on 127.0.0.1.
+    bool initLogin();
 
 private slots:
     void onRequestFailure(const QAbstractOAuth::Error error);
