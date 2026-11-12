@@ -26,6 +26,7 @@ private slots:
     void resonatorAndAbyssSocketsHaveNoColour();
     void valuelessModStoresZero();
     void decimalModValueIgnoresProcessLocale();
+    void ignoredFirstFormatStillSubstitutesTheRest();
 };
 
 // Real RePoE stat translations, cut from the game data (see
@@ -325,6 +326,24 @@ void ItemTest::decimalModValueIgnoresProcessLocale()
         "explicitMods": [{"description": "0.26% of Physical Attack Damage Leeched as Life"}]
     )json");
     QCOMPARE(item->mod_table().at("#% of Physical Attack Damage Leeched as Life"), 0.26);
+}
+
+// #265: a translation whose first stat is not displayed ("ignore") still
+// shows the others. Their placeholders become "#" like any other; they were
+// left as a literal "{1}", which no item line can match.
+void ItemTest::ignoredFirstFormatStillSubstitutesTheRest()
+{
+    loadRealStatTranslations();
+
+    const QStringList names = mod_list_model().stringList();
+    QVERIFY(names.contains("Projectiles have #% chance to Return to you"));
+    QVERIFY(!names.contains("Projectiles have {1}% chance to Return to you"));
+    QVERIFY(names.contains("Projectiles Return to you"));
+
+    const auto item = makeItem("return", R"json(,
+        "explicitMods": [{"description": "Projectiles have 30% chance to Return to you"}]
+    )json");
+    QCOMPARE(item->mod_table().at("Projectiles have #% chance to Return to you"), 30.0);
 }
 
 QTEST_GUILESS_MAIN(ItemTest)
