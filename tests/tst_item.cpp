@@ -32,6 +32,7 @@ private slots:
     void resonatorSocketsExportAsResonators();
     void colourOnlySocketsUseTheColourAlphabet();
     void vestigialAndDesecratedModsAreKept();
+    void realRingModTable();
 };
 
 // Real RePoE stat translations, cut from the game data (see
@@ -440,6 +441,41 @@ void ItemTest::colourOnlySocketsUseTheColourAlphabet()
     QCOMPARE(item->sockets().b, 1);
     QCOMPARE(item->sockets().w, 1);
     QVERIFY2(item->POBformat().contains("\nSockets: R-G-B-W\n"), qPrintable(item->POBformat()));
+}
+
+// The whole mod table of a real ring (lines from a forum page the
+// maintainer captured), against real stat translations: the natural mods
+// under their names, and every pseudo-mod they feed.
+void ItemTest::realRingModTable()
+{
+    loadRealStatTranslations();
+
+    const auto ring = makeItem("ring", R"json(,
+        "explicitMods": [
+            {"description": "+13% to Fire and Cold Resistances"},
+            {"description": "+48 to Strength"},
+            {"description": "+107 to maximum Life"},
+            {"description": "0.26% of Physical Attack Damage Leeched as Life"}
+        ]
+    )json");
+
+    const ModTable expected{
+        {"+#% to Fire and Cold Resistances", 13.0},
+        {"+# to Strength", 48.0},
+        {"+# to maximum Life", 107.0},
+        {"#% of Physical Attack Damage Leeched as Life", 0.26},
+        {"+#% total to Fire Resistance", 13.0},
+        {"+#% total to Cold Resistance", 13.0},
+        {"+#% total Elemental Resistance", 26.0},
+        {"+#% total Resistance", 26.0},
+        {"+# total to Strength", 48.0},
+    };
+    const ModTable &table = ring->mod_table();
+    QCOMPARE(table.size(), expected.size());
+    for (const auto &[name, value] : expected) {
+        QVERIFY2(table.contains(name), qPrintable(name));
+        QCOMPARE(table.at(name), value);
+    }
 }
 
 QTEST_GUILESS_MAIN(ItemTest)

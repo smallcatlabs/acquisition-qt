@@ -9,9 +9,8 @@
 #include <QtSql/QSqlQuery>
 #include <QtSql/QSqlRecord>
 
-#include <memory>
 #include <set>
-#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "item.h"
@@ -25,10 +24,9 @@ namespace {
 
     QStringListModel m_mod_list_model;
     std::set<QString> mods;
-    std::unordered_map<QString, SumModGenerator *> mods_map;
-    std::vector<SumModGen> mod_generators;
-
-    const PseudoModManager pseudo_mgr;
+    // The names a mod line can be filed under: the RePoE templates and the
+    // pseudo-mod names.
+    std::unordered_set<QString> mod_names;
 
 } // namespace
 
@@ -43,7 +41,7 @@ void InitStatTranslations()
     mods.clear();
 
     // Seed the mods list with pseudo mods.
-    for (const auto &[pseudo_mod, real_mods] : pseudo_mgr.SUMMING_MODS) {
+    for (const auto &[pseudo_mod, real_mods] : PseudoModManager::SUMMING_MODS) {
         mods.insert(pseudo_mod);
     }
 }
@@ -96,56 +94,11 @@ void InitModList()
 {
     spdlog::trace("InitModList() entered");
 
-    std::set<QString> mod_strings;
-    mod_generators.clear();
-    mods_map.clear();
-    for (auto &mod : mods) {
-        if (mod_strings.count(mod) > 0) {
-            spdlog::warn("InitModList(): duplicate mod: {}", mod);
-        } else {
-            mod_strings.insert(mod);
-            std::vector<QString> list = {mod};
-            SumModGen gen = std::make_shared<SumModGenerator>(mod, list);
-            mods_map[mod] = gen.get();
-            mod_generators.push_back(gen);
-        }
-    }
-    QStringList mod_list;
-    mod_list.reserve(mod_strings.size());
-    for (auto &mod : mod_strings) {
-        mod_list.append(mod);
-    }
+    mod_names = std::unordered_set<QString>(mods.begin(), mods.end());
+
+    QStringList mod_list(mods.begin(), mods.end());
     mod_list.sort(Qt::CaseInsensitive);
     m_mod_list_model.setStringList(mod_list);
-}
-
-SumModGenerator::SumModGenerator(const QString &name, const std::vector<QString> &matches)
-    : m_name(name)
-    , m_matches(matches)
-{}
-
-bool SumModGenerator::Match(const char *mod, double &output)
-{
-    bool found = false;
-    output = 0.0;
-    for (auto &match : m_matches) {
-        double result = 0.0;
-        if (Util::MatchMod(match.toStdString().c_str(), mod, &result)) {
-            output += result;
-            found = true;
-        }
-    }
-    return found;
-}
-
-void SumModGenerator::Generate(const QString &mod, ModTable &output)
-{
-    double result;
-    if (Match(mod.toStdString().c_str(), result)) {
-        // The same mod can appear in several sections (implicit and explicit,
-        // say); the item's value is the sum of its lines (#262).
-        output[m_name] += result;
-    }
 }
 
 void AddModToTable(const QString &raw_mod, ModTable &output)
@@ -163,18 +116,19 @@ void AddModToTable(const QString &raw_mod, ModTable &output)
     const std::string raw_str = raw_mod.toStdString();
 
     // First, process natural modifiers.
-    {
-        auto it = mods_map.find(generic_mod);
-        if (it != mods_map.end()) {
-            SumModGenerator *gen = it->second;
-            gen->Generate(raw_mod, output);
+    if (mod_names.contains(generic_mod)) {
+        double value = 0.0;
+        if (Util::MatchMod(generic_mod.toStdString().c_str(), raw_str.c_str(), &value)) {
+            // The same mod can appear in several sections (implicit and
+            // explicit, say); the item's value is the sum of its lines (#262).
+            output[generic_mod] += value;
         }
     }
 
     // Next, process summing pseudo-mods.
     {
-        auto it = pseudo_mgr.SUMMING_MODS_LOOKUP.find(generic_mod);
-        if (it != pseudo_mgr.SUMMING_MODS_LOOKUP.end()) {
+        auto it = PseudoModManager::SUMMING_MODS_LOOKUP.find(generic_mod);
+        if (it != PseudoModManager::SUMMING_MODS_LOOKUP.end()) {
             const std::string generic_str = generic_mod.toStdString();
 
             // Get the list of summing pseudo-mods this modifier impacts.
