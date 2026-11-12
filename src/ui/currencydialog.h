@@ -4,7 +4,7 @@
 #pragma once
 
 #include <QDialog>
-#include <QWidget>
+#include <QObject>
 
 #include <memory>
 #include <vector>
@@ -20,7 +20,9 @@ struct CurrencyItem;
 class CurrencyManager;
 struct CurrencyLabels;
 
-class CurrencyWidget : public QWidget
+// One currency's row in the dialog: its widgets are placed in the dialog's
+// grid, so the row itself is only their owner's bookkeeping, not a widget.
+class CurrencyWidget : public QObject
 {
     Q_OBJECT
 public slots:
@@ -28,8 +30,7 @@ public slots:
     void UpdateVisual(bool show_chaos, bool show_exalt);
 
 public:
-    explicit CurrencyWidget(std::shared_ptr<CurrencyItem> currency);
-    bool IsNone() const;
+    CurrencyWidget(std::shared_ptr<CurrencyItem> currency, QWidget *parent);
 
     QLabel *name;
     QLabel *count;
@@ -47,6 +48,7 @@ class CurrencyDialog : public QDialog
     Q_OBJECT
 public:
     CurrencyDialog(QSettings &settings, CurrencyManager &manager, QWidget *parent = nullptr);
+    ~CurrencyDialog() override;
     bool ShowChaos() const;
     bool ShowExalt() const;
 
@@ -60,7 +62,7 @@ private:
     QSettings &m_settings;
     CurrencyManager &m_currency_manager;
     std::vector<CurrencyWidget *> m_currencies_widgets;
-    CurrencyLabels *m_headers;
+    std::unique_ptr<CurrencyLabels> m_headers;
     QVBoxLayout *m_layout;
     QLabel *m_total_exalt_value;
     QLabel *m_total_chaos_value;
