@@ -151,11 +151,15 @@ private slots:
 
 namespace {
 
+    // The thread the captured forum pages belong to (tests/fixtures/forum/):
+    // the page a successful edit returns links to it.
+    constexpr const char *kThread = "3445874";
+
     // A Shop ready to submit: threads set and a POESESSID present, the two
     // preconditions SubmitShopToForum checks before it indexes anything.
     void armForSubmission(ShopFixture &fixture)
     {
-        fixture.shop->SetThread({"123"});
+        fixture.shop->SetThread({kThread});
         fixture.settings->setValue("session_id", "fake-poesessid");
         fixture.settings->setValue("account", "someone");
         fixture.settings->setValue("realm", "pc");
@@ -304,7 +308,7 @@ namespace {
 
     void armStoreBackedShop(ShopFixture &fixture, StoreBackedShop &backed)
     {
-        backed.shop.SetThread({"123"});
+        backed.shop.SetThread({kThread});
         fixture.settings->setValue("session_id", "fake-poesessid");
         fixture.settings->setValue("account", "someone");
         fixture.settings->setValue("realm", "pc");
@@ -443,7 +447,7 @@ void ShopTest::stashIndexSuccessProceedsToShopSubmission()
     QCOMPARE(fixture.networkManager->count(), 1);
     QCOMPARE(fixture.networkManager->sent(0).op, QNetworkAccessManager::GetOperation);
     QCOMPARE(fixture.networkManager->sent(0).request.url().toString(),
-             QString("https://www.pathofexile.com/forum/edit-thread/123"));
+             QString("https://www.pathofexile.com/forum/edit-thread/") + kThread);
 
     // And the lock is still held while that submission is in flight.
     fixture.shop->SubmitShopToForum(true);
@@ -959,7 +963,7 @@ void ShopTest::morePagesThanThreadsWarnsWithoutReposting()
     fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
     QCOMPARE(fixture.networkManager->sent(1).request.url().toString(),
-             QString("https://www.pathofexile.com/forum/edit-thread/123"));
+             QString("https://www.pathofexile.com/forum/edit-thread/") + kThread);
     QCOMPARE(postedForm(fixture.networkManager->sent(1)).value("content"),
              fixture.shop->shop_data().first());
     fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, afterEditPage());
@@ -1176,7 +1180,7 @@ void ShopTest::automaticRefusalWarnsOncePerReason()
     QVERIFY(warnings.last().first().toString().contains("No forum threads"));
 
     // Threads, but no POESESSID: a different reason, reported once.
-    fixture.shop->SetThread({"123"});
+    fixture.shop->SetThread({kThread});
     fixture.settings->remove("session_id");
     for (int i = 0; i < 2; ++i) {
         fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
@@ -1648,7 +1652,7 @@ void ShopTest::editPageTransportFailureDoesNotBlameTheThread()
 
     QCOMPARE(warnings.count(), 1);
     const QString notice = warnings.first().first().toString() + lastStatus(statuses);
-    QVERIFY2(!notice.contains("123"), qPrintable(notice));
+    QVERIFY2(!notice.contains(kThread), qPrintable(notice));
     QVERIFY2(!notice.contains("thread number", Qt::CaseInsensitive), qPrintable(notice));
     QVERIFY2(!notice.contains("thread ID", Qt::CaseInsensitive), qPrintable(notice));
 
