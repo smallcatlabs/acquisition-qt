@@ -37,6 +37,7 @@
 #include "util/checkmsvc.h"
 #include "util/crashreporting.h"
 #include "util/databackup.h"
+#include "util/fatalerror.h"
 #include "util/logging.h"
 #include "util/networkmanager.h"
 #include "util/oauthmanager.h"
@@ -77,6 +78,7 @@ private slots:
     void msvcCheckPassesWithoutLibraries();
     void msvcCheckAnswer_data();
     void msvcCheckAnswer();
+    void fatalErrorReportsWithLoggingOff();
     void freshDataDirTakesNoBackup();
     void legacyStoreVersionNamesTheBackup();
 
@@ -767,6 +769,24 @@ void ShellTest::msvcCheckAnswer()
     QVERIFY(prompted);
     QCOMPARE(result, continues);
     QCOMPARE(folder.urls.size(), opensFolder ? 1 : 0);
+}
+
+void ShellTest::fatalErrorReportsWithLoggingOff()
+{
+    // "off" is a selectable log level; the report must not depend on it.
+    const auto level = spdlog::get_level();
+    spdlog::set_level(spdlog::level::off);
+    std::FILE *out = std::tmpfile();
+    QVERIFY(out);
+    ReportFatalError("invariant broken: test", out);
+    spdlog::set_level(level);
+
+    std::fflush(out);
+    std::rewind(out);
+    char buffer[256] = {};
+    const size_t n = std::fread(buffer, 1, sizeof(buffer) - 1, out);
+    std::fclose(out);
+    QVERIFY2(QByteArray(buffer, qsizetype(n)).contains("invariant broken: test"), buffer);
 }
 
 void ShellTest::freshDataDirTakesNoBackup()
