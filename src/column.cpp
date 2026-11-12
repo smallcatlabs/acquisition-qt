@@ -362,20 +362,19 @@ QString PriceColumn::name() const
 
 QVariant PriceColumn::value(const Item &item) const
 {
-    const Buyout &bo = m_bo_manager.Get(item);
-    return bo.AsText();
+    return m_bo_manager.Effective(item).buyout.AsText();
 }
 
 QColor PriceColumn::color(const Item &item) const
 {
-    const Buyout &bo = m_bo_manager.Get(item);
-    return bo.IsInherited() ? QColor(0xaa, 0xaa, 0xaa)
-                            : QApplication::palette().color(QPalette::WindowText);
+    return m_bo_manager.Effective(item).buyout.IsInherited()
+               ? QColor(0xaa, 0xaa, 0xaa)
+               : QApplication::palette().color(QPalette::WindowText);
 }
 
 ItemSortKey::PriceHead PriceColumn::head(const Item &item) const
 {
-    const Buyout &bo = m_bo_manager.Get(item);
+    const Buyout bo = m_bo_manager.Effective(item).buyout;
     return ItemSortKey::PriceHead(bo.currency.AsRank(), bo.value);
 }
 
@@ -411,13 +410,13 @@ QString DateColumn::name() const
 
 QVariant DateColumn::value(const Item &item) const
 {
-    const Buyout &bo = m_bo_manager.Get(item);
+    const Buyout bo = m_bo_manager.Effective(item).buyout;
     return bo.IsActive() ? Util::TimeAgoInWords(bo.last_update) : QVariant();
 }
 
 ItemSortKey::DateHead DateColumn::head(const Item &item) const
 {
-    return ItemSortKey::DateHead(m_bo_manager.Get(item).last_update);
+    return ItemSortKey::DateHead(m_bo_manager.Effective(item).buyout.last_update);
 }
 
 bool DateColumn::lt(const Item *lhs, const Item *rhs) const
