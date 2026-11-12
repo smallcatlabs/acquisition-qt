@@ -7,6 +7,7 @@
 #include <QString>
 
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <optional>
 #include <set>
@@ -22,6 +23,7 @@
 #include "items_model.h"
 #include "locationinventory.h"
 #include "util/util.h"
+#include "visibleindex.h"
 
 class BuyoutManager;
 class FilterCatalog;
@@ -46,11 +48,10 @@ public:
     ~Search();
     void FilterItems(const Items &items);
     const QString &caption() const { return m_caption; }
-    // The visible filtered collection. The delta path maintains the
-    // active mode's buckets and the indexes incrementally (S4/S5) and
-    // this flat vector is rebuilt lazily from the maintained side on
-    // first read — no delta pays an O(collection) pass to keep it fresh.
-    const Items &items() const;
+    // The visible filtered collection, read from the side the delta path
+    // maintains (S4/S5): the flat bucket while it is fresh, else the tab
+    // buckets in tree order.
+    Items items() const;
     const std::vector<std::unique_ptr<Column>> &columns() const { return m_columns; }
     ItemsModel &model() { return m_model; }
     // Expansion is keyed by the stable (type, id) display key (M2 R6-3):
@@ -105,8 +106,7 @@ public:
     // mid-refresh. Returns null for unknown or empty ids.
     std::shared_ptr<Item> visibleItemById(const QString &id) const
     {
-        const auto it = m_visible_by_id.find(id);
-        return (it != m_visible_by_id.end()) ? it->second : nullptr;
+        return m_visible.itemById(id);
     }
 
     // True when the id index cannot represent every visible occurrence of
@@ -114,10 +114,7 @@ public:
     // occurrence only — R6-3 reselection wants exactly one item) or the
     // empty id shared by id-less items. The buyout repaint falls back to
     // scanning every bucket for such ids; rebuilt by every refilter.
-    bool visibleIdUnindexed(const QString &id) const
-    {
-        return m_unindexed_visible_ids.count(id) > 0;
-    }
+    bool visibleIdUnindexed(const QString &id) const { return m_visible.unindexed(id); }
     const std::shared_ptr<Item> &currentItem() const { return m_current_item; }
     void setCurrentItem(std::shared_ptr<Item> item) { m_current_item = std::move(item); }
     const std::optional<ItemLocation> &currentBucket() const { return m_current_bucket; }
@@ -324,12 +321,6 @@ private:
     std::vector<Bucket> &active_buckets();
     const ItemLocation &canonicalLocation(const ItemLocation &embedded) const;
 
-    // S4 delta internals. The index helpers keep m_visible_by_id, the
-    // duplicate-occurrence side table, the unindexed set, and the filtered
-    // item count answering as if freshly refiltered, in O(1) per item.
-    void IndexInsertVisible(const std::shared_ptr<Item> &item);
-    void IndexRemoveVisible(const std::shared_ptr<Item> &item);
-    void AssignSerials();
     void RebuildRowLookups();
     int FindBucketRow(const LocationInventory::Key &key) const;
 
@@ -350,12 +341,18 @@ private:
     // A folder's location when the canonical inventory or the published
     // tab list knows it as a Folder-type stash (D2 folder presence).
     std::optional<ItemLocation> KnownFolderLocation(const QString &folder_id) const;
-    // D2 folder presence: adds to `present` (stable key -> Bucket or
-    // ItemLocation) each known folder its present members name.
-    template<typename Map, typename Make>
-    void AddMemberFolders(Map &present, Make &&make) const;
+    // The one By-Tab grouping rule (M2 D6/R5-1, D2 rule 5, folder-tree
+    // D2), shared by the refilter, the mode switch and the final
+    // snapshot's reconciliation: `accepted` grouped by stable display key
+    // under each key's canonical location; every listed tab, empty or
+    // not, when the search is unfiltered; and each known folder a present
+    // member names.
+    std::map<LocationInventory::Key, Bucket> GroupByTab(const Items &accepted) const;
+    // Makes `grouped` the By-Tab vector (refilter and mode-switch
+    // rebuilds): each bucket gets a fresh serial, then ArrangeTabTree.
+    void InstallTabBuckets(std::map<LocationInventory::Key, Bucket> grouped);
     // Sorts a freshly built By-Tab vector into tree order and records each
-    // bucket's parent (refilter and mode-switch rebuilds).
+    // bucket's parent.
     void ArrangeTabTree();
     // A bucket's position among `parent_row`'s children by
     // bucketDisplayLess, not counting `skip_row`.
@@ -446,25 +443,9 @@ private:
     // search last filtered (D9 rule 1).
     bool m_items_dirty{false};
 
-    // The visible result by stable item id (R6-3 reselection), rebuilt by
-    // every refilter and maintained per delta (S4). For a duplicated id
-    // the entry is the first occurrence — the invariant is
-    // m_visible_by_id[id] == m_duplicate_visible_ids[id].front().
-    std::unordered_map<QString, std::shared_ptr<Item>> m_visible_by_id;
-
-    // Ids the index above cannot fully represent: duplicated ids and the
-    // empty id (see visibleIdUnindexed).
-    std::set<QString> m_unindexed_visible_ids;
-
-    // Every visible occurrence of a currently-duplicated non-empty id
-    // (mid-refresh divergence can show one id in two tabs). Kept so a
-    // delta removing one occurrence restores the survivor to the id index
-    // exactly — the indexes answer as if freshly refiltered
-    // (deltaUpdatesVisibleIndexesIncrementally). Empty except mid-refresh.
-    std::unordered_map<QString, Items> m_duplicate_visible_ids;
-    // Visible items sharing the empty id; the unindexed set carries the
-    // empty id while this is nonzero.
-    size_t m_empty_id_visible_count{0};
+    // The visible result by stable item id and the visible item count,
+    // rebuilt by every refilter and maintained per delta (S4).
+    VisibleIndex m_visible;
 
     std::vector<std::unique_ptr<Column>> m_columns;
 
@@ -498,23 +479,19 @@ private:
     std::uint64_t m_next_bucket_serial{1};
 
     // Staleness marks: the delta path maintains the ACTIVE mode's buckets
-    // and the indexes (S4 By-Tab, S5 By-Item); the other side rebuilds
-    // lazily — m_items on first read, the inactive mode's buckets at the
-    // next mode switch. At most one of the two mode marks is set: each
-    // mode's application stales the other side, and a refilter clears
-    // both.
-    mutable bool m_items_stale{false};
+    // and the indexes (S4 By-Tab, S5 By-Item); the inactive mode's
+    // buckets rebuild at the next mode switch. At most one of the two
+    // marks is set: each mode's application stales the other side, and a
+    // refilter clears both.
     bool m_flat_bucket_stale{false};
     bool m_tab_buckets_stale{false};
 
     QString m_caption;
-    mutable Items m_items;
     // True when any filter is active (the spec's post-freeze amendment
     // at D2 rule 5 — see the FilterItems comment): stable across
     // deltas, flips only at filter edits. Drives hidden empty buckets
     // and default expansion.
     bool m_filtered;
-    size_t m_filtered_item_count;
     std::set<LocationInventory::Key> m_expanded_keys;
     std::set<LocationInventory::Key> m_collapsed_folder_keys;
     ScrollAnchor m_scroll_anchor;

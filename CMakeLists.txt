@@ -352,6 +352,8 @@ set(ACQ_CORE
     src/search.cpp
     src/search.h
     src/sessionidentity.h
+    src/visibleindex.cpp
+    src/visibleindex.h
     src/shop.cpp
     src/shop.h
     src/shoprender.cpp
