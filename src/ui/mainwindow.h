@@ -5,6 +5,7 @@
 
 #include <QCloseEvent>
 #include <QDir>
+#include <QItemSelectionModel>
 #include <QLabel>
 #include <QMainWindow>
 #include <QMenu>
@@ -13,6 +14,7 @@
 
 #include <memory>
 #include <optional>
+#include <set>
 #include <vector>
 
 #include <spdlog/spdlog.h>
@@ -21,6 +23,7 @@
 #include "filters/filterspec.h"
 #include "item.h"
 #include "itemlocation.h"
+#include "locationinventory.h"
 #include "refreshoutcome.h"
 #include "sessionidentity.h"
 #include "util/programstate.h"
@@ -186,18 +189,50 @@ private:
     // The view-side tail for buckets a delta or the snapshot inserted:
     // folders by the user-collapsed set, tabs by the default-expanded rule.
     void ExpandInsertedBuckets(const std::vector<int> &bucket_rows);
+    // One delta's view of the selection (M3 R1-3 as amended, #282). The
+    // current item follows R1-3's intent (below). Every other selected row
+    // stays selected across a refresh while its item stays in its tab; an
+    // item that leaves its tab loses its selection. Nothing is kept for
+    // those rows from one delta to the next.
+    struct SelectionCapture
+    {
+        // The bucket the delta touches, walked to restore the selection;
+        // nullopt (the final snapshot) for every bucket.
+        std::optional<LocationInventory::Key> bucket;
+        // Each selected item in that bucket, by stable id and the tab it
+        // came from.
+        std::set<std::pair<QString, LocationInventory::Key>> items;
+        // Whether the current row was selected.
+        bool current_selected{false};
+    };
+    SelectionCapture CaptureSelection(std::optional<LocationInventory::Key> bucket) const;
+    // The bucket a delta for `location` touches: its tab's in By-Tab, the
+    // flat bucket in By-Item.
+    LocationInventory::Key TouchedBucket(const ItemLocation &location) const;
+    // Selects again, by one walk of the captured bucket, the captured
+    // items it still holds from the same tab.
+    void RestoreSelection(const SelectionCapture &capture);
     void FinishDeltaApplication(bool processed,
                                 bool model_changed,
-                                const std::vector<int> &inserted_bucket_rows);
-    // R1-3: reconciles the view's selection with the stable-id intent
-    // after row operations — a removed selected row lapses visually but
-    // keeps the intent; a visible item with the intent's id re-adopts the
-    // selection through the global identity index.
-    void ReconcileSelectionIntent();
-    // Makes `index` the current, selected row without the view expanding
-    // its collapsed ancestors: a reselection made for the user never undoes
-    // the user's collapse (folder-tree D9).
-    void SelectWithoutExpanding(const QModelIndex &index);
+                                const std::vector<int> &inserted_bucket_rows,
+                                const SelectionCapture &capture);
+    // R1-3: reconciles the current row with the stable-id intent after
+    // row operations — a removed current row lapses but keeps the intent;
+    // a visible item with the intent's id re-adopts the current row
+    // through the global identity index. It never clears or replaces the
+    // rest of the selection, and selects the row only if it was selected
+    // (as `capture` records for a delta) (#282).
+    void ReconcileSelectionIntent(const SelectionCapture *capture = nullptr);
+    // Settles the current row (ReconcileSelectionIntent) and, after a
+    // delta or the final snapshot, the selection (RestoreSelection), then
+    // shows the price editor the result once. The only caller of both.
+    void SettleSelection(const SelectionCapture *capture);
+    // Records whether the current row is selected, while it is present.
+    void NoteCurrentRowSelection();
+    // Makes `index` the current row, applying `flags` to the selection,
+    // without the view expanding its collapsed ancestors: a reselection
+    // made for the user never undoes the user's collapse (folder-tree D9).
+    void SelectWithoutExpanding(const QModelIndex &index, QItemSelectionModel::SelectionFlags flags);
 
     void ModelViewRefresh();
     void ReselectCurrentItem();
@@ -260,6 +295,11 @@ private:
     // insertion re-adopts it; every RefreshFinished outcome closes the
     // window (R2-1). A user selection overwrites it at any time.
     QString m_selection_intent_id;
+    // Whether the intent's row was selected when it last left: its
+    // re-adoption selects it again only then, and never touches the rest
+    // of the selection (the R1-3 amendment, #282). Kept current by
+    // NoteCurrentRowSelection before every pass that can remove the row.
+    bool m_selection_intent_selected{true};
     bool m_refresh_active{false};
     // Row operations make the view shuffle its current index (Qt moves
     // current off a removed row); while set, OnCurrentItemChanged ignores
@@ -283,8 +323,8 @@ private:
     QMetaObject::Connection m_current_item_conn;
     QMetaObject::Connection m_selection_conn;
     QMetaObject::Connection m_model_reset_conn;
-    // Set while ReconcileSelectionIntent settles the selection; the price
-    // editor is updated once at its end.
+    // Set while SettleSelection settles the current row and the selection;
+    // the price editor is updated once at its end.
     bool m_defer_price_editor{false};
     RateLimitDialog *m_rate_limit_dialog;
     bool m_quitting;
