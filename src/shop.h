@@ -5,18 +5,17 @@
 
 #include <QNetworkReply>
 #include <QObject>
+#include <QString>
+#include <QStringList>
 
 #include <expected>
-#include <map>
 #include <memory>
 #include <set>
-#include <vector>
 
-#include "buyout.h"
-#include "itemlocation.h"
 #include "poe/types/website/webstashtab.h"
 #include "ratelimit/fetcherror.h"
 #include "refreshoutcome.h"
+#include "shoprender.h"
 #include "util/programstate.h"
 
 class QSettings;
@@ -95,25 +94,17 @@ private:
     // under the submission.
     struct ShopJob
     {
-        struct CapturedItem
-        {
-            QString id;
-            QString pretty_name;
-            ItemLocation location;
-            Buyout buyout;
-        };
-        // Immutable capture.
-        std::vector<CapturedItem> items;
-        QString shop_template;
-        QString realm;
-        QString league;
+        // Immutable capture: the postable items, template and realm/league
+        // (the stash index is added to it when it arrives), and the target
+        // thread list.
+        ShopRenderInput input;
         QStringList threads;
         bool force{false};
         quint64 input_revision{0};
-        // Job-local transport state.
-        std::map<QString, unsigned int> tab_index;
-        QStringList shop_data;
-        QString shop_hash;
+        // Job-local transport state. Every submission renders its own
+        // capture (M2 D8): correctness never depends on preview-cache
+        // freshness.
+        RenderedShop rendered;
         qsizetype requests_completed{0};
         // True for a submission started by a clean refresh rather than by
         // the user; it decides how often a standing warning is repeated.
@@ -121,9 +112,6 @@ private:
     };
 
     std::unique_ptr<ShopJob> CaptureJob(bool force) const;
-    // Every submission renders from its capture (M2 D8): correctness never
-    // depends on preview-cache freshness.
-    void RenderJob(ShopJob &job) const;
     void PublishPreviewCache(const ShopJob &job);
 
     // Automatic admission (M2 D8/R3-1): captures BEFORE applying the busy
@@ -161,7 +149,6 @@ private:
     void SubmitSingleShop();
     void SubmitNextShop(const QString &title, const QString &hash);
     QString ShopEditUrl(qsizetype idx);
-    static QString SpoilerBuyout(const Buyout &bo);
 
     QSettings &m_settings;
     NetworkManager &m_network_manager;

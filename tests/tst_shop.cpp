@@ -23,6 +23,7 @@
 #include "mainwindowfixture.h"
 #include "poe/poeapiclient.h"
 #include "shop.h"
+#include "shoprender.h"
 #include "testfixtures.h"
 #include "util/networkmanager.h"
 
@@ -134,6 +135,7 @@ private slots:
     void renderGroupsMixedBuyouts();
     void renderCharacterItem();
     void renderLeavesOutGameAndUnindexedItems();
+    void renderShopNeverPostsAGamePrice();
 };
 
 namespace {
@@ -1405,6 +1407,45 @@ void ShopTest::renderLeavesOutGameAndUnindexedItems()
     QCOMPARE(pages,
              QStringList{R"([spoiler][spoiler=" ~b/o  1 chaos"])" + stashLink(1, 0)
                          + stashLink(4, 0) + "[/spoiler]"});
+}
+
+// AGENTS.md: prices set in the game are never posted to the forum. The
+// renderer filters by itself, so a caller that hands it a game-sourced
+// price still cannot get it posted; an item whose tab the stash index does
+// not list comes back as unlinked instead of vanishing.
+void ShopTest::renderShopNeverPostsAGamePrice()
+{
+    const ItemLocation tab = makeTestStashLocation();
+    const ItemLocation unlisted = makeTestStashLocation("stash00003", "Unlisted Tab", 5);
+    const auto manual = makeShopItem("manual", tab, 0);
+    const auto game = makeShopItem("game", tab, 1);
+    const auto lost = makeShopItem("lost", unlisted, 0);
+
+    ShopRenderInput input;
+    input.shop_template = "[items]";
+    input.realm = "pc";
+    input.league = "Standard";
+    input.tab_index = {{"stash00001", 0}};
+    input.items
+        = {{game->PrettyName(),
+            game->location(),
+            makeBuyout(5,
+                       Buyout::BUYOUT_TYPE_FIXED,
+                       CurrencyType::CURRENCY_DIVINE_ORB,
+                       Buyout::BUYOUT_SOURCE_GAME)},
+           {manual->PrettyName(), manual->location(), makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)},
+           {lost->PrettyName(), lost->location(), makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)}};
+
+    const RenderedShop shop = RenderShop(input);
+    QCOMPARE(shop.pages,
+             QStringList{R"([spoiler][spoiler=" ~b/o  1 chaos"])" + stashLink(1, 0) + "[/spoiler]"});
+    QVERIFY(!shop.pages.join("").contains("divine"));
+    QCOMPARE(shop.unlinked.size(), size_t(1));
+    QCOMPARE(shop.unlinked.front().location.id(), QString("stash00003"));
+
+    // A game price alone renders nothing at all.
+    input.items.erase(input.items.begin() + 1, input.items.end());
+    QVERIFY(RenderShop(input).pages.isEmpty());
 }
 
 QTEST_MAIN(ShopTest)
