@@ -577,7 +577,8 @@ void SearchTest::modsFormAdapterRoundTrip()
     const auto &blankState = std::get<ModsState>(searchA.filterStateAt(modsIndex));
     QCOMPARE(blankState.rows.size(), 1);
     QVERIFY(blankState.rows.front().mod.isEmpty());
-    QVERIFY(blankState.isActive());
+    // #271: the blank row is saved (F36(a)) but filters nothing.
+    QVERIFY(!blankState.isActive());
     QVERIFY(!rowsContainer->isHidden());
 
     // F36(a): adding a blank row saves it before a tab switch can rebuild the form.

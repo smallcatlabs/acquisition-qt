@@ -630,12 +630,15 @@ void FiltersTest::modsFilter()
     emptyRow.min = 100.0;
     emptyRow.max = 1.0;
     state.rows.push_back(emptyRow);
-    QVERIFY(state.isActive());
+    // #271: a row with no mod chosen filters nothing, so it does not make
+    // the filter active.
+    QVERIFY(!state.isActive());
     QCOMPARE(state.rows.size(), 1);
     QVERIFY(state.rows.front().mod.isEmpty());
     QVERIFY(MatchesFilter(*item, *mods, state));
 
     state.rows.push_back(ModRow{"+# to maximum Life", 40.0, 45.0});
+    QVERIFY(state.isActive());
     QVERIFY(MatchesFilter(*item, *mods, state));
     state.rows.back().min = 43.0;
     QVERIFY(!MatchesFilter(*item, *mods, state));
