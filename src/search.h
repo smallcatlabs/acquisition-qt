@@ -7,6 +7,7 @@
 #include <QString>
 
 #include <cstdint>
+#include <map>
 #include <memory>
 #include <optional>
 #include <set>
@@ -350,10 +351,13 @@ private:
     // A folder's location when the canonical inventory or the published
     // tab list knows it as a Folder-type stash (D2 folder presence).
     std::optional<ItemLocation> KnownFolderLocation(const QString &folder_id) const;
-    // D2 folder presence: adds to `present` (stable key -> Bucket or
-    // ItemLocation) each known folder its present members name.
-    template<typename Map, typename Make>
-    void AddMemberFolders(Map &present, Make &&make) const;
+    // The one By-Tab grouping rule (M2 D6/R5-1, D2 rule 5, folder-tree
+    // D2), shared by the refilter, the mode switch and the final
+    // snapshot's reconciliation: `accepted` grouped by stable display key
+    // under each key's canonical location; every listed tab, empty or
+    // not, when the search is unfiltered; and each known folder a present
+    // member names.
+    std::map<LocationInventory::Key, Bucket> GroupByTab(const Items &accepted) const;
     // Sorts a freshly built By-Tab vector into tree order and records each
     // bucket's parent (refilter and mode-switch rebuilds).
     void ArrangeTabTree();
