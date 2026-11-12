@@ -218,6 +218,8 @@ private:
     // rest of the selection, and selects the row only if it was selected
     // (as `capture` records for a delta) (#282).
     void ReconcileSelectionIntent(const SelectionCapture *capture = nullptr);
+    // Records whether the current row is selected, while it is present.
+    void NoteCurrentRowSelection();
     // Makes `index` the current row, applying `flags` to the selection,
     // without the view expanding its collapsed ancestors: a reselection
     // made for the user never undoes the user's collapse (folder-tree D9).
@@ -280,9 +282,10 @@ private:
     // insertion re-adopts it; every RefreshFinished outcome closes the
     // window (R2-1). A user selection overwrites it at any time.
     QString m_selection_intent_id;
-    // Whether the intent's row was selected when it left: its re-adoption
-    // selects it again only then, and never touches the rest of the
-    // selection (the R1-3 amendment, #282).
+    // Whether the intent's row was selected when it last left: its
+    // re-adoption selects it again only then, and never touches the rest
+    // of the selection (the R1-3 amendment, #282). Kept current by
+    // NoteCurrentRowSelection before every pass that can remove the row.
     bool m_selection_intent_selected{true};
     bool m_refresh_active{false};
     // Row operations make the view shuffle its current index (Qt moves
