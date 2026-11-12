@@ -16,6 +16,7 @@ private slots:
     void tabFilter();
     void nameFilter();
     void categoryFilter();
+    void categoryChoiceMatchesExactly();
     void minMaxFilter();
     void percentPropertyFilters();
     void defaultAndRequiredFilters();
@@ -185,6 +186,58 @@ void FiltersTest::categoryFilter()
     const auto unknown = makeFilterItem("category-miss", "");
     QVERIFY(MatchesFilter(*weapon, *category, state));
     QVERIFY(!MatchesFilter(*unknown, *category, state));
+}
+
+// #269: a category chosen from the list matches that category only; free
+// text typed into the box still matches by substring.
+void FiltersTest::categoryChoiceMatchesExactly()
+{
+    InitItemClasses(R"json({
+        "Jewel": {"name": "Jewels"},
+        "AbyssJewel": {"name": "Abyss Jewels"},
+        "One Hand Sword": {"name": "One Hand Swords"},
+        "Thrusting One Hand Sword": {"name": "Thrusting One Hand Swords"}
+    })json");
+    InitItemBaseTypes(R"json({
+        "Metadata/Items/Jewels/JewelInt": {"item_class": "Jewel", "name": "Cobalt Jewel", "release_state": "released"},
+        "Metadata/Items/Jewels/JewelAbyssCaster": {"item_class": "AbyssJewel", "name": "Hypnotic Eye Jewel", "release_state": "released"},
+        "Metadata/Items/Weapons/OneHandWeapons/OneHandSwords/OneHandSword1": {"item_class": "One Hand Sword", "name": "Rusted Sword", "release_state": "released"},
+        "Metadata/Items/Weapons/OneHandWeapons/OneHandThrustingSwords/Rapier1": {"item_class": "Thrusting One Hand Sword", "name": "Rusted Spike", "release_state": "released"}
+    })json");
+
+    BuyoutManagerFixture buyoutFixture;
+    const FilterCatalog catalog = BuildFilterCatalog(*buyoutFixture.manager);
+    const auto *category = findComboFilterSpec(catalog, "Category");
+    QVERIFY(category);
+
+    const auto jewel = makeFilterItem("jewel", "", 2, "Rare", {}, "Cobalt Jewel");
+    const auto abyss = makeFilterItem("abyss", "", 2, "Rare", {}, "Hypnotic Eye Jewel");
+    const auto sword = makeFilterItem("sword", "", 2, "Rare", {}, "Rusted Sword");
+    const auto rapier = makeFilterItem("rapier", "", 2, "Rare", {}, "Rusted Spike");
+    QCOMPARE(jewel->category(), QString("jewels"));
+    QCOMPARE(abyss->category(), QString("abyss jewels"));
+
+    // The form lower-cases the chosen text before it reaches the matcher.
+    ComboState state{"jewels"};
+    QVERIFY(MatchesFilter(*jewel, *category, state));
+    QVERIFY(!MatchesFilter(*abyss, *category, state));
+
+    state.value = "abyss jewels";
+    QVERIFY(MatchesFilter(*abyss, *category, state));
+    QVERIFY(!MatchesFilter(*jewel, *category, state));
+
+    state.value = "one hand swords";
+    QVERIFY(MatchesFilter(*sword, *category, state));
+    QVERIFY(!MatchesFilter(*rapier, *category, state));
+
+    // Free text that is not a listed choice keeps substring matching.
+    state.value = "jewel";
+    QVERIFY(MatchesFilter(*jewel, *category, state));
+    QVERIFY(MatchesFilter(*abyss, *category, state));
+    state.value = "swords";
+    QVERIFY(MatchesFilter(*sword, *category, state));
+    QVERIFY(MatchesFilter(*rapier, *category, state));
+    QVERIFY(!MatchesFilter(*jewel, *category, state));
 }
 
 void FiltersTest::minMaxFilter()
