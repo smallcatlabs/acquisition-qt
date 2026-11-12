@@ -303,6 +303,8 @@ endif()
 set(ACQ_CORE
     src/application.cpp
     src/application.h
+    src/applybuyout.cpp
+    src/applybuyout.h
     src/bucket.cpp
     src/bucket.h
     src/buyout.cpp
@@ -470,6 +472,8 @@ set(ACQ_POE
 )
 
 set(ACQ_UI
+    src/ui/buyoutpanel.cpp
+    src/ui/buyoutpanel.h
     src/ui/currencydialog.cpp
     src/ui/currencydialog.h
     src/ui/flowlayout.cpp

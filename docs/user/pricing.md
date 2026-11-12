@@ -8,22 +8,54 @@ never in the game, and are what the [forum shop](forum-shop.md) publishes.
 Select an item, or a whole stash tab or character, in the item list. Folders
 cannot be priced: with a folder selected the controls are disabled. Price the
 tabs inside it instead. The same holds for the *All Items* row at the top of the
-*By Item* view, which is not a tab. If a refresh removes the item you had
-selected, the controls are cleared and disabled until a row is selected again. The three controls under the list are:
+*By Item* view, which is not a tab. With nothing priceable selected (nothing,
+or only folders and that row) the controls are disabled; if a refresh removes
+the item you had selected, they are cleared and disabled until a row is
+selected again. With several rows selected, the controls show the price of
+the row you clicked last if it is still selected, otherwise of the first
+selected row. The three controls under the list are:
 
 1. **Buyout type**
 2. **Currency**
 3. **Value**
 
-Changes apply immediately to the selection. The *Price* and *Last Update* columns
-in the item table show the result.
+A choice of buyout type or currency applies at once, with the value in the
+box; when a price needs a value and the box is still empty, the choice waits
+for you to type one (a refresh does not undo it). A value you type is saved, to the rows that were selected when you began
+typing it and to no others, when you:
+
+- press Enter;
+- choose a buyout type or currency (the price is saved once, with your choice);
+- select other rows, by any means: clicking a row, switching to another search
+  or opening a new one, closing the search, switching between *By Tab* and
+  *By Item*, or a search change;
+- close Acquisition, update the forum shops by hand
+  (*Shop > Update forum shop(s)*), or copy the shop to the clipboard
+  (*Shop > Copy shop data to clipboard*).
+
+After it is saved, the box shows the stored price.
+
+Nothing else saves it: moving between the three controls, a message window
+appearing, or a refresh that keeps the same rows selected leaves it in the box.
+So you can select several rows, type one value and press Enter to price them
+all. A refresh that changes which rows are selected (one of them was sold, say)
+saves the value as typed so far, to the rows it was typed for; rows that are
+no longer there are skipped, and the status line says how many.
+The *Price* and *Last Update* columns in the item table show the result.
 
 The value must be a number greater than zero. Use a point or a comma as the
 decimal separator (`2.5` or `2,5`). Text that is not such a number, for example
-`79/20`, `abc` or `0`, is not saved: the selection keeps its previous price
-until the box holds a number. A comma followed by exactly three digits, such as
-`1,000`, is not saved either, because it could mean one thousand or one; type
-`1000` or `1.0` instead.
+`79/20`, `abc` or `0`, is shown in red and is not saved: the rows keep their
+previous price, and the status line says the text is not a price. The same
+goes for Enter on an empty box and for a price with no currency chosen. What
+you entered stays in the box to be corrected, also after closing the window
+is cancelled or the shop is updated or copied; only when other rows are
+selected instead is it dropped. A comma followed by exactly three
+digits, such as `1,000`, is not saved either, because it could mean one
+thousand or one; type `1000` or `1.0` instead.
+
+Rows priced in the game (see below) keep their price when you price a selection
+that includes them; the status line says so.
 
 ### When prices cannot be saved
 
