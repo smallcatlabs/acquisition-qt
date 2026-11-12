@@ -349,6 +349,8 @@ set(ACQ_CORE
     src/search.h
     src/shop.cpp
     src/shop.h
+    src/shoprender.cpp
+    src/shoprender.h
     src/sourcekeyeditems.h
 )
 

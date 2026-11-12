@@ -20,6 +20,7 @@
 #include "poe/poeapiclient.h"
 #include "poe/types/website/webstashtab.h"
 #include "replytimeout.h"
+#include "shoprender.h"
 #include "util/json_readers.h"
 #include "util/networkmanager.h"
 #include "util/programstate.h"
@@ -29,9 +30,6 @@
 namespace {
 
     constexpr const char *kPoeEditThread = "https://www.pathofexile.com/forum/edit-thread/";
-    constexpr const char *kShopTemplateItems = "[items]";
-    constexpr int kMaxCharactersInPost = 50000;
-    constexpr int kSpoilerOverhead = 19; // "[spoiler][/spoiler]" length
 
     bool IsPoeSessionRejected(const QNetworkReply *reply)
     {
@@ -43,21 +41,6 @@ namespace {
     {
         return body.contains("Login Required") || body.contains("Permission Denied")
                || body.contains("Content Denied");
-    }
-
-    // Buyout grouping order for shop generation: items sharing one buyout
-    // render under one spoiler.
-    bool buyoutLess(const Buyout &a, const Buyout &b)
-    {
-        if (a.type != b.type) {
-            return a.type < b.type;
-        } else if (a.currency != b.currency) {
-            return a.currency < b.currency;
-        } else if (a.value != b.value) {
-            return a.value < b.value;
-        } else {
-            return false;
-        }
     }
 
 } // namespace
@@ -241,18 +224,6 @@ void Shop::SubmitAutomaticShop()
     UpdateStashIndex();
 }
 
-QString Shop::SpoilerBuyout(const Buyout &bo)
-{
-    spdlog::trace("Shop: spoiler buyout called");
-    QString out = "";
-    out += "[spoiler=\"" + bo.BuyoutTypeAsPrefix();
-    if (bo.IsPriced()) {
-        out += " " + QString::number(bo.value, 'g', 15) + " " + bo.CurrencyAsTag();
-    }
-    out += "\"]";
-    return out;
-}
-
 void Shop::SubmitShopToForum(bool force)
 {
     spdlog::debug("Shop: submitting shop(s) to forums with force = {}", force);
@@ -281,16 +252,16 @@ void Shop::SubmitShopToForum(bool force)
 std::unique_ptr<Shop::ShopJob> Shop::CaptureJob(bool force) const
 {
     auto job = std::make_unique<ShopJob>();
-    job->shop_template = m_shop_template;
-    job->realm = m_settings.value("realm").toString();
-    job->league = m_settings.value("league").toString();
+    job->input.shop_template = m_shop_template;
+    job->input.realm = m_settings.value("realm").toString();
+    job->input.league = m_settings.value("league").toString();
     job->threads = m_threads;
     job->force = force;
     job->input_revision = m_input_revision;
     for (const auto &item : m_items_manager.items()) {
         const Buyout bo = m_buyout_manager.Get(*item);
         if (bo.IsPostable()) {
-            job->items.push_back({item->id(), item->PrettyName(), item->location(), bo});
+            job->input.items.push_back({item->PrettyName(), item->location(), bo});
         }
     }
     return job;
@@ -305,7 +276,7 @@ void Shop::UpdateStashIndex()
     // Context-bound (R6-2): the continuation is tied to this Shop, so it
     // never runs against a destroyed one. Shop stays callback-style — no
     // coroutines here (R6-3).
-    m_api.getLegacyStashIndex(account, m_active_job->realm, m_active_job->league)
+    m_api.getLegacyStashIndex(account, m_active_job->input.realm, m_active_job->input.league)
         .then(this,
               [this](const std::expected<poe::WebStashListWrapper, RateLimit::FetchError> &result) {
                   OnStashIndexReceived(result);
@@ -346,7 +317,7 @@ void Shop::OnStashIndexReceived(
     const auto &tabs = tabs_wrapper->tabs.value();
     spdlog::debug("Shop: received legacy tabs list, there are {} tabs", tabs.size());
     for (const auto &tab : tabs) {
-        m_active_job->tab_index[tab.id.first(10)] = tab.i;
+        m_active_job->input.tab_index[tab.id.first(10)] = tab.i;
     }
 
     OnStashIndexUpdated();
@@ -427,15 +398,20 @@ void Shop::OnStashIndexUpdated()
     // Every submission renders from its capture (M2 D8), independent of
     // preview-cache freshness — a cached preview may predate streamed
     // deltas that this job's capture already includes, or vice versa.
-    RenderJob(job);
+    job.rendered = RenderShop(job.input);
+    for (const auto &item : job.rendered.unlinked) {
+        spdlog::error("Shop: cannot determine tab index for {} in {}",
+                      item.pretty_name,
+                      item.location.GetHeader());
+    }
     PublishPreviewCache(job);
 
     // More pages than threads (#253): the pages that fit are posted and the
     // rest are not. Checked before the unchanged-hash exit, so the user
     // hears about a standing shortfall even when nothing needs posting:
     // every time for a manual request, once per session for automatic ones.
-    if (job.threads.size() < job.shop_data.size()) {
-        const qsizetype missing = job.shop_data.size() - job.threads.size();
+    if (job.threads.size() < job.rendered.pages.size()) {
+        const qsizetype missing = job.rendered.pages.size() - job.threads.size();
         spdlog::warn("Shop: need {} more shops defined to fit all your items.", missing);
         Warn(Notice::PageShortfall,
              job.automatic,
@@ -450,7 +426,7 @@ void Shop::OnStashIndexUpdated()
 
     // Don't resubmit the shop if the data hasn't changed. The no-post case
     // is a SUCCESS terminal exit (M2 D8): it drains the waiting capture.
-    if ((previous_hash == job.shop_hash) && !job.force) {
+    if ((previous_hash == job.rendered.hash) && !job.force) {
         spdlog::trace("Shop: skipping update because the shop hash has not changed");
         CompleteActiveJob();
         return;
@@ -458,75 +434,6 @@ void Shop::OnStashIndexUpdated()
 
     job.requests_completed = 0;
     SubmitSingleShop();
-}
-
-void Shop::RenderJob(ShopJob &job) const
-{
-    spdlog::debug("Shop: rendering shop data from the captured input");
-
-    job.shop_data.clear();
-    QString data = "";
-
-    // Sort the captured items so items sharing a buyout render together.
-    std::vector<const ShopJob::CapturedItem *> postable;
-    postable.reserve(job.items.size());
-    for (const auto &item : job.items) {
-        postable.push_back(&item);
-    }
-    std::stable_sort(postable.begin(),
-                     postable.end(),
-                     [](const ShopJob::CapturedItem *a, const ShopJob::CapturedItem *b) {
-                         return buyoutLess(a->buyout, b->buyout);
-                     });
-
-    if (!postable.empty()) {
-        Buyout current_bo = postable[0]->buyout;
-        data += SpoilerBuyout(current_bo);
-        for (const auto *item : postable) {
-            const Buyout &bo = item->buyout;
-            if (bo.type != current_bo.type || bo.currency != current_bo.currency
-                || bo.value != current_bo.value) {
-                current_bo = bo;
-                data += "[/spoiler]";
-                data += SpoilerBuyout(current_bo);
-            }
-            const ItemLocation &loc = item->location;
-            QString item_string;
-            if (loc.type() == ItemLocationType::CHARACTER) {
-                item_string = loc.GetForumCode(job.realm, job.league, 0);
-            } else {
-                const auto it = job.tab_index.find(loc.id());
-                if (it == job.tab_index.end()) {
-                    spdlog::error("Shop: cannot determine tab index for {} in {}",
-                                  item->pretty_name,
-                                  loc.GetHeader());
-                    continue;
-                }
-                item_string = loc.GetForumCode(job.realm, job.league, it->second);
-            }
-            const size_t n = data.size() + item_string.size() + job.shop_template.size()
-                             + kSpoilerOverhead + QStringLiteral("[/spoiler]").size();
-            if (n > kMaxCharactersInPost) {
-                data += "[/spoiler]";
-                job.shop_data.push_back(data);
-                data = SpoilerBuyout(current_bo);
-                data += item_string;
-            } else {
-                data += item_string;
-            }
-        }
-        if (!data.isEmpty()) {
-            job.shop_data.push_back(data);
-        }
-    }
-
-    for (auto &page : job.shop_data) {
-        page = Util::StringReplace(job.shop_template,
-                                   kShopTemplateItems,
-                                   "[spoiler]" + page + "[/spoiler]");
-    }
-
-    job.shop_hash = Util::Md5(job.shop_data.join(";"));
 }
 
 void Shop::PublishPreviewCache(const ShopJob &job)
@@ -538,7 +445,7 @@ void Shop::PublishPreviewCache(const ShopJob &job)
     if (job.input_revision < m_cache_revision) {
         return;
     }
-    m_shop_data = job.shop_data;
+    m_shop_data = job.rendered.pages;
     m_cache_revision = job.input_revision;
 }
 
@@ -582,7 +489,7 @@ void Shop::SubmitSingleShop()
     if (job.requests_completed == job.threads.size()) {
         spdlog::debug("Shop: updated {} threads", job.threads.size());
         emit StatusUpdate(ProgramState::Ready, "Shop threads updated");
-        m_datastore.Set("shop_hash", job.shop_hash);
+        m_datastore.Set("shop_hash", job.rendered.hash);
         CompleteActiveJob();
         return;
     }
@@ -658,8 +565,8 @@ void Shop::SubmitNextShop(const QString &title, const QString &hash)
     }
     const ShopJob &job = *m_active_job;
 
-    const QString content = job.requests_completed < job.shop_data.size()
-                                ? job.shop_data[job.requests_completed]
+    const QString content = job.requests_completed < job.rendered.pages.size()
+                                ? job.rendered.pages[job.requests_completed]
                                 : "Empty";
 
     const QByteArray data = Util::EncodeForm({{"title", Util::Decode(title)},
