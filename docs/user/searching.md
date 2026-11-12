@@ -32,9 +32,9 @@ From top to bottom:
   current search keep their check state and are still refreshed by **Refresh
   checked tabs**. During a refresh the row you are on follows its item, even
   if the item moves to another tab. Other selected rows stay selected while
-  their item stays in the same tab; an item that was sold or moved to another
-  tab is no longer selected. A price you set applies to the rows selected at
-  that moment.
+  their item stays where it is; an item that was sold or moved to another tab
+  is no longer selected, and nor may one moved between the sub-tabs of a map
+  or unique tab. A price you set applies to the rows selected at that moment.
 - **Buyout controls** under the list — see [Pricing](pricing.md).
 - **Item panel** on the right: the item's name, an in-game-style **Tooltip** tab,
   a plain **Text** tab, and **Hide**. **Upload to imgur** uploads the rendered
