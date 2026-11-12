@@ -54,11 +54,9 @@ public:
     explicit BuyoutRepo(QSqlDatabase &db);
 
     // Reads that report a failed query as nullopt, distinct from "no rows"
-    // (#250). The get* forms return an empty map on failure, as before.
+    // (#250).
     std::optional<std::unordered_map<QString, Buyout>> loadItemBuyouts();
     std::optional<std::unordered_map<QString, Buyout>> loadLocationBuyouts();
-    std::unordered_map<QString, Buyout> getItemBuyouts();
-    std::unordered_map<QString, Buyout> getLocationBuyouts();
 
     // Whether the store holding these tables opened and migrated cleanly
     // (#250/#257). UserStore sets it; a repo built directly on a database

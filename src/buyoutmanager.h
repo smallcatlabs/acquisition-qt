@@ -49,8 +49,12 @@ public:
     void BeginBatch();
     void EndBatch();
 
-    void Set(const Item &item, const Buyout &buyout);
-    void SetTab(const ItemLocation &location, const Buyout &buyout);
+    // True when the stored price now equals `buyout`. False when nothing
+    // was written: the buyouts are not loaded (see BuyoutsLoaded()) or the
+    // database refused the write. The lookup state then keeps its old value
+    // and no change is recorded.
+    bool Set(const Item &item, const Buyout &buyout);
+    bool SetTab(const ItemLocation &location, const Buyout &buyout);
 
     Buyout Get(const Item &item) const;
     Buyout GetTab(const ItemLocation &location) const;
@@ -74,7 +78,8 @@ public:
 
     // Did the buyouts load? False when the store was not usable or either
     // read failed (#250): the maps then do not reflect the user's prices,
-    // and nothing may post them to the forum.
+    // nothing may post them to the forum, and Set()/SetTab() write nothing
+    // (#257).
     bool BuyoutsLoaded() const { return m_loaded; }
 
 signals:

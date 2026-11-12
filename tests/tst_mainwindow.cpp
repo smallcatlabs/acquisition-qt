@@ -12,9 +12,12 @@
 #include <QItemSelectionModel>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QScrollBar>
+#include <QSqlQuery>
 #include <QStandardPaths>
 #include <QTabBar>
+#include <QTimer>
 #include <QTreeView>
 
 #include <memory>
@@ -38,6 +41,8 @@ private slots:
     void cleanupTestCase();
     void fixtureConstructsOffline();
     void legacyImportPropagationRefreshesPricingState();
+    // #257: nothing writes buyouts while they are not loaded.
+    void legacyImportRefusedWhenBuyoutsNotLoaded();
     void tabChangeActivatesSelectedSearch();
     // Renegotiated in M3 S6 from `itemsRefreshRefiltersBackgroundSearches`
     // (the F33-era eager background refilter rode the final-snapshot reset
@@ -431,6 +436,44 @@ void MainWindowTest::legacyImportPropagationRefreshesPricingState()
     QVERIFY(propagated.inherited);
     QVERIFY(fixture.buyoutFixture.manager->GetRefreshLocked(tab));
     QVERIFY(fixture.shop->shop_data_outdated());
+}
+
+// Leaves the fixture's manager in the state a failed item read leaves it
+// in at start-up (#257): the reload runs with the item table hidden.
+static void unloadBuyouts(MainWindowFixture &fixture)
+{
+    QSqlQuery q(*fixture.buyoutFixture.db);
+    QVERIFY(q.exec("ALTER TABLE item_buyouts RENAME TO item_buyouts_hidden"));
+    fixture.buyoutFixture.manager->ReloadBuyouts();
+    QVERIFY(q.exec("ALTER TABLE item_buyouts_hidden RENAME TO item_buyouts"));
+    QVERIFY(!fixture.buyoutFixture.manager->BuyoutsLoaded());
+}
+
+// The text of the next modal message box, which is then closed.
+static void closeNextMessageBox(QString &text)
+{
+    QTimer::singleShot(0, [&text] {
+        auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+        if (box) {
+            text = box->text();
+            box->done(QMessageBox::Cancel);
+        }
+    });
+}
+
+// #257: both import actions write buyouts, so with the buyouts not
+// loaded they refuse before asking for a file.
+void MainWindowTest::legacyImportRefusedWhenBuyoutsNotLoaded()
+{
+    MainWindowFixture fixture;
+    unloadBuyouts(fixture);
+
+    for (const char *action : {"OnImportLegacyBuyouts", "OnImportLegacyBuyoutPlan"}) {
+        QString text;
+        closeNextMessageBox(text);
+        QVERIFY(QMetaObject::invokeMethod(fixture.window.get(), action, Qt::DirectConnection));
+        QVERIFY2(text.contains("could not load your prices"), qPrintable(text));
+    }
 }
 
 void MainWindowTest::tabChangeActivatesSelectedSearch()
@@ -1351,9 +1394,9 @@ void MainWindowTest::snapshotPricingSequenceEmitsOneModelBatch()
 
     // Persistence is outside batching and unchanged: the pricing writes
     // reached the repo.
-    const auto itemBuyouts = fixture.buyoutFixture.repo->getItemBuyouts();
+    const auto itemBuyouts = fixture.buyoutFixture.repo->loadItemBuyouts().value();
     QVERIFY(itemBuyouts.contains("item-a"));
-    const auto tabBuyouts = fixture.buyoutFixture.repo->getLocationBuyouts();
+    const auto tabBuyouts = fixture.buyoutFixture.repo->loadLocationBuyouts().value();
     QVERIFY(tabBuyouts.contains("stash-alpha"));
 }
 

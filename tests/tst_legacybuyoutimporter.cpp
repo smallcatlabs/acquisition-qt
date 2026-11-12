@@ -316,6 +316,7 @@ private slots:
     void rejectsInvalidPlanBeforeWriting();
     void rollsBackAndReportsDatabaseErrors();
     void refusesPreVersion4Files();
+    void planFailsWhenCurrentBuyoutsCannotBeRead();
 };
 
 void LegacyBuyoutImporterTest::createsEditablePlanWithRevisedMatchingDefaults()
@@ -545,8 +546,8 @@ void LegacyBuyoutImporterTest::importsVersion5StampedFiles()
     QVERIFY2(report.success, qPrintable(report.error));
     QCOMPARE(report.imported, 6);
     QCOMPARE(report.errors, 0);
-    QCOMPARE(destination.buyouts.repo->getItemBuyouts().size(), std::size_t(3));
-    QCOMPARE(destination.buyouts.repo->getLocationBuyouts().size(), std::size_t(3));
+    QCOMPARE(destination.buyouts.repo->loadItemBuyouts().value().size(), std::size_t(3));
+    QCOMPARE(destination.buyouts.repo->loadLocationBuyouts().value().size(), std::size_t(3));
 }
 
 void LegacyBuyoutImporterTest::appliesEditedPlanTransactionallyAndIsIdempotent()
@@ -583,10 +584,10 @@ void LegacyBuyoutImporterTest::appliesEditedPlanTransactionallyAndIsIdempotent()
     QCOMPARE(first.already_present, 0);
     QCOMPARE(first.skipped, 2);
     QCOMPARE(first.errors, 0);
-    QCOMPARE(destination.buyouts.repo->getItemBuyouts().size(), std::size_t(3));
-    QCOMPARE(destination.buyouts.repo->getItemBuyouts().at("recovered-item").value, 7.0);
-    QCOMPARE(destination.buyouts.repo->getLocationBuyouts().size(), std::size_t(2));
-    QVERIFY(!destination.buyouts.repo->getLocationBuyouts().contains("fedcba9876"));
+    QCOMPARE(destination.buyouts.repo->loadItemBuyouts().value().size(), std::size_t(3));
+    QCOMPARE(destination.buyouts.repo->loadItemBuyouts().value().at("recovered-item").value, 7.0);
+    QCOMPARE(destination.buyouts.repo->loadLocationBuyouts().value().size(), std::size_t(2));
+    QVERIFY(!destination.buyouts.repo->loadLocationBuyouts().value().contains("fedcba9876"));
 
     const PlanRows applied_rows = readPlanRows(plan_path);
     QCOMPARE(findPlanRow(applied_rows, "item_id", "recovered-item").value("outcome").toString(),
@@ -633,7 +634,7 @@ void LegacyBuyoutImporterTest::manualPricesSetAfterPlanningAreProtected()
     QCOMPARE(report.protected_manual, 1);
     QCOMPARE(report.imported, 3);
     QCOMPARE(report.errors, 0);
-    QCOMPARE(destination.buyouts.repo->getItemBuyouts().at("item-a").value, 99.0);
+    QCOMPARE(destination.buyouts.repo->loadItemBuyouts().value().at("item-a").value, 99.0);
 
     const PlanRows rows = readPlanRows(plan_path);
     QCOMPARE(findPlanRow(rows, "item_id", "item-a").value("outcome").toString(),
@@ -652,7 +653,7 @@ void LegacyBuyoutImporterTest::manualPricesSetAfterPlanningAreProtected()
     const LegacyBuyoutApplyReport second = importer.applyPlan(second_plan);
     QVERIFY2(second.success, qPrintable(second.error));
     QCOMPARE(second.protected_manual, 0);
-    QCOMPARE(destination.buyouts.repo->getItemBuyouts().at("item-a").value, 5.0);
+    QCOMPARE(destination.buyouts.repo->loadItemBuyouts().value().at("item-a").value, 5.0);
 }
 
 void LegacyBuyoutImporterTest::importedInheritedBuyoutsLoseTheFlag()
@@ -682,7 +683,7 @@ void LegacyBuyoutImporterTest::importedInheritedBuyoutsLoseTheFlag()
     const LegacyBuyoutApplyReport report = importer.applyPlan(plan_path);
     QVERIFY2(report.success, qPrintable(report.error));
 
-    const auto buyouts = destination.buyouts.repo->getItemBuyouts();
+    const auto buyouts = destination.buyouts.repo->loadItemBuyouts().value();
     QCOMPARE(buyouts.at("item-character").value, 6.0);
     QCOMPARE(buyouts.at("item-character").inherited, false);
 }
@@ -780,8 +781,8 @@ void LegacyBuyoutImporterTest::rejectsInvalidPlanBeforeWriting()
     QVERIFY(report.error.contains("validation"));
     QCOMPARE(report.imported, 0);
     QCOMPARE(report.errors, 1);
-    QVERIFY(destination.buyouts.repo->getItemBuyouts().empty());
-    QVERIFY(destination.buyouts.repo->getLocationBuyouts().empty());
+    QVERIFY(destination.buyouts.repo->loadItemBuyouts().value().empty());
+    QVERIFY(destination.buyouts.repo->loadLocationBuyouts().value().empty());
 
     const PlanRows rows = readPlanRows(plan_path);
     const auto &invalid = findPlanRow(rows, "item_id", "item-a");
@@ -825,8 +826,8 @@ void LegacyBuyoutImporterTest::rollsBackAndReportsDatabaseErrors()
     QVERIFY(report.error.contains("forced import failure"));
     QCOMPARE(report.imported, 0);
     QCOMPARE(report.errors, 4);
-    QVERIFY(destination.buyouts.repo->getItemBuyouts().empty());
-    QVERIFY(destination.buyouts.repo->getLocationBuyouts().empty());
+    QVERIFY(destination.buyouts.repo->loadItemBuyouts().value().empty());
+    QVERIFY(destination.buyouts.repo->loadLocationBuyouts().value().empty());
 
     const PlanRows rows = readPlanRows(plan_path);
     const auto &rolled_back = findPlanRow(rows, "item_id", "item-a");
@@ -852,8 +853,34 @@ void LegacyBuyoutImporterTest::refusesPreVersion4Files()
 
     QVERIFY(!report.success);
     QVERIFY(report.error.contains("db_version 4"));
-    QVERIFY(destination.buyouts.repo->getItemBuyouts().empty());
-    QVERIFY(destination.buyouts.repo->getLocationBuyouts().empty());
+    QVERIFY(destination.buyouts.repo->loadItemBuyouts().value().empty());
+    QVERIFY(destination.buyouts.repo->loadLocationBuyouts().value().empty());
+}
+
+// #295: the plan compares each legacy price with the current one, so a
+// failed read of the current buyouts must fail the plan instead of
+// reading as "no prices yet".
+void LegacyBuyoutImporterTest::planFailsWhenCurrentBuyoutsCannotBeRead()
+{
+    QTemporaryDir source_dir;
+    QVERIFY(source_dir.isValid());
+    const QString source_path = source_dir.filePath("legacy-v4.db");
+    const QString plan_path = source_dir.filePath("buyout-plan.xlsx");
+    createLegacyDatabase(source_path, "4");
+
+    PlanningFixture destination;
+    QSqlQuery q(*destination.buyouts.db);
+    QVERIFY(q.exec("ALTER TABLE item_buyouts RENAME TO item_buyouts_hidden"));
+    LegacyBuyoutImporter importer(*destination.buyouts.repo,
+                                  *destination.stashes,
+                                  *destination.characters,
+                                  "pc",
+                                  "Standard");
+    const LegacyBuyoutPlanReport report = importer.createPlan(source_path, plan_path);
+
+    QVERIFY(!report.success);
+    QVERIFY2(report.error.contains("current buyouts"), qPrintable(report.error));
+    QVERIFY(!QFileInfo::exists(plan_path));
 }
 
 QTEST_GUILESS_MAIN(LegacyBuyoutImporterTest)

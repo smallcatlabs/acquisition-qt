@@ -141,6 +141,23 @@ namespace {
         return dialog.clickedButton() == accept;
     }
 
+    // An import writes buyouts, which nothing may do while they are not
+    // loaded (#257). Returns true, after telling the user, when it must not
+    // start.
+    bool refuseImportWithoutBuyouts(QWidget *parent, const BuyoutManager &buyout_manager)
+    {
+        if (buyout_manager.BuyoutsLoaded()) {
+            return false;
+        }
+        QMessageBox::warning(parent,
+                             QObject::tr("Legacy buyout import"),
+                             QObject::tr("Acquisition could not load your prices, so it cannot "
+                                         "import buyouts in this session.\n\nCheck the log "
+                                         "file for details."),
+                             QMessageBox::Ok);
+        return true;
+    }
+
 } // namespace
 
 MainWindow::MainWindow(QSettings &settings,
@@ -988,6 +1005,9 @@ bool MainWindow::ConfirmLegacyBuyoutWrite()
 
 void MainWindow::OnImportLegacyBuyouts()
 {
+    if (refuseImportWithoutBuyouts(this, m_buyout_manager)) {
+        return;
+    }
     if (!showActionPrompt(
             this,
             QMessageBox::Information,
@@ -1102,6 +1122,9 @@ void MainWindow::OnImportLegacyBuyouts()
 
 void MainWindow::OnImportLegacyBuyoutPlan()
 {
+    if (refuseImportWithoutBuyouts(this, m_buyout_manager)) {
+        return;
+    }
     if (!showActionPrompt(this,
                           QMessageBox::Information,
                           tr("Import buyout plan"),

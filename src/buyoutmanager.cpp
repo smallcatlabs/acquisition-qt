@@ -83,7 +83,7 @@ void BuyoutManager::EmitPendingChanges()
     emit BuyoutsChanged(changes);
 }
 
-void BuyoutManager::Set(const Item &item, const Buyout &buyout)
+bool BuyoutManager::Set(const Item &item, const Buyout &buyout)
 {
     if (buyout.type == Buyout::BUYOUT_TYPE_CURRENT_OFFER) {
         spdlog::warn("BuyoutManager: tried to set an obsolete 'current offer' buyout for {}: {}",
@@ -91,34 +91,45 @@ void BuyoutManager::Set(const Item &item, const Buyout &buyout)
                      buyout.AsText());
     }
 
+    // Nothing is written while the buyouts are not loaded (#257): the map
+    // then lacks the user's prices, and a pricing pass that saw "no price"
+    // would overwrite one it could not read.
+    if (!m_loaded) {
+        spdlog::debug("BuyoutManager: not saving a buyout for {}: buyouts are not loaded",
+                      item.id());
+        return false;
+    }
+
+    const auto it = m_buyouts.find(item.id());
     if (buyout.IsNull()) {
         // Only touch the database when the manager holds an entry to clear:
         // PropagateTabBuyouts clears nearly every item on every refresh, which
-        // used to issue one no-op DELETE per item (F52). A failed save
-        // leaves a rowless map entry; clearing a rowless entry is just a
-        // harmless zero-row DELETE.
+        // used to issue one no-op DELETE per item (F52).
+        if (it == m_buyouts.end()) {
+            return true;
+        }
         // The map entry is erased only after a successful delete so that a
         // failed delete is retried the next time this entry is cleared,
         // instead of leaving the row to resurrect at the next Load().
-        if (m_buyouts.contains(item.id()) && m_repo.removeItemBuyout(item)) {
-            m_buyouts.erase(item.id());
-            RecordChange(ChangeScope::Item, item.id());
+        if (!m_repo.removeItemBuyout(item)) {
+            return false;
         }
-        return;
+        m_buyouts.erase(it);
+        RecordChange(ChangeScope::Item, item.id());
+        return true;
     }
 
-    const auto &it = m_buyouts.find(item.id());
-    if (it == m_buyouts.end()) {
-        // The item hash is not present.
-        m_buyouts[item.id()] = buyout;
-        m_repo.saveItemBuyout(buyout, item);
-        RecordChange(ChangeScope::Item, item.id());
-    } else if (buyout != it->second) {
-        // The item hash is present and the buyout has changed.
-        it->second = buyout;
-        m_repo.saveItemBuyout(buyout, item);
-        RecordChange(ChangeScope::Item, item.id());
+    if ((it != m_buyouts.end()) && (it->second == buyout)) {
+        return true;
     }
+    // Likewise the map takes the new price only once the row is saved, so
+    // it never shows a price the database does not hold.
+    if (!m_repo.saveItemBuyout(buyout, item)) {
+        return false;
+    }
+    m_buyouts[item.id()] = buyout;
+    RecordChange(ChangeScope::Item, item.id());
+    return true;
 }
 
 Buyout BuyoutManager::Get(const Item &item) const
@@ -153,7 +164,7 @@ Buyout BuyoutManager::GetTab(const ItemLocation &location) const
     return Buyout();
 }
 
-void BuyoutManager::SetTab(const ItemLocation &location, const Buyout &buyout)
+bool BuyoutManager::SetTab(const ItemLocation &location, const Buyout &buyout)
 {
     if (buyout.type == Buyout::BUYOUT_TYPE_CURRENT_OFFER) {
         spdlog::warn(
@@ -162,25 +173,36 @@ void BuyoutManager::SetTab(const ItemLocation &location, const Buyout &buyout)
             buyout.AsText());
     }
 
-    if (buyout.IsNull()) {
-        // Same no-op-delete guard and erase-after-success ordering as Set() (F52).
-        if (m_tab_buyouts.contains(location.id()) && m_repo.removeLocationBuyout(location)) {
-            m_tab_buyouts.erase(location.id());
-            RecordChange(ChangeScope::Tab, location.id());
-        }
-        return;
+    // Same rules as Set(): no writes unless loaded (#257), no no-op deletes
+    // (F52), and the map changes only after the database did.
+    if (!m_loaded) {
+        spdlog::debug("BuyoutManager: not saving a tab buyout for {}: buyouts are not loaded",
+                      location.id());
+        return false;
     }
 
-    const auto &it = m_tab_buyouts.find(location.id());
-    if (it == m_tab_buyouts.end()) {
-        m_tab_buyouts[location.id()] = buyout;
-        m_repo.saveLocationBuyout(buyout, location);
+    const auto it = m_tab_buyouts.find(location.id());
+    if (buyout.IsNull()) {
+        if (it == m_tab_buyouts.end()) {
+            return true;
+        }
+        if (!m_repo.removeLocationBuyout(location)) {
+            return false;
+        }
+        m_tab_buyouts.erase(it);
         RecordChange(ChangeScope::Tab, location.id());
-    } else if (buyout != it->second) {
-        it->second = buyout;
-        m_repo.saveLocationBuyout(buyout, location);
-        RecordChange(ChangeScope::Tab, location.id());
+        return true;
     }
+
+    if ((it != m_tab_buyouts.end()) && (it->second == buyout)) {
+        return true;
+    }
+    if (!m_repo.saveLocationBuyout(buyout, location)) {
+        return false;
+    }
+    m_tab_buyouts[location.id()] = buyout;
+    RecordChange(ChangeScope::Tab, location.id());
+    return true;
 }
 
 void BuyoutManager::CompressTabBuyouts()
