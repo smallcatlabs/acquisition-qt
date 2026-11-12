@@ -152,6 +152,9 @@ private slots:
     // #260: the cache load and a live refresh build the same items.
     void cacheLoadAndLiveRefreshBuildTheSameItems();
 
+    // #299: the worker fetches as the session's identity.
+    void updateUsesTheSessionIdentity();
+
     // #259: a failed update's status line names what went wrong, through the
     // real facade and hub.
     void failedUpdateStatusNamesTheError();
@@ -387,6 +390,7 @@ namespace {
     {
         explicit WorkerFixture(const QString &account)
             : settings(bm.tempDir.filePath("settings.ini"), QSettings::IniFormat)
+            , account_name(account)
             , unused_limiter(network)
             , api(unused_limiter)
         {
@@ -430,7 +434,13 @@ namespace {
         // construction paths keyed off the settings file's directory.
         void start()
         {
-            worker = std::make_unique<ItemsManagerWorker>(settings, *bm.manager, api);
+            worker = std::make_unique<ItemsManagerWorker>(settings,
+                                                          makeTestIdentity(account_name,
+                                                                           kRealm,
+                                                                           kLeague),
+                                                          QDir(dataDir()),
+                                                          *bm.manager,
+                                                          api);
             access().setSweepObserver(&sweep);
             QObject::connect(worker.get(),
                              &ItemsManagerWorker::ItemsRefreshed,
@@ -726,6 +736,7 @@ namespace {
 
         BuyoutManagerFixture bm;
         QSettings settings;
+        QString account_name;
         NetworkManager network;
         // Never called: FakePoeApiClient overrides every method. It exists
         // only to satisfy the facade's base constructor.
@@ -4065,7 +4076,11 @@ namespace {
         FakeNetworkManager network;
         RateLimiter limiter(network, &scheduler);
         PoeApiClient api(limiter);
-        ItemsManagerWorker worker(settings, *bm.manager, api);
+        ItemsManagerWorker worker(settings,
+                                  makeTestIdentity("status-text", kRealm, kLeague),
+                                  QDir(bm.tempDir.filePath("data")),
+                                  *bm.manager,
+                                  api);
 
         int initial = 0;
         QStringList ready;
@@ -4272,6 +4287,25 @@ void WorkerUpdateTest::timerTickWhenIdleRefreshesCheckedTabs()
     QCOMPARE(f.terminals.size(), size_t(1));
     QVERIFY(std::holds_alternative<CompletedRefresh>(f.terminals[0].outcome));
     QVERIFY(f.notify_messages.isEmpty());
+}
+
+// #299: the worker runs as the identity decided at login. A league in the
+// settings that differs from it does not change what the worker asks for.
+void WorkerUpdateTest::updateUsesTheSessionIdentity()
+{
+    WorkerFixture f("identity");
+    f.settings.setValue("realm", "xbox");
+    f.settings.setValue("league", "Not The Session League");
+    f.start();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+
+    f.worker->Update(TabSelection::All);
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    QVERIFY(f.hasPendingStashList());     // kRealm, kLeague
+    QVERIFY(f.hasPendingCharacterList()); // kRealm
+    f.deliverStashList({});
+    f.deliverCharacterList({});
+    QCOMPARE(f.terminals.size(), size_t(1));
 }
 
 QTEST_GUILESS_MAIN(WorkerUpdateTest)

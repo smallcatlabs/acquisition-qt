@@ -5,6 +5,7 @@
 
 #include <QCoroTask>
 
+#include <QDir>
 #include <QObject>
 #include <QPointer>
 #include <QString>
@@ -24,6 +25,7 @@
 #include "poe/types/stashtab.h"
 #include "ratelimit/fetcherror.h"
 #include "refreshoutcome.h"
+#include "sessionidentity.h"
 #include "sourcekeyeditems.h"
 #include "util/programstate.h"
 #include "util/util.h"
@@ -87,7 +89,12 @@ class ItemsManagerWorker : public QObject
 {
     Q_OBJECT
 public:
-    explicit ItemsManagerWorker(QSettings &m_settings,
+    // `identity` is who the session runs as and `data_dir` where its cache
+    // lives, both decided at login (#299). The settings are read only for
+    // the per-reply child-fetching choices.
+    explicit ItemsManagerWorker(QSettings &settings,
+                                const SessionIdentity &identity,
+                                const QDir &data_dir,
                                 BuyoutManager &buyout_manager,
                                 PoeApiClient &api,
                                 QObject *parent = nullptr);
@@ -314,9 +321,8 @@ private:
     BuyoutManager &m_buyout_manager;
     PoeApiClient &m_api;
 
-    QString m_realm;
-    QString m_league;
-    QString m_account;
+    const SessionIdentity m_identity;
+    const QDir m_data_dir;
 
     std::vector<ItemLocation> m_tabs;
 

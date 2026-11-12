@@ -25,6 +25,11 @@ Acquisition keeps the OAuth token, so on later launches you only need to click
 *The OAuth token needs to be refreshed* or *The OAuth token is not valid* — click
 **Authenticate** again.
 
+Login is also refused, with a message under the button, when it cannot tell
+who the session is for: *The OAuth token does not name an account; please
+authenticate again.* (click **Authenticate** again), or *Please select a realm and
+a league before logging in.* A refused login does not save the realm.
+
 OAuth covers reading your stashes and characters. Posting to forum shop threads
 still needs a POESESSID cookie; see [Forum shop](forum-shop.md).
 

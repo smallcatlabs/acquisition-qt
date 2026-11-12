@@ -5,6 +5,7 @@
 
 #include <QDialog>
 
+#include "sessionidentity.h"
 #include "util/oauthtoken.h"
 
 class QNetworkReply;
@@ -30,7 +31,10 @@ public:
     ~LoginDialog();
 signals:
     void ChangeTheme(const QString &theme);
-    void LoginComplete();
+    // The login is decided: the session runs as `identity` (#299). The
+    // settings are written too, for "remember me" and the next launch, but
+    // they are not how the session learns who it is.
+    void LoginComplete(const SessionIdentity &identity);
 private slots:
     void OnLeaguesReceived();
     void OnAuthenticateButtonClicked();

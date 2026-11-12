@@ -84,7 +84,11 @@ void WorkerParseTest::parsesCachedStashItems()
     NetworkManager network;
     RateLimiter rateLimiter(network);
     PoeApiClient api(rateLimiter);
-    ItemsManagerWorker worker(settings, *fixture.manager, api);
+    ItemsManagerWorker worker(settings,
+                              makeTestIdentity(account, realm, league),
+                              QDir(dataDir),
+                              *fixture.manager,
+                              api);
 
     const ParseResult result = worker.ParseCachedItems(dataDir);
 
@@ -141,7 +145,11 @@ void WorkerParseTest::specialChildItemsKeyedByChildFetchId()
     NetworkManager network;
     RateLimiter rateLimiter(network);
     PoeApiClient api(rateLimiter);
-    ItemsManagerWorker worker(settings, *fixture.manager, api);
+    ItemsManagerWorker worker(settings,
+                              makeTestIdentity(account, realm, league),
+                              QDir(dataDir),
+                              *fixture.manager,
+                              api);
 
     const ParseResult result = worker.ParseCachedItems(dataDir);
 

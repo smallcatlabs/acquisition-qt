@@ -17,6 +17,7 @@
 #include "poe/types/website/webstashtab.h"
 #include "ratelimit/fetcherror.h"
 #include "refreshoutcome.h"
+#include "sessionidentity.h"
 #include "shoprender.h"
 #include "util/programstate.h"
 
@@ -34,6 +35,7 @@ class Shop : public QObject
     Q_OBJECT
 public:
     explicit Shop(QSettings &settings,
+                  const SessionIdentity &identity,
                   NetworkManager &network_manager,
                   PoeApiClient &api,
                   DataStore &datastore,
@@ -198,6 +200,8 @@ private:
     void OnShopSubmitted(QNetworkReply *reply);
 
     QSettings &m_settings;
+    // Who the shop indexes and posts as, decided at login (#299).
+    const SessionIdentity m_identity;
     NetworkManager &m_network_manager;
     PoeApiClient &m_api;
     DataStore &m_datastore;

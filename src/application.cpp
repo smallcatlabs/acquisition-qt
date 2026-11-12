@@ -83,7 +83,7 @@ void Application::InitCoreServices()
     login().show();
 }
 
-void Application::InitUserSession()
+void Application::InitUserSession(const SessionIdentity &identity)
 {
     // Owners (worker, hub) may only be destroyed after the event loop has
     // stopped: the coroutine-shutdown analysis in network-redesign.md
@@ -99,7 +99,7 @@ void Application::InitUserSession()
                    "event loop is running (network-redesign.md shutdown invariant)");
     }
 
-    m_session = std::make_unique<Application::UserSession>(core());
+    m_session = std::make_unique<Application::UserSession>(core(), identity);
 
     auto item_mgr = &items_manager();
     auto worker = &items_worker();
@@ -225,7 +225,8 @@ Application::CoreServices::CoreServices(const QDir &appDataDir)
     login = std::make_unique<LoginDialog>(*settings, *network_manager, *oauth_manager, *global_data);
 }
 
-Application::UserSession::UserSession(const Application::CoreServices &core)
+Application::UserSession::UserSession(const Application::CoreServices &core,
+                                      const SessionIdentity &identity)
 {
     spdlog::trace("Application::UserSession::UserSession() entered");
 
@@ -234,19 +235,14 @@ Application::UserSession::UserSession(const Application::CoreServices &core)
     auto &network_manager = *core.network_manager;
     auto &image_cache = *core.image_cache;
 
-    const QString league = settings.value("league").toString();
-    const QString account = settings.value("account").toString();
-    if (league.isEmpty()) {
-        FatalError("Login failure: the league has not been set.");
-    }
-    if (account.isEmpty()) {
-        FatalError("Login failure: the account has not been set.");
-    }
-    spdlog::trace("Application::UserSession::UserSession() league = {}", league);
+    // The identity was decided and validated at login (#299); nothing here
+    // reads it back from the settings.
+    const QString &account = identity.account();
+    spdlog::trace("Application::UserSession::UserSession() league = {}", identity.league());
     spdlog::trace("Application::UserSession::UserSession() account = {}", account);
 
-    QDir data_dir = dir.filePath("data");
-    const QString data_file = SqliteDataStore::MakeFilename(account, league);
+    const QDir data_dir(dir.filePath("data"));
+    const QString data_file = SqliteDataStore::MakeFilename(account, identity.league());
     const QString data_path = data_dir.absoluteFilePath(data_file);
     spdlog::trace("Application::UserSession::UserSession() data_path = {}", data_path);
     data = std::make_unique<SqliteDataStore>(data_path);
@@ -276,10 +272,15 @@ Application::UserSession::UserSession(const Application::CoreServices &core)
     items_manager = std::make_unique<ItemsManager>(settings, *buyout_manager);
 
     spdlog::trace("Application::UserSession::UserSession() creating items worker");
-    items_worker = std::make_unique<ItemsManagerWorker>(settings, *buyout_manager, *api);
+    items_worker = std::make_unique<ItemsManagerWorker>(settings,
+                                                        identity,
+                                                        data_dir,
+                                                        *buyout_manager,
+                                                        *api);
 
     spdlog::trace("Application::UserSession::UserSession() creating shop");
     shop = std::make_unique<Shop>(settings,
+                                  identity,
                                   network_manager,
                                   *api,
                                   *data,
@@ -292,6 +293,7 @@ Application::UserSession::UserSession(const Application::CoreServices &core)
     // Prepare to show the main window now that everything is initialized.
     spdlog::trace("Application:creating main window");
     main_window.reset(CreateMainWindow(settings,
+                                       identity,
                                        network_manager,
                                        *rate_limiter,
                                        *items_manager,
@@ -305,11 +307,11 @@ Application::UserSession::UserSession(const Application::CoreServices &core)
                                        dir));
 }
 
-void Application::OnLogin()
+void Application::OnLogin(const SessionIdentity &identity)
 {
     spdlog::debug("Application: login initiated");
 
-    InitUserSession();
+    InitUserSession(identity);
 
     // Look for an existing POESESSID. For some reason doing this in InitCoreServices
     // doesn't seem to work, even though that's where it logically belongs. Could possibly
