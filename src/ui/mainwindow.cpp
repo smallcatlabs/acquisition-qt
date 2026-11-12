@@ -32,6 +32,7 @@
 #include <QTabBar>
 #include <QVersionNumber>
 
+#include <algorithm>
 #include <set>
 #include <utility>
 #include <vector>
@@ -2105,12 +2106,21 @@ void MainWindow::OnCopyShopToClipboard()
 
 void MainWindow::OnSetTabRefreshInterval()
 {
-    int interval = QInputDialog::getInt(this,
-                                        "Auto refresh items",
-                                        "Refresh items every X minutes",
-                                        QLineEdit::Normal,
-                                        m_settings.value("autoupdate_interval").toInt());
-    if (interval > 0) {
+    // 30 is ItemsManager's default when the setting has never been written.
+    // The maximum is a day, raised to the current value if that is larger so
+    // that accepting the dialog unchanged never lowers it.
+    constexpr int kMaximumMinutes = 24 * 60;
+    const int current = std::max(1, m_settings.value("autoupdate_interval", 30).toInt());
+    bool ok = false;
+    const int interval = QInputDialog::getInt(this,
+                                              "Auto refresh items",
+                                              "Refresh items every X minutes",
+                                              current,
+                                              1,
+                                              std::max(kMaximumMinutes, current),
+                                              1,
+                                              &ok);
+    if (ok) {
         m_items_manager.SetAutoUpdateInterval(interval);
     }
 }

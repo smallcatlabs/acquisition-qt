@@ -10,7 +10,7 @@ The **Tabs** menu:
 | Refresh checked tabs | Downloads the tabs and characters whose check box in the item list is ticked |
 | Refresh all tabs | Downloads everything |
 | Auto refresh checked tabs | Checkable; repeats *Refresh checked tabs* on a timer |
-| Auto refresh interval... | Sets that timer in minutes |
+| Auto refresh interval... | Sets that timer in minutes, from 1 to 1440 (a day); opens on the current value |
 | Get map stashes / Get unique stashes | Checkable; also download the sub-tabs of Map and Unique stash tabs |
 
 Right-click one or more tabs in the item list and choose **Refresh Selected** to

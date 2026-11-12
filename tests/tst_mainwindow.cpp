@@ -8,6 +8,7 @@
 #include <QAction>
 #include <QComboBox>
 #include <QHeaderView>
+#include <QInputDialog>
 #include <QItemSelectionModel>
 #include <QLabel>
 #include <QLineEdit>
@@ -168,6 +169,10 @@ private slots:
     // Items-pipeline M3, S7 review round 1 (finding 2): the delta-path
     // column resize is a non-resetting debounce.
     void deltaResizeDebounceCoalescesBurst();
+
+    // UI papercuts (November 2026).
+    void refreshIntervalDialogEditsCurrentValue();
+    void refreshIntervalDialogCancelChangesNothing();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -3882,6 +3887,72 @@ void MainWindowTest::deltaResizeDebounceCoalescesBurst()
     QTest::qWait(400); // both timers would fire here without the fix
     QCOMPARE(probes.column_resizes, 3);
     probes.enabled = false;
+}
+
+// Answers the next modal QInputDialog from the event loop: `answer` runs
+// against it, then it is accepted or rejected. The dialog's bounds are
+// reported back for the caller to check.
+struct IntDialogSeen
+{
+    bool seen{false};
+    int value{-1};
+    int minimum{-1};
+    int maximum{-1};
+};
+
+static void answerNextIntDialog(IntDialogSeen &seen, int new_value, bool accept)
+{
+    QTimer::singleShot(0, [&seen, new_value, accept] {
+        auto *dialog = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
+        if (!dialog) {
+            return;
+        }
+        seen.seen = true;
+        seen.value = dialog->intValue();
+        seen.minimum = dialog->intMinimum();
+        seen.maximum = dialog->intMaximum();
+        dialog->setIntValue(new_value);
+        if (accept) {
+            dialog->accept();
+        } else {
+            dialog->reject();
+        }
+    });
+}
+
+// #276: the dialog opens on the current interval with 1 as its minimum, so
+// the interval can be lowered as well as raised.
+void MainWindowTest::refreshIntervalDialogEditsCurrentValue()
+{
+    MainWindowFixture fixture;
+    auto *action = fixture.window->findChild<QAction *>("actionSetTabRefreshInterval");
+    QVERIFY(action);
+    fixture.settings->setValue("autoupdate_interval", 45);
+
+    IntDialogSeen seen;
+    answerNextIntDialog(seen, 12, true);
+    action->trigger();
+
+    QVERIFY(seen.seen);
+    QCOMPARE(seen.value, 45);
+    QCOMPARE(seen.minimum, 1);
+    QVERIFY(seen.maximum >= 45);
+    QCOMPARE(fixture.settings->value("autoupdate_interval").toInt(), 12);
+}
+
+void MainWindowTest::refreshIntervalDialogCancelChangesNothing()
+{
+    MainWindowFixture fixture;
+    auto *action = fixture.window->findChild<QAction *>("actionSetTabRefreshInterval");
+    QVERIFY(action);
+    fixture.settings->setValue("autoupdate_interval", 45);
+
+    IntDialogSeen seen;
+    answerNextIntDialog(seen, 12, false);
+    action->trigger();
+
+    QVERIFY(seen.seen);
+    QCOMPARE(fixture.settings->value("autoupdate_interval").toInt(), 45);
 }
 
 QTEST_MAIN(MainWindowTest)
