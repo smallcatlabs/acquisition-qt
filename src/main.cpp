@@ -39,16 +39,51 @@ constexpr const char *SENTRY_DSN
 // sentry, which otherwise reports every build in one bucket and makes the
 // crash-free rate of a release meaningless.
 //
+// - "development": a debug build, or a build of master between releases,
+//   which carries the '-dev' suffix.
+// - "pre-release": a tagged pre-release such as '-beta.1'.
+// - "production": a final release, which has no suffix.
+//
 // A version string is a pre-release exactly when it carries a suffix, and
 // CMakeLists.txt rejects any 'app_version_suffix' that does not start with a
 // hyphen, so a hyphen here is a reliable marker.
+constexpr std::string_view SentryEnvironmentFor(std::string_view version, bool debug_build)
+{
+    if (debug_build) {
+        return "development";
+    }
+    const auto hyphen = version.find('-');
+    if (hyphen == std::string_view::npos) {
+        return "production";
+    }
+    // The first pre-release identifier decides: exactly "dev" marks a build
+    // of master between releases.
+    const std::string_view suffix = version.substr(hyphen + 1);
+    if (suffix == "dev" || suffix.starts_with("dev.")) {
+        return "development";
+    }
+    return "pre-release";
+}
+
+static_assert(SentryEnvironmentFor("0.18.10", false) == "production");
+static_assert(SentryEnvironmentFor("0.18.10-beta.1", false) == "pre-release");
+static_assert(SentryEnvironmentFor("0.18.10-rc.2", false) == "pre-release");
+static_assert(SentryEnvironmentFor("0.18.10-dev", false) == "development");
+static_assert(SentryEnvironmentFor("0.18.10-dev.3", false) == "development");
+// An identifier that merely starts with "dev" is not the development marker.
+static_assert(SentryEnvironmentFor("0.18.10-device.1", false) == "pre-release");
+static_assert(SentryEnvironmentFor("0.18.10", true) == "development");
+static_assert(SentryEnvironmentFor("0.18.10-beta.1", true) == "development");
+
 #ifdef QT_DEBUG
-constexpr const char *SENTRY_ENVIRONMENT = "development";
+constexpr bool DEBUG_BUILD = true;
 #else
-constexpr const char *SENTRY_ENVIRONMENT = std::string_view(APP_VERSION_STRING).contains('-')
-                                               ? "pre-release"
-                                               : "production";
+constexpr bool DEBUG_BUILD = false;
 #endif
+
+// The view is over a string literal, so data() is null-terminated.
+constexpr const char *SENTRY_ENVIRONMENT = SentryEnvironmentFor(APP_VERSION_STRING, DEBUG_BUILD)
+                                               .data();
 
 #ifdef QT_DEBUG
 constexpr const char *DEFAULT_LOGGING_LEVEL = "debug";
