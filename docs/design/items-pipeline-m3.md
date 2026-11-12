@@ -23,8 +23,8 @@ design-review criteria: ordinary deltas pay an O(log tab-count)
 ordered-map bucket-row lookup and structural ops an O(tab-count)
 remap, both chosen and accepted at S4 implementation review
 round 1). A fourth is recorded November 12, 2026: the selection
-intent covers every selected row, not only the current item (#282 —
-see the marker after R1-3). Review rounds 1–3 (external; R1-1…R1-8, R2-1…R2-6, and
+rule replaces the intent contract (#282 — see the marker after R1-3).
+Review rounds 1–3 (external; R1-1…R1-8, R2-1…R2-6, and
 R3-1…R3-4, all eighteen verified and accepted) are incorporated
 throughout. Round 1's largest changes: D3's source-scoped
 replacement grain (R1-1), the final snapshot's row reconciliation
@@ -553,36 +553,55 @@ immediately, as today. Pinned by
 `selectionIntentSurvivesCrossTabMoveAcrossDeltas` — the successor of
 M2's pin under no-reset machinery — and
 `selectionIntentClearsOnTerminalFailure`.
-*(Post-freeze amendment, November 12, 2026 — #282: the intent covers
-every selected row, not one id. A delta that replaced the rows of a
-tab holding several selected items left only the current item
-selected — the reconcile pass cleared the view's selection and
-re-adopted the one id — so the next price edit applied to one row.
-The reconcile pass no longer clears or replaces the selection; it
-sets the current row only. Immediately before each delta, the stable
-ids of the items selected in the bucket that delta touches are read
-from the selection (every bucket for the final snapshot); immediately
-after it, one walk of that bucket selects again those it now holds.
-What must outlive a delta is small and is the only state kept: the
-selected items a delta removed and no later delta has brought back
-(an item moving between tabs). Any change of the selection the
-refresh did not make, or a click on a row, discards it, so a user
-selection wins at any time; the window's close discards it too. Rows
-selected in other buckets cost the delta nothing (D3). The current
-item's id keeps its role above: it alone decides the current row,
-the details pane and the price editor, and the current row is
-selected again only if it was selected before the delta. Known
-limitation: a delta that re-selects replaced rows while the user is
-dragging a Ctrl+selection finalises that drag's selection. R1-3 and
-R2-1 are otherwise unchanged. Pinned by
+*(Post-freeze amendment, November 12, 2026 — #282: this replaces
+the intent contract above. A delta that replaced the rows of a tab
+holding several selected items left only the current item selected,
+so the next price edit applied to one row; and carrying an intent
+between deltas forced the code to guess which selection changes were
+the user's, which it got wrong both ways. The contract is now one rule:
+**a selected row stays selected across a refresh while its item stays
+in its tab; an item that leaves its tab — sold, or moved to another
+tab — loses its selection, whichever tab's delta arrives first.**
+Nothing of the selection is kept from one delta to the next, so there
+is no intent window: the re-adoption by stable id across deltas, its
+R2-1 closure and `reselectionSurvivesCrossTabMove`'s guarantee are
+withdrawn (`selectionDoesNotFollowCrossTabMove` replaces
+`selectionIntentSurvivesCrossTabMoveAcrossDeltas`). Mechanism:
+immediately before a delta, the items selected in the bucket it
+touches are read from the selection, as (stable id, tab) pairs (every
+bucket for the final snapshot); immediately after, one walk of that
+bucket selects again those it still holds from the same tab. The
+reconcile pass never clears the selection. The current row: when its
+item is replaced by the same item in the same tab it stays current,
+selected only if it was before; when its item leaves, the current row
+stays where Qt puts it (a neighbour, not selected) and the details
+pane and price editor clear. Cost: the delta reads no row selected in
+another bucket and walks only its own bucket, but finding that
+bucket's rows scans the selection's range list once (and each row
+re-selected asks Qt once), so it grows with the number of selection
+ranges elsewhere — QItemSelectionModel keeps nothing else. Known
+limitation: when a delta replaces rows of a tab (any content delta:
+D3's source-scoped replace removes and inserts rows even when the
+tab's items are unchanged), the restore calls select() without the
+Current flag. A range gesture in progress — Shift+click, Shift+arrow
+or Ctrl+drag — is then frozen as it stood, and the user's next Shift
+gesture extends from the restored rows instead of the range: rows the
+user shrank away from can stay selected, or the restored rows be
+replaced. The selection is always shown, and the price editor acts on
+the selection shown. Removing this needs an in-place replacement for
+a delta that leaves a tab's items unchanged, an item-level diff within
+a source that D3's "source-scoped replace is the delta's native grain"
+rejects; it would need its own decision to amend D3. R1-3's other
+clauses are unchanged. Pinned by
 `multiSelectionSurvivesDeltaToItsTab`,
 `multiSelectionAcrossTabsSurvivesDeltas`,
 `multiSelectionKeepsSelectedHeaders`,
-`newSelectionDropsRowsARefreshRemoved`,
-`userNarrowingDropsRowsARefreshRemoved`,
-`deltaWorkIgnoresSelectionInOtherTabs`,
-`byItemMultiSelectionSurvivesDelta` and
-`currentItemLeavingKeepsOtherSelectedRows`.)*
+`byItemMultiSelectionSurvivesDelta`,
+`currentItemLeavingKeepsOtherSelectedRows`,
+`moverLosesSelectionWhicheverDeltaComesFirst`,
+`emptySpaceClickIsNotUndoneByALaterDelta`,
+`selectionDoesNotFollowCrossTabMove` and
+`deltaWorkIgnoresSelectionInOtherTabs` (rows read and walked).)*
 
 **Where resets remain legitimate**: initial population (nothing to
 preserve) and user-initiated structural changes — filter edits, view-

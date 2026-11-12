@@ -92,7 +92,9 @@ private slots:
     // (supersession map).
     // `reselectionSurvivesCrossTabMove` was deleted in S4 — its named
     // successor `selectionIntentSurvivesCrossTabMoveAcrossDeltas` lands
-    // in the same commit window (supersession map; never red).
+    // in the same commit window (supersession map; never red). The M3
+    // R1-3 amendment (#282) reversed it as
+    // `selectionDoesNotFollowCrossTabMove`.
     void expansionSurvivesRenameByStableKey();
     void selectionSurvivesReplacementByStableIdentity();
     void scrollAndCaptureSurviveUserRefilter();
@@ -138,7 +140,7 @@ private slots:
     void metadataDeltaAppliesWithoutItemIntersection();
     void collapsedInvalidBucketResortsOnReexpand();
     void staleOrderNeverSurvivesDelta();
-    void selectionIntentSurvivesCrossTabMoveAcrossDeltas();
+    void selectionDoesNotFollowCrossTabMove();
     void selectionIntentClearsOnTerminalFailure();
     void appliedDeltasLeaveActiveSearchClean();
 
@@ -167,7 +169,8 @@ private slots:
 
     // Items-pipeline M3, S6: the R1-2 final row reconciliation and the
     // deletion of the last reset seam. The revalidation clauses inside
-    // `selectionIntentSurvivesCrossTabMoveAcrossDeltas`,
+    // `selectionDoesNotFollowCrossTabMove` (then
+    // `selectionIntentSurvivesCrossTabMoveAcrossDeltas`),
     // `byItemSelectionSurvivesMerge`, and
     // `appliedDeltasLeaveActiveSearchClean` were re-proved
     // fallback-insensitively here (probe: reset count zero,
@@ -200,9 +203,9 @@ private slots:
     void multiSelectionSurvivesDeltaToItsTab();
     void multiSelectionAcrossTabsSurvivesDeltas();
     void multiSelectionKeepsSelectedHeaders();
-    void newSelectionDropsRowsARefreshRemoved();
-    void userNarrowingDropsRowsARefreshRemoved_data();
-    void userNarrowingDropsRowsARefreshRemoved();
+    void moverLosesSelectionWhicheverDeltaComesFirst_data();
+    void moverLosesSelectionWhicheverDeltaComesFirst();
+    void emptySpaceClickIsNotUndoneByALaterDelta();
     void deltaWorkIgnoresSelectionInOtherTabs();
     void byItemMultiSelectionSurvivesDelta();
     void currentItemLeavingKeepsOtherSelectedRows();
@@ -2501,16 +2504,17 @@ void MainWindowTest::deltaUpdatesVisibleIndexesIncrementally()
     QCOMPARE(tree->selectionModel()->selectedRows().size(), 1);
     QCOMPARE(tree->selectionModel()->selectedRows().front().data().toString(), "Mover Two Sword");
 
-    // Cross-tab move: removal then insertion in another bucket; the
-    // re-adoption walks the maintained id index.
+    // Cross-tab move: removal then insertion in another bucket. The item
+    // left its tab, so its selection does not follow (the M3 R1-3
+    // amendment); the row is in the other bucket.
     fixture.itemsManager->OnTabRefreshed(tabA, {});
     fixture.itemsManager->OnTabRefreshed(tabB,
                                          {makeMainWindowItem("item-x", "Mover Two", "Sword", tabB),
                                           makeMainWindowItem("item-b1", "BetaItem", "Sword", tabB)});
     const QModelIndex bucketB = findBucket(*model, tabB.GetHeader());
     QVERIFY(bucketB.isValid());
-    QCOMPARE(tree->selectionModel()->selectedRows().size(), 1);
-    QCOMPARE(tree->selectionModel()->selectedRows().front().parent(), bucketB);
+    QCOMPARE(tree->selectionModel()->selectedRows().size(), 0);
+    QVERIFY(findItemRow(*model, bucketB, "Mover Two Sword").isValid());
 
     // Second-removal adjudication: tab A's source no longer has visible
     // rows, so its empty delta finds nothing to remove — no row
@@ -2739,21 +2743,18 @@ void MainWindowTest::staleOrderNeverSurvivesDelta()
              QStringList({"BetaItem Sword"}));
 }
 
-// M3 S4 (R1-3): the successor of M2's reselectionSurvivesCrossTabMove
-// under no-reset machinery. With an item selected, one delta removes it;
-// several deltas later another inserts it in a different tab — the
-// selection re-adopts by stable id through the global index. If the
-// refresh ends without the id reappearing, the final boundary clears the
-// selection; a user selection made in between wins outright.
-void MainWindowTest::selectionIntentSurvivesCrossTabMoveAcrossDeltas()
+// M3 S4 (R1-3), as amended November 12, 2026 (#282): with an item
+// selected, one delta removes it; several deltas later another inserts it
+// in a different tab. The item left its tab, so it is not selected or
+// current again. Nor does the final boundary or a later refresh bring it
+// back, and a user selection made in between stands.
+void MainWindowTest::selectionDoesNotFollowCrossTabMove()
 {
-    // Clause 1: removal → unrelated delta → insertion re-adopts.
+    // Clause 1: removal → unrelated delta → insertion elsewhere.
     {
         MainWindowFixture fixture;
         auto *tree = fixture.window->findChild<QTreeView *>("treeView");
-        auto *locationLabel = fixture.window->findChild<QLabel *>("locationLabel");
         QVERIFY(tree);
-        QVERIFY(locationLabel);
 
         const ItemLocation tabA = makeTestStashLocation("stash-aaaa", "Alpha", 0);
         const ItemLocation tabB = makeTestStashLocation("stash-bbbb", "Beta", 1);
@@ -2777,7 +2778,7 @@ void MainWindowTest::selectionIntentSurvivesCrossTabMoveAcrossDeltas()
 
         QSignalSpy resets(model, &QAbstractItemModel::modelReset);
 
-        // The removal delta: the visual selection lapses, the intent lives.
+        // The removal delta: the selection lapses.
         fixture.itemsManager->OnTabRefreshed(tabA, {});
         QCOMPARE(resets.count(), 0);
         QCOMPARE(tree->selectionModel()->selectedRows().size(), 0);
@@ -2787,20 +2788,15 @@ void MainWindowTest::selectionIntentSurvivesCrossTabMoveAcrossDeltas()
             ->OnTabRefreshed(tabC, {makeMainWindowItem("item-c", "GammaItem", "Axe", tabC)});
         QCOMPARE(tree->selectionModel()->selectedRows().size(), 0);
 
-        // The insertion in another tab: re-adoption by stable id.
+        // The insertion in another tab: the item left its tab, so it is
+        // neither selected nor current.
         fixture.itemsManager
             ->OnTabRefreshed(tabB,
                              {makeMainWindowItem("item-x", "Mover", "Sword", tabB),
                               makeMainWindowItem("item-b", "BetaItem", "Shield", tabB)});
         QCOMPARE(resets.count(), 0);
-        const QModelIndexList selectedRows = tree->selectionModel()->selectedRows();
-        QCOMPARE(selectedRows.size(), 1);
-        QCOMPARE(selectedRows.front().data().toString(), "Mover Sword");
-        const QModelIndex bucketB = findBucket(*model, tabB.GetHeader());
-        QVERIFY(bucketB.isValid());
-        QCOMPARE(selectedRows.front().parent(), bucketB);
-        // The details panel adopted the replacement object.
-        QTRY_COMPARE_WITH_TIMEOUT(locationLabel->text(), tabB.GetHeader(), 2000);
+        QCOMPARE(tree->selectionModel()->selectedRows().size(), 0);
+        QVERIFY(tree->selectionModel()->currentIndex().data().toString() != "Mover Sword");
     }
 
     // Clause 2: the refresh ends without the id reappearing — the final
@@ -2895,8 +2891,9 @@ void MainWindowTest::selectionIntentSurvivesCrossTabMoveAcrossDeltas()
 }
 
 // M3 S4 (R2-1): deltas remove the selected item, then the refresh fails
-// terminally — no final snapshot. The intent is cleared at the terminal
-// event, and a later refresh reinserting the same id does not reselect it.
+// terminally — no final snapshot. A later refresh reinserting the same id
+// does not reselect it (since the R1-3 amendment nothing is kept between
+// deltas at all).
 void MainWindowTest::selectionIntentClearsOnTerminalFailure()
 {
     MainWindowFixture fixture;
@@ -2919,13 +2916,12 @@ void MainWindowTest::selectionIntentClearsOnTerminalFailure()
                                             QItemSelectionModel::ClearAndSelect
                                                 | QItemSelectionModel::Rows);
 
-    // The removal delta lapses the selection; the intent is alive.
+    // The removal delta lapses the selection.
     fixture.itemsManager->OnTabRefreshed(tabA,
                                          {makeMainWindowItem("item-y", "Stayer", "Sword", tabA)});
     QCOMPARE(tree->selectionModel()->selectedRows().size(), 0);
 
-    // Terminal failure: no final snapshot, and the intent window closes
-    // with an absence check against the visible result.
+    // Terminal failure: no final snapshot.
     fixture.window->OnRefreshFinished(RefreshOutcome{FailedRefresh{RateLimit::FetchError{}}});
 
     // A later refresh reinserts the id: no reselection.
@@ -3305,8 +3301,8 @@ void MainWindowTest::byItemSelectionSurvivesMerge()
     QCOMPARE(selectedRows.size(), 1);
     QCOMPARE(selectedRows.front().data().toString(), "Mover Sword");
 
-    // The removal lapses the visual selection; the intent stays alive
-    // mid-refresh, and a cross-tab reinsertion re-adopts by stable id.
+    // The removal lapses the selection, and a cross-tab reinsertion does
+    // not bring it back: the item left its tab (the M3 R1-3 amendment).
     fixture.itemsManager->OnTabRefreshed(tabA,
                                          {makeMainWindowItem("item-y", "Stayer", "Sword", tabA)});
     QCOMPARE(tree->selectionModel()->selectedRows().size(), 0);
@@ -3314,12 +3310,10 @@ void MainWindowTest::byItemSelectionSurvivesMerge()
                                          {makeMainWindowItem("item-b", "BetaItem", "Shield", tabB),
                                           makeMainWindowItem("item-z", "Zebra", "Shield", tabB),
                                           makeMainWindowItem("item-x", "Mover", "Shield", tabB)});
-    selectedRows = tree->selectionModel()->selectedRows();
-    QCOMPARE(selectedRows.size(), 1);
-    QCOMPARE(selectedRows.front().data().toString(), "Mover Shield");
+    QCOMPARE(tree->selectionModel()->selectedRows().size(), 0);
 
-    // Absent at the final reconciliation: the intent clears, and a later
-    // refresh reinserting the id does not reselect. Revalidated
+    // Absent at the final reconciliation, and a later refresh
+    // reinserting the id does not reselect it. Revalidated
     // fallback-insensitively in S6 (probe: reset count zero, the
     // reconciliation entered) — the clause also passed under the
     // temporary final-reset seam.
@@ -4613,7 +4607,7 @@ void MainWindowTest::multiSelectionAcrossTabsSurvivesDeltas()
 }
 
 // #282: a selected tab header stays selected with the items when a delta
-// clears and rebuilds the selection around the current item.
+// replaces the current item's row.
 void MainWindowTest::multiSelectionKeepsSelectedHeaders()
 {
     MainWindowFixture fixture;
@@ -4645,61 +4639,24 @@ void MainWindowTest::multiSelectionKeepsSelectedHeaders()
     QCOMPARE(selectedNames(*tree), selected);
 }
 
-// R1-3: a user's selection wins. A selected row that a delta removed is not
-// selected again by a later delta once the user has selected another row.
-void MainWindowTest::newSelectionDropsRowsARefreshRemoved()
+// The M3 R1-3 amendment (#282): a selected item that leaves its tab — here
+// it moves to another tab — loses its selection, whichever of the two
+// tabs' deltas arrives first, and so does the current item: it is no
+// longer current. The other selected rows keep their selection.
+void MainWindowTest::moverLosesSelectionWhicheverDeltaComesFirst_data()
 {
-    MainWindowFixture fixture;
-    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
-    QVERIFY(tree);
-
-    const ItemLocation tabA = makeTestStashLocation("stash-aaaa", "Alpha", 0);
-    const ItemLocation tabB = makeTestStashLocation("stash-bbbb", "Beta", 1);
-    Items items;
-    items.push_back(makeMainWindowItem("item-a1", "First", "Sword", tabA));
-    items.push_back(makeMainWindowItem("item-a2", "Second", "Sword", tabA));
-    items.push_back(makeMainWindowItem("item-b1", "Other", "Shield", tabB));
-    fixture.itemsManager->OnItemsRefreshed(items, {tabA, tabB}, false);
-
-    auto *model = tree->model();
-    const QModelIndex bucketA = findBucket(*model, tabA.GetHeader());
-    const QModelIndex bucketB = findBucket(*model, tabB.GetHeader());
-    tree->expand(bucketA);
-    tree->expand(bucketB);
-    tree->selectionModel()->setCurrentIndex(findItemRow(*model, bucketA, "First Sword"),
-                                            QItemSelectionModel::ClearAndSelect
-                                                | QItemSelectionModel::Rows);
-    tree->selectionModel()->select(findItemRow(*model, bucketB, "Other Shield"),
-                                   QItemSelectionModel::Select | QItemSelectionModel::Rows);
-
-    // Beta's item leaves; the user then selects another item.
-    fixture.itemsManager->OnTabRefreshed(tabB, {});
-    QCOMPARE(selectedNames(*tree), QStringList({"First Sword"}));
-    tree->selectionModel()->setCurrentIndex(findItemRow(*model, bucketA, "Second Sword"),
-                                            QItemSelectionModel::ClearAndSelect
-                                                | QItemSelectionModel::Rows);
-
-    // Beta's item comes back: the user's selection stands.
-    fixture.itemsManager->OnTabRefreshed(tabB,
-                                         {makeMainWindowItem("item-b1", "Other", "Shield", tabB)});
-    QCOMPARE(selectedNames(*tree), QStringList({"Second Sword"}));
+    QTest::addColumn<bool>("newTabFirst");
+    QTest::addColumn<bool>("moverIsCurrent");
+    QTest::newRow("old tab first") << false << false;
+    QTest::newRow("new tab first") << true << false;
+    QTest::newRow("old tab first, mover current") << false << true;
+    QTest::newRow("new tab first, mover current") << true << true;
 }
 
-// R1-3: a user's selection wins even when it does not move the current
-// row. A plain click on the current row, Ctrl+A, or a Ctrl+click on the
-// current row changes the selection without currentChanged; a row a delta
-// removed earlier must not come back selected after any of them.
-void MainWindowTest::userNarrowingDropsRowsARefreshRemoved_data()
+void MainWindowTest::moverLosesSelectionWhicheverDeltaComesFirst()
 {
-    QTest::addColumn<QString>("gesture");
-    QTest::newRow("click on the current row") << "click";
-    QTest::newRow("Ctrl+A") << "selectAll";
-    QTest::newRow("Ctrl+click on the current row") << "ctrlClick";
-}
-
-void MainWindowTest::userNarrowingDropsRowsARefreshRemoved()
-{
-    QFETCH(QString, gesture);
+    QFETCH(bool, newTabFirst);
+    QFETCH(bool, moverIsCurrent);
     MainWindowFixture fixture;
     auto *tree = fixture.window->findChild<QTreeView *>("treeView");
     QVERIFY(tree);
@@ -4715,49 +4672,86 @@ void MainWindowTest::userNarrowingDropsRowsARefreshRemoved()
     auto *model = tree->model();
     const QModelIndex bucketA = findBucket(*model, tabA.GetHeader());
     const QModelIndex bucketB = findBucket(*model, tabB.GetHeader());
-    const QModelIndex bucketC = findBucket(*model, tabC.GetHeader());
     tree->expand(bucketA);
     tree->expand(bucketB);
-    tree->expand(bucketC);
+    tree->expand(findBucket(*model, tabC.GetHeader()));
     const QModelIndex first = findItemRow(*model, bucketA, "First Sword");
-    tree->selectionModel()->setCurrentIndex(first,
+    const QModelIndex mover = findItemRow(*model, bucketB, "Mover Shield");
+    tree->selectionModel()->setCurrentIndex(moverIsCurrent ? mover : first,
                                             QItemSelectionModel::ClearAndSelect
                                                 | QItemSelectionModel::Rows);
-    tree->selectionModel()->select(findItemRow(*model, bucketB, "Mover Shield"),
+    tree->selectionModel()->select(moverIsCurrent ? first : mover,
                                    QItemSelectionModel::Select | QItemSelectionModel::Rows);
+    QCOMPARE(selectedNames(*tree), QStringList({"First Sword", "Mover Shield"}));
 
-    // The mover leaves its old tab (it moved in the game).
-    fixture.itemsManager->OnTabRefreshed(tabB, {});
-    QCOMPARE(selectedNames(*tree), QStringList({"First Sword"}));
-
-    // The user's own selection, with the current row unchanged: real
-    // input on the shown view.
-    fixture.window->show();
-    QVERIFY(QTest::qWaitForWindowExposed(fixture.window.get()));
-    tree->scrollTo(first);
-    const QPoint point = tree->visualRect(first).center();
-    QSignalSpy currentChanged(tree->selectionModel(), &QItemSelectionModel::currentChanged);
-    if (gesture == "click") {
-        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, point);
-    } else if (gesture == "selectAll") {
-        QTest::keyClick(tree, Qt::Key_A, Qt::ControlModifier);
+    QSignalSpy resets(model, &QAbstractItemModel::modelReset);
+    const auto leaveOldTab = [&] { fixture.itemsManager->OnTabRefreshed(tabB, {}); };
+    const auto arriveInNewTab = [&] {
+        fixture.itemsManager
+            ->OnTabRefreshed(tabC, {makeMainWindowItem("item-m", "Mover", "Shield", tabC)});
+    };
+    if (newTabFirst) {
+        arriveInNewTab();
+        leaveOldTab();
     } else {
-        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::ControlModifier, point);
+        leaveOldTab();
+        arriveInNewTab();
     }
-    QCOMPARE(currentChanged.count(), 0);
-    QCOMPARE(tree->selectionModel()->currentIndex(), first);
-    const QStringList chosen = selectedNames(*tree);
 
-    // The mover arrives in its new tab: the user's selection stands.
-    fixture.itemsManager->OnTabRefreshed(tabC,
-                                         {makeMainWindowItem("item-m", "Mover", "Shield", tabC)});
-    QVERIFY2(!selectedNames(*tree).contains("Mover Shield"),
-             qPrintable(selectedNames(*tree).join(", ")));
-    QCOMPARE(selectedNames(*tree), chosen);
+    QCOMPARE(resets.count(), 0);
+    QCOMPARE(selectedNames(*tree), QStringList({"First Sword"}));
+    QVERIFY(tree->selectionModel()->currentIndex().data().toString() != "Mover Shield");
 }
 
-// M3 D3: a delta costs what its own bucket costs. Carrying the selection
-// through a delta to one tab examines no row selected in another tab.
+// The M3 R1-3 amendment (#282): a click on empty space clears the
+// selection, and a later delta does not bring back an item the user had
+// selected before — even one that moved tabs in between.
+void MainWindowTest::emptySpaceClickIsNotUndoneByALaterDelta()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tree);
+
+    const ItemLocation tabA = makeTestStashLocation("stash-aaaa", "Alpha", 0);
+    const ItemLocation tabB = makeTestStashLocation("stash-bbbb", "Beta", 1);
+    Items items;
+    items.push_back(makeMainWindowItem("item-a1", "First", "Sword", tabA));
+    items.push_back(makeMainWindowItem("item-m", "Mover", "Shield", tabB));
+    fixture.itemsManager->OnItemsRefreshed(items, {tabA, tabB}, false);
+
+    auto *model = tree->model();
+    const QModelIndex bucketA = findBucket(*model, tabA.GetHeader());
+    const QModelIndex bucketB = findBucket(*model, tabB.GetHeader());
+    tree->expand(bucketA);
+    tree->expand(bucketB);
+    tree->selectionModel()->setCurrentIndex(findItemRow(*model, bucketB, "Mover Shield"),
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+
+    // The mover leaves Beta: nothing visible is selected now.
+    fixture.itemsManager->OnTabRefreshed(tabB, {});
+    QCOMPARE(selectedNames(*tree), QStringList());
+
+    // The user clicks empty space below the rows.
+    fixture.window->show();
+    QVERIFY(QTest::qWaitForWindowExposed(fixture.window.get()));
+    QTest::mouseClick(tree->viewport(),
+                      Qt::LeftButton,
+                      Qt::NoModifier,
+                      QPoint(10, tree->viewport()->height() - 5));
+    QCOMPARE(selectedNames(*tree), QStringList());
+
+    // The mover arrives in Alpha: nothing comes back selected.
+    fixture.itemsManager->OnTabRefreshed(tabA,
+                                         {makeMainWindowItem("item-a1", "First", "Sword", tabA),
+                                          makeMainWindowItem("item-m", "Mover", "Shield", tabA)});
+    QCOMPARE(selectedNames(*tree), QStringList());
+}
+
+// M3 D3: carrying the selection through a delta to one tab reads no row
+// selected in another tab (rows read and walked, counted by the probe).
+// The selection's range list is still scanned once, which this count
+// does not see: QItemSelectionModel keeps only that list.
 void MainWindowTest::deltaWorkIgnoresSelectionInOtherTabs()
 {
     MainWindowFixture fixture;
