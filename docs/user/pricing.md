@@ -25,15 +25,20 @@ until the box holds a number. A comma followed by exactly three digits, such as
 `1,000`, is not saved either, because it could mean one thousand or one; type
 `1000` or `1.0` instead.
 
-### When prices cannot be loaded
+### When prices cannot be saved
 
-If Acquisition cannot read its price database when you log in (for example,
-a newer version of Acquisition last wrote it, or the file cannot be opened), a
-warning says so and gives the location of the log file. For the rest of that
-session your prices are read-only: an edit is not saved, and the status line
-says *Price not saved*. Refreshes leave the stored prices alone, the legacy
-import refuses to start, and the [forum shop](forum-shop.md) is not updated.
-Check the log, fix the cause, and restart.
+If Acquisition cannot fully use its price database when you log in (for
+example, a newer version of Acquisition last wrote it, or the file cannot be
+opened or read), a warning says that prices cannot be saved in this session and
+gives the location of the log file, which says why. Prices may still be shown,
+but for the rest of that session they are read-only: an edit is not saved, and
+the status line says *Price not saved*. Refreshes leave the stored prices alone,
+the legacy import refuses to start, and the [forum shop](forum-shop.md) is not
+updated. Check the log, fix the cause, and restart.
+
+If the database rejects a single edit at another time, the status line says
+*Price not saved* and the log file records the error. The notice goes away
+after a few seconds, or as soon as an edit is saved.
 
 ### Buyout types
 

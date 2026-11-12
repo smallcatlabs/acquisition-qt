@@ -28,6 +28,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSettings>
+#include <QStatusBar>
 #include <QString>
 #include <QStringList>
 #include <QTabBar>
@@ -80,6 +81,8 @@ constexpr int SEARCH_UPDATE_DELAY_MS = 350;
 // applied delta. Non-resetting, so a sustained burst still resizes
 // this often (bounded staleness AND bounded work).
 constexpr int DELTA_RESIZE_DEBOUNCE_MS = 250;
+// How long a "Price not saved" notice covers the status line (#257).
+constexpr int PRICE_NOT_SAVED_TIMEOUT_MS = 10000;
 
 namespace {
 
@@ -151,9 +154,8 @@ namespace {
         }
         QMessageBox::warning(parent,
                              QObject::tr("Legacy buyout import"),
-                             QObject::tr("Acquisition could not load your prices, so it cannot "
-                                         "import buyouts in this session.\n\nCheck the log "
-                                         "file for details."),
+                             QObject::tr("Acquisition cannot save prices in this session, so "
+                                         "it cannot import buyouts.\n\nThe log file says why."),
                              QMessageBox::Ok);
         return true;
     }
@@ -236,11 +238,12 @@ MainWindow::MainWindow(QSettings &settings,
         QTimer::singleShot(0, this, [this] {
             auto *box = new QMessageBox(QMessageBox::Warning,
                                         tr("Acquisition"),
-                                        tr("Acquisition could not load your prices."),
+                                        tr("Acquisition cannot save prices in this session."),
                                         QMessageBox::Ok,
                                         this);
             box->setInformativeText(
-                tr("In this session, price changes cannot be saved and the forum shop will not "
+                tr("Its price database could not be fully used; the log file says why. Prices "
+                   "may still be shown, but changes are not saved and the forum shop will not "
                    "be updated.\n\nThe log file is:\n%1")
                     .arg(QDir::toNativeSeparators(m_app_data_dir.filePath("log.txt"))));
             box->setAttribute(Qt::WA_DeleteOnClose);
@@ -891,10 +894,20 @@ void MainWindow::OnBuyoutChange()
     }
     m_items_manager.PropagateTabBuyouts();
     ScheduleResizeTreeColumns();
-    if (!saved) {
-        // Refused (the prices did not load, #257) or rejected by the
-        // database: the old price stays, so the edit must not look applied.
-        m_status_bar_label->setText(tr("Price not saved. Check the log file for details."));
+    // Refused (the buyouts did not load, #257) or rejected by the database:
+    // the old price stays, so the edit must not look applied. Only a
+    // rejection is logged per edit (as an error), so only then does the
+    // notice point at the log. It is a temporary status message, so it
+    // never replaces refresh progress for long, and the next edit that
+    // saves clears it.
+    if (saved) {
+        statusBar()->clearMessage();
+    } else {
+        statusBar()
+            ->showMessage(m_buyout_manager.BuyoutsLoaded()
+                              ? tr("Price not saved. Check the log file for details.")
+                              : tr("Price not saved: prices cannot be saved in this session."),
+                          PRICE_NOT_SAVED_TIMEOUT_MS);
     }
 }
 

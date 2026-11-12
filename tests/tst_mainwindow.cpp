@@ -46,6 +46,7 @@ private slots:
     void legacyImportRefusedWhenBuyoutsNotLoaded();
     void startupWarnsWhenBuyoutsNotLoaded();
     void refusedPriceEditSaysSoInStatusLine();
+    void savedPriceEditClearsNotSavedNotice();
     void tabChangeActivatesSelectedSearch();
     // Renegotiated in M3 S6 from `itemsRefreshRefiltersBackgroundSearches`
     // (the F33-era eager background refilter rode the final-snapshot reset
@@ -475,7 +476,7 @@ void MainWindowTest::legacyImportRefusedWhenBuyoutsNotLoaded()
         QString text;
         closeNextMessageBox(text);
         QVERIFY(QMetaObject::invokeMethod(fixture.window.get(), action, Qt::DirectConnection));
-        QVERIFY2(text.contains("could not load your prices"), qPrintable(text));
+        QVERIFY2(text.contains("cannot save prices in this session"), qPrintable(text));
     }
 }
 
@@ -504,18 +505,20 @@ void MainWindowTest::startupWarnsWhenBuyoutsNotLoaded()
 
     const auto boxes = window.findChildren<QMessageBox *>();
     QCOMPARE(boxes.size(), 1);
-    QVERIFY2(boxes.front()->text().contains("could not load your prices"),
+    // True however BuyoutsLoaded() became false: a store written by a newer
+    // build loads and shows its prices, it only cannot be written.
+    QVERIFY2(boxes.front()->text().contains("cannot save prices in this session"),
              qPrintable(boxes.front()->text()));
+    QVERIFY(!boxes.front()->text().contains("could not load"));
     const QString log_path = QDir::toNativeSeparators(
         QDir(fixture.tempDir.path()).filePath("log.txt"));
     QVERIFY2(boxes.front()->informativeText().contains(log_path),
              qPrintable(boxes.front()->informativeText()));
 }
 
-// #257: a price edit the manager refused must not look as if it worked.
-void MainWindowTest::refusedPriceEditSaysSoInStatusLine()
+// One item in one tab, refreshed and selected in the tree.
+static void selectOneItem(MainWindowFixture &fixture)
 {
-    MainWindowFixture fixture;
     auto *tree = fixture.window->findChild<QTreeView *>("treeView");
     QVERIFY(tree);
     const ItemLocation tab = makeTestStashLocation("stash-257", "Dump", 0);
@@ -529,16 +532,57 @@ void MainWindowTest::refusedPriceEditSaysSoInStatusLine()
     tree->selectionModel()->setCurrentIndex(findItemRow(*model, bucket, "Alpha Sword"),
                                             QItemSelectionModel::ClearAndSelect
                                                 | QItemSelectionModel::Rows);
+}
+
+// Everything the status bar shows or holds: its temporary message and the
+// text of its labels.
+static QString statusText(MainWindowFixture &fixture)
+{
+    QStringList texts{fixture.window->statusBar()->currentMessage()};
+    for (const QLabel *label : fixture.window->statusBar()->findChildren<QLabel *>()) {
+        texts.append(label->text());
+    }
+    return texts.join('|');
+}
+
+// #257: a price edit the manager refused must not look as if it worked.
+// The refusal itself is logged only at debug level, so the notice names
+// the session-wide cause instead of pointing at the log.
+void MainWindowTest::refusedPriceEditSaysSoInStatusLine()
+{
+    MainWindowFixture fixture;
+    selectOneItem(fixture);
 
     unloadBuyouts(fixture);
     applyBuyoutCommand(fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "7");
 
-    QStringList texts;
-    for (const QLabel *label : fixture.window->statusBar()->findChildren<QLabel *>()) {
-        texts.append(label->text());
-    }
-    QVERIFY2(texts.join('|').contains("Price not saved"), qPrintable(texts.join('|')));
+    const QString status = statusText(fixture);
+    QVERIFY2(status.contains("Price not saved"), qPrintable(status));
+    QVERIFY2(status.contains("cannot be saved in this session"), qPrintable(status));
+    QVERIFY2(!status.contains("log file"), qPrintable(status));
     QVERIFY(!fixture.buyoutFixture.repo->loadItemBuyouts().value().contains("item-257"));
+}
+
+// #257: after a save the database rejected (the repo logs it as an error),
+// the next edit that is saved clears the notice.
+void MainWindowTest::savedPriceEditClearsNotSavedNotice()
+{
+    MainWindowFixture fixture;
+    selectOneItem(fixture);
+
+    QSqlQuery q(*fixture.buyoutFixture.db);
+    QVERIFY(q.exec("CREATE TRIGGER block_item_insert BEFORE INSERT ON item_buyouts "
+                   "BEGIN SELECT RAISE(FAIL, 'test: insert blocked'); END"));
+    applyBuyoutCommand(fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "7");
+    QString status = statusText(fixture);
+    QVERIFY2(status.contains("Price not saved"), qPrintable(status));
+    QVERIFY2(status.contains("log file"), qPrintable(status));
+
+    QVERIFY(q.exec("DROP TRIGGER block_item_insert"));
+    applyBuyoutCommand(fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "8");
+    status = statusText(fixture);
+    QVERIFY2(!status.contains("Price not saved"), qPrintable(status));
+    QCOMPARE(fixture.buyoutFixture.repo->loadItemBuyouts().value().at("item-257").value, 8.0);
 }
 
 void MainWindowTest::tabChangeActivatesSelectedSearch()
