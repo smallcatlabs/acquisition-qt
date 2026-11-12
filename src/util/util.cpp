@@ -16,7 +16,7 @@
 #include <QString>
 #include <QStringList>
 #include <QTextDocument>
-#include <QUrlQuery>
+#include <QUrl>
 
 #include <cmath>
 
@@ -253,16 +253,21 @@ QString Util::Decode(const QString &entity)
     return text.toPlainText();
 }
 
-QUrlQuery Util::EncodeQueryItems(const std::vector<std::pair<QString, QString>> &items)
+QByteArray Util::EncodeForm(const std::vector<std::pair<QString, QString>> &fields)
 {
-    // https://github.com/owncloud/client/issues/9203
-    QUrlQuery result;
-    for (const auto &item : items) {
-        const QString key = QUrl::toPercentEncoding(item.first);
-        const QString value = QUrl::toPercentEncoding(item.second);
-        result.addQueryItem(key, value);
+    // application/x-www-form-urlencoded: every byte of the UTF-8 text that
+    // is not unreserved is percent-encoded, '+' and '%' included, so the
+    // receiver's form decoder gives back exactly the text sent. QUrlQuery
+    // cannot do this: it never encodes '+' (which a form decoder reads as a
+    // space) and takes a valid "%41" in its input as already encoded.
+    QByteArray body;
+    for (const auto &[key, value] : fields) {
+        if (!body.isEmpty()) {
+            body += '&';
+        }
+        body += QUrl::toPercentEncoding(key) + '=' + QUrl::toPercentEncoding(value);
     }
-    return result;
+    return body;
 }
 
 QColor Util::recommendedForegroundTextColor(const QColor &backgroundColor)

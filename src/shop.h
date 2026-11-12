@@ -5,18 +5,19 @@
 
 #include <QNetworkReply>
 #include <QObject>
-#include <QUrlQuery>
+#include <QString>
+#include <QStringList>
 
+#include <chrono>
 #include <expected>
-#include <map>
 #include <memory>
-#include <vector>
+#include <set>
+#include <utility>
 
-#include "buyout.h"
-#include "itemlocation.h"
 #include "poe/types/website/webstashtab.h"
 #include "ratelimit/fetcherror.h"
 #include "refreshoutcome.h"
+#include "shoprender.h"
 #include "util/programstate.h"
 
 class QSettings;
@@ -53,6 +54,9 @@ public:
     // invariant is cleanliness, not recency (M2 D8/R5-6 keep-and-drain).
     void OnPublishedSnapshot();
     void SubmitShopToForum(bool force = false);
+    // How long to wait before fetching the edit page again after the forum
+    // said the security token had expired. Tests shorten it.
+    void SetRetryDelay(std::chrono::milliseconds delay) { m_retry_delay = delay; }
     bool auto_update() const { return m_auto_update; }
 
     QStringList threads() const { return m_threads; }
@@ -64,9 +68,33 @@ public:
     // snapshot-granular, not delta-granular.
     bool shop_data_outdated() const { return m_cache_revision < m_input_revision; }
 
+    // Why a submission stopped. `message` is shown to the user for an
+    // Error; for a rejected session it says which reply rejected it.
+    struct Failure
+    {
+        enum class Kind { Error, SessionRejected, Canceled };
+        // What failed, so that an automatic submission is told about each
+        // kind of failure once per session.
+        enum class Cause {
+            StashIndex,
+            Unreachable,
+            SiteError,
+            ThreadNotEditable,
+            PostRefused,
+            ItemNotFound,
+            RateLimited,
+            ForumError,
+            UnexpectedPage,
+            RetriesExhausted,
+            Session,
+            Canceled
+        };
+        Kind kind{Kind::Error};
+        Cause cause{Cause::ForumError};
+        QString message;
+    };
+
 public slots:
-    void OnEditPageFinished();
-    void OnShopSubmitted(QUrlQuery query, QNetworkReply *reply);
     // The automatic-submission gate (items-pipeline M2, D8/R1-1): auto
     // update fires only on a CLEAN completed refresh. A completed-with-skips
     // outcome must never auto-post — the skipped tabs' stale contents would
@@ -77,6 +105,9 @@ signals:
     void StatusUpdate(ProgramState state, const QString &status);
     void UserWarning(const QString &message);
     void PoeSessionRejected();
+    // Emitted when the automatic-update setting changes, whoever changed
+    // it, so the menu item can follow it.
+    void AutoUpdateChanged(bool enabled);
 
 private:
     // One forum submission job (items-pipeline M2, D8/R2-1): its input is
@@ -91,35 +122,26 @@ private:
     // under the submission.
     struct ShopJob
     {
-        struct CapturedItem
-        {
-            QString id;
-            QString pretty_name;
-            ItemLocation location;
-            Buyout buyout;
-        };
-        // Immutable capture.
-        std::vector<CapturedItem> items;
-        QString shop_template;
-        QString realm;
-        QString league;
+        // Immutable capture: the postable items, template and realm/league
+        // (the stash index is added to it when it arrives), and the target
+        // thread list.
+        ShopRenderInput input;
         QStringList threads;
         bool force{false};
         quint64 input_revision{0};
-        // Job-local transport state.
-        std::map<QString, unsigned int> tab_index;
-        QStringList shop_data;
-        QString shop_hash;
+        // Job-local transport state. Every submission renders its own
+        // capture (M2 D8): correctness never depends on preview-cache
+        // freshness.
+        RenderedShop rendered;
         qsizetype requests_completed{0};
+        // POSTs made for the current thread.
+        int attempts{0};
         // True for a submission started by a clean refresh rather than by
         // the user; it decides how often a standing warning is repeated.
         bool automatic{false};
     };
 
     std::unique_ptr<ShopJob> CaptureJob(bool force) const;
-    // Every submission renders from its capture (M2 D8): correctness never
-    // depends on preview-cache freshness.
-    void RenderJob(ShopJob &job) const;
     void PublishPreviewCache(const ShopJob &job);
 
     // Automatic admission (M2 D8/R3-1): captures BEFORE applying the busy
@@ -128,30 +150,52 @@ private:
     // admission (SubmitShopToForum) still refuses while a job is active.
     void SubmitAutomaticShop();
 
-    // The fail-closed gate both submission paths ask first (#250): false
-    // when the buyouts did not load, after telling the user — every time
-    // for a manual request, once per session for automatic ones.
-    bool BuyoutsReadyToPost(bool automatic);
+    // What the user is told about. A manual request hears every notice and
+    // never uses one up; an automatic submission hears each notice (and,
+    // for a failed submission, each Failure::Cause as `detail`) once per
+    // session, so a standing condition does not raise a dialog after every
+    // refresh.
+    enum class Notice {
+        BuyoutsNotLoaded,
+        NoThreads,
+        NoSession,
+        Busy,
+        PageShortfall,
+        SessionRejected,
+        SubmissionFailed
+    };
+    void Warn(Notice notice, bool automatic, const QString &message, int detail = 0);
+
+    // The admission gate both submission paths ask first: the buyouts
+    // loaded (fail-closed, #250), threads set, and a POESESSID present.
+    // False after telling the user why, by Warn's rule.
+    bool ReadyToPost(bool automatic);
 
     // The two terminal exits every submission converges on (M2 D8).
     // Success — including the unchanged-hash no-post — releases the job and
     // drains the newest waiting automatic capture; failure releases the job,
     // drains nothing, and discards the waiting capture (R4-3: no kind
     // discrimination), so the next clean automatic or manual request
-    // recaptures the latest published state.
+    // recaptures the latest published state. FailActiveJob is the only
+    // failure exit: it always sets the status line, tells the user by
+    // Warn's rule, and for a rejected session also turns automatic updates
+    // off and asks for the POESESSID to be cleared.
     void CompleteActiveJob();
-    void FailActiveJob();
+    void FailActiveJob(const Failure &failure);
 
     void UpdateStashIndex();
     void OnStashIndexReceived(
         const std::expected<poe::WebStashListWrapper, RateLimit::FetchError> &result);
     void OnStashIndexUpdated();
-    void RejectPoeSession(const QString &reason);
 
+    // The forum conversation for the current thread: GET its edit page,
+    // POST the page there, and either move to the next thread or, when the
+    // forum asks for a retry, start this thread again from the GET (fresh
+    // token and title), at most kMaxAttemptsPerThread POSTs per thread.
     void SubmitSingleShop();
+    void OnEditPageFinished(QNetworkReply *reply);
     void SubmitNextShop(const QString &title, const QString &hash);
-    QString ShopEditUrl(qsizetype idx);
-    static QString SpoilerBuyout(const Buyout &bo);
+    void OnShopSubmitted(QNetworkReply *reply);
 
     QSettings &m_settings;
     NetworkManager &m_network_manager;
@@ -163,8 +207,8 @@ private:
     QStringList m_threads;
     QString m_shop_template;
     bool m_auto_update;
-    bool m_warned_unloaded_buyouts{false};
-    bool m_warned_page_shortfall{false};
+    std::set<std::pair<Notice, int>> m_warned;
+    std::chrono::milliseconds m_retry_delay{5000};
 
     // The submission desired state (M2 D8/R3-1): at most one active job and
     // at most one waiting automatic capture behind it — the newest clean
@@ -180,7 +224,4 @@ private:
     QStringList m_shop_data;
     quint64 m_input_revision{1};
     quint64 m_cache_revision{0};
-
-    static const QRegularExpression error_regex;
-    static const QRegularExpression ratelimit_regex;
 };
