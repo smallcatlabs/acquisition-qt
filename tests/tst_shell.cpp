@@ -497,7 +497,10 @@ void ShellTest::networkManagerHasNoDiskCache()
     // the user's real data directory.
     QVERIFY(QStandardPaths::isTestModeEnabled());
     const QString location = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    QVERIFY(location.contains(".qttest"));
+    // Qt's test directory: ~/.qttest on Unix and macOS, a "qttest" directory
+    // under %APPDATA% on Windows. Refuse to delete anything outside it.
+    const QStringList segments = QDir::fromNativeSeparators(location).split('/');
+    QVERIFY2(segments.contains(".qttest") || segments.contains("qttest"), qPrintable(location));
     QDir cache_dir(location + "/network_cache");
     QVERIFY(cache_dir.removeRecursively());
 
