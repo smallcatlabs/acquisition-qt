@@ -618,12 +618,14 @@ add_custom_target(project_files SOURCES
     .github/workflows/build-macos.yml
     .github/workflows/build-windows.yml
     .github/workflows/codeql.yml
+    .github/workflows/release.yml
     AGENTS.md
     CLAUDE.md
     CONTRIBUTORS.md
     LICENSE
     README.md
     BUILD.md
+    RELEASE.md
     acquisition.desktop
     installer.iss
     # Project documents

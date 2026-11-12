@@ -1,15 +1,24 @@
 name: Build & Package (Linux)
 
+# Builds, tests and packages the Linux release artifacts and uploads them as
+# workflow artifacts. It does not publish anything: release.yml calls it on a
+# version tag, and its release job creates the draft from these artifacts.
+# Dispatch it by hand to build one platform on its own.
 on:
-  push:
-    tags: ['v*']
+  workflow_call:
+    outputs:
+      version:
+        description: APP_VERSION_STRING of the build.
+        value: ${{ jobs.build-linux-appimage.outputs.version }}
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-linux-appimage:
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     runs-on: ubuntu-latest
 
     steps:
@@ -122,47 +131,3 @@ jobs:
         name: acquisition-${{ steps.version.outputs.version }}-x86_64.debug
         path: build/acquisition.debug
         retention-days: 30
-
-    # Only this workflow creates the Sentry release; the Windows and macOS
-    # workflows upload symbols for the same release and would otherwise race
-    # to create it three times over.
-    - name: Create Sentry release
-      if: startsWith(github.ref, 'refs/tags/v') && vars.SENTRY_ORG != ''
-      env:
-        SENTRY_ORG: ${{ vars.SENTRY_ORG }}
-        SENTRY_PROJECT: acquisition
-        SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-      run: |
-        set -euo pipefail
-        if [ -z "${SENTRY_AUTH_TOKEN}" ]; then
-          echo "SENTRY_AUTH_TOKEN is not set; skipping Sentry release."
-          exit 0
-        fi
-
-        # Must match SENTRY_RELEASE in src/main.cpp: APP_NAME "@" APP_VERSION_STRING.
-        release="acquisition@${{ steps.version.outputs.version }}"
-
-        # Same pinned release and checksum as .github/actions/sentry-symbols.
-        cli="${RUNNER_TEMP}/sentry-cli-Linux-x86_64"
-        curl -sSfL --retry 3 -o "${cli}" \
-          "https://github.com/getsentry/sentry-cli/releases/download/3.6.2/sentry-cli-Linux-x86_64"
-        echo "3a4bbf2c0d06378d4e59b337647483751a0a2b1603db5fd4991847d0cfd6478c  ${cli}" | sha256sum -c -
-        chmod +x "${cli}"
-
-        "${cli}" releases new "${release}"
-        # Suspect commits need the Sentry GitHub integration; don't fail the
-        # release build if it isn't configured.
-        "${cli}" releases set-commits "${release}" --auto \
-          || echo "::warning::Could not associate commits (is the Sentry GitHub integration set up?)"
-        "${cli}" releases finalize "${release}"
-
-    - name: Create draft release
-      if: startsWith(github.ref, 'refs/tags/v')
-      uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
-      with:
-        files: acquisition*.AppImage
-        generate_release_notes: true
-        draft: true
-        prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

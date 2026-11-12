@@ -174,6 +174,7 @@ When each check runs:
 | Tests (`tests.yml`) | always | yes | no | on demand |
 | Sanitizers (`sanitizers.yml`) | only when the change touches the worker, the API client, `src/ratelimit/`, the network manager, or the runner and its build; not a required check | no | yes | on demand |
 | CodeQL (`codeql.yml`) | no | no | yes | weekly on `master`, on demand |
+| Release (`release.yml`) | no | no | yes: builds all three platforms, then creates the draft release | on demand, builds only |
 
 A pull request waits on the test suite and nothing else. CodeQL and the
 sanitizer run are slow (17 to 83 minutes from start to result in November
@@ -272,9 +273,12 @@ Release artifacts are built by GitHub Actions:
 - `.github/workflows/build-macos.yml` builds the macOS DMG.
 - `.github/workflows/build-windows.yml` builds the Windows installer.
 
-The workflows run on `workflow_dispatch` and on tags matching `v*`. Tag builds
-create draft GitHub releases and attach the platform artifacts. They currently
-install Qt 6.12.0 with the `qtnetworkauth` module.
+Each builds, tests and packages one platform and uploads the result as
+workflow artifacts; none of them publishes anything. On a tag matching `v*`,
+`.github/workflows/release.yml` calls all three and, once they have all
+passed, creates one draft GitHub release with their files. Each can also be
+run on its own with `workflow_dispatch`. They currently install Qt 6.12.0
+with the `qtnetworkauth` module. The release procedure is in `RELEASE.md`.
 
 ## Platform Notes
 
