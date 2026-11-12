@@ -48,7 +48,17 @@ From top to bottom:
 ## Filters
 
 All filters are ANDed together. Min/max fields are inclusive and either side may
-be left blank. Check boxes match only when checked.
+be left blank.
+
+Number fields (min/max, the socket colour counts, and a mod row's min and max)
+take a single number: `5`, `-3`, `2.5` or `2,5` (a point or a comma as the
+decimal separator), with spaces around it allowed; `1e3` is read as 1000. The
+colour counts take whole numbers only. A comma followed by exactly three
+digits, such as `1,000`, is not accepted, because it could mean one thousand
+or one; type `1000` or `1.0`. Text that is not a number, such as `5%` or
+`abc`, is shown in red and does not filter at all: the field counts as left
+blank until its text is a number again. Hover over a red field to see what it
+accepts. Check boxes match only when checked.
 
 | Group | Filter | Matches |
 |---|---|---|

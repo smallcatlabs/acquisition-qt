@@ -17,7 +17,9 @@
 #include <optional>
 #include <utility>
 
+#include "filters/fieldnumber.h"
 #include "modlist.h"
+#include "ui/fieldvalidity.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 
 namespace {
@@ -65,12 +67,10 @@ namespace {
 
     const QRegularExpression TokenAndFilterProxy::s_sep = QRegularExpression("\\s+");
 
+    // Text that is not a number is no bound (#270), never a bound of 0.
     std::optional<double> parse(const QLineEdit *textbox)
     {
-        if (textbox->text().isEmpty()) {
-            return std::nullopt;
-        }
-        return textbox->text().toDouble();
+        return ParseFieldNumber(textbox->text());
     }
 
 } // namespace
@@ -96,6 +96,8 @@ public:
         auto *baseModel = &mod_list_model();
 
         m_modSelect->setObjectName("modsRowCombo");
+        MarkWhenNotANumber(*m_minText);
+        MarkWhenNotANumber(*m_maxText);
         m_modSelect->setEditable(true);
         m_modSelect->setInsertPolicy(QComboBox::NoInsert);
         m_modSelect->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);

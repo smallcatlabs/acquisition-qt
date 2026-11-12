@@ -40,6 +40,7 @@ private slots:
     void modsFormAdapterRoundTrip();
     void modsFormAdapterFreeTextPersistsAndRestoresIndex();
     void modsFormAdapterBlankTextChoosesNoMod();
+    void numberFieldsRejectTextThatIsNotANumber();
     void modsFormAdapterDoesNotArmCompleterOnProgrammaticRows();
     void modsFormAdapterRepacksRows();
     void modsFormAdapterDisconnectsOnDestruction();
@@ -367,9 +368,9 @@ void SearchTest::minMaxFormAdapterRoundTrip()
     Search searchA(*harness.buyoutFixture.manager, "A", harness.catalog);
     harness.form.saveTo(searchA);
 
+    // #270: text that is not a number leaves its bound unset, never 0.
     const auto &state = std::get<MinMaxState>(searchA.filterStateAt(critIndex));
-    QVERIFY(state.min.has_value());
-    QCOMPARE(*state.min, 0.0);
+    QVERIFY(!state.min.has_value());
     QVERIFY(state.max.has_value());
     QCOMPARE(*state.max, 12.5);
     QVERIFY(state.isActive());
@@ -382,7 +383,7 @@ void SearchTest::minMaxFormAdapterRoundTrip()
     QCOMPARE(critMax->text(), "");
     harness.form.loadFrom(searchA);
 
-    QCOMPARE(critMin->text(), "0");
+    QCOMPARE(critMin->text(), "");
     QCOMPARE(critMax->text(), "12.5");
     QCOMPARE(harness.immediateChanges, 0);
     QCOMPARE(harness.delayedChanges, 1);
@@ -444,9 +445,9 @@ void SearchTest::colorsFormAdapterRoundTrip()
     Search searchA(*harness.buyoutFixture.manager, "A", harness.catalog);
     harness.form.saveTo(searchA);
 
+    // #270: text that is not a number leaves its count unset, never 0.
     const auto &socketsState = std::get<ColorsState>(searchA.filterStateAt(socketsIndex));
-    QVERIFY(socketsState.r.has_value());
-    QCOMPARE(*socketsState.r, 0);
+    QVERIFY(!socketsState.r.has_value());
     QVERIFY(socketsState.g.has_value());
     QCOMPARE(*socketsState.g, 2);
     QVERIFY(!socketsState.b.has_value());
@@ -479,7 +480,7 @@ void SearchTest::colorsFormAdapterRoundTrip()
     harness.immediateChanges = 0;
     harness.delayedChanges = 0;
     harness.form.loadFrom(searchA);
-    QCOMPARE(socketR->text(), "0");
+    QCOMPARE(socketR->text(), "");
     QCOMPARE(socketG->text(), "2");
     QCOMPARE(socketB->text(), "");
     QCOMPARE(linkR->text(), "1");
@@ -500,7 +501,7 @@ void SearchTest::colorsFormAdapterRoundTrip()
     QCOMPARE(harness.delayedChanges, 0);
 
     harness.form.loadFrom(searchA);
-    QCOMPARE(socketR->text(), "0");
+    QCOMPARE(socketR->text(), "");
     QCOMPARE(socketG->text(), "2");
     QCOMPARE(socketB->text(), "");
     QCOMPARE(linkR->text(), "1");
@@ -717,6 +718,82 @@ void SearchTest::modsFormAdapterBlankTextChoosesNoMod()
     const auto &state = std::get<ModsState>(search.filterStateAt(modsIndex));
     QCOMPARE(state.rows.front().mod, "not a mod");
     QVERIFY(state.isActive());
+}
+
+// #270: a min field, a colour field and a mod-value field holding text
+// that is not a number leave their bound unset — the filter stays inactive,
+// the mod row keeps no bound — and show the text marked (red, with a
+// tooltip saying what is accepted). Valid text, a decimal comma included,
+// sets the bound and clears the mark.
+void SearchTest::numberFieldsRejectTextThatIsNotANumber()
+{
+    mod_list_model().setStringList({"First mod"});
+    SearchHarness harness;
+    auto *critMin = harness.findByLabel<QLineEdit>("Crit.", [](const QLineEdit *edit) {
+        return edit->placeholderText() == "min";
+    });
+    auto *socketR = harness.findByLabel<QLineEdit>("Colors", [](const QLineEdit *edit) {
+        return edit->placeholderText() == "R";
+    });
+    QVERIFY(critMin && socketR);
+    const qsizetype critIndex = findMinMaxFilterIndex(harness.catalog, "Crit.");
+    const qsizetype socketsIndex = findColorsFilterIndex(harness.catalog, ColorsMatchKind::Sockets);
+    const qsizetype modsIndex = findModsFilterIndex(harness.catalog);
+    QVERIFY(critIndex >= 0 && socketsIndex >= 0 && modsIndex >= 0);
+
+    auto *addButton = harness.host.findChild<QPushButton *>("modsAddButton");
+    QVERIFY(addButton);
+    addButton->click();
+    auto *modCombo = harness.host.findChild<QComboBox *>("modsRowCombo");
+    QVERIFY(modCombo);
+    modCombo->setEditText("First mod");
+    QLineEdit *modMin = nullptr;
+    for (auto *edit :
+         harness.host.findChild<QWidget *>("modsRowsContainer")->findChildren<QLineEdit *>()) {
+        if (edit->parent() != modCombo) {
+            modMin = edit; // the min field is created before the max field
+            break;
+        }
+    }
+    QVERIFY(modMin);
+
+    const auto marked = [](const QLineEdit *edit) {
+        return !edit->toolTip().isEmpty() && !edit->styleSheet().isEmpty();
+    };
+
+    critMin->setText("5%");
+    socketR->setText("abc");
+    modMin->setText("1,000");
+    Search search(*harness.buyoutFixture.manager, "A", harness.catalog);
+    harness.form.saveTo(search);
+    {
+        const auto &crit = std::get<MinMaxState>(search.filterStateAt(critIndex));
+        QVERIFY(!crit.min.has_value());
+        QVERIFY(!crit.isActive());
+        const auto &sockets = std::get<ColorsState>(search.filterStateAt(socketsIndex));
+        QVERIFY(!sockets.r.has_value());
+        QVERIFY(!sockets.isActive());
+        const auto &mods = std::get<ModsState>(search.filterStateAt(modsIndex));
+        QCOMPARE(mods.rows.size(), 1);
+        QVERIFY(!mods.rows.front().min.has_value());
+    }
+    QVERIFY(marked(critMin));
+    QVERIFY(marked(socketR));
+    QVERIFY(marked(modMin));
+
+    critMin->setText("0,5");
+    socketR->setText(" 2 ");
+    modMin->setText("-3");
+    harness.form.saveTo(search);
+    const auto &crit = std::get<MinMaxState>(search.filterStateAt(critIndex));
+    QCOMPARE(crit.min, std::optional<double>(0.5));
+    const auto &sockets = std::get<ColorsState>(search.filterStateAt(socketsIndex));
+    QCOMPARE(sockets.r, std::optional<int>(2));
+    const auto &mods = std::get<ModsState>(search.filterStateAt(modsIndex));
+    QCOMPARE(mods.rows.front().min, std::optional<double>(-3.0));
+    QVERIFY(!marked(critMin));
+    QVERIFY(!marked(socketR));
+    QVERIFY(!marked(modMin));
 }
 
 void SearchTest::modsFormAdapterDoesNotArmCompleterOnProgrammaticRows()
