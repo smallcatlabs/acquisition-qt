@@ -326,8 +326,10 @@ void MainWindow::InitializeUi()
     ui->mainLayout->insertWidget(0, m_tab_bar);
 
     ui->buyoutPanel->setPriceLookup([this](const PriceTarget &target) {
-        return target.isItem() ? m_buyout_manager.Get(*target.item)
-                               : m_buyout_manager.GetTab(target.location);
+        // The price in force. Its source is the game's exactly when the
+        // game set it, which is what makes the editor refuse it.
+        return target.isItem() ? m_buyout_manager.Effective(*target.item).buyout
+                               : m_buyout_manager.EffectiveTab(target.location).buyout;
     });
     connect(ui->buyoutPanel, &BuyoutPanel::committed, this, &MainWindow::OnBuyoutCommitted);
     connect(ui->buyoutPanel, &BuyoutPanel::notice, this, [this](const QString &text) {

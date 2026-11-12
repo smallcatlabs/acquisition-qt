@@ -170,7 +170,7 @@ QVariant ItemsModel::data(const QModelIndex &index, int role) const
             // R7): a tab buyout stored against a folder id by an earlier
             // version stays in the store, unrendered.
             if (!m_search.isFolderBucket(ref.bucket_row)) {
-                const auto bo = m_bo_manager.GetTab(location);
+                const Buyout bo = m_bo_manager.EffectiveTab(location).buyout;
                 if (bo.IsActive()) {
                     title += QString(" [%1]").arg(bo.AsText());
                 }

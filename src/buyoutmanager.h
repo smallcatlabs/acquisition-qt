@@ -34,6 +34,38 @@ struct BuyoutChangeSet
     bool IsEmpty() const { return !everything && item_ids.empty() && tab_ids.empty(); }
 };
 
+// Where an item's or a tab's price comes from. The precedence is the
+// trade site's (trade-ground-truth T12, T29): an item's note, then a price
+// set on the item in Acquisition, then its tab's name, then a price set on
+// the tab in Acquisition.
+enum class PriceSource { None, Note, ManualItem, TabName, ManualTab };
+
+// A price and where it comes from. Whether it can be posted to the forum
+// or edited in Acquisition is decided from where it comes from: a price
+// the game set (a note or a tab name) is neither. The buyout's own source
+// agrees: it is BUYOUT_SOURCE_GAME exactly when the game set the price.
+struct EffectivePrice
+{
+    Buyout buyout;
+    PriceSource source{PriceSource::None};
+
+    bool IsGameSet() const
+    {
+        return (source == PriceSource::Note) || (source == PriceSource::TabName);
+    }
+    // The row has a price of its own (a note or one set on it); otherwise
+    // it shows its tab's, or none.
+    bool IsOwn() const
+    {
+        return (source == PriceSource::Note) || (source == PriceSource::ManualItem);
+    }
+    // The forum may carry it: set in Acquisition, and a price or "no price".
+    bool IsPostable() const
+    {
+        return !IsGameSet() && (buyout.IsPriced() || (buyout.type == Buyout::BUYOUT_TYPE_NO_PRICE));
+    }
+};
+
 class BuyoutManager : public QObject
 {
     Q_OBJECT
@@ -58,6 +90,15 @@ public:
 
     Buyout Get(const Item &item) const;
     Buyout GetTab(const ItemLocation &location) const;
+
+    // The price in force for an item, or a tab, and where it comes from.
+    // Every reader of a price reads it here.
+    EffectivePrice Effective(const Item &item) const;
+    EffectivePrice EffectiveTab(const ItemLocation &location) const;
+    // Whether an item's price, or a tab's, needs its tab refreshed to stay
+    // current (refresh locks): a query over the prices in force.
+    bool PriceRequiresRefresh(const Item &item) const;
+    bool TabPriceRequiresRefresh(const ItemLocation &location) const;
 
     void CompressTabBuyouts();
 

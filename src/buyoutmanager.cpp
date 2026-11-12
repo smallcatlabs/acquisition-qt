@@ -147,6 +147,46 @@ Buyout BuyoutManager::Get(const Item &item) const
     return Buyout();
 }
 
+EffectivePrice BuyoutManager::Effective(const Item &item) const
+{
+    // The pricing passes store the price in force on the item: a note's
+    // price, a price set on the item, or a copy of its tab's price marked
+    // inherited.
+    const Buyout stored = Get(item);
+    if (stored.IsNull() || (stored.type == Buyout::BUYOUT_TYPE_INHERIT)) {
+        return EffectivePrice{.buyout = stored, .source = PriceSource::None};
+    }
+    if (stored.inherited) {
+        return EffectivePrice{.buyout = stored,
+                              .source = stored.IsGameSet() ? PriceSource::TabName
+                                                           : PriceSource::ManualTab};
+    }
+    return EffectivePrice{.buyout = stored,
+                          .source = stored.IsGameSet() ? PriceSource::Note
+                                                       : PriceSource::ManualItem};
+}
+
+EffectivePrice BuyoutManager::EffectiveTab(const ItemLocation &location) const
+{
+    const Buyout stored = GetTab(location);
+    if (stored.IsNull() || (stored.type == Buyout::BUYOUT_TYPE_INHERIT)) {
+        return EffectivePrice{.buyout = stored, .source = PriceSource::None};
+    }
+    return EffectivePrice{.buyout = stored,
+                          .source = stored.IsGameSet() ? PriceSource::TabName
+                                                       : PriceSource::ManualTab};
+}
+
+bool BuyoutManager::PriceRequiresRefresh(const Item &item) const
+{
+    return Effective(item).buyout.RequiresRefresh() || TabPriceRequiresRefresh(item.location());
+}
+
+bool BuyoutManager::TabPriceRequiresRefresh(const ItemLocation &location) const
+{
+    return EffectiveTab(location).buyout.RequiresRefresh();
+}
+
 Buyout BuyoutManager::GetTab(const ItemLocation &location) const
 {
     const QString tab = location.id();

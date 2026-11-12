@@ -131,7 +131,7 @@ ApplyBuyoutResult ApplyBuyout(BuyoutManager &buyouts,
     // this one and emits nothing (M3 R3-3).
     const BuyoutBatch batch(buyouts);
     for (const ItemLocation &tab : targets.tabs) {
-        if (buyouts.GetTab(tab).IsGameSet()) {
+        if (buyouts.EffectiveTab(tab).IsGameSet()) {
             spdlog::trace("ApplyBuyout: tab {} is priced in the game", tab.id());
             ++result.locked;
             continue;
@@ -139,7 +139,8 @@ ApplyBuyoutResult ApplyBuyout(BuyoutManager &buyouts,
         count(buyouts.SetTab(tab, buyout));
     }
     for (const Item *item : targets.items) {
-        if (buyouts.GetTab(item->location()).IsGameSet() || buyouts.Get(*item).IsGameSet()) {
+        if (buyouts.EffectiveTab(item->location()).IsGameSet()
+            || buyouts.Effective(*item).IsGameSet()) {
             spdlog::trace("ApplyBuyout: item {} is priced in the game", item->id());
             ++result.locked;
             continue;

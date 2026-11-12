@@ -219,6 +219,7 @@ private slots:
     void emptySelectionDisablesTheEditor();
     void numberWithoutCurrencySaysSo();
     void typeChoiceSurvivesARefresh();
+    void priceReadersInTheWindow();
     void headerSelectionSurvivesItemDetailsTimer();
     void byItemHeaderSelectionWritesNoRefreshState();
     void refreshSelectedWithoutTabsStartsNoUpdate();
@@ -5230,6 +5231,57 @@ void MainWindowTest::typeChoiceSurvivesARefresh()
     const Buyout stored = fixture.buyoutFixture.manager->Get(*r.a);
     QCOMPARE(stored.value, 5.0);
     QCOMPARE(stored.currency.type, Currency::CURRENCY_CHAOS_ORB);
+}
+
+// #293 step 1 pin: what the window shows of a price, for each way a row
+// comes by one: the tab header's suffix, and the price editor's value and
+// whether it can be edited. Recorded from the code before the effective
+// price was introduced.
+void MainWindowTest::priceReadersInTheWindow()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    auto *value = fixture.window->findChild<QLineEdit *>("buyoutValueLineEdit");
+    auto *type = fixture.window->findChild<QComboBox *>("buyoutTypeComboBox");
+    const ItemLocation named = makeTestStashLocation("stash-named", "~price 2 chaos", 0);
+    const ItemLocation manual_tab = makeTestStashLocation("stash-manual", "Manual", 1);
+    const ItemLocation plain = makeTestStashLocation("stash-plain", "Plain", 2);
+    const auto in_named = makeMainWindowItem("w-in-named", "Named", "Sword", named);
+    const auto in_manual = makeMainWindowItem("w-in-manual", "Inherits", "Sword", manual_tab);
+    const auto noted = makeMainWindowItemWithNote("w-noted", "Noted", "Sword", plain, "~b/o 5 chaos");
+    const auto own = makeMainWindowItem("w-own", "Own", "Sword", plain);
+    auto &manager = *fixture.buyoutFixture.manager;
+    QVERIFY(manager.SetTab(manual_tab, makeChaosBuyout(3.0)));
+    fixture.itemsManager->OnItemsRefreshed({in_named, in_manual, noted, own},
+                                           {named, manual_tab, plain},
+                                           false);
+    QVERIFY(manager.Set(*own, makeChaosBuyout(7.0)));
+    fixture.itemsManager->OnItemsRefreshed({in_named, in_manual, noted, own},
+                                           {named, manual_tab, plain},
+                                           false);
+
+    auto *model = tree->model();
+    QCOMPARE(findBucket(*model, named.GetHeader()).data().toString(),
+             named.GetHeader() + " [price 2 chaos]");
+    QCOMPARE(findBucket(*model, manual_tab.GetHeader()).data().toString(),
+             manual_tab.GetHeader() + " [b/o 3 chaos]");
+    QCOMPARE(findBucket(*model, plain.GetHeader()).data().toString(), plain.GetHeader());
+
+    const struct
+    {
+        const ItemLocation &tab;
+        const char *row;
+        const char *shown;
+        bool editable;
+    } rows[] = {{named, "Named Sword", "2", false},
+                {manual_tab, "Inherits Sword", "3", true},
+                {plain, "Noted Sword", "5", false},
+                {plain, "Own Sword", "7", true}};
+    for (const auto &row : rows) {
+        selectRow(fixture, row.tab.GetHeader(), row.row);
+        QCOMPARE(value->text(), QString(row.shown));
+        QCOMPARE(type->isEnabled(), row.editable);
+    }
 }
 
 // #282: selecting a tab header after an item stops the item's pending

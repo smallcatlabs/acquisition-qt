@@ -169,7 +169,7 @@ FilterCatalog BuildFilterCatalog(const BuyoutManager &buyoutManager)
         itemMethod("ilvl", FilterGroup::Misc, [](const Item &item) { return item.ilvl(); }));
     specs.push_back(boolean("Alt. art", FilterGroup::MiscFlags, MatchesAltart));
     specs.push_back(boolean("Priced", FilterGroup::MiscFlags, [&buyoutManager](const Item &item) {
-        return buyoutManager.Get(item).IsActive();
+        return buyoutManager.Effective(item).buyout.IsActive();
     }));
     specs.push_back(boolean("Unidentified", FilterGroup::MiscFlags2, [](const Item &item) {
         return !item.identified();

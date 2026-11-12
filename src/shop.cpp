@@ -453,8 +453,9 @@ std::unique_ptr<Shop::ShopJob> Shop::CaptureJob(bool force) const
     job->force = force;
     job->input_revision = m_input_revision;
     for (const auto &item : m_items_manager.items()) {
-        const Buyout bo = m_buyout_manager.Get(*item);
-        if (bo.IsPostable()) {
+        const EffectivePrice price = m_buyout_manager.Effective(*item);
+        const Buyout &bo = price.buyout;
+        if (price.IsPostable()) {
             job->input.items.push_back({item->PrettyName(), item->location(), bo});
         }
     }
