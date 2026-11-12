@@ -217,6 +217,7 @@ void Shop::SubmitAutomaticShop()
     // converges to the newest clean snapshot instead of posting every
     // clean refresh generation.
     auto job = CaptureJob(false);
+    job->automatic = true;
     if (m_active_job) {
         spdlog::debug("Shop: a submission is active; holding the newest clean capture");
         m_waiting_capture = std::move(job);
@@ -430,25 +431,31 @@ void Shop::OnStashIndexUpdated()
     RenderJob(job);
     PublishPreviewCache(job);
 
+    // More pages than threads (#253): the pages that fit are posted and the
+    // rest are not. Checked before the unchanged-hash exit, so the user
+    // hears about a standing shortfall even when nothing needs posting:
+    // every time for a manual request, once per session for automatic ones.
+    if (job.threads.size() < job.shop_data.size()) {
+        const qsizetype missing = job.shop_data.size() - job.threads.size();
+        spdlog::warn("Shop: need {} more shops defined to fit all your items.", missing);
+        if (!job.automatic || !m_warned_page_shortfall) {
+            m_warned_page_shortfall = true;
+            emit UserWarning(QString("Your forum shop needs %1 more thread(s) to list all of your "
+                                     "priced items. Only the first %2 page(s) are posted."
+                                     "\n\n"
+                                     "Use the Shop --> 'Forum shop thread...' menu item to add "
+                                     "threads.")
+                                 .arg(missing)
+                                 .arg(job.threads.size()));
+        }
+    }
+
     // Don't resubmit the shop if the data hasn't changed. The no-post case
     // is a SUCCESS terminal exit (M2 D8): it drains the waiting capture.
     if ((previous_hash == job.shop_hash) && !job.force) {
         spdlog::trace("Shop: skipping update because the shop hash has not changed");
         CompleteActiveJob();
         return;
-    }
-
-    if (job.threads.size() < job.shop_data.size()) {
-        const qsizetype missing = job.shop_data.size() - job.threads.size();
-        spdlog::warn("Shop: need {} more shops defined to fit all your items.", missing);
-        job.pages_dropped = true;
-        emit UserWarning(QString("Your forum shop needs %1 more thread(s) to list all of your "
-                                 "priced items. Only the first %2 page(s) will be posted."
-                                 "\n\n"
-                                 "Use the Shop --> 'Forum shop thread...' menu item to add "
-                                 "threads.")
-                             .arg(missing)
-                             .arg(job.threads.size()));
     }
 
     job.requests_completed = 0;
@@ -577,11 +584,7 @@ void Shop::SubmitSingleShop()
     if (job.requests_completed == job.threads.size()) {
         spdlog::debug("Shop: updated {} threads", job.threads.size());
         emit StatusUpdate(ProgramState::Ready, "Shop threads updated");
-        // An incomplete post keeps the previous hash (#253), so the next
-        // submission is not skipped as unchanged and warns again.
-        if (!job.pages_dropped) {
-            m_datastore.Set("shop_hash", job.shop_hash);
-        }
+        m_datastore.Set("shop_hash", job.shop_hash);
         CompleteActiveJob();
         return;
     }

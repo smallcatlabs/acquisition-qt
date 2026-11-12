@@ -111,10 +111,9 @@ private:
         QStringList shop_data;
         QString shop_hash;
         qsizetype requests_completed{0};
-        // True when the rendered pages outnumber the threads (#253): the
-        // pages that fit are posted, but the run is not a complete post, so
-        // its hash is not persisted.
-        bool pages_dropped{false};
+        // True for a submission started by a clean refresh rather than by
+        // the user; it decides how often a standing warning is repeated.
+        bool automatic{false};
     };
 
     std::unique_ptr<ShopJob> CaptureJob(bool force) const;
@@ -165,6 +164,7 @@ private:
     QString m_shop_template;
     bool m_auto_update;
     bool m_warned_unloaded_buyouts{false};
+    bool m_warned_page_shortfall{false};
 
     // The submission desired state (M2 D8/R3-1): at most one active job and
     // at most one waiting automatic capture behind it — the newest clean

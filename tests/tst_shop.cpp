@@ -98,7 +98,8 @@ private slots:
     void expireDropsWaitingCapture();
 
     // #253: pages beyond the configured threads.
-    void morePagesThanThreadsWarnsAndKeepsHash();
+    void morePagesThanThreadsWarnsWithoutReposting();
+    void automaticShortfallWarnsOncePerSession();
 
     // #250: the shop refuses to post while the buyouts did not load.
     void unloadedBuyoutsBlockSubmission();
@@ -789,37 +790,49 @@ void ShopTest::expireDropsWaitingCapture()
     QCOMPARE(fixture.rateLimiter->futureCount(), size_t(1)); // no drain
 }
 
+namespace {
+
+    // Two priced items in one tab and one thread, with a template padded so
+    // that the shop renders two pages.
+    void armTwoPageShop(ShopFixture &fixture)
+    {
+        armForSubmission(fixture);
+        fixture.buyoutFixture.data->Set("shop_hash", "previous-hash");
+
+        // Two priced items in one tab, and a template padded so that one item
+        // fits a 50000-character post and two do not: two pages.
+        const ItemLocation tab = makeTestStashLocation();
+        const QByteArray json_a = R"({"verified": false, "w": 1, "h": 1,
+            "icon": "https://web.poecdn.com/image/test.png", "id": "page-a", "name": "",
+            "typeLine": "Iron Ring", "baseType": "Iron Ring", "identified": true, "ilvl": 1,
+            "x": 0, "y": 0})";
+        QByteArray json_b = json_a;
+        json_b.replace("page-a", "page-b").replace(R"("x": 0)", R"("x": 1)");
+        const auto item_a = std::make_shared<Item>(makeTestItem(json_a.constData(), tab));
+        const auto item_b = std::make_shared<Item>(makeTestItem(json_b.constData(), tab));
+        fixture.itemsManager->OnItemsRefreshed({item_a, item_b}, {tab}, false);
+        fixture.buyoutFixture.manager->Set(*item_a, makeChaosBuyout(1));
+        fixture.buyoutFixture.manager->Set(*item_b, makeChaosBuyout(1));
+
+        const qsizetype item_length = tab.GetForumCode("pc", "Standard", 0).size();
+        const qsizetype header_length = QStringLiteral(R"([spoiler="~b/o 1 chaos"])").size();
+        const qsizetype overhead = 19 + QStringLiteral("[/spoiler]").size();
+        const qsizetype padding = 50000 - overhead - header_length - item_length - item_length / 2
+                                  - QStringLiteral("[items]").size();
+        fixture.shop->SetShopTemplate("[items]" + QString(padding, 'x'));
+    }
+
+} // namespace
+
 // #253: a shop that renders more pages than there are threads posts the
-// pages that fit, tells the user how many more threads are needed, and does
-// not persist the hash — so the next submission reports it again instead of
-// seeing an unchanged hash and doing nothing.
-void ShopTest::morePagesThanThreadsWarnsAndKeepsHash()
+// pages that fit and tells the user how many more threads are needed. The
+// hash is saved as usual, so unchanged pages are not posted again, and the
+// warning is raised before the unchanged-hash exit so a standing shortfall
+// is still reported.
+void ShopTest::morePagesThanThreadsWarnsWithoutReposting()
 {
     ShopFixture fixture;
-    armForSubmission(fixture);
-    fixture.buyoutFixture.data->Set("shop_hash", "previous-hash");
-
-    // Two priced items in one tab, and a template padded so that one item
-    // fits a 50000-character post and two do not: two pages.
-    const ItemLocation tab = makeTestStashLocation();
-    const QByteArray json_a = R"({"verified": false, "w": 1, "h": 1,
-        "icon": "https://web.poecdn.com/image/test.png", "id": "page-a", "name": "",
-        "typeLine": "Iron Ring", "baseType": "Iron Ring", "identified": true, "ilvl": 1,
-        "x": 0, "y": 0})";
-    QByteArray json_b = json_a;
-    json_b.replace("page-a", "page-b").replace(R"("x": 0)", R"("x": 1)");
-    const auto item_a = std::make_shared<Item>(makeTestItem(json_a.constData(), tab));
-    const auto item_b = std::make_shared<Item>(makeTestItem(json_b.constData(), tab));
-    fixture.itemsManager->OnItemsRefreshed({item_a, item_b}, {tab}, false);
-    fixture.buyoutFixture.manager->Set(*item_a, makeChaosBuyout(1));
-    fixture.buyoutFixture.manager->Set(*item_b, makeChaosBuyout(1));
-
-    const qsizetype item_length = tab.GetForumCode("pc", "Standard", 0).size();
-    const qsizetype header_length = QStringLiteral(R"([spoiler="~b/o 1 chaos"])").size();
-    const qsizetype overhead = 19 + QStringLiteral("[/spoiler]").size();
-    const qsizetype padding = 50000 - overhead - header_length - item_length - item_length / 2
-                              - QStringLiteral("[items]").size();
-    fixture.shop->SetShopTemplate("[items]" + QString(padding, 'x'));
+    armTwoPageShop(fixture);
 
     QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
     fixture.shop->SubmitShopToForum();
@@ -839,11 +852,49 @@ void ShopTest::morePagesThanThreadsWarnsAndKeepsHash()
     fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, QByteArray("ok"));
     drainEvents();
 
-    // Nothing else was sent, the user was told once, and the hash was kept.
+    // Nothing else was sent and the user was told. The hash is saved as for
+    // any completed post, so unchanged pages are not posted again.
     QCOMPARE(fixture.networkManager->count(), 2);
     QCOMPARE(warnings.count(), 1);
     QVERIFY(warnings.first().first().toString().contains("1 more"));
-    QCOMPARE(fixture.buyoutFixture.data->Get("shop_hash"), QString("previous-hash"));
+    QVERIFY(fixture.buyoutFixture.data->Get("shop_hash") != QString("previous-hash"));
+
+    // A second manual submission of the same shop posts nothing, but the
+    // shortfall is still there, so the user is told again.
+    fixture.shop->SubmitShopToForum();
+    fixture.rateLimiter->resolve(1, kStashIndexJson);
+    drainEvents();
+    QCOMPARE(fixture.networkManager->count(), 2);
+    QCOMPARE(warnings.count(), 2);
+}
+
+// #253: an automatic submission warns about a standing shortfall once per
+// session, however many clean refreshes follow.
+void ShopTest::automaticShortfallWarnsOncePerSession()
+{
+    ShopFixture fixture;
+    armTwoPageShop(fixture);
+    fixture.shop->SetAutoUpdate(true);
+
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+    fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, QByteArray("ok"));
+    drainEvents();
+    QCOMPARE(warnings.count(), 1);
+
+    // Later clean refreshes with the same shop post nothing and stay quiet.
+    for (size_t i = 1; i < 3; ++i) {
+        fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+        drainEvents();
+        fixture.rateLimiter->resolve(i, kStashIndexJson);
+        drainEvents();
+    }
+    QCOMPARE(fixture.networkManager->count(), 2);
+    QCOMPARE(warnings.count(), 1);
 }
 
 // #250: when the buyout store could not be read, the manager holds no
