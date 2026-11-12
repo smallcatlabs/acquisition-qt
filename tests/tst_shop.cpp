@@ -144,6 +144,7 @@ private slots:
     void everyFailureEndsInAStatusAndANotice();
     void editPageTransportFailureDoesNotBlameTheThread();
     void expiredTokenRetriesAreBounded();
+    void rateLimitedPostRefetchesTheEditPage_data();
     void rateLimitedPostRefetchesTheEditPage();
     void longRateLimitFailsWithTheWait();
     void automaticFailureWarnsOncePerSession();
@@ -1734,8 +1735,16 @@ void ShopTest::expiredTokenRetriesAreBounded()
 
 // A short wait the forum asks for is honoured, then the post starts over
 // from the edit page and goes through.
+void ShopTest::rateLimitedPostRefetchesTheEditPage_data()
+{
+    QTest::addColumn<QByteArray>("message");
+    QTest::newRow("seconds") << QByteArray("Rate limiting is in effect. You must wait 1 seconds.");
+    QTest::newRow("second") << QByteArray("Rate limiting is in effect. You must wait 1 second.");
+}
+
 void ShopTest::rateLimitedPostRefetchesTheEditPage()
 {
+    QFETCH(QByteArray, message);
     ShopFixture fixture;
     QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
     armForSubmission(fixture);
@@ -1744,11 +1753,10 @@ void ShopTest::rateLimitedPostRefetchesTheEditPage()
     drainEvents();
     fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
-    fixture.networkManager->sent(1)
-        .reply->finish({},
-                       200,
-                       QNetworkReply::NoError,
-                       errorListPage("Rate limiting is in effect. You must wait 1 seconds."));
+    fixture.networkManager->sent(1).reply->finish({},
+                                                  200,
+                                                  QNetworkReply::NoError,
+                                                  errorListPage(message));
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 3, 5000);
     QCOMPARE(fixture.networkManager->sent(2).op, QNetworkAccessManager::GetOperation);
 

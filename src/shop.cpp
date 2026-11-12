@@ -75,7 +75,7 @@ namespace {
         return messages;
     }
 
-    const QRegularExpression kRateLimitRegex(R"regex(You must wait (\d+) seconds.)regex",
+    const QRegularExpression kRateLimitRegex(R"regex(You must wait (\d+) seconds?\b)regex",
                                              QRegularExpression::CaseInsensitiveOption);
 
     // What a forum reply carried, read once.
