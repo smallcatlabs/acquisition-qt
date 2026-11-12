@@ -47,8 +47,8 @@ struct CurrencyLabels
     }
 };
 
-CurrencyWidget::CurrencyWidget(std::shared_ptr<CurrencyItem> currency)
-    : QWidget()
+CurrencyWidget::CurrencyWidget(std::shared_ptr<CurrencyItem> currency, QObject *parent)
+    : QObject(parent)
     , m_currency(std::move(currency))
 {
     name = new QLabel("");
@@ -68,11 +68,6 @@ CurrencyWidget::CurrencyWidget(std::shared_ptr<CurrencyItem> currency)
     Update();
     connect(chaos_ratio, &QDoubleSpinBox::valueChanged, this, &CurrencyWidget::Update);
     connect(exalt_ratio, &QDoubleSpinBox::valueChanged, this, &CurrencyWidget::Update);
-}
-
-bool CurrencyWidget::IsNone() const
-{
-    return m_currency->currency.type == Currency::CURRENCY_NONE;
 }
 
 void CurrencyWidget::UpdateVisual(bool show_chaos, bool show_exalt)
@@ -106,19 +101,21 @@ CurrencyDialog::CurrencyDialog(QSettings &settings, CurrencyManager &manager, QW
 {
     m_headers = new CurrencyLabels;
     for (auto &curr : m_currency_manager.currencies()) {
-        CurrencyWidget *tmp = new CurrencyWidget(curr);
-        // To keep every vector the same size, we DO create spinboxes for the empty currency, just don't display them
+        // The "no currency" entry has no row (#285).
         if (curr->currency == Currency::CURRENCY_NONE) {
             continue;
         }
-        connect(tmp->exalt_ratio,
-                &QDoubleSpinBox::valueChanged,
-                this,
-                &CurrencyDialog::UpdateTotalValue);
-        connect(tmp->chaos_ratio,
-                &QDoubleSpinBox::valueChanged,
-                this,
-                &CurrencyDialog::UpdateTotalValue);
+        CurrencyWidget *tmp = new CurrencyWidget(curr, this);
+        // The row's own handler has written the edited ratio into the
+        // manager's item by now (it connected first): total it, and save it
+        // at once rather than only at shutdown (#285).
+        for (QDoubleSpinBox *ratio : {tmp->exalt_ratio, tmp->chaos_ratio}) {
+            connect(ratio, &QDoubleSpinBox::valueChanged, this, &CurrencyDialog::UpdateTotalValue);
+            connect(ratio,
+                    &QDoubleSpinBox::valueChanged,
+                    &m_currency_manager,
+                    &CurrencyManager::SaveCurrencyItems);
+        }
         m_currencies_widgets.push_back(tmp);
     }
     m_separator = new QFrame;
@@ -216,10 +213,6 @@ QVBoxLayout *CurrencyDialog::GenerateLayout(bool show_chaos, bool show_exalt)
     //Main part
     for (auto &item : m_currencies_widgets) {
         int curr_row = grid->rowCount() + 1;
-        // To keep every vector the same size, we DO create spinboxes for the empty currency, just don't display them
-        if (item->IsNone()) {
-            continue;
-        }
         grid->addWidget(item->name, curr_row, 0);
         grid->addWidget(item->count, curr_row, 1, 1, -1);
         col = 2;

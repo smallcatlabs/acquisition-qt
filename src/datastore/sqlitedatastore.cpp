@@ -139,7 +139,9 @@ void SqliteDataStore::InsertCurrencyUpdate(const CurrencyUpdate &update)
 {
     QSqlDatabase db = getThreadLocalDatabase();
     QSqlQuery query(db);
-    query.prepare("INSERT INTO currency (timestamp, value) VALUES (?, ?)");
+    // The key is a time in seconds, so two updates in the same second would
+    // collide; the later one replaces the earlier (#285).
+    query.prepare("INSERT OR REPLACE INTO currency (timestamp, value) VALUES (?, ?)");
     query.bindValue(0, update.timestamp);
     query.bindValue(1, update.value);
     if (query.exec() == false) {

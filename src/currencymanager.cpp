@@ -113,9 +113,6 @@ void CurrencyManager::InitCurrency()
         m_currencies.push_back(std::make_shared<CurrencyItem>(0, Currency(type), 1, 1));
     }
     Deserialize(m_data.Get("currency_items"), m_currencies);
-    for (unsigned int i = 0; i < CurrencyWisdomValue.size(); i++) {
-        m_wisdoms.push_back(0);
-    }
 }
 
 void CurrencyManager::FirstInitCurrency()
