@@ -4,20 +4,11 @@
 # .claude/ is shared project config and should stay tracked.
 .claude/settings.local.json
 
-# Visual Studio and Qt Creator 13.0 puts builds here.
-/build/
+# Build trees. CMakePresets.json puts each preset under build/<preset>; Visual
+# Studio and Qt Creator also build under build/. Any other root-level build-*
+# directory is a throwaway tree.
+/build*/
 /out/
-
-# Throwaway sanitizer build tree (ACQ_SANITIZE; see BUILD.md).
-/build-asan/
-
-# M2-M2 Release measurement build tree (docs/design/m2-m2-result.md).
-/build-release/
-
-# Phase-0 spike build trees (spikes/qcoro/README.md).
-/build-spike/
-/build-spike-asan/
-/build-spike-release/
 
 # Acquisitions installers are currently built here.
 /deploy/
@@ -509,5 +500,3 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 
-# Local debug build directory
-/build-debug/
