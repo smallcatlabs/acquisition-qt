@@ -716,10 +716,11 @@ void MainWindow::OnCollapseAll()
 void MainWindow::OnCheckAll()
 {
     spdlog::trace("MainWindow::OnCheckAll() entered");
-    // Every bucket except folders: a folder id is never written (D10). Nor
-    // is the empty id of the By-Item view's header row.
+    // Every bucket shown except folders: a folder id is never written
+    // (D10). The store refuses the By-Item view's header row and
+    // refresh-locked tabs.
     for (auto const &bucket : m_current_search->buckets()) {
-        if (bucket.location().IsValid() && !bucket.location().IsFolder()) {
+        if (!bucket.location().IsFolder()) {
             m_buyout_manager.SetRefreshChecked(bucket.location(), true);
         }
     }
@@ -730,7 +731,7 @@ void MainWindow::OnUncheckAll()
 {
     spdlog::trace("MainWindow::OnUncheckAll() entered");
     for (auto const &bucket : m_current_search->buckets()) {
-        if (bucket.location().IsValid() && !bucket.location().IsFolder()) {
+        if (!bucket.location().IsFolder()) {
             m_buyout_manager.SetRefreshChecked(bucket.location(), false);
         }
     }
@@ -745,8 +746,11 @@ void MainWindow::OnRefreshSelected()
     const ItemsModel &model = m_current_search->model();
     const auto &selected_rows = ui->treeView->selectionModel()->selectedRows();
     for (auto const &index : selected_rows) {
-        // Fetch tab names per index
-        locations.emplace_back(m_current_search->GetTabLocation(index));
+        // The By-Item header row names no tab.
+        if (const ItemLocation location = m_current_search->GetTabLocation(index);
+            location.IsValid()) {
+            locations.push_back(location);
+        }
         // Folder-tree R6 / A1: a folder row sends the folder (R9) and its
         // members present in this search whose refresh state is checked.
         const ItemsModel::RowRef ref = model.Locate(index);
@@ -760,6 +764,11 @@ void MainWindow::OnRefreshSelected()
                 }
             }
         }
+    }
+    // Nothing to fetch: an update would only run to a clean completed
+    // refresh, which an automatic shop submission waits for.
+    if (locations.empty()) {
+        return;
     }
     m_items_manager.Update(TabSelection::Selected, locations);
 }

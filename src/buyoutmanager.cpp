@@ -231,10 +231,14 @@ void BuyoutManager::CompressTabBuyouts()
     }
 }
 
-void BuyoutManager::SetRefreshChecked(const ItemLocation &loc, bool value)
+bool BuyoutManager::SetRefreshChecked(const ItemLocation &loc, bool value)
 {
+    if (!loc.IsValid() || GetRefreshLocked(loc)) {
+        return false;
+    }
     m_save_needed = true;
     m_refresh_checked[loc.id()] = value;
+    return true;
 }
 
 bool BuyoutManager::GetRefreshChecked(const ItemLocation &loc) const
