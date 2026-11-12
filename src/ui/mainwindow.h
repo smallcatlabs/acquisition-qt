@@ -91,8 +91,8 @@ public slots:
     void OnTabRefreshed(const ItemLocation &location, const Items &items);
     void OnChildrenReconciled(const ItemLocation &parent,
                               const std::vector<FetchSourceKey> &expected);
-    // The typed terminal event (M2 D4). Nothing of the selection outlives
-    // a delta (the M3 R1-3 amendment), so it has nothing to close.
+    // The typed terminal event (M2 D4): closes the selection-intent
+    // window on every outcome, terminal failure included (R1-3/R2-1).
     void OnRefreshFinished(const RefreshOutcome &outcome);
 
     void OnCurrentItemChanged(const QModelIndex &current, const QModelIndex &previous);
@@ -174,7 +174,7 @@ private slots:
 private:
     // S4 delta-application tail: dirty-flag adjudication (R1-7), view-side
     // default-expansion of an inserted bucket, caption refresh, and the
-    // current-row and selection passes. `model_changed` (any model operation, not
+    // selection-intent pass. `model_changed` (any model operation, not
     // just item rows — S6 review round 1) gates the column resize, so a
     // metadata-only delta or a new empty bucket resizes too.
     // The view's expanded/collapsed signals (folder-tree D9): the
@@ -185,9 +185,10 @@ private:
     // folders by the user-collapsed set, tabs by the default-expanded rule.
     void ExpandInsertedBuckets(const std::vector<int> &bucket_rows);
     // One delta's view of the selection (M3 R1-3 as amended, #282). The
-    // rule: a selected row stays selected across a refresh while its item
-    // stays in its tab; an item that leaves its tab loses its selection.
-    // Nothing is kept from one delta to the next.
+    // current item follows R1-3's intent (below). Every other selected row
+    // stays selected across a refresh while its item stays in its tab; an
+    // item that leaves its tab loses its selection. Nothing is kept for
+    // those rows from one delta to the next.
     struct SelectionCapture
     {
         // The bucket the delta touches, walked to restore the selection;
@@ -196,10 +197,7 @@ private:
         // Each selected item in that bucket, by stable id and the tab it
         // came from.
         std::set<std::pair<QString, LocationInventory::Key>> items;
-        // The current item, by stable id and tab, and whether its row was
-        // selected.
-        QString current_id;
-        LocationInventory::Key current_tab;
+        // Whether the current row was selected.
         bool current_selected{false};
     };
     SelectionCapture CaptureSelection(std::optional<LocationInventory::Key> bucket) const;
@@ -213,12 +211,12 @@ private:
                                 bool model_changed,
                                 const std::vector<int> &inserted_bucket_rows,
                                 const SelectionCapture &capture);
-    // Reconciles the current row after row operations. With a delta's
-    // `capture`: a current item the delta replaced by the same item in
-    // the same tab stays current, selected only if it was; a current item
-    // that left its tab is dropped and the current row stays where Qt
-    // put it, unselected. Without one (a refilter), a surviving current
-    // row is selected as well.
+    // R1-3: reconciles the current row with the stable-id intent after
+    // row operations — a removed current row lapses but keeps the intent;
+    // a visible item with the intent's id re-adopts the current row
+    // through the global identity index. It never clears or replaces the
+    // rest of the selection, and selects the row only if it was selected
+    // (as `capture` records for a delta) (#282).
     void ReconcileSelectionIntent(const SelectionCapture *capture = nullptr);
     // Makes `index` the current row, applying `flags` to the selection,
     // without the view expanding its collapsed ancestors: a reselection
@@ -276,9 +274,20 @@ private:
 
     std::shared_ptr<Item> m_current_item;
     std::optional<ItemLocation> m_current_bucket_location;
+    // The selection intent (M3 R1-3): the selected item's stable id, held
+    // independently of row existence. During an active refresh (first
+    // delta to the terminal outcome) a removal keeps it alive and a later
+    // insertion re-adopts it; every RefreshFinished outcome closes the
+    // window (R2-1). A user selection overwrites it at any time.
+    QString m_selection_intent_id;
+    // Whether the intent's row was selected when it left: its re-adoption
+    // selects it again only then, and never touches the rest of the
+    // selection (the R1-3 amendment, #282).
+    bool m_selection_intent_selected{true};
+    bool m_refresh_active{false};
     // Row operations make the view shuffle its current index (Qt moves
     // current off a removed row); while set, OnCurrentItemChanged ignores
-    // those shifts, which are not the user's selections.
+    // those shifts so they cannot overwrite the intent.
     bool m_applying_delta{false};
     std::vector<std::unique_ptr<Search>> m_searches;
     Search *m_current_search;
