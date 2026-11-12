@@ -31,6 +31,7 @@
 #include "mainwindowfixture.h"
 #include "ui/logindialog.h"
 #include "ui/mainwindow_bridge.h"
+#include "util/checkmsvc.h"
 #include "util/crashreporting.h"
 #include "util/databackup.h"
 #include "util/logging.h"
@@ -68,6 +69,9 @@ private slots:
     void legacyNetworkCacheIsRemoved();
     void loginListensOnLoopbackAfterClose();
     void startupRefreshClosesTheListener();
+    void msvcCheckPassesWithoutLibraries();
+    void msvcCheckAnswer_data();
+    void msvcCheckAnswer();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -671,6 +675,63 @@ void ShellTest::startupRefreshClosesTheListener()
 
     QTRY_COMPARE_WITH_TIMEOUT(granted.count(), 1, 1000);
     QVERIFY(callbackAddress(oauth).isNull());
+}
+
+void ShellTest::msvcCheckPassesWithoutLibraries()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    bool result = false;
+    const bool prompted = answerModal<QMessageBox>(
+        [&] { result = checkApplicationDirectory(QDir(dir.path()), {"msvcp140.dll"}); },
+        [](QMessageBox &box) { box.reject(); });
+    QVERIFY(!prompted);
+    QVERIFY(result);
+}
+
+void ShellTest::msvcCheckAnswer_data()
+{
+    QTest::addColumn<QString>("choice");
+    QTest::addColumn<bool>("continues");
+    QTest::addColumn<bool>("opensFolder");
+    QTest::newRow("ignore") << "Ignore and continue" << true << false;
+    QTest::newRow("quit") << "Quit" << false << false;
+    QTest::newRow("open folder") << "Open folder and quit" << false << true;
+}
+
+void ShellTest::msvcCheckAnswer()
+{
+    // An app-local runtime DLL beside the executable: the user's choice
+    // decides, and quitting is a clean exit, not an abort.
+    QFETCH(QString, choice);
+    QFETCH(bool, continues);
+    QFETCH(bool, opensFolder);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    {
+        QFile dll(dir.filePath("vcruntime140.dll"));
+        QVERIFY(dll.open(QIODevice::WriteOnly));
+    }
+    UrlCatcher folder("file");
+
+    bool result = !continues;
+    const bool prompted = answerModal<QMessageBox>(
+        [&] {
+            result = checkApplicationDirectory(QDir(dir.path()),
+                                               {"msvcp140.dll", "vcruntime140.dll"});
+        },
+        [&](QMessageBox &box) {
+            for (auto *button : box.buttons()) {
+                if (button->text() == choice) {
+                    button->click();
+                    return;
+                }
+            }
+            box.reject();
+        });
+    QVERIFY(prompted);
+    QCOMPARE(result, continues);
+    QCOMPARE(folder.urls.size(), opensFolder ? 1 : 0);
 }
 
 QTEST_MAIN(ShellTest)

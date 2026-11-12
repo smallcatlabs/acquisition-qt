@@ -5,4 +5,6 @@
 
 #include <QString>
 
+// For broken invariants only: logs at critical level and aborts. A problem
+// the user can fix (missing SSL, a configuration error) exits cleanly instead.
 [[noreturn]] void FatalError(const QString &message);
