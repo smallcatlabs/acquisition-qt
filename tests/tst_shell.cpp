@@ -667,7 +667,7 @@ void ShellTest::loginListensOnLoopbackAfterClose()
     // listen on loopback again, not on every interface.
     handler->close();
     QVERIFY(!handler->isListening());
-    services.oauth.initLogin();
+    QVERIFY(services.oauth.initLogin());
     const QHostAddress address = callbackAddress(services.oauth);
     QVERIFY2(address.isLoopback(), qPrintable(address.toString()));
     QCOMPARE(browser.urls.size(), 1);
