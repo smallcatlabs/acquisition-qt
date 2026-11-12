@@ -138,6 +138,15 @@ private slots:
     void renderCharacterItem();
     void renderLeavesOutGameAndUnindexedItems();
     void renderShopNeverPostsAGamePrice();
+
+    // #258: one failure exit, and a bounded conversation with the forum.
+    void everyFailureEndsInAStatusAndANotice_data();
+    void everyFailureEndsInAStatusAndANotice();
+    void editPageTransportFailureDoesNotBlameTheThread();
+    void expiredTokenRetriesAreBounded();
+    void rateLimitedPostRefetchesTheEditPage();
+    void longRateLimitFailsWithTheWait();
+    void automaticFailureWarnsOncePerSession();
 };
 
 namespace {
@@ -1489,6 +1498,282 @@ void ShopTest::renderShopNeverPostsAGamePrice()
     // A game price alone renders nothing at all.
     input.items.erase(input.items.begin() + 1, input.items.end());
     QVERIFY(RenderShop(input).pages.isEmpty());
+}
+
+namespace {
+
+    // Error replies to the edit POST. The maintainer has no capture of any
+    // forum error page. Each of these is the captured edit page with one
+    // element inserted after the form's opening <fieldset>: an error list
+    // in the shape Shop's parsing documents (an element whose class is
+    // "errors", holding the message in an <li>), with the message texts
+    // its checks look for. The inserted element, its position, and the
+    // message wording are derived from that code, not captured; everything
+    // around them is what the forum sent.
+    QByteArray editPageWithError(const QByteArray &error_element)
+    {
+        QByteArray page = editThreadPage();
+        const QByteArray anchor
+            = "<form method=\"POST\" class=\"t1&#x20;formForumThread\"><fieldset>";
+        const qsizetype at = page.indexOf(anchor);
+        if (at < 0) {
+            qFatal("tst_shop: the edit page fixture has no form to insert an error into");
+        }
+        page.insert(at + anchor.size(), "\n" + error_element);
+        return page;
+    }
+    QByteArray errorListPage(const QByteArray &message)
+    {
+        return editPageWithError("<ul class=\"errors\"><li>" + message + "</li></ul>");
+    }
+
+    // Where in the conversation a failure arrives, and what arrives.
+    enum class FailAt { StashIndex, StashIndexBody, EditPage, Post };
+
+    // Run a manual submission up to `at` and answer it with the failure.
+    void failSubmissionAt(ShopFixture &fixture,
+                          FailAt at,
+                          int status,
+                          QNetworkReply::NetworkError error,
+                          const QByteArray &body)
+    {
+        armForSubmission(fixture);
+        fixture.shop->SubmitShopToForum(true);
+        if (at == FailAt::StashIndex) {
+            fixture.rateLimiter->reject(0, RateLimit::FetchError::Kind::Network, "network error");
+            drainEvents();
+            return;
+        }
+        fixture.rateLimiter->resolve(0,
+                                     at == FailAt::StashIndexBody ? QByteArray("{}")
+                                                                  : QByteArray(kStashIndexJson));
+        drainEvents();
+        if (at == FailAt::StashIndexBody) {
+            return;
+        }
+        if (at == FailAt::EditPage) {
+            fixture.networkManager->sent(0).reply->finish({}, status, error, body);
+            drainEvents();
+            return;
+        }
+        fixture.networkManager->sent(0).reply->finish({},
+                                                      200,
+                                                      QNetworkReply::NoError,
+                                                      editThreadPage());
+        QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+        fixture.networkManager->sent(1).reply->finish({}, status, error, body);
+        drainEvents();
+    }
+
+    QString lastStatus(const QSignalSpy &statuses)
+    {
+        return statuses.isEmpty() ? QString() : statuses.last().at(1).toString();
+    }
+
+} // namespace
+
+Q_DECLARE_METATYPE(FailAt)
+
+// Every way a submission can fail now ends in the one failure exit: the
+// status line stops saying "Sending…", the user of a manual request is
+// told why, and the job is released.
+void ShopTest::everyFailureEndsInAStatusAndANotice_data()
+{
+    QTest::addColumn<FailAt>("at");
+    QTest::addColumn<int>("status");
+    QTest::addColumn<QNetworkReply::NetworkError>("error");
+    QTest::addColumn<QByteArray>("body");
+
+    const auto ok = QNetworkReply::NoError;
+    QTest::newRow("stash index error") << FailAt::StashIndex << 0 << ok << QByteArray();
+    QTest::newRow("stash index without tabs") << FailAt::StashIndexBody << 0 << ok << QByteArray();
+    QTest::newRow("edit page timed out")
+        << FailAt::EditPage << 0 << QNetworkReply::OperationCanceledError << QByteArray();
+    QTest::newRow("edit page not found")
+        << FailAt::EditPage << 404 << QNetworkReply::ContentNotFoundError
+        << QByteArray("Not Found");
+    QByteArray no_title = editThreadPage();
+    no_title.replace("name=\"title\"", "name=\"subject\"");
+    QTest::newRow("edit page without a title") << FailAt::EditPage << 200 << ok << no_title;
+    QTest::newRow("post connection lost")
+        << FailAt::Post << 0 << QNetworkReply::RemoteHostClosedError << QByteArray();
+    QTest::newRow("post failed to find item")
+        << FailAt::Post << 200 << ok << errorListPage("Failed to find item.");
+    QTest::newRow("post unknown error")
+        << FailAt::Post << 200 << ok << errorListPage("Something the shop does not know.");
+    QTest::newRow("post rate limit without a wait")
+        << FailAt::Post << 200 << ok << errorListPage("Rate limiting is in effect.");
+    QTest::newRow("post error marker without a message")
+        << FailAt::Post << 200 << ok
+        << editPageWithError("<div class=\"errors\">Something went wrong.</div>");
+    QTest::newRow("post input error")
+        << FailAt::Post << 200 << ok
+        << editPageWithError("<div class=\"input-error\">Something went wrong.</div>");
+}
+
+void ShopTest::everyFailureEndsInAStatusAndANotice()
+{
+    QFETCH(FailAt, at);
+    QFETCH(int, status);
+    QFETCH(QNetworkReply::NetworkError, error);
+    QFETCH(QByteArray, body);
+
+    ShopFixture fixture;
+    QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    failSubmissionAt(fixture, at, status, error, body);
+
+    QVERIFY2(!lastStatus(statuses).isEmpty(), "no status after the failure");
+    QVERIFY2(!lastStatus(statuses).startsWith("Sending"), qPrintable(lastStatus(statuses)));
+    QCOMPARE(warnings.count(), 1);
+
+    // The job is released: a new request starts a new stash index fetch.
+    const size_t before = fixture.rateLimiter->futureCount();
+    fixture.shop->SubmitShopToForum(true);
+    QCOMPARE(fixture.rateLimiter->futureCount(), before + 1);
+}
+
+// A timeout says nothing about the thread number: the notice must not send
+// the user to check it.
+void ShopTest::editPageTransportFailureDoesNotBlameTheThread()
+{
+    ShopFixture fixture;
+    QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    failSubmissionAt(fixture,
+                     FailAt::EditPage,
+                     0,
+                     QNetworkReply::OperationCanceledError,
+                     QByteArray());
+
+    QCOMPARE(warnings.count(), 1);
+    const QString notice = warnings.first().first().toString() + lastStatus(statuses);
+    QVERIFY2(!notice.contains("123"), qPrintable(notice));
+    QVERIFY2(!notice.contains("thread number", Qt::CaseInsensitive), qPrintable(notice));
+    QVERIFY2(!notice.contains("thread ID", Qt::CaseInsensitive), qPrintable(notice));
+
+    // Nor does a server error: the site failed, not the thread number.
+    ShopFixture server_error;
+    QSignalSpy server_warnings(server_error.shop.get(), &Shop::UserWarning);
+    failSubmissionAt(server_error,
+                     FailAt::EditPage,
+                     503,
+                     QNetworkReply::ServiceUnavailableError,
+                     QByteArray("Service Unavailable"));
+    QCOMPARE(server_warnings.count(), 1);
+    const QString server_notice = server_warnings.first().first().toString();
+    QVERIFY2(!server_notice.contains("thread number", Qt::CaseInsensitive),
+             qPrintable(server_notice));
+    QVERIFY2(server_notice.contains("503"), qPrintable(server_notice));
+}
+
+// The forum answering every POST with an expired token: each retry fetches
+// the edit page again for a fresh token, and after three attempts the job
+// fails. At most two requests per attempt.
+void ShopTest::expiredTokenRetriesAreBounded()
+{
+    ShopFixture fixture;
+    fixture.shop->SetRetryDelay(std::chrono::milliseconds(0));
+    QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    armForSubmission(fixture);
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+
+    const QByteArray expired = errorListPage("Security token has expired.");
+    // Answer whatever the shop sends until it stops sending.
+    for (int answered = 0; answered < 20; ++answered) {
+        if (answered == fixture.networkManager->count()) {
+            QTest::qWait(1500);
+            if (answered == fixture.networkManager->count()) {
+                break;
+            }
+        }
+        const auto &sent = fixture.networkManager->sent(answered);
+        sent.reply->finish({},
+                           200,
+                           QNetworkReply::NoError,
+                           sent.op == QNetworkAccessManager::GetOperation ? editThreadPage()
+                                                                          : expired);
+        drainEvents();
+    }
+
+    QCOMPARE(fixture.networkManager->count(), 6);
+    for (int i = 0; i < 6; ++i) {
+        QCOMPARE(fixture.networkManager->sent(i).op,
+                 i % 2 == 0 ? QNetworkAccessManager::GetOperation
+                            : QNetworkAccessManager::PostOperation);
+    }
+    QVERIFY2(!lastStatus(statuses).startsWith("Sending"), qPrintable(lastStatus(statuses)));
+    QCOMPARE(warnings.count(), 1);
+}
+
+// A short wait the forum asks for is honoured, then the post starts over
+// from the edit page and goes through.
+void ShopTest::rateLimitedPostRefetchesTheEditPage()
+{
+    ShopFixture fixture;
+    QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
+    armForSubmission(fixture);
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+    fixture.networkManager->sent(1)
+        .reply->finish({},
+                       200,
+                       QNetworkReply::NoError,
+                       errorListPage("Rate limiting is in effect. You must wait 1 seconds."));
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 3, 5000);
+    QCOMPARE(fixture.networkManager->sent(2).op, QNetworkAccessManager::GetOperation);
+
+    fixture.networkManager->sent(2).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 4, 5000);
+    fixture.networkManager->sent(3).reply->finish({}, 200, QNetworkReply::NoError, afterEditPage());
+    drainEvents();
+    QCOMPARE(lastStatus(statuses), QString("Shop threads updated"));
+}
+
+// A wait longer than a minute is not held inside the job: it fails, and the
+// notice says how long to wait.
+void ShopTest::longRateLimitFailsWithTheWait()
+{
+    ShopFixture fixture;
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    failSubmissionAt(fixture,
+                     FailAt::Post,
+                     200,
+                     QNetworkReply::NoError,
+                     errorListPage("Rate limiting is in effect. You must wait 120 seconds."));
+
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY2(warnings.first().first().toString().contains("120 seconds"),
+             qPrintable(warnings.first().first().toString()));
+    QTest::qWait(200);
+    QCOMPARE(fixture.networkManager->count(), 2);
+}
+
+// An automatic submission that fails tells the user once per session; the
+// status line reports every failure.
+void ShopTest::automaticFailureWarnsOncePerSession()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    fixture.shop->SetAutoUpdate(true);
+    QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+
+    for (size_t i = 0; i < 2; ++i) {
+        fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+        QCOMPARE(fixture.rateLimiter->futureCount(), i + 1);
+        fixture.rateLimiter->reject(i, RateLimit::FetchError::Kind::Network, "network error");
+        drainEvents();
+    }
+    QCOMPARE(warnings.count(), 1);
+    QCOMPARE(statuses.count(), 2);
+    QVERIFY(fixture.shop->auto_update());
 }
 
 QTEST_MAIN(ShopTest)
