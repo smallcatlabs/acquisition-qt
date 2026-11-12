@@ -71,8 +71,11 @@ If a stash tab's name, or an item's note, contains a trade-site price string suc
 as `~b/o 5 chaos` or `~price 1 divine`, Acquisition imports it as a buyout with
 source *game*. Game-sourced prices are **locked**: you cannot change them in
 Acquisition, because the next refresh would overwrite the change. Edit the tab
-name or item note in the game instead. Tabs priced in the game are always
-refreshed regardless of their check box, so their prices stay current.
+name or item note in the game instead. A tab with a price of its own, set in
+the game or in Acquisition, is always refreshed regardless of its check box, so
+its prices stay current; this holds even while the tab is empty or not yet
+fetched. Remove-only tabs are the exception: they are refreshed only when
+checked.
 
 ## Recovering prices from old versions
 

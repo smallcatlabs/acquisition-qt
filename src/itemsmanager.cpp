@@ -125,6 +125,15 @@ void ItemsManager::PropagateTabBuyouts()
     // nothing (R3-3).
     const BuyoutBatch batch(m_buyout_manager);
     m_buyout_manager.ClearRefreshLocks();
+    // A tab whose own price requires a refresh is locked from the tab list,
+    // so a priced tab with no loaded items (empty, or not fetched yet) is
+    // refreshed too (#148). Remove-only tabs are skipped, as below, and so
+    // are folders, which hold no items and cannot be priced (D11).
+    for (const auto &tab : m_buyout_manager.GetStashTabLocations()) {
+        if (!tab.removeonly() && !tab.IsFolder() && m_buyout_manager.GetTab(tab).RequiresRefresh()) {
+            m_buyout_manager.SetRefreshLocked(tab);
+        }
+    }
     for (auto &item_ptr : m_items.Flat()) {
         Item &item = *item_ptr;
         auto item_bo = m_buyout_manager.Get(item);
