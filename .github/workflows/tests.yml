@@ -1,0 +1,95 @@
+name: Tests
+
+# Builds everything and runs the whole CTest suite on every pull request and
+# on every push to master. Before this workflow the suite ran only in the
+# release workflows, on a version tag, so a broken test on master was first
+# seen when a release was cut.
+#
+# One platform (Linux) keeps the check fast enough to be required; the three
+# release workflows still build and test each platform on a tag.
+#
+# The build uses the `release` preset from CMakePresets.json, the same one
+# documented for local use in BUILD.md, so this job and a developer's tree are
+# the same recipe.
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ctest:
+    name: Build + CTest (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # Bound the saved cache; past this ccache evicts least-recently-used objects.
+      CCACHE_MAXSIZE: 1G
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Setup Qt
+        # Normally 30 to 75 seconds; see sanitizers.yml for why this is capped.
+        timeout-minutes: 5
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.12.0'
+          modules: 'qtnetworkauth'
+          cache: true
+          cache-key-prefix: 'qt-6.12.0-linux-tests'
+
+      - name: Install dependencies
+        timeout-minutes: 10
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ccache \
+            openssl \
+            libcurl4-openssl-dev \
+            libgl-dev \
+            libssl-dev \
+            libvulkan-dev \
+            libxcb-cursor0 \
+            libxcb-cursor-dev \
+            zlib1g-dev
+
+      # The compiler cache is what makes this job cheap after its first run:
+      # the fetched dependencies (sentry-native with crashpad, QXlsx, QCoro,
+      # spdlog) are most of a cold build and almost never change.
+      - name: Restore compiler cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-tests-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            ccache-tests-${{ runner.os }}-
+
+      - name: Configure
+        run: >
+          cmake --preset release
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      # Three wide: the heavy C++23/Qt translation units use enough memory
+      # that the runner's four cores cannot all take one at a time safely.
+      - name: Build
+        run: cmake --build --preset release --parallel 3
+
+      - name: Compiler cache statistics
+        run: ccache --show-stats
+
+      - name: Test
+        run: ctest --preset release
