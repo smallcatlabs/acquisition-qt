@@ -112,6 +112,10 @@ listed in `.git-blame-ignore-revs`; run
 `git config blame.ignoreRevsFile .git-blame-ignore-revs` once so `git blame`
 skips them.
 
+Each of those files, and `tests/CMakeLists.txt`, starts with an
+`SPDX-License-Identifier: GPL-3.0-or-later` comment line; the test workflow
+fails a pull request that adds one without it and names the file.
+
 ## Sanitizer Builds (test/CI only)
 
 The `ACQ_SANITIZE` CMake option builds the checked-in test suite with a runtime
