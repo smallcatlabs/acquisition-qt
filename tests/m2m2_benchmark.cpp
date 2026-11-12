@@ -245,10 +245,12 @@ int main(int argc, char *argv[])
     FakePoeApiClient api(limiter);
     ItemsManager manager(settings, *bm.manager);
     CurrencyManager currency(settings, *bm.data, manager);
-    Shop shop(settings, network, api, *bm.data, manager, *bm.manager);
+    const SessionIdentity identity = makeTestIdentity(kAccount, kRealm, kLeague);
+    Shop shop(settings, identity, network, api, *bm.data, manager, *bm.manager);
     ImageCache image_cache(network, bm.tempDir.filePath("cache"));
     UserStore store(QDir(bm.tempDir.filePath("data")), kAccount);
     MainWindow window(settings,
+                      identity,
                       network,
                       limiter,
                       manager,
@@ -266,7 +268,7 @@ int main(int argc, char *argv[])
     // production path. (M2's runs excluded the then-asynchronous tick via
     // SetDeltaThrottleInterval, deleted with the timer.)
 
-    ItemsManagerWorker worker(settings, *bm.manager, api);
+    ItemsManagerWorker worker(settings, identity, *bm.manager, api);
     WorkerTestAccess access(worker);
 
     Probes probes;
@@ -360,7 +362,10 @@ int main(int argc, char *argv[])
 
     // --- initial load (empty cache) --------------------------------------
 
-    worker.OnRePoEReady();
+    const std::jthread cache_load = StartCacheLoad(worker,
+                                                   QDir(bm.tempDir.filePath("data")),
+                                                   identity,
+                                                   true);
     while (refresh_count < 1) {
         if (!drainUntilIdle()) {
             std::fprintf(stderr, "event loop never settled during the initial load\n");

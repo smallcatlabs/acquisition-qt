@@ -295,21 +295,15 @@ void LoginDialog::OnLoginButtonClicked()
     ui->loginButton->setEnabled(false);
     ui->loginButton->setText("Logging in...");
 
-    const QString realm = ui->realmComboBox->currentText();
-    const QString league = ui->leagueComboBox->currentText();
-
-    // Refuse the login here rather than letting it reach UserSession, whose
-    // constructor treats an unset league as fatal. That check has to stay
-    // upstream of Application::InitUserSession(): once a session exists it
-    // cannot be replaced (the shutdown invariant in network-redesign.md), so a
-    // failure after construction leaves no way back to this dialog.
-    if (league.isEmpty()) {
+    // Refuse the login here: a session only starts from a complete identity
+    // (LoginWithOAuth builds it, and writes it to the settings only once it
+    // is valid), and once a session exists it cannot be replaced (the
+    // shutdown invariant in network-redesign.md), so a failure after that
+    // point would leave no way back to this dialog.
+    if (ui->leagueComboBox->currentText().isEmpty()) {
         DisplayError("Please select a league before logging in.");
         return;
     }
-
-    m_settings.setValue("realm", realm);
-    m_settings.setValue("league", league);
 
     LoginWithOAuth();
 }
@@ -321,10 +315,22 @@ void LoginDialog::LoginWithOAuth()
     if (m_current_token.has_value()) {
         const OAuthToken &token = m_current_token.value();
         if (token.access_expiration && (now < *token.access_expiration)) {
-            m_settings.setValue("account", token.username);
-            m_settings.setValue("realm", ui->realmComboBox->currentText());
-            m_settings.setValue("league", ui->leagueComboBox->currentText());
-            emit LoginComplete();
+            const auto identity = SessionIdentity::Make(token.username,
+                                                        ui->realmComboBox->currentText(),
+                                                        ui->leagueComboBox->currentText());
+            if (!identity) {
+                // A session cannot run without an account, realm and
+                // league; the token's user name is the account.
+                DisplayError(token.username.isEmpty()
+                                 ? "The OAuth token does not name an account; "
+                                   "please authenticate again."
+                                 : "Please select a realm and a league before logging in.");
+                return;
+            }
+            m_settings.setValue("account", identity->account());
+            m_settings.setValue("realm", identity->realm());
+            m_settings.setValue("league", identity->league());
+            emit LoginComplete(*identity);
         } else if (token.refresh_expiration && (now < *token.refresh_expiration)) {
             DisplayError("The OAuth token needs to be refreshed");
         } else {

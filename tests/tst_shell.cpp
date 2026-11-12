@@ -5,8 +5,10 @@
 
 #include <QApplication>
 #include <QBuffer>
+#include <QComboBox>
 #include <QDesktopServices>
 #include <QFileInfo>
+#include <QLabel>
 #include <QMessageBox>
 #include <QOAuthHttpServerReplyHandler>
 #include <QProcess>
@@ -45,6 +47,7 @@
 #include "util/logging.h"
 #include "util/networkmanager.h"
 #include "util/oauthmanager.h"
+#include "util/oauthtoken.h"
 #include "util/updatechecker.h"
 #include "version_defines.h"
 
@@ -61,6 +64,7 @@ private slots:
     void logLevelParsing_data();
     void logLevelParsing();
     void forgettingUserKeepsOtherSettings();
+    void tokenWithoutAccountNameDoesNotLogIn();
     void backupSkippedWhenVersionCurrent();
     void backupSkippedWithoutDataDirRecordsVersion();
     void backupSkippedForEmptyDataDirRecordsVersion();
@@ -216,6 +220,42 @@ void ShellTest::forgettingUserKeepsOtherSettings()
     QCOMPARE(settings.value("remember_user").toBool(), false);
     QCOMPARE(settings.value("league").toString(), QString("Standard"));
     QCOMPARE(settings.value("realm").toString(), QString("pc"));
+}
+
+// #299: an OAuth token whose user name is empty cannot become a session's
+// account. The dialog refuses the login with a message instead of letting an
+// incomplete identity reach the session.
+void ShellTest::tokenWithoutAccountNameDoesNotLogIn()
+{
+    LoginDialogServices services;
+    QVERIFY(services.dir.isValid());
+    auto dialog = services.makeDialog();
+    int completions = 0;
+    QObject::connect(dialog.get(), &LoginDialog::LoginComplete, dialog.get(), [&] {
+        ++completions;
+    });
+
+    OAuthToken token;
+    token.access_expiration = QDateTime::currentDateTime().addSecs(3600);
+    emit services.oauth.grantAccess(token);
+
+    auto *league = dialog->findChild<QComboBox *>("leagueComboBox");
+    auto *login = dialog->findChild<QPushButton *>("loginButton");
+    auto *error = dialog->findChild<QLabel *>("errorLabel");
+    QVERIFY(league);
+    QVERIFY(login);
+    QVERIFY(error);
+    league->setEditable(true);
+    league->setCurrentText("Standard");
+    QVERIFY(login->isEnabled());
+    login->click();
+
+    QCOMPARE(completions, 0);
+    QVERIFY(!error->text().isEmpty());
+    // A refused login saves no part of the identity it refused.
+    QVERIFY(!services.settings.contains("realm"));
+    QVERIFY(!services.settings.contains("league"));
+    QVERIFY(!services.settings.contains("account"));
 }
 
 namespace {

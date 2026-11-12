@@ -18,11 +18,13 @@ class ItemsManagerWorker;
 class MainWindow;
 class NetworkManager;
 class RateLimiter;
+class SessionIdentity;
 class Shop;
 class StashRepo;
 class UpdateChecker;
 
 MainWindow *CreateMainWindow(QSettings &settings,
+                             const SessionIdentity &identity,
                              NetworkManager &network_manager,
                              RateLimiter &rate_limiter,
                              ItemsManager &items_manager,

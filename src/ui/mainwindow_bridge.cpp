@@ -17,6 +17,7 @@ void MainWindowDeleter::operator()(MainWindow *window) const
 }
 
 MainWindow *CreateMainWindow(QSettings &settings,
+                             const SessionIdentity &identity,
                              NetworkManager &network_manager,
                              RateLimiter &rate_limiter,
                              ItemsManager &items_manager,
@@ -30,6 +31,7 @@ MainWindow *CreateMainWindow(QSettings &settings,
                              const QDir &app_data_dir)
 {
     return new MainWindow(settings,
+                          identity,
                           network_manager,
                           rate_limiter,
                           items_manager,
