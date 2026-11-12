@@ -447,18 +447,20 @@ void BuyoutManagerTest::inheritedGameTabPriceIsNotRewritten()
     fixture.items.OnItemsRefreshed({item}, {tab}, false);
     QVERIFY(fixture.buyouts.manager->Get(*item).inherited);
 
-    int writes = 0;
+    // Rows written through the fixture's connection, counted by SQLite.
+    const auto total_changes = [&fixture] {
+        QSqlQuery q(*fixture.buyouts.db);
+        return q.exec("SELECT total_changes()") && q.next() ? q.value(0).toLongLong() : -1;
+    };
+    const qint64 changes_before = total_changes();
     int changes = 0;
-    QObject::connect(fixture.buyouts.manager.get(),
-                     &BuyoutManager::SetItemBuyout,
-                     [&writes](const Buyout &, const Item &) { ++writes; });
     QObject::connect(fixture.buyouts.manager.get(),
                      &BuyoutManager::BuyoutsChanged,
                      [&changes](const BuyoutChangeSet &) { ++changes; });
     fixture.items.OnItemsRefreshed({item}, {tab}, false);
     fixture.items.OnTabRefreshed(tab, {item});
 
-    QCOMPARE(writes, 0);
+    QCOMPARE(total_changes(), changes_before);
     QCOMPARE(changes, 0);
     QVERIFY(fixture.buyouts.manager->Get(*item).IsActive());
 }

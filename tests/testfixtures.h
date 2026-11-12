@@ -43,15 +43,6 @@ public:
         }
 
         manager = std::make_unique<BuyoutManager>(*data, *repo);
-        QObject::connect(manager.get(),
-                         &BuyoutManager::SetItemBuyout,
-                         repo.get(),
-                         qOverload<const Buyout &, const Item &>(&BuyoutRepo::saveItemBuyout));
-        QObject::connect(manager.get(),
-                         &BuyoutManager::SetLocationBuyout,
-                         repo.get(),
-                         qOverload<const Buyout &, const ItemLocation &>(
-                             &BuyoutRepo::saveLocationBuyout));
     }
 
     ~BuyoutManagerFixture()

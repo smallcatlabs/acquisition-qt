@@ -81,12 +81,12 @@ public:
     BuyoutBatchSaveResult saveImportBatch(const std::vector<ItemBuyoutWrite> &items,
                                           const std::vector<LocationBuyoutWrite> &locations);
 
-    bool resetRepo();
-    bool ensureSchema();
-
-public slots:
+    // Overwriting saves keyed by the item's or location's own id.
     bool saveItemBuyout(const Buyout &buyout, const Item &item);
     bool saveLocationBuyout(const Buyout &buyout, const ItemLocation &location);
+
+    bool resetRepo();
+    bool ensureSchema();
 
 private:
     QSqlDatabase &m_db;

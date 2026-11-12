@@ -78,9 +78,6 @@ public:
     bool BuyoutsLoaded() const { return m_loaded; }
 
 signals:
-    void SetItemBuyout(const Buyout &buyout, const Item &item);
-    void SetLocationBuyout(const Buyout &buyout, const ItemLocation &location);
-
     // One emission per outer batch boundary with a non-empty scope (M3 D1
     // rule 4): the model layer's cue to repaint affected Price/Date cells
     // and, when a buyout-dependent column sorts the view, reorder once.
@@ -113,8 +110,8 @@ private:
 
     std::unordered_map<QString, Buyout> m_buyouts;
     std::unordered_map<QString, Buyout> m_tab_buyouts;
-    // Buyouts persist through BuyoutRepo signals. Refresh-check state is DataStore JSON in
-    // Save()/Load(); this split is intentional (see F22).
+    // Buyouts persist through direct BuyoutRepo calls. Refresh-check state is DataStore JSON
+    // in Save()/Load(); this split is intentional (see F22).
     std::unordered_map<QString, bool> m_refresh_checked;
     std::set<QString> m_refresh_locked;
     bool m_save_needed;

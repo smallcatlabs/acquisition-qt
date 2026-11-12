@@ -111,12 +111,12 @@ void BuyoutManager::Set(const Item &item, const Buyout &buyout)
     if (it == m_buyouts.end()) {
         // The item hash is not present.
         m_buyouts[item.id()] = buyout;
-        emit SetItemBuyout(buyout, item);
+        m_repo.saveItemBuyout(buyout, item);
         RecordChange(ChangeScope::Item, item.id());
     } else if (buyout != it->second) {
         // The item hash is present and the buyout has changed.
         it->second = buyout;
-        emit SetItemBuyout(buyout, item);
+        m_repo.saveItemBuyout(buyout, item);
         RecordChange(ChangeScope::Item, item.id());
     }
 }
@@ -174,11 +174,11 @@ void BuyoutManager::SetTab(const ItemLocation &location, const Buyout &buyout)
     const auto &it = m_tab_buyouts.find(location.id());
     if (it == m_tab_buyouts.end()) {
         m_tab_buyouts[location.id()] = buyout;
-        emit SetLocationBuyout(buyout, location);
+        m_repo.saveLocationBuyout(buyout, location);
         RecordChange(ChangeScope::Tab, location.id());
     } else if (buyout != it->second) {
         it->second = buyout;
-        emit SetLocationBuyout(buyout, location);
+        m_repo.saveLocationBuyout(buyout, location);
         RecordChange(ChangeScope::Tab, location.id());
     }
 }
