@@ -17,6 +17,7 @@
 // Local function prototypes
 void checkApplicationDirectory(const QStringList &libraries);
 
+#ifdef Q_OS_WINDOWS
 static QString DLL(const QString &name)
 {
 #ifdef QT_DEBUG
@@ -25,6 +26,7 @@ static QString DLL(const QString &name)
     return name + ".dll";
 #endif
 }
+#endif
 
 void checkMicrosoftRuntime()
 {
