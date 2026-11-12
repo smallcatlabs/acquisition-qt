@@ -7,6 +7,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPointer>
+#include <QTimer>
 
 #include <chrono>
 
@@ -865,10 +866,22 @@ namespace {
         drainEvents();
     }
 
-    // One tick of the hub's once-a-second status timer.
+    // One tick of the hub's once-a-second status timer, run by hand so the
+    // values come from the fake clock.
     void tick(RateLimiter &limiter)
     {
         QVERIFY(QMetaObject::invokeMethod(&limiter, "SendStatusUpdate"));
+    }
+
+    // The real timer behind those ticks: it must run while a pause lasts and
+    // stop once none is left, or the button never counts down.
+    bool statusTimerRunning(RateLimiter &limiter)
+    {
+        const auto *timer = limiter.findChild<QTimer *>("statusTimer");
+        if (!timer) {
+            qFatal("statusTimerRunning: the limiter has no status timer");
+        }
+        return timer->isActive();
     }
 
 } // namespace
@@ -878,7 +891,9 @@ void RateLimiterTest::pausedReportsZeroWhenTheHoldEnds()
     Rig rig;
     QSignalSpy paused(&rig.limiter, &RateLimiter::Paused);
     FutureSubmission s1;
+    QVERIFY(!statusTimerRunning(rig.limiter));
     holdFirstSend(rig, s1);
+    QVERIFY(statusTimerRunning(rig.limiter));
 
     tick(rig.limiter);
     QVERIFY(!paused.isEmpty());
@@ -891,6 +906,7 @@ void RateLimiterTest::pausedReportsZeroWhenTheHoldEnds()
     QCOMPARE(rig.network.count(), 2);
     tick(rig.limiter);
     QCOMPARE(paused.last().at(0).toInt(), 0);
+    QVERIFY(!statusTimerRunning(rig.limiter));
     const auto reported = paused.count();
     tick(rig.limiter);
     QCOMPARE(paused.count(), reported);

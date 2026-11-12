@@ -17,10 +17,12 @@
 #include <QTcpSocket>
 #include <QTemporaryDir>
 #include <QTimer>
+#include <QVersionNumber>
 
 #include <functional>
 #include <memory>
 
+#include <semver/semver.hpp>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/dist_sink.h>
 #include <spdlog/spdlog.h>
@@ -63,6 +65,7 @@ private slots:
     void updateButtonOpensUpdatePrompt();
     void skippedReleaseIsNotOfferedAgain();
     void declinedUpdateBeforeLoginOpensOnePrompt();
+    void prereleaseOfADeclinedReleaseIsNotOffered();
     void imageCacheDeletesReplies_data();
     void imageCacheDeletesReplies();
     void updateCheckerDeletesReplies_data();
@@ -443,6 +446,59 @@ void ShellTest::declinedUpdateBeforeLoginOpensOnePrompt()
 
     QCOMPARE(prompts, 1);
     QCOMPARE(settings.value("skip_release").toString(), QString("99.0.0"));
+}
+
+// The button and the prompt agree on what there is to offer. Running R, the
+// user declined release R+1 for good before any prerelease existed; then
+// R+1-beta.1 is listed. It is older than the declined release, so it is not
+// offered: no button, and before login no prompt at all (it used to open
+// "No updates appear to be available").
+void ShellTest::prereleaseOfADeclinedReleaseIsNotOffered()
+{
+    const QVersionNumber running = QVersionNumber::fromString(APP_VERSION_STRING);
+    const QString next = QString("%1.%2.%3")
+                             .arg(running.majorVersion())
+                             .arg(running.minorVersion())
+                             .arg(running.microVersion() + 1);
+    const QByteArray releases = QString(R"json([
+        {"tag_name":"v%1","draft":false,"prerelease":false},
+        {"tag_name":"v%1-beta.1","draft":false,"prerelease":true}])json")
+                                    .arg(next)
+                                    .toUtf8();
+
+    MainWindowFixture fixture;
+    // What "Ignore, and don't ask again" stores when no prerelease exists.
+    fixture.settings->setValue("skip_release", next);
+    fixture.settings->setValue("skip_prerelease", QString::fromStdString(semver::version().str()));
+    FakeNetworkManager network;
+    UpdateChecker checker(*fixture.settings, network);
+    ConnectUpdateChecker(*fixture.window, checker);
+    // The connection Application makes before login.
+    QObject::connect(&checker,
+                     &UpdateChecker::UpdateAvailable,
+                     &checker,
+                     &UpdateChecker::AskUserToUpdate);
+    QSignalSpy available(&checker, &UpdateChecker::UpdateAvailable);
+
+    int prompts = 0;
+    QTimer poll;
+    poll.setInterval(10);
+    QObject::connect(&poll, &QTimer::timeout, [&] {
+        if (auto *modal = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+            ++prompts;
+            modal->reject();
+        }
+    });
+    poll.start();
+    checker.CheckForUpdates();
+    answerUpdateCheck(network, releases);
+    poll.stop();
+
+    QCOMPARE(prompts, 0);
+    QCOMPARE(available.count(), 0);
+    auto *button = findUpdateButton(*fixture.window);
+    QVERIFY(button);
+    QVERIFY(button->isHidden());
 }
 
 void ShellTest::imageCacheDeletesReplies_data()

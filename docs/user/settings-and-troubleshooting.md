@@ -57,7 +57,8 @@ Acquisition checks the GitHub releases at startup and once a day after that.
 When a newer version exists, an **Update available** button appears in the
 status bar. Clicking it names the new version and offers **Go to Github** (the
 download page), **Ignore**, or **Ignore, and don't ask again**. Pre-releases are
-offered separately from stable releases. A version you choose not to be asked
+offered separately from stable releases, and only when newer than the latest
+stable release. A version you choose not to be asked
 about again is not offered again, and the button goes away.
 
 ## Crash reports
