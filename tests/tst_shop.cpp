@@ -126,6 +126,14 @@ private slots:
     // tst_mainwindow has no shop test to sit beside, so the menu check
     // lives here with the main-window fixture.
     void autoUpdateMenuFollowsTheSetting();
+
+    // #300: the rendered pages, pinned exactly before the renderer moves
+    // out of Shop.
+    void renderOnePage();
+    void renderTwoPagesAtThePostLimit();
+    void renderGroupsMixedBuyouts();
+    void renderCharacterItem();
+    void renderLeavesOutGameAndUnindexedItems();
 };
 
 namespace {
@@ -1211,6 +1219,192 @@ void ShopTest::autoUpdateMenuFollowsTheSetting()
         fixture.shop->SetAutoUpdate(true);
         QVERIFY(action->isChecked());
     }
+}
+
+namespace {
+
+    // The legacy stash index as the website sends it (T24: `n`, `i`, `id`):
+    // the second tab is the fourth the website lists, so its items link as
+    // Stash4. A third tab, "stash00003", is deliberately absent.
+    constexpr const char *kGoldenIndexJson = R"({"tabs":[{"n":"Test Tab","i":0,"id":"stash00001"},)"
+                                             R"({"n":"Second Tab","i":3,"id":"stash00002"}]})";
+
+    // An item at (x, 0) in `loc`. A stash item's inventoryId is "Stash1"
+    // whatever its tab (T13); a character item's is its slot.
+    std::shared_ptr<Item> makeShopItem(const char *id,
+                                       const ItemLocation &loc,
+                                       int x,
+                                       const char *inventory_id = "Stash1")
+    {
+        const QByteArray json = QString(R"({"verified": false, "w": 1, "h": 1,
+            "icon": "https://web.poecdn.com/image/test.png", "id": "%1", "name": "",
+            "typeLine": "Iron Ring", "baseType": "Iron Ring", "identified": true,
+            "ilvl": 1, "x": %2, "y": 0, "inventoryId": "%3"})")
+                                    .arg(id)
+                                    .arg(x)
+                                    .arg(inventory_id)
+                                    .toUtf8();
+        return std::make_shared<Item>(makeTestItem(json.constData(), loc));
+    }
+
+    Buyout makeBuyout(double value,
+                      Buyout::BuyoutType type,
+                      CurrencyType currency = CurrencyType::CURRENCY_CHAOS_ORB,
+                      Buyout::BuyoutSource source = Buyout::BUYOUT_SOURCE_MANUAL)
+    {
+        Buyout buyout(value, type, currency, QDateTime::fromSecsSinceEpoch(1));
+        buyout.source = source;
+        return buyout;
+    }
+
+    // Publish the items with their buyouts, submit, answer the index, and
+    // return the pages the job rendered. The edit-page GET is left open.
+    QStringList renderedPages(ShopFixture &fixture,
+                              const std::vector<std::pair<std::shared_ptr<Item>, Buyout>> &priced,
+                              const std::vector<ItemLocation> &tabs)
+    {
+        armForSubmission(fixture);
+        Items items;
+        for (const auto &[item, buyout] : priced) {
+            items.push_back(item);
+        }
+        fixture.itemsManager->OnItemsRefreshed(items, tabs, false);
+        for (const auto &[item, buyout] : priced) {
+            fixture.buyoutFixture.manager->Set(*item, buyout);
+        }
+        fixture.shop->SubmitShopToForum(true);
+        fixture.rateLimiter->resolve(0, kGoldenIndexJson);
+        drainEvents();
+        return fixture.shop->shop_data();
+    }
+
+    // Note for every expected page below: today's renderer closes each
+    // price spoiler when the next price starts, but never closes the last
+    // one, so a page ends with a single "[/spoiler]" and the page spoiler
+    // the template wraps around it stays open. These tests pin that output
+    // unchanged across the renderer's move; the defect is reported, not
+    // fixed here.
+    QString stashLink(int stash_number, int x)
+    {
+        return QString(R"([linkItem location="Stash%1" league="Standard" x="%2" y="0" realm="pc"])")
+            .arg(stash_number)
+            .arg(x);
+    }
+
+} // namespace
+
+void ShopTest::renderOnePage()
+{
+    ShopFixture fixture;
+    const ItemLocation tab = makeTestStashLocation();
+    const QStringList pages = renderedPages(fixture,
+                                            {{makeShopItem("one", tab, 0),
+                                              makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)}},
+                                            {tab});
+    QCOMPARE(pages,
+             QStringList{R"([spoiler][spoiler=" ~b/o  1 chaos"])" + stashLink(1, 0) + "[/spoiler]"});
+}
+
+// T23: a post holds at most 50,000 characters. The template is padded so
+// that one item fits a page and two do not.
+void ShopTest::renderTwoPagesAtThePostLimit()
+{
+    ShopFixture fixture;
+    armTwoPageShop(fixture);
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+
+    const QString padding = fixture.shop->shop_template().mid(QStringLiteral("[items]").size());
+    const QString head = R"([spoiler][spoiler=" ~b/o  1 chaos"])";
+    // A page cut at the limit closes its price spoiler; the last page does
+    // not (see stashLink).
+    const QStringList expected{head + stashLink(1, 0) + "[/spoiler][/spoiler]" + padding,
+                               head + stashLink(1, 1) + "[/spoiler]" + padding};
+    QCOMPARE(fixture.shop->shop_data(), expected);
+    for (const QString &page : expected) {
+        QVERIFY(page.size() <= 50000);
+    }
+}
+
+// One spoiler per price, ordered by buyout type, then currency, then value;
+// items with the same price share a spoiler. A no-price item sits under an
+// empty title (T21).
+void ShopTest::renderGroupsMixedBuyouts()
+{
+    ShopFixture fixture;
+    const ItemLocation tab = makeTestStashLocation();
+    const QStringList pages = renderedPages(
+        fixture,
+        {{makeShopItem("two-chaos", tab, 0), makeBuyout(2, Buyout::BUYOUT_TYPE_BUYOUT)},
+         {makeShopItem("one-chaos", tab, 1), makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)},
+         {makeShopItem("fixed", tab, 2), makeBuyout(1, Buyout::BUYOUT_TYPE_FIXED)},
+         {makeShopItem("divine", tab, 3),
+          makeBuyout(1.5, Buyout::BUYOUT_TYPE_BUYOUT, CurrencyType::CURRENCY_DIVINE_ORB)},
+         {makeShopItem("no-price", tab, 4), makeBuyout(0, Buyout::BUYOUT_TYPE_NO_PRICE)},
+         {makeShopItem("one-chaos-too", tab, 5), makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)}},
+        {tab});
+    QCOMPARE(pages,
+             QStringList{"[spoiler]"
+                         R"([spoiler=" ~b/o  1 chaos"])"
+                         + stashLink(1, 1) + stashLink(1, 5)
+                         + "[/spoiler]"
+                           R"([spoiler=" ~b/o  2 chaos"])"
+                         + stashLink(1, 0)
+                         + "[/spoiler]"
+                           R"([spoiler=" ~b/o  1.5 divine"])"
+                         + stashLink(1, 3)
+                         + "[/spoiler]"
+                           R"([spoiler=" ~price  1 chaos"])"
+                         + stashLink(1, 2)
+                         + "[/spoiler]"
+                           R"([spoiler=""])"
+                         + stashLink(1, 4) + "[/spoiler]"});
+}
+
+// A character item links by its slot and the character's name (T7, T8).
+void ShopTest::renderCharacterItem()
+{
+    ShopFixture fixture;
+    poe::Character character;
+    character.id = "character-0001";
+    character.name = "I_Exist";
+    const ItemLocation inventory(character, 0);
+    const QStringList pages = renderedPages(fixture,
+                                            {{makeShopItem("armour", inventory, 0, "BodyArmour"),
+                                              makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)}},
+                                            {inventory});
+    QCOMPARE(pages,
+             QStringList{R"([spoiler][spoiler=" ~b/o  1 chaos"])"
+                         R"([linkItem location="BodyArmour" character="I_Exist" x="0" y="0" )"
+                         R"(realm="pc"])"
+                         "[/spoiler]"});
+}
+
+// A price read from the game is never posted (AGENTS.md, T15). An item in a
+// tab the stash index does not list cannot be linked and is left out.
+void ShopTest::renderLeavesOutGameAndUnindexedItems()
+{
+    ShopFixture fixture;
+    const ItemLocation first = makeTestStashLocation("stash00001", "Test Tab", 0);
+    const ItemLocation second = makeTestStashLocation("stash00002", "Second Tab", 4);
+    const ItemLocation unlisted = makeTestStashLocation("stash00003", "Unlisted Tab", 5);
+    const QStringList pages = renderedPages(fixture,
+                                            {{makeShopItem("manual", first, 0),
+                                              makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)},
+                                             {makeShopItem("game", first, 1),
+                                              makeBuyout(1,
+                                                         Buyout::BUYOUT_TYPE_BUYOUT,
+                                                         CurrencyType::CURRENCY_CHAOS_ORB,
+                                                         Buyout::BUYOUT_SOURCE_GAME)},
+                                             {makeShopItem("second-tab", second, 0),
+                                              makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)},
+                                             {makeShopItem("unlisted", unlisted, 0),
+                                              makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)}},
+                                            {first, second, unlisted});
+    QCOMPARE(pages,
+             QStringList{R"([spoiler][spoiler=" ~b/o  1 chaos"])" + stashLink(1, 0)
+                         + stashLink(4, 0) + "[/spoiler]"});
 }
 
 QTEST_MAIN(ShopTest)
