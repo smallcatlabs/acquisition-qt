@@ -553,22 +553,36 @@ immediately, as today. Pinned by
 `selectionIntentSurvivesCrossTabMoveAcrossDeltas` — the successor of
 M2's pin under no-reset machinery — and
 `selectionIntentClearsOnTerminalFailure`.
-*(Post-freeze amendment, November 12, 2026 — #282: the intent is
-the set of selected rows, not one id. A delta that replaced the rows
-of a tab holding several selected items left only the current item
-selected, so the next price edit applied to one row. The stable ids
-of every selected item and the stable keys of every selected header
-are now captured before each delta and before the final snapshot's
-reconciliation, and every one of them that is visible afterwards is
-selected again, by one walk per bucket holding an intended item. The
-current item's id keeps its role above: it alone decides the current
-row, the details pane and the price editor. A row that is not
-visible stays in the set until the window closes, and a user's
-selection of a new current row drops those rows. R1-3 and R2-1 are
-otherwise unchanged. Pinned by `multiSelectionSurvivesDeltaToItsTab`,
+*(Post-freeze amendment, November 12, 2026 — #282: the intent covers
+every selected row, not one id. A delta that replaced the rows of a
+tab holding several selected items left only the current item
+selected — the reconcile pass cleared the view's selection and
+re-adopted the one id — so the next price edit applied to one row.
+The reconcile pass no longer clears or replaces the selection; it
+sets the current row only. Immediately before each delta, the stable
+ids of the items selected in the bucket that delta touches are read
+from the selection (every bucket for the final snapshot); immediately
+after it, one walk of that bucket selects again those it now holds.
+What must outlive a delta is small and is the only state kept: the
+selected items a delta removed and no later delta has brought back
+(an item moving between tabs). Any change of the selection the
+refresh did not make, or a click on a row, discards it, so a user
+selection wins at any time; the window's close discards it too. Rows
+selected in other buckets cost the delta nothing (D3). The current
+item's id keeps its role above: it alone decides the current row,
+the details pane and the price editor, and the current row is
+selected again only if it was selected before the delta. Known
+limitation: a delta that re-selects replaced rows while the user is
+dragging a Ctrl+selection finalises that drag's selection. R1-3 and
+R2-1 are otherwise unchanged. Pinned by
+`multiSelectionSurvivesDeltaToItsTab`,
 `multiSelectionAcrossTabsSurvivesDeltas`,
-`multiSelectionKeepsSelectedHeaders` and
-`newSelectionDropsRowsARefreshRemoved`.)*
+`multiSelectionKeepsSelectedHeaders`,
+`newSelectionDropsRowsARefreshRemoved`,
+`userNarrowingDropsRowsARefreshRemoved`,
+`deltaWorkIgnoresSelectionInOtherTabs`,
+`byItemMultiSelectionSurvivesDelta` and
+`currentItemLeavingKeepsOtherSelectedRows`.)*
 
 **Where resets remain legitimate**: initial population (nothing to
 preserve) and user-initiated structural changes — filter edits, view-
