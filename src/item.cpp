@@ -4,6 +4,8 @@
 #include "item.h"
 
 #include <QMutex>
+#include <QRegularExpression>
+#include <QRegularExpressionMatch>
 #include <QString>
 
 #include "utility"
@@ -153,6 +155,16 @@ Item::Item(const poe::Item &item, const ItemLocation &base_location)
 
     if (item.properties) {
         LoadProperties(*item.properties);
+    }
+
+    if (!m_numeric_properties.contains(QStringLiteral("Map Tier"))) {
+        // Maps carry their tier in the base type, "Map (Tier 16)", and no
+        // "Map Tier" property (#229). Any other shape gives no tier.
+        static const QRegularExpression map_tier(R"(^Map \(Tier ([1-9][0-9]?)\)$)");
+        const QRegularExpressionMatch match = map_tier.match(m_baseType);
+        if (match.hasMatch()) {
+            m_numeric_properties[QStringLiteral("Map Tier")] = match.captured(1).toInt();
+        }
     }
 
     if (item.requirements) {
