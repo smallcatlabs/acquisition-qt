@@ -18,6 +18,7 @@
 #include <QTcpSocket>
 #include <QTemporaryDir>
 #include <QTimer>
+#include <QUrlQuery>
 
 #include <functional>
 #include <memory>
@@ -74,6 +75,7 @@ private slots:
     void legacyNetworkCacheIsRemoved();
     void legacyNetworkCacheLinkIsNotFollowed();
     void loginListensOnLoopbackAfterClose();
+    void everyLoginRedirectsToTheListenerItBinds();
     void startupRefreshClosesTheListener();
     void msvcCheckPassesWithoutLibraries();
     void msvcCheckAnswer_data();
@@ -685,6 +687,27 @@ void ShellTest::loginListensOnLoopbackAfterClose()
     const QHostAddress address = callbackAddress(services.oauth);
     QVERIFY2(address.isLoopback(), qPrintable(address.toString()));
     QCOMPARE(browser.urls.size(), 1);
+}
+
+void ShellTest::everyLoginRedirectsToTheListenerItBinds()
+{
+    // Each login binds IPv4 loopback itself, and the authorization url sent
+    // to the browser names the port that listener has.
+    UrlCatcher browser("https");
+    LoginDialogServices services;
+    QVERIFY(services.dir.isValid());
+    auto *handler = services.oauth.findChild<QOAuthHttpServerReplyHandler *>();
+    QVERIFY(handler);
+
+    for (int login = 1; login <= 2; ++login) {
+        QVERIFY(services.oauth.initLogin());
+        QCOMPARE(callbackAddress(services.oauth), QHostAddress(QHostAddress::LocalHost));
+        QCOMPARE(browser.urls.size(), login);
+        const QUrl redirect(
+            QUrlQuery(browser.urls.last()).queryItemValue("redirect_uri", QUrl::FullyDecoded));
+        QCOMPARE(redirect.host(), QString("127.0.0.1"));
+        QCOMPARE(redirect.port(), int(handler->port()));
+    }
 }
 
 void ShellTest::startupRefreshClosesTheListener()
