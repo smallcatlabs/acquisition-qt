@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include <QtTest/QtTest>
 
 #include <optional>
@@ -248,7 +250,7 @@ void FiltersTest::minMaxFilter()
     BuyoutManagerFixture buyoutFixture;
     const FilterCatalog catalog = BuildFilterCatalog(*buyoutFixture.manager);
 
-    for (const QString &caption :
+    for (const QString caption :
          {"Crit.",   "DPS",    "pDPS",    "eDPS",    "cDPS",     "APS",      "Armour",
           "Evasion", "Shield", "Block",   "Sockets", "Links",    "R. Level", "R. Str",
           "R. Dex",  "R. Int", "Quality", "Level",   "Map Tier", "ilvl"}) {
@@ -561,7 +563,7 @@ void FiltersTest::booleanPredicates()
     // The altart predicate is an icon-needle list, so check a few more needles.
     const auto *altart = findFilterSpec(catalog, "Alt. art");
     QVERIFY(altart);
-    for (const QString &needle : {"RedBeak2.png", "dGlsbGF0ZUFsdCI7czoy", "WinterHeart.png"}) {
+    for (const QString needle : {"RedBeak2.png", "dGlsbGF0ZUFsdCI7czoy", "WinterHeart.png"}) {
         const auto item = makeFilterItem("alt-" + needle,
                                          "",
                                          2,
