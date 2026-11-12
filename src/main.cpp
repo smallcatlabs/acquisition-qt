@@ -4,6 +4,7 @@
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
+#include <QFile>
 #include <QFontDatabase>
 #include <QLocale>
 #include <QMessageBox>
@@ -26,7 +27,6 @@
 #include "util/crashreporting.h"
 #include "util/logging.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
-#include "util/util.h"
 #include "version_defines.h"
 
 #ifdef Q_OS_WINDOWS
@@ -155,13 +155,23 @@ int main(int argc, char *argv[])
 
     if (report_crashes) {
         // Configure Sentry event logging.
-        const auto handlerPath = Util::toPathBytes(appDir.filePath(CRASHPAD_HANDLER));
-        const auto sentryPath = Util::toPathBytes(appDataDir.absoluteFilePath("sentry-native-db"));
+        const QString handlerPath = QDir::toNativeSeparators(appDir.filePath(CRASHPAD_HANDLER));
+        const QString sentryPath = QDir::toNativeSeparators(
+            appDataDir.absoluteFilePath("sentry-native-db"));
 
         sentry_options_t *options = sentry_options_new();
         sentry_options_set_dsn(options, SENTRY_DSN);
-        sentry_options_set_handler_path(options, handlerPath.constData());
-        sentry_options_set_database_path(options, sentryPath.constData());
+#ifdef Q_OS_WIN
+        // sentry-native reads a narrow path on Windows as UTF-8, not in the
+        // ANSI code page, so hand it the UTF-16 path through the wide setters.
+        sentry_options_set_handler_pathw(options,
+                                         reinterpret_cast<const wchar_t *>(handlerPath.utf16()));
+        sentry_options_set_database_pathw(options,
+                                          reinterpret_cast<const wchar_t *>(sentryPath.utf16()));
+#else
+        sentry_options_set_handler_path(options, QFile::encodeName(handlerPath).constData());
+        sentry_options_set_database_path(options, QFile::encodeName(sentryPath).constData());
+#endif
         sentry_options_set_release(options, SENTRY_RELEASE);
         sentry_options_set_environment(options, SENTRY_ENVIRONMENT);
         sentry_init(options);
