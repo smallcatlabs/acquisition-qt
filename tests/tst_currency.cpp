@@ -15,6 +15,7 @@ class CurrencyTest : public QObject
 private slots:
     void existingCurrenciesKeepTagsNamesAndOrder();
     void existingRanksAreKept();
+    void divineRanksAboveExalted();
     void comboCarriesTheTag();
     void gameWordsAreRecognised_data();
     void gameWordsAreRecognised();
@@ -87,12 +88,23 @@ void CurrencyTest::existingCurrenciesKeepTagsNamesAndOrder()
     QVERIFY(!Currency().AsTag().isNull());
 }
 
-// Every rank stays as it was.
+// Every rank stays as it was, except the one the maintainer ruled on (#38).
 void CurrencyTest::existingRanksAreKept()
 {
     for (const Existing &row : existing()) {
+        if ((row.type == Currency::CURRENCY_DIVINE_ORB)
+            || (row.type == Currency::CURRENCY_EXALTED_ORB)) {
+            continue;
+        }
         QCOMPARE(Currency(row.type).AsRank(), row.rank);
     }
+}
+
+// #38: since the 3.25 swap, a Divine Orb is worth more than an Exalted Orb.
+void CurrencyTest::divineRanksAboveExalted()
+{
+    QVERIFY(Currency(Currency::CURRENCY_DIVINE_ORB).AsRank()
+            > Currency(Currency::CURRENCY_EXALTED_ORB).AsRank());
 }
 
 // The currency box says which currency each entry is by its tag, so code

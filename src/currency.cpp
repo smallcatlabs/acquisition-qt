@@ -28,7 +28,8 @@ const CurrencyTable &CurrencyTable::Default()
     // The first 19 rows are the currencies the application has always had,
     // in their old order, with their stored tags; the history is positional,
     // so new currencies are appended. The words include the game's own
-    // (trade-ground-truth T9). Ranks are the old ones. Wisdom values are the
+    // (trade-ground-truth T9). Ranks are the old ones, except that Divine
+    // ranks above Exalted since the 3.25 swap (#38). Wisdom values are the
     // currency dialog's (Scroll of Wisdom equivalents).
     // clang-format off
     static const CurrencyTable table({
@@ -37,7 +38,7 @@ const CurrencyTable &CurrencyTable::Default()
         {"alch", "Orb of Alchemy", {"alch", "alchs", "alchemy"}, 8, 0},
         {"chaos", "Chaos Orb", {"chaos"}, 11, 0},
         {"gcp", "Gemcutter's Prism", {"gcp", "gcps", "gemcutter", "gemcutters"}, 15, 0},
-        {"exa", "Exalted Orb", {"exalted", "exa"}, 17, 0},
+        {"exa", "Exalted Orb", {"exalted", "exa"}, 16, 0},
         {"chrom", "Chromatic Orb", {"chrome", "chrom", "chromes", "chromatic", "chromatics"}, 1, 0},
         {"jew", "Jeweller's Orb", {"jewellers", "jew", "jewel", "jewels", "jeweler", "jewelers"}, 3, 0},
         {"chance", "Orb of Chance", {"chance"}, 4, 0},
@@ -46,7 +47,7 @@ const CurrencyTable &CurrencyTable::Default()
         {"blessed", "Blessed Orb", {"blessed"}, 9, 0},
         {"regret", "Orb of Regret", {"regret", "regrets"}, 12, 0},
         {"regal", "Regal Orb", {"regal", "regals"}, 13, 0},
-        {"divine", "Divine Orb", {"divine", "divines"}, 16, 0},
+        {"divine", "Divine Orb", {"divine", "divines"}, 17, 0},
         {"vaal", "Vaal Orb", {"vaal"}, 14, 0},
         {"coin", "Perandus Coin", {"coin", "coins", "perandus", "p", "shekel"}, 6, 0},
         {"mirror", "Mirror of Kalandra", {"mirror", "mir"}, 18, 0},

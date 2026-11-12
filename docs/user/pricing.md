@@ -142,7 +142,7 @@ name the currency by any of the *Note words*, in any case.
 | Infused Engineer's Orb | `infused-engineers-orb` | infused-engineers-orb |
 
 The *Price* column sorts by currency first: Silver Coin highest, then Mirror
-of Kalandra, Exalted Orb, Divine Orb, and so on down to Chromatic Orb. The
+of Kalandra, Divine Orb, Exalted Orb, and so on down to Chromatic Orb. The
 currencies from Orb of Annulment down the table have no rank of their own yet;
 they sort below all the others, in the order of this table.
 
