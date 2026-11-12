@@ -26,9 +26,14 @@ namespace poe {
 // as the worker starts from them.
 struct CachedItems
 {
-    // False when the user store could not be opened; everything else is then
-    // empty.
-    bool loaded{false};
+    enum class Status {
+        Complete,      // every cached tab and its items
+        StoreUnusable, // the user store could not be opened; nothing else is set
+        Stopped,       // the load was stopped; nothing else is set
+    };
+    // Anything but Complete carries no tabs or items, so a load that did not
+    // finish can never pass for one that did.
+    Status status{Status::StoreUnusable};
     std::vector<ItemLocation> tabs;
     Items items;
     std::set<QString> tab_id_index;
@@ -38,8 +43,8 @@ struct CachedItems
 using CacheLoadProgress = std::function<void(const QString &status)>;
 
 // Load the session's cached tabs and items from the user store in `data_dir`.
-// Opens its own connection to the store, so it may run on any thread; it
-// returns early with what it has when `stop` is requested.
+// Opens its own connection to the store, so it may run on any thread. When
+// `stop` is requested it returns early, with status Stopped and nothing else.
 CachedItems LoadCachedItems(const QDir &data_dir,
                             const SessionIdentity &identity,
                             std::stop_token stop,
@@ -53,7 +58,7 @@ CachedItems LoadCachedItems(const QDir &data_dir,
 //
 // `store_usable` is whether the session's own user store opened. That store
 // is opened (and migrated) first, on the main thread; when it could not be,
-// nothing is loaded and the worker is seeded with an empty, not-loaded
+// nothing is loaded and the worker is seeded with an empty StoreUnusable
 // result, so the load never opens a store that would still need migrating.
 std::jthread StartCacheLoad(ItemsManagerWorker &worker,
                             const QDir &data_dir,

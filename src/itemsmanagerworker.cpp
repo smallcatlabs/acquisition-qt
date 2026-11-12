@@ -128,10 +128,10 @@ void ItemsManagerWorker::Seed(CachedItems cached)
     m_tab_id_index = std::move(cached.tab_id_index);
     m_state = WorkerState::Idle;
     emit StatusUpdate(ProgramState::Ready,
-                      cached.loaded ? QString("Parsed %1 items from %2 tabs")
-                                          .arg(QString::number(m_items.size()),
-                                               QString::number(m_tabs.size()))
-                                    : QString("Could not read the cached items; see the log"));
+                      (cached.status == CachedItems::Status::Complete)
+                          ? QString("Parsed %1 items from %2 tabs")
+                                .arg(QString::number(m_items.size()), QString::number(m_tabs.size()))
+                          : QString("Could not read the cached items; see the log"));
     // let ItemManager know that the retrieval of cached items/tabs has been completed (calls ItemsManager::OnItemsRefreshed method)
     spdlog::trace("ItemsManagerWorker::Seed() emitting ItemsRefreshed signal");
     emit ItemsRefreshed(m_items.Flat(), m_tabs, true);

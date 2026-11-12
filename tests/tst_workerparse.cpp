@@ -7,6 +7,8 @@
 #include <QSqlQuery>
 #include <QTemporaryDir>
 
+#include <stop_token>
+
 #include <glaze/glaze.hpp>
 
 #include "cacheload.h"
@@ -26,6 +28,8 @@ private slots:
     void specialChildItemsKeyedByChildFetchId();
     void characterAlongsideSpecialChildLoads();
     void unusableStoreLoadsNothingAndSaysSo();
+    void loadStoppedBeforeItStartsSaysSo();
+    void loadStoppedPartWaySaysSo();
 };
 
 static poe::Item makePoeItem(const char *id)
@@ -80,7 +84,7 @@ void WorkerParseTest::parsesCachedStashItems()
     const CachedItems result = LoadCachedItems(QDir(dataDir),
                                                makeTestIdentity(account, realm, league),
                                                {});
-    QVERIFY(result.loaded);
+    QCOMPARE(result.status, CachedItems::Status::Complete);
 
     QCOMPARE(result.tabs.size(), 1);
     QCOMPARE(result.tabs[0].id(), stash.id);
@@ -128,7 +132,7 @@ void WorkerParseTest::specialChildItemsKeyedByChildFetchId()
     const CachedItems result = LoadCachedItems(QDir(dataDir),
                                                makeTestIdentity(account, realm, league),
                                                {});
-    QVERIFY(result.loaded);
+    QCOMPARE(result.status, CachedItems::Status::Complete);
 
     // Only the parent is a tab; the child is not.
     QCOMPARE(result.tabs.size(), 1);
@@ -187,7 +191,7 @@ void WorkerParseTest::characterAlongsideSpecialChildLoads()
     const CachedItems result = LoadCachedItems(QDir(dataDir),
                                                makeTestIdentity(account, realm, league),
                                                {});
-    QVERIFY(result.loaded);
+    QCOMPARE(result.status, CachedItems::Status::Complete);
 
     QCOMPARE(result.tabs.size(), 2);
     QCOMPARE(result.tabs[0].id(), parent.id);
@@ -210,7 +214,7 @@ void WorkerParseTest::characterAlongsideSpecialChildLoads()
 }
 
 // A store the load cannot open (here: written by a newer build) gives an
-// empty result marked not loaded, and the load leaves the file as it was.
+// empty result marked so, and the load leaves the file as it was.
 void WorkerParseTest::unusableStoreLoadsNothingAndSaysSo()
 {
     QTemporaryDir dir;
@@ -232,7 +236,7 @@ void WorkerParseTest::unusableStoreLoadsNothingAndSaysSo()
     const CachedItems result = LoadCachedItems(data_dir,
                                                makeTestIdentity(account, "pc", "Standard"),
                                                {});
-    QVERIFY(!result.loaded);
+    QCOMPARE(result.status, CachedItems::Status::StoreUnusable);
     QVERIFY(result.tabs.empty());
     QVERIFY(result.items.empty());
 
@@ -246,6 +250,78 @@ void WorkerParseTest::unusableStoreLoadsNothingAndSaysSo()
         db.close();
     }
     QSqlDatabase::removeDatabase("newer-store-check");
+}
+
+namespace {
+
+    // Two cached stash tabs with an item each, so a load reports progress
+    // between them.
+    SessionIdentity seedTwoStashTabs(const QString &dataDir)
+    {
+        const SessionIdentity identity = makeTestIdentity("worker-parse-stop", "pc", "Standard");
+        poe::StashTab first;
+        first.id = "stash00001";
+        first.name = "First";
+        first.type = "PremiumStash";
+        first.index = 0;
+        first.items = std::vector<poe::Item>{makePoeItem("first-item")};
+        poe::StashTab second = first;
+        second.id = "stash00002";
+        second.name = "Second";
+        second.index = 1;
+        second.items = std::vector<poe::Item>{makePoeItem("second-item")};
+
+        UserStore store(QDir(dataDir), identity.account());
+        if (!store.stashes().saveStashList({first, second}, identity.realm(), identity.league())
+            || !saveStashFixture(store.stashes(), first, identity.realm(), identity.league())
+            || !saveStashFixture(store.stashes(), second, identity.realm(), identity.league())) {
+            qFatal("seedTwoStashTabs: could not seed the store");
+        }
+        return identity;
+    }
+
+} // namespace
+
+// A load stopped before it starts returns Stopped and nothing else.
+void WorkerParseTest::loadStoppedBeforeItStartsSaysSo()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString dataDir = dir.filePath("data");
+    const SessionIdentity identity = seedTwoStashTabs(dataDir);
+
+    std::stop_source stop;
+    stop.request_stop();
+    const CachedItems result = LoadCachedItems(QDir(dataDir), identity, stop.get_token());
+    QCOMPARE(result.status, CachedItems::Status::Stopped);
+    QVERIFY(result.tabs.empty());
+    QVERIFY(result.items.empty());
+    QVERIFY(result.tab_id_index.empty());
+}
+
+// A load stopped part-way does not hand back the part it had: the result is
+// Stopped and empty, never a Complete-looking partial.
+void WorkerParseTest::loadStoppedPartWaySaysSo()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString dataDir = dir.filePath("data");
+    const SessionIdentity identity = seedTwoStashTabs(dataDir);
+
+    std::stop_source stop;
+    int reports = 0;
+    const CachedItems result = LoadCachedItems(QDir(dataDir),
+                                               identity,
+                                               stop.get_token(),
+                                               [&](const QString &) {
+                                                   ++reports;
+                                                   stop.request_stop();
+                                               });
+    QCOMPARE(reports, 1); // stopped after the first tab, before the second
+    QCOMPARE(result.status, CachedItems::Status::Stopped);
+    QVERIFY(result.tabs.empty());
+    QVERIFY(result.items.empty());
+    QVERIFY(result.tab_id_index.empty());
 }
 
 QTEST_GUILESS_MAIN(WorkerParseTest)

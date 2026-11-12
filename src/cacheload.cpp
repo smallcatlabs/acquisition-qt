@@ -62,6 +62,10 @@ CachedItems LoadCachedItems(const QDir &data_dir,
         spdlog::warn("ACQ_PARSE_DELAY_MS is set: delaying {}ms per cached tab", delay_ms);
     }
 
+    if (stop.stop_requested()) {
+        return CachedItems{.status = CachedItems::Status::Stopped};
+    }
+
     // A connection of our own: a database connection belongs to the thread
     // that opened it. Only read here, though that is not enforced.
     UserStore userstore{data_dir, identity.account()};
@@ -70,7 +74,7 @@ CachedItems LoadCachedItems(const QDir &data_dir,
         spdlog::error("LoadCachedItems: the user store could not be opened; no cached items");
         return result;
     }
-    result.loaded = true;
+    result.status = CachedItems::Status::Complete;
 
     const QString &realm = identity.realm();
     const QString &league = identity.league();
@@ -93,7 +97,7 @@ CachedItems LoadCachedItems(const QDir &data_dir,
 
     for (size_t i = 0; i < stashes.size(); ++i) {
         if (stop.stop_requested()) {
-            return result;
+            return CachedItems{.status = CachedItems::Status::Stopped};
         }
         if (delay_ms > 0) {
             QThread::msleep(delay_ms);
@@ -140,7 +144,7 @@ CachedItems LoadCachedItems(const QDir &data_dir,
 
     for (size_t i = 0; i < characters.size(); ++i) {
         if (stop.stop_requested()) {
-            return result;
+            return CachedItems{.status = CachedItems::Status::Stopped};
         }
         if (delay_ms > 0) {
             QThread::msleep(delay_ms);
