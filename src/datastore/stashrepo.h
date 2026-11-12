@@ -56,9 +56,5 @@ public slots:
                                 const QString &league);
 
 private:
-    bool saveListTransaction(const std::vector<poe::StashTab> &stashes,
-                             const QString &realm,
-                             const QString &league);
-
     QSqlDatabase &m_db;
 };

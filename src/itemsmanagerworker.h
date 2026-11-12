@@ -5,7 +5,6 @@
 
 #include <QCoroTask>
 
-#include <QNetworkCookie>
 #include <QObject>
 #include <QPointer>
 #include <QString>
@@ -14,7 +13,6 @@
 #include <atomic>
 #include <expected>
 #include <functional>
-#include <map>
 #include <set>
 #include <stop_token>
 #include <variant>
@@ -31,9 +29,7 @@
 #include "util/util.h"
 
 class QSettings;
-class QSignalMapper;
 class QThread;
-class QTimer;
 
 class BuyoutManager;
 class DataStore;

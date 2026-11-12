@@ -3,7 +3,6 @@
 
 #include "itemsmanager.h"
 
-#include <QNetworkCookie>
 #include <QSettings>
 
 #include <optional>
@@ -11,9 +10,6 @@
 
 #include "buyoutmanager.h"
 #include "item.h"
-#include "modlist.h"
-#include "repoe/repoe.h"
-#include "shop.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "util/util.h"
 

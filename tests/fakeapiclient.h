@@ -442,13 +442,6 @@ public:
         armRejected<poe::StashListWrapper>(Call::Kind::ListStashes, kind);
     }
 
-    void preresolveCharacterList(std::vector<poe::Character> characters)
-    {
-        armReady<poe::CharacterListWrapper>(Call::Kind::ListCharacters,
-                                            poe::CharacterListWrapper{
-                                                .characters = std::move(characters)});
-    }
-
     // Arm the next stash content (or child) fetch to come back already-finished.
     // Per-kind FIFO: arming several applies to successive GetStash calls in the
     // order they are launched, so a whole ready content batch can be scripted.

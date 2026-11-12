@@ -135,11 +135,6 @@ std::optional<poe::CharacterPayload> json::readCharacterPayload(const QByteArray
                         &poe::CharacterPayload::character);
 }
 
-std::optional<std::vector<poe::Character>> json::readCharacterList(const QByteArray &json)
-{
-    return read_json<std::vector<poe::Character>>(json);
-}
-
 std::optional<std::vector<poe::League>> json::readLeagueList(const QByteArray &json)
 {
     return read_json<std::vector<poe::League>>(json);
@@ -158,11 +153,6 @@ std::optional<poe::StashListWrapper> json::readStashListWrapper(const QByteArray
 std::optional<poe::StashPayload> json::readStashPayload(const QByteArray &json)
 {
     return read_payload(json, "stash", &json::raw::StashWrapper::stash, &poe::StashPayload::stash);
-}
-
-std::optional<std::vector<poe::StashTab>> json::readStashList(const QByteArray &json)
-{
-    return read_json<std::vector<poe::StashTab>>(json);
 }
 
 std::optional<poe::WebStashListWrapper> json::readWebStashListWrapper(const QByteArray &json)

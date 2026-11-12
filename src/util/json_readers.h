@@ -43,7 +43,5 @@ namespace json {
     std::optional<poe::StashTab> readStash(const QByteArray &json);
 
     std::optional<std::vector<poe::League>> readLeagueList(const QByteArray &json);
-    std::optional<std::vector<poe::Character>> readCharacterList(const QByteArray &json);
-    std::optional<std::vector<poe::StashTab>> readStashList(const QByteArray &json);
 
 } // namespace json
