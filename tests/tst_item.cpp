@@ -36,6 +36,7 @@ private slots:
     void rangeIsAveraged();
     void clusterNotableIsPresent();
     void literalSignWinsOverSignedPlaceholder();
+    void pseudoModNeedsAValue();
 };
 
 // Real RePoE stat translations, cut from the game data (see
@@ -570,6 +571,25 @@ void ItemTest::literalSignWinsOverSignedPlaceholder()
     QCOMPARE(table.size(), size_t(1));
     QCOMPARE(table.at("-# to Accuracy Rating per 10 Dexterity on Unallocated Passives in Radius"),
              5.0);
+}
+
+// #265: a line that matches no template but whose rewritten text is a
+// pseudo-mod source feeds that pseudo-mod only if a value can be read from
+// it. A pseudo-mod must not become present with a value of 0 because the
+// read failed. The catalogue here holds no translations, so the source is
+// not a template name; the line's literal "#" makes the read fail.
+void ItemTest::pseudoModNeedsAValue()
+{
+    InitStatTranslations();
+    InitModList();
+
+    ModTable table;
+    AddModToTable("+#% to Cold Resistance", table);
+    QVERIFY(!table.contains("+#% total to Cold Resistance"));
+
+    // The same source with a number still feeds the pseudo-mod.
+    AddModToTable("+15% to Cold Resistance", table);
+    QCOMPARE(table.at("+#% total to Cold Resistance"), 15.0);
 }
 
 QTEST_GUILESS_MAIN(ItemTest)

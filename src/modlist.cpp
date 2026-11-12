@@ -310,8 +310,11 @@ void AddModToTable(const QString &raw_mod, ModTable &output)
     double value = 0.0;
     if (match) {
         value = match->value;
-    } else {
-        Util::MatchMod(generic_mod.toStdString().c_str(), raw_mod.toStdString().c_str(), &value);
+    } else if (!Util::MatchMod(generic_mod.toStdString().c_str(),
+                               raw_mod.toStdString().c_str(),
+                               &value)) {
+        // No value can be read, so the line does not count (#265).
+        return;
     }
     for (const QString &pseudo_mod : it->second) {
         output[pseudo_mod] += value;
