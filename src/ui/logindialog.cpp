@@ -284,7 +284,15 @@ void LoginDialog::OnAuthenticateButtonClicked()
     ui->errorLabel->setText("");
     ui->authenticateButton->setEnabled(false);
     ui->authenticateButton->setText("Authenticating...");
-    m_oauth_manager.initLogin();
+    if (!m_oauth_manager.initLogin()) {
+        DisplayError("Cannot start authentication: Acquisition could not listen for the "
+                     "browser's reply on 127.0.0.1.");
+        ui->authenticateButton->setText(m_current_token ? "Re-authenticate (as someone else)."
+                                                        : "Authenticate");
+        ui->authenticateButton->setEnabled(true);
+        // DisplayError re-enables Login; it stays as it was without a token.
+        ui->loginButton->setEnabled(m_current_token.has_value());
+    }
 }
 
 void LoginDialog::OnLoginButtonClicked()

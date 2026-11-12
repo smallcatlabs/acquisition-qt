@@ -66,6 +66,17 @@ Inside it you will find `settings.ini`, `log.txt`, a `data/` folder with one
 SQLite database per account (`userstore-<account>.db`) plus the legacy
 per-league databases, and a `cache/` folder for item images.
 
+Earlier versions also kept a `network_cache/` folder of downloaded web
+replies, in the default directory even when `--data-dir` named another one.
+Acquisition no longer writes it and deletes it from the data directory it
+starts with. If you only ever ran with `--data-dir`, an old `network_cache/`
+may remain in the default directory; it is safe to delete.
+
+Your sign-in is stored there unencrypted: `settings.ini` holds the POESESSID,
+and the global database in `data/` holds the OAuth token. Anyone who can read
+those files can act as your account, so do not share `settings.ini` or the data
+directory, and turn off **Remember me** on a computer you share.
+
 Use `--data-dir <path>` to run with a different directory, for example to keep
 two accounts apart or to try a beta without touching your real data:
 
