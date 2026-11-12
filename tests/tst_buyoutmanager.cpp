@@ -4,6 +4,7 @@
 #include <QSqlQuery>
 #include <QtTest/QtTest>
 
+#include "applybuyout.h"
 #include "itemsmanager.h"
 #include "testfixtures.h"
 
@@ -13,9 +14,13 @@ class BuyoutManagerTest : public QObject
 
 private slots:
     void stringToBuyout();
+    // #293 step 2: a tab's price is not copied onto its items.
+    void tabPriceWritesOneRow();
+    void inheritedRowIsIgnoredOnLoad();
+    void inheritedDateIsTheTabPricesDate();
     void itemBuyoutRoundTrip();
     void tabBuyoutRoundTrip();
-    void tabBuyoutPropagation();
+    void itemShowsItsTabsPrice();
     void clearingItemBuyoutRemovesInMemoryValue();
     void clearingTabBuyoutRemovesInMemoryValue();
     void clearingItemBuyoutRemovesRepoRow();
@@ -135,6 +140,75 @@ void BuyoutManagerTest::stringToBuyout()
     QCOMPARE(tolerant.currency, Currency::CURRENCY_CHAOS_ORB);
 }
 
+// A price set on a tab of three items writes one location row and no item
+// rows (it wrote one inherited row per item); the items show it.
+void BuyoutManagerTest::tabPriceWritesOneRow()
+{
+    PricingFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-one-row", "Dump", 0);
+    const auto a = makeNotedItem("one-row-a", tab);
+    const auto b = makeNotedItem("one-row-b", tab);
+    const auto c = makeNotedItem("one-row-c", tab);
+    fixture.items.OnItemsRefreshed({a, b, c}, {tab}, false);
+
+    BuyoutTargets targets;
+    targets.tabs = {tab};
+    const ApplyBuyoutResult result = ApplyBuyout(*fixture.buyouts.manager,
+                                                 fixture.items,
+                                                 targets,
+                                                 makeChaosBuyout(4.0));
+    QCOMPARE(result.applied, 1);
+
+    QCOMPARE(fixture.buyouts.repo->loadItemBuyouts().value().size(), size_t(0));
+    QCOMPARE(fixture.buyouts.repo->loadLocationBuyouts().value().size(), size_t(1));
+    for (const auto &item : {a, b, c}) {
+        const EffectivePrice price = fixture.buyouts.manager->Effective(*item);
+        QCOMPARE(price.source, PriceSource::ManualTab);
+        QCOMPARE(price.buyout.value, 4.0);
+    }
+}
+
+// An inherited row an older build wrote is ignored on load: it is a copy of
+// a tab's price, not a price the user set on the item, and it is never read
+// as one.
+void BuyoutManagerTest::inheritedRowIsIgnoredOnLoad()
+{
+    BuyoutManagerFixture fixture;
+    const Item item = makeTestItem("inherited-row");
+    Buyout copy = makeChaosBuyout(3.0);
+    copy.inherited = true;
+    QCOMPARE(fixture.repo->saveItemBuyout(copy,
+                                          item.id(),
+                                          item.location().id(),
+                                          item.location().type(),
+                                          true),
+             BuyoutSaveResult::Saved);
+    fixture.manager->ReloadBuyouts();
+    QVERIFY(fixture.manager->BuyoutsLoaded());
+
+    QVERIFY(fixture.manager->Get(item).IsNull());
+    QCOMPARE(fixture.manager->Effective(item).source, PriceSource::None);
+}
+
+// The Date column for an item that shows its tab's price shows the tab
+// price's own date. It showed when the price was first copied onto the
+// item, which changed with every copy.
+void BuyoutManagerTest::inheritedDateIsTheTabPricesDate()
+{
+    PricingFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-date", "Dump", 0);
+    const auto item = makeNotedItem("date-item", tab);
+    const QDateTime set_at = QDateTime::fromSecsSinceEpoch(1000);
+    QVERIFY(fixture.buyouts.manager->SetTab(tab,
+                                            Buyout(4.0,
+                                                   Buyout::BUYOUT_TYPE_BUYOUT,
+                                                   Currency::CURRENCY_CHAOS_ORB,
+                                                   set_at)));
+    fixture.items.OnItemsRefreshed({item}, {tab}, false);
+
+    QCOMPARE(fixture.buyouts.manager->Effective(*item).buyout.last_update, set_at);
+}
+
 void BuyoutManagerTest::itemBuyoutRoundTrip()
 {
     BuyoutManagerFixture fixture;
@@ -157,42 +231,25 @@ void BuyoutManagerTest::tabBuyoutRoundTrip()
     QCOMPARE(fixture.manager->GetTab(location), buyout);
 }
 
-static void propagateTabBuyout(BuyoutManager &manager, const Item &item)
-{
-    const auto itemBuyout = manager.Get(item);
-    auto tabBuyout = manager.GetTab(item.location());
-
-    if (itemBuyout.IsInherited()) {
-        if (tabBuyout.IsActive()) {
-            tabBuyout.inherited = true;
-            tabBuyout.last_update = QDateTime::currentDateTime();
-            manager.Set(item, tabBuyout);
-        } else {
-            manager.Set(item, Buyout());
-        }
-    }
-}
-
-void BuyoutManagerTest::tabBuyoutPropagation()
+// An item without its own price shows its tab's, read when asked, marked
+// inherited; an item whose tab has none shows none. Nothing is stored on
+// the item.
+void BuyoutManagerTest::itemShowsItsTabsPrice()
 {
     BuyoutManagerFixture activeFixture;
     const Item activeItem = makeTestItem("propagated-item");
     activeFixture.manager->SetTab(activeItem.location(), makeChaosBuyout(12.0));
 
-    propagateTabBuyout(*activeFixture.manager, activeItem);
-
-    const Buyout propagated = activeFixture.manager->Get(activeItem);
-    QVERIFY(propagated.IsActive());
-    QVERIFY(propagated.IsInherited());
-    QCOMPARE(propagated.value, 12.0);
-    QCOMPARE(propagated.currency, Currency::CURRENCY_CHAOS_ORB);
+    const Buyout shown = activeFixture.manager->Effective(activeItem).buyout;
+    QVERIFY(shown.IsActive());
+    QVERIFY(shown.IsInherited());
+    QCOMPARE(shown.value, 12.0);
+    QCOMPARE(shown.currency, Currency::CURRENCY_CHAOS_ORB);
+    QVERIFY(activeFixture.manager->Get(activeItem).IsNull());
 
     BuyoutManagerFixture inactiveFixture;
     const Item inactiveItem = makeTestItem("cleared-inherited-item");
-
-    propagateTabBuyout(*inactiveFixture.manager, inactiveItem);
-
-    QVERIFY(inactiveFixture.manager->Get(inactiveItem).IsNull());
+    QCOMPARE(inactiveFixture.manager->Effective(inactiveItem).source, PriceSource::None);
 }
 
 void BuyoutManagerTest::clearingItemBuyoutRemovesInMemoryValue()
@@ -416,7 +473,7 @@ void BuyoutManagerTest::renamedTabClearsGameTabPrice()
     const auto item = makeNotedItem("item-251c", priced_tab);
     fixture.items.OnItemsRefreshed({item}, {priced_tab}, false);
     QVERIFY(fixture.buyouts.manager->GetTab(priced_tab).IsGameSet());
-    QVERIFY(fixture.buyouts.manager->Get(*item).IsActive());
+    QVERIFY(fixture.buyouts.manager->Effective(*item).buyout.IsActive());
 
     const ItemLocation renamed_tab = makeTestStashLocation("stash-251c", "Dump", 0);
     const auto moved = makeNotedItem("item-251c", renamed_tab);
@@ -478,16 +535,16 @@ void BuyoutManagerTest::manualPriceWithEmptyNoteIsUntouched()
     QVERIFY(fixture.buyouts.repo->loadItemBuyouts().value().contains("item-251f"));
 }
 
-// An item inheriting a game-set tab price carries the game source too. The
-// clearing rule must leave it to propagation, or every refresh would delete
-// and rewrite its row (the F52 class of churn).
+// An item showing a game-set tab price carries the game source too, and
+// nothing is written for it on a refresh (the F52 class of churn): since
+// #293 no row is stored for it at all.
 void BuyoutManagerTest::inheritedGameTabPriceIsNotRewritten()
 {
     PricingFixture fixture;
     const ItemLocation tab = makeTestStashLocation("stash-251g", "~price 5 chaos", 0);
     const auto item = makeNotedItem("item-251g", tab);
     fixture.items.OnItemsRefreshed({item}, {tab}, false);
-    QVERIFY(fixture.buyouts.manager->Get(*item).inherited);
+    QVERIFY(fixture.buyouts.manager->Effective(*item).buyout.inherited);
 
     // Rows written through the fixture's connection, counted by SQLite.
     const auto total_changes = [&fixture] {
@@ -504,7 +561,7 @@ void BuyoutManagerTest::inheritedGameTabPriceIsNotRewritten()
 
     QCOMPARE(total_changes(), changes_before);
     QCOMPARE(changes, 0);
-    QVERIFY(fixture.buyouts.manager->Get(*item).IsActive());
+    QVERIFY(fixture.buyouts.manager->Effective(*item).buyout.IsActive());
 }
 
 // The per-league data file is the one the legacy importer reads, and the
@@ -605,7 +662,7 @@ void BuyoutManagerTest::removeOnlyPricedTabStaysUnlocked()
     QVERIFY(!fixture.buyouts.manager->GetRefreshLocked(tab));
 
     fixture.items.OnItemsRefreshed({item}, {tab}, false);
-    QVERIFY(fixture.buyouts.manager->Get(*item).IsActive());
+    QVERIFY(fixture.buyouts.manager->Effective(*item).buyout.IsActive());
     QVERIFY(!fixture.buyouts.manager->GetRefreshLocked(tab));
 }
 

@@ -219,8 +219,10 @@ void EffectivePriceTest::readersAgree_data()
         << "b/o 7 chaos" << false << chaos << 7.0 << true  << "fixed" << true  << false << true  << PS::ManualItem << true;
     QTest::newRow("tab name")                 << "~price 2 chaos" << 0.0 << ""            << none << false
         << "price 2 chaos" << true << chaos << 2.0 << true << "now"   << true  << true  << true  << PS::TabName    << false;
+    // Since #293 step 2 the date of a price shown from the tab is the tab
+    // price's own (here 1970), not when it was first copied onto the item.
     QTest::newRow("manual tab")               << "Dump"          << 3.0 << ""             << none << false
-        << "b/o 3 chaos" << true  << chaos << 3.0 << true  << "now"   << true  << false << true  << PS::ManualTab  << true;
+        << "b/o 3 chaos" << true  << chaos << 3.0 << true  << "fixed" << true  << false << true  << PS::ManualTab  << true;
     QTest::newRow("note, tab name")           << "~price 2 chaos" << 0.0 << "~b/o 5 chaos" << none << false
         << "b/o 5 chaos" << false << chaos << 5.0 << true  << "now"   << true  << true  << true  << PS::Note       << false;
     QTest::newRow("manual item, manual tab")  << "Dump"          << 3.0 << ""             << bo   << false
@@ -242,7 +244,7 @@ void EffectivePriceTest::readersAgree_data()
     QTest::newRow("tab name, delta")          << "~price 2 chaos" << 0.0 << ""            << none << true
         << "price 2 chaos" << true << chaos << 2.0 << true << "now"   << true  << true  << true  << PS::TabName    << false;
     QTest::newRow("manual tab, delta")        << "Dump"          << 3.0 << ""             << none << true
-        << "b/o 3 chaos" << true  << chaos << 3.0 << true  << "now"   << true  << false << true  << PS::ManualTab  << true;
+        << "b/o 3 chaos" << true  << chaos << 3.0 << true  << "fixed" << true  << false << true  << PS::ManualTab  << true;
     QTest::newRow("manual item, tab name, delta") << "~price 2 chaos" << 0.0 << ""        << bo   << true
         << "b/o 7 chaos" << false << chaos << 7.0 << true  << "fixed" << true  << true  << true  << PS::ManualItem << true;
     // clang-format on
@@ -291,15 +293,15 @@ void EffectivePriceTest::seededRowsReadAsBefore_data()
     QTest::addColumn<double>("row_value");
     addExpectedColumns();
 
-    const int chaos = Currency(Currency::CURRENCY_CHAOS_ORB).AsRank();
     using PS = PriceSource;
     // clang-format off
     QTest::newRow("manual inherit row")  << "" << "manual" << false << 0.0
         << ""            << true  << 0     << 0.0 << false << "fixed" << false << false << false << PS::None      << false;
     QTest::newRow("game inherit row")    << "" << "game"   << false << 0.0
         << ""            << true  << 0     << 0.0 << false << "fixed" << false << true  << false << PS::Note      << false;
+    // Since #293 step 2 an inherited copy is not loaded at all.
     QTest::newRow("left-behind inherited copy") << "b/o" << "manual" << true << 3.0
-        << "b/o 3 chaos" << true  << chaos << 3.0 << true  << "fixed" << true  << false << false << PS::ManualTab << true;
+        << ""            << true  << 0     << 0.0 << false << "null"  << false << false << false << PS::None      << false;
     // clang-format on
 }
 

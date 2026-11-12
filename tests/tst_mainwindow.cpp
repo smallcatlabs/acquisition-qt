@@ -484,7 +484,7 @@ void MainWindowTest::legacyImportPropagationRefreshesPricingState()
     QCOMPARE(change_count, 1);
     QVERIFY(everything_changed);
     QCOMPARE(fixture.buyoutFixture.manager->GetTab(tab).value, 12.0);
-    const Buyout propagated = fixture.buyoutFixture.manager->Get(*item);
+    const Buyout propagated = fixture.buyoutFixture.manager->Effective(*item).buyout;
     QCOMPARE(propagated.value, 12.0);
     QVERIFY(propagated.inherited);
     QVERIFY(fixture.buyoutFixture.manager->GetRefreshLocked(tab));
@@ -1619,11 +1619,15 @@ void MainWindowTest::pricingPassYieldsSingleModelUpdate()
     fixture.itemsManager->OnTabRefreshed(tabA, delta);
     QCOMPARE(probes.model_updates, 1);
 
-    // The final propagation pass alone: two inherited prices, one batch.
+    // A tab price reaches the two items without their own price as one
+    // change to the tab (#293: nothing is copied onto them), one batch; the
+    // final pass then writes nothing and updates nothing.
+    probes.reset();
     fixture.buyoutFixture.manager->SetTab(tabA, makeChaosBuyout(2));
+    QCOMPARE(probes.model_updates, 1);
     probes.reset();
     fixture.itemsManager->PropagateTabBuyouts();
-    QCOMPARE(probes.model_updates, 1);
+    QCOMPARE(probes.model_updates, 0);
     probes.enabled = false;
 }
 
@@ -4497,8 +4501,8 @@ void MainWindowTest::priceEditSkipsGamePricedRows()
     QVERIFY(manager.Get(*noted).IsGameSet());
     QCOMPARE(manager.GetTab(priced).value, 2.0);
     QVERIFY(manager.GetTab(priced).IsGameSet());
-    QCOMPARE(manager.Get(*inside).value, 2.0);
-    QVERIFY(manager.Get(*inside).IsInherited());
+    QCOMPARE(manager.Effective(*inside).buyout.value, 2.0);
+    QVERIFY(manager.Effective(*inside).buyout.IsInherited());
 }
 
 // Selects two unpriced items of one tab and returns them, the value box
@@ -5097,7 +5101,7 @@ void MainWindowTest::clickFromTabToItemShowsTheCommittedPrice()
 
     const auto &manager = *fixture.buyoutFixture.manager;
     QCOMPARE(manager.GetTab(r.tab).value, 5.0);
-    QCOMPARE(manager.Get(*r.a).value, 5.0);
+    QCOMPARE(manager.Effective(*r.a).buyout.value, 5.0);
     QCOMPARE(value->text(), "5");
 }
 

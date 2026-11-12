@@ -87,8 +87,11 @@ after a few seconds, or as soon as an edit is saved.
 
 Pricing a stash tab or character prices every item in it that is still on
 *[Inherit]*. Setting an item's own buyout overrides the tab's for that item;
-setting it back to *[Inherit]* restores the tab price. *Current Offer* is not
-meaningful for a tab and is logged as obsolete if it is found on one.
+setting it back to *[Inherit]* restores the tab price. Only the tab's price
+is stored: an item on *[Inherit]* shows the tab's price, in grey, for as long
+as the tab has one, and its *Last Update* is when the tab's price was set.
+*Current Offer* is not meaningful for a tab and is logged as obsolete if it
+is found on one.
 
 ### Currencies
 

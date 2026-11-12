@@ -207,7 +207,11 @@ std::optional<std::unordered_map<QString, Buyout>> BuyoutRepo::loadItemBuyouts()
     if (!q.prepare("SELECT"
                    "    item_id, location_id, location_type,"
                    "    currency, inherited, last_update, source, type, value"
-                   " FROM item_buyouts")) {
+                   " FROM item_buyouts"
+                   // A copy of a tab's price that an older build stored on
+                   // each item is not the user's: it is left in the table
+                   // and ignored (#293).
+                   " WHERE inherited = 0")) {
         spdlog::error("BuyoutRepo: prepare() failed: {}", q.lastError().text());
         return std::nullopt;
     }

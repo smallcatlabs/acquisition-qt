@@ -43,6 +43,8 @@ public:
     const LocationInventory &locationInventory() const { return m_location_inventory; }
     void ApplyAutoTabBuyouts();
     void ApplyAutoItemBuyouts();
+    // The final pass's refresh locks (the name is from when it also copied
+    // each tab's price onto its items).
     void PropagateTabBuyouts();
 public slots:
     void OnAutoRefreshTimer();
@@ -81,6 +83,9 @@ private:
     // outcomes, O(delta items). The final whole-collection pass at
     // ItemsRefreshed stays authoritative.
     void ApplyScopedPricing(const Items &delta_items);
+    // Whether an item's price in force, or its tab's, needs the tab
+    // refreshed to stay current (refresh locks).
+    bool PriceRequiresRefresh(const Item &item) const;
 
     QSettings &m_settings;
     BuyoutManager &m_buyout_manager;

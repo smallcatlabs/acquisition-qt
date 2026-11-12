@@ -24,9 +24,6 @@ namespace {
     //   note, a renamed tab, or a note naming an unknown currency (#273)
     //   never leaves a stale, locked price behind;
     // - anything else (no stored price, a manual price) is left alone.
-    // A price inherited from a tab carries the game source too; it belongs to
-    // propagation, and clearing it here would delete and rewrite its row on
-    // every pass.
     std::optional<Buyout> GameBuyoutUpdate(BuyoutManager &manager,
                                            const Buyout &stored,
                                            const QString &text)
@@ -37,7 +34,7 @@ namespace {
                 return parsed;
             }
         }
-        if (stored.IsGameSet() && !stored.inherited) {
+        if (stored.IsGameSet()) {
             return Buyout();
         }
         return std::nullopt;
@@ -129,10 +126,10 @@ void ItemsManager::ApplyAutoItemBuyouts()
 void ItemsManager::PropagateTabBuyouts()
 {
     spdlog::trace("ItemsManager::PropagateTabBuyouts() entered");
-    // Pricing passes batch (M3 R1-6). When a user command triggers this
-    // pass, the command's own batch encloses it and this boundary emits
-    // nothing (R3-3).
-    const BuyoutBatch batch(m_buyout_manager);
+    // A tab's price is no longer copied onto its items (#293): an item
+    // without its own price shows its tab's when it is read
+    // (BuyoutManager::Effective). What is left of this final pass is the
+    // refresh locks, recomputed from the prices in force.
     m_buyout_manager.ClearRefreshLocks();
     // A tab whose own price requires a refresh is locked from the tab list,
     // so a priced tab with no loaded items (empty, or not fetched yet) is
@@ -144,32 +141,19 @@ void ItemsManager::PropagateTabBuyouts()
             m_buyout_manager.SetRefreshLocked(tab);
         }
     }
-    for (auto &item_ptr : m_items.Flat()) {
-        Item &item = *item_ptr;
-        auto item_bo = m_buyout_manager.Get(item);
-        auto tab_bo = m_buyout_manager.GetTab(item.location());
-
-        if (item_bo.IsInherited()) {
-            if (tab_bo.IsActive()) {
-                // Any propagation from tab price to item price should include this bit set
-                tab_bo.inherited = true;
-                tab_bo.last_update = QDateTime::currentDateTime();
-                m_buyout_manager.Set(item, tab_bo);
-            } else {
-                // This effectively 'clears' buyout by setting back to 'inherit' state.
-                m_buyout_manager.Set(item, Buyout());
-            }
-        }
-
-        // If any savable bo's are set on an item or the tab then lock the refresh state.
-        // Skip remove-only tabs because they are not editable, nor indexed for trade now.
-        if (item.location().removeonly() == false) {
-            if (m_buyout_manager.Effective(item).buyout.RequiresRefresh()
-                || tab_bo.RequiresRefresh()) {
-                m_buyout_manager.SetRefreshLocked(item.location());
-            }
+    // Skip remove-only tabs because they are not editable, nor indexed for
+    // trade now.
+    for (const auto &item : m_items.Flat()) {
+        if (!item->location().removeonly() && PriceRequiresRefresh(*item)) {
+            m_buyout_manager.SetRefreshLocked(item->location());
         }
     }
+}
+
+bool ItemsManager::PriceRequiresRefresh(const Item &item) const
+{
+    return m_buyout_manager.Effective(item).buyout.RequiresRefresh()
+           || m_buyout_manager.EffectiveTab(item.location()).buyout.RequiresRefresh();
 }
 
 void ItemsManager::OnItemsRefreshed(const Items &items,
@@ -273,32 +257,12 @@ void ItemsManager::ApplyScopedPricing(const Items &delta_items)
             m_buyout_manager.Set(*item, *update);
         }
 
-        // 2. Tab-inheritance propagation, mirroring PropagateTabBuyouts's
-        //    per-item rule against the currently published tab-buyout state.
-        //    GetTab keys on the stable location id, so a renamed tab's
-        //    streamed items still find their existing tab buyout. Tab-name
-        //    auto-pricing (SetTab) is deliberately absent: it is
-        //    final-pass-only (D7).
-        Buyout tab_bo = m_buyout_manager.GetTab(item->location());
-        if (m_buyout_manager.Get(*item).IsInherited()) {
-            if (tab_bo.IsActive()) {
-                tab_bo.inherited = true;
-                tab_bo.last_update = QDateTime::currentDateTime();
-                m_buyout_manager.Set(*item, tab_bo);
-            } else {
-                m_buyout_manager.Set(*item, Buyout());
-            }
-        }
-
-        // 3. Monotone refresh-lock additions only — ClearRefreshLocks stays
+        // 2. Monotone refresh-lock additions only — ClearRefreshLocks stays
         //    exclusive to the final pass. Fail-safe in the right direction:
         //    after a failed update the worst case is one redundant tab in
         //    the next checked refresh, never a priced tab dropped from it.
-        if (item->location().removeonly() == false) {
-            if (m_buyout_manager.Effective(*item).buyout.RequiresRefresh()
-                || tab_bo.RequiresRefresh()) {
-                m_buyout_manager.SetRefreshLocked(item->location());
-            }
+        if (!item->location().removeonly() && PriceRequiresRefresh(*item)) {
+            m_buyout_manager.SetRefreshLocked(item->location());
         }
     }
 }
