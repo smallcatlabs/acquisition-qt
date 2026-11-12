@@ -115,6 +115,9 @@ when this map and a header disagree, the header wins.
 
 ## Citation rules
 
+- Work is tracked in GitHub issues, grouped by milestone. The findings
+  register holds standing constraints, design-level findings and the
+  resolved ledger; an open finding names the issue that carries its work.
 - Problems get F-numbers in `cleanup/findings.md`, are never renumbered,
   and are cited by number everywhere else.
 - Ground-truth claims get N-numbers in `network-ground-truth.md` and

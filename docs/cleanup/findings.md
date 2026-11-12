@@ -19,12 +19,18 @@ Rules of the register:
 - Confidence levels: **Confirmed** means the defective code path was
   verified by reading it end-to-end; **Likely** means strong evidence with
   a gap needing a runtime check.
+- **GitHub issues are the work queue.** Defects and tasks are filed and
+  tracked there. A problem gets an F-number here only when it leaves a
+  standing constraint or a design decision that later work must cite. An
+  open finding names the issue that carries its work.
 
 ---
 
 ## Open findings
 
 ### F22. Dual persistence paths in `BuyoutManager` — Confirmed; won't fix unless touched
+
+Tracked as issue #295.
 
 Buyouts persist through `BuyoutRepo` (signal-driven, newer) while
 `refresh_checked_state` persists through `DataStore` JSON serialization
@@ -34,6 +40,8 @@ unification was dropped; a comment at the `m_refresh_checked` declaration
 documents the split. Unify only if other work touches this storage anyway.
 
 ### F54. The v4→v5 buyout migration never persists under the repo-backed store — Confirmed (mechanism); reachability unverified
+
+Tracked as issue #290, which also answers the reachability question.
 
 Found July 17, 2026, while validating the F52 fix's map-mirrors-repo
 assumption. Pre-existing on master; unrelated to PRs #162/#163.
@@ -77,6 +85,8 @@ proves out in a release, the plan of record
 finding by removal and retiring the F51 constraint.
 
 ### F63. `Character::guardian` and `skills` are modeled but never ingested — Confirmed; deferred by decision
+
+Related: issue #294 (one function from wire payload to items).
 
 Found July 27, 2026, during the 3.29 documentation reconciliation
 (external review). `poe::Character` models six item containers; both
@@ -171,6 +181,8 @@ shape: add the `OAuth ` prefix.
 
 ### F77. No OAuth de-arming: refresh failure and bearer rejection are log-only — Confirmed
 
+Related: issue #259 (refresh failures are not distinguished for the user).
+
 Found August 8, 2026, during the same investigation.
 `OAuthManager`'s failure signals land in slots that only write log
 lines (`onRequestFailure`, `onServerError`): no de-arming, no
@@ -184,90 +196,6 @@ nothing listens to OAuth state at all — `grantAccess` is consumed
 only by `LoginDialog`. Fix shape: surface refresh failure to the UI
 and add an `oauth_rejected` de-arming path symmetric with the
 POESESSID one.
-
-### F78. `_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR` was defined for only one target — Resolved; build and installer fixes verified on Windows
-
-Found August 22, 2026, from a Sentry crash on 0.18.3
-(`acquisition.sentry.io/issues/7687078638`, two events, one Windows 10
-19044 machine). `EXCEPTION_ACCESS_VIOLATION_READ / 0x0` inside
-`mtx_do_lock` (MSVCP140.dll), reached from `main` ->
-`logging::init` (`src/util/logging.cpp:78`) ->
-`spdlog::set_default_logger` -> `registry::set_default_logger`
-(`registry-inl.h`) -> `std::lock_guard`. The process died on its very
-first `std::mutex` lock, before `logging::init` returned.
-
-Mechanism: MSVC 14.38 (VS 2022 17.8) made `std::mutex`'s constructor
-`constexpr`, so the mutex's storage is constant-initialized to zero
-instead of being set up by `_Mtx_init_in_situ`. An older
-`msvcp140.dll` does not understand that representation and its
-`mtx_do_lock` dereferences a null handle. The crash event's debug
-images confirm it: `acquisition.exe` built 2026-08-20 against a
-`C:\Windows\SYSTEM32\MSVCP140.dll` built 2021-02-11 (~14.28, the
-VS 2019 redistributable). The bundled `vc_redist.x64.exe` had never
-run or had failed; `installer.iss` makes it an optional Task.
-
-`_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR` was already in the build, but
-as a `PRIVATE` `target_compile_options` entry on `acquisition_core`
-alone. `src/main.cpp` (the `acquisition` target), `acquisition_filters`,
-every test target, and all fetched dependencies compiled without it.
-`std::mutex`'s constructor is inline, so a mutex inside an inline
-function or a header-only library — spdlog's `registry` singleton is
-exactly that — is emitted as a COMDAT by every translation unit that
-uses it. Mixing macro and non-macro TUs makes those definitions
-disagree and the linker keeps one arbitrarily: an ODR violation whose
-observable symptom is this crash. Partial coverage was therefore worse
-than none, because it read as protection.
-
-Fix: the macro is now a global `add_compile_definitions()` in
-`CMakeLists.txt`, placed ahead of the `FetchContent` block so the
-fetched dependencies get it too, and removed from the per-target list.
-
-Verified on Windows (August 22, 2026, MSVC 14.51 / Qt 6.11.1, fresh
-Release tree): every one of the 55 compiled targets — app, core,
-filters, all tests, spdlog, QCoro, QXlsx, sentry, crashpad — carries
-the macro in its generated project, and none is without it;
-`dumpbin /imports acquisition.exe` shows `_Mtx_init_in_situ` imported
-from MSVCP140.dll, i.e. the runtime-initialized constructor that an old
-CRT understands rather than the constexpr zero-init; `ctest` 39/39; the
-app launches and runs past `logging::init`. Not reproduced against an
-actual 14.28 `msvcp140.dll` — the workstation has a current CRT — so
-the closing evidence is the import, not a crash-then-no-crash.
-
-The remaining installer gap was closed August 27, 2026. `installer.iss`
-now runs the `windeployqt`-supplied redistributable as a mandatory
-prerequisite before modifying Acquisition, validates its exit code,
-propagates restart-required results, and preserves its diagnostic log
-under the user's local application data. Packaging fails if
-`windeployqt` omits the redistributable or supplies one without a valid
-Microsoft signature; the workflow does not download a fallback. The installer
-skips the prerequisite when an equal or newer registered runtime is already
-installed, preserving an unelevated per-user installation in that case. When
-the runtime is missing or older, its machine-wide update requires administrator
-approval, after which Acquisition can still be installed per-user. Every install
-also deletes stale app-local `msvcp140*`, `vcruntime140*`, and `concrt140` DLLs
-before copying application files. Redistributable logs are intentionally retained
-under `%LOCALAPPDATA%\acquisition\installer-logs` for diagnosis after setup or
-uninstallation. The existing stray-DLL runtime
-check remains because users historically copied CRT DLLs into the
-Acquisition directory themselves.
-
-Verified on the Windows workstation in two isolated installs: a host test
-with a newer runtime accepted redistributable result 1638, and a disposable
-Windows Sandbox started without a registered x64 runtime, installed
-v14.44.35211.00, launched Acquisition with an isolated data directory, and
-uninstalled cleanly. Both removed seeded stale app-local CRT files and left
-neither CRT DLLs nor `vc_redist.x64.exe` beside the application. The
-checked-in Sandbox harness also covers synthetic restart-required and
-prerequisite-failure exit paths.
-
-Known diagnostic limitation retained by design:
-
-- `checkMicrosoftRuntime()` runs at `src/main.cpp:164`, *after*
-  `logging::init` at `:134`, so it can never fire for a crash in the
-  CRT's first lock. It also only looks for stray DLLs beside the exe
-  (`src/util/checkmsvc.cpp`) and never checks the system CRT's
-  version. The global compatibility macro protects startup against an
-  old system runtime, while the mandatory prerequisite upgrades it.
 
 ## Standing constraints and lessons
 
@@ -299,6 +227,14 @@ The F-numbers refer to the ledger below.
   UI-lifetime sinks attach/detach through the permanent
   `dist_sink_mt` hub, whose mutex makes detach safe against worker-thread
   logging.
+- **F78 — the constexpr-mutex macro is global.**
+  `_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR` is an `add_compile_definitions()`
+  placed ahead of the `FetchContent` block, so every target and every
+  fetched dependency is compiled with it. Defined on some targets only,
+  the inline `std::mutex` constructor disagrees across translation units
+  and the process dies on its first lock against an old `msvcp140.dll`.
+  The installer runs the Visual C++ redistributable as a mandatory
+  prerequisite for the same reason.
 
 ---
 
@@ -380,3 +316,4 @@ above). "PR #161" refers to the post-Phase-6 follow-ups branch
 | F72 | The Authorization mask in `NetworkManager::logHeaders` compared `name` (the "request"/"reply" label) instead of `header`, so masking could never fire; latent today, but any future post-send request log would have leaked the bearer unmasked | Fixed, August 2026 mechanical-findings sweep: the check compares `header` |
 | F73 | Token bytes could reach the error log via `glz::format_error`'s buffer context on token serialization failure (`OAuthManager::receiveToken`) and token parse failure (`read_json` via `readOAuthToken`) | Fixed, August 2026 mechanical-findings sweep: `receiveToken` formats the error without the buffer, and `read_json` takes a `buffer_may_hold_credentials` flag (set by `readOAuthToken`) that logs the error code and position only |
 | F76 | Dead OAuth/session code: `OAuthManager::m_authenticated` never written, `isAuthenticatedChanged` connected nowhere, `LoginDialog::OnSessionIDChanged` never connected | Deleted, August 2026 mechanical-findings sweep (F69 precedent) |
+| F78 | `_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR` was defined for `acquisition_core` only, so `main.cpp`, the filters library, the tests and the fetched dependencies were compiled without it; the mixed definitions of the inline `std::mutex` constructor crashed 0.18.3 on its first lock (`logging::init` → spdlog's registry) on a machine with a 2021 `msvcp140.dll` (Sentry, August 22, 2026) | Fixed August 22, 2026: the macro is a global definition ahead of `FetchContent`; verified on Windows across all 55 targets, with `_Mtx_init_in_situ` imported by `acquisition.exe`. Installer gap closed August 27, 2026: the redistributable is a mandatory, signature-checked prerequisite and stale app-local CRT DLLs are removed. Not reproduced against an actual old runtime. Known limit kept: `checkMicrosoftRuntime()` runs after `logging::init` and inspects only DLLs beside the executable. Standing constraint (above) |
