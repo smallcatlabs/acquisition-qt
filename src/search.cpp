@@ -399,7 +399,6 @@ void Search::FilterItems(const Items &items)
     if (auto &probes = ModelProbes::instance(); probes.enabled) {
         ++probes.index_rebuilds;
     }
-    m_items.clear();
     // "Filtered" means ANY filter is active (the spec's July 31, 2026
     // post-freeze amendment at D2 rule 5), not the old "at least one
     // item was rejected" snapshot: the membership decisions hanging off
@@ -436,11 +435,8 @@ void Search::FilterItems(const Items &items)
             }
         }
         if (matches) {
-            // This item passed through all the filters, so we can
-            // add it to the list of items and total count.
-            m_items.push_back(item);
-
-            // Add this item to the "By Item" bucket.
+            // This item passed through all the filters: add it to the
+            // "By Item" bucket.
             m_bucket_by_item.front().AddItem(item);
 
             // Record the stable identity for R6-3 reselection and the
@@ -467,7 +463,6 @@ void Search::FilterItems(const Items &items)
     AssignSerials();
     ArrangeTabTree();
     RebuildRowLookups();
-    m_items_stale = false;
     m_flat_bucket_stale = false;
     m_tab_buckets_stale = false;
 
@@ -494,28 +489,21 @@ void Search::FilterItems(const Items &items)
     m_items_dirty = false; // a successful refilter clears its own flag (D9 rule 3)
 }
 
-const Items &Search::items() const
+Items Search::items() const
 {
-    if (m_items_stale) {
-        // Lazily reconciled from the maintained side: the delta path
-        // never pays an O(collection) pass, and only user-initiated
-        // boundaries (mode switch) and tests read this. In By-Item mode
-        // the flat bucket is the maintained structure (S5) — the By-Tab
-        // side is stale until the next mode switch rebuilds it.
-        m_items.clear();
-        if (m_tab_buckets_stale) {
-            if (!m_bucket_by_item.empty()) {
-                const auto &flat = m_bucket_by_item.front().items();
-                m_items.insert(m_items.end(), flat.begin(), flat.end());
-            }
-        } else {
-            for (const auto &bucket : m_bucket_by_tab) {
-                m_items.insert(m_items.end(), bucket.items().begin(), bucket.items().end());
-            }
-        }
-        m_items_stale = false;
+    // Read from whichever side is maintained: the delta path keeps the
+    // active mode's buckets (S4/S5), so the flat bucket is stale after
+    // By-Tab deltas and the tab buckets after By-Item ones; a refilter
+    // freshens both. Only the mode switch and tests read this, so no
+    // delta pays an O(collection) pass for it.
+    if (!m_flat_bucket_stale) {
+        return m_bucket_by_item.empty() ? Items{} : m_bucket_by_item.front().items();
     }
-    return m_items;
+    Items items;
+    for (const auto &bucket : m_bucket_by_tab) {
+        items.insert(items.end(), bucket.items().begin(), bucket.items().end());
+    }
+    return items;
 }
 
 int Search::rowForSerial(std::uint64_t serial) const
@@ -1400,7 +1388,6 @@ Search::DeltaApplication Search::ApplyTabDelta(const ItemLocation &location, con
         // A kind change (folder <-> tab, unobserved) is a different row
         // kind (D5): the old bucket leaves and the delta inserts it anew.
         if (RemoveTabBucket(bucket_row, true)) {
-            m_items_stale = true;
             m_flat_bucket_stale = true;
             result.content_changed = true;
         }
@@ -1420,7 +1407,6 @@ Search::DeltaApplication Search::ApplyTabDelta(const ItemLocation &location, con
         }
         inserted = InsertTabBucket(canonical, accepted);
         if (!accepted.empty() && !canonical.IsFolder()) {
-            m_items_stale = true;
             m_flat_bucket_stale = true;
             result.content_changed = true;
         }
@@ -1444,7 +1430,6 @@ Search::DeltaApplication Search::ApplyTabDelta(const ItemLocation &location, con
         }
 
         if (removed || !accepted.empty()) {
-            m_items_stale = true;
             m_flat_bucket_stale = true;
             result.content_changed = true;
             result.model_changed = true;
@@ -1509,7 +1494,6 @@ Search::DeltaApplication Search::ApplyFlatDelta(const FetchSourceKey &source, co
     }
 
     if (!removed_items.empty() || !accepted.empty()) {
-        m_items_stale = true;
         result.content_changed = true;
         result.model_changed = true;
     }
@@ -1567,7 +1551,6 @@ Search::DeltaApplication Search::ApplyChildReconciliation(
             IndexRemoveVisible(item);
         }
         if (!removed_items.empty()) {
-            m_items_stale = true;
             result.content_changed = true;
             result.model_changed = true;
         }
@@ -1584,7 +1567,6 @@ Search::DeltaApplication Search::ApplyChildReconciliation(
         // A kind change (folder <-> tab) is a different row kind (D5): the
         // bucket leaves; a later delta or the snapshot inserts it anew.
         if (RemoveTabBucket(bucket_row, true)) {
-            m_items_stale = true;
             m_flat_bucket_stale = true;
             result.content_changed = true;
         }
@@ -1610,7 +1592,6 @@ Search::DeltaApplication Search::ApplyChildReconciliation(
         return allowed.count(FetchSourceKey::ForLocation(item.location())) == 0;
     });
     if (removed) {
-        m_items_stale = true;
         m_flat_bucket_stale = true;
         result.content_changed = true;
         result.model_changed = true;
@@ -1704,7 +1685,6 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
             IndexInsertVisible(item);
         }
         if (!removed_items.empty() || !missing.empty()) {
-            m_items_stale = true;
             result.content_changed = true;
             result.model_changed = true;
         }
@@ -1876,7 +1856,6 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
     }
 
     if (result.content_changed) {
-        m_items_stale = true;
         m_flat_bucket_stale = true;
     }
     m_items_dirty = false; // authoritative (R1-7)

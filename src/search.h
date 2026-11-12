@@ -47,11 +47,10 @@ public:
     ~Search();
     void FilterItems(const Items &items);
     const QString &caption() const { return m_caption; }
-    // The visible filtered collection. The delta path maintains the
-    // active mode's buckets and the indexes incrementally (S4/S5) and
-    // this flat vector is rebuilt lazily from the maintained side on
-    // first read — no delta pays an O(collection) pass to keep it fresh.
-    const Items &items() const;
+    // The visible filtered collection, read from the side the delta path
+    // maintains (S4/S5): the flat bucket while it is fresh, else the tab
+    // buckets in tree order.
+    Items items() const;
     const std::vector<std::unique_ptr<Column>> &columns() const { return m_columns; }
     ItemsModel &model() { return m_model; }
     // Expansion is keyed by the stable (type, id) display key (M2 R6-3):
@@ -502,17 +501,14 @@ private:
     std::uint64_t m_next_bucket_serial{1};
 
     // Staleness marks: the delta path maintains the ACTIVE mode's buckets
-    // and the indexes (S4 By-Tab, S5 By-Item); the other side rebuilds
-    // lazily — m_items on first read, the inactive mode's buckets at the
-    // next mode switch. At most one of the two mode marks is set: each
-    // mode's application stales the other side, and a refilter clears
-    // both.
-    mutable bool m_items_stale{false};
+    // and the indexes (S4 By-Tab, S5 By-Item); the inactive mode's
+    // buckets rebuild at the next mode switch. At most one of the two
+    // marks is set: each mode's application stales the other side, and a
+    // refilter clears both.
     bool m_flat_bucket_stale{false};
     bool m_tab_buckets_stale{false};
 
     QString m_caption;
-    mutable Items m_items;
     // True when any filter is active (the spec's post-freeze amendment
     // at D2 rule 5 — see the FilterItems comment): stable across
     // deltas, flips only at filter edits. Drives hidden empty buckets
