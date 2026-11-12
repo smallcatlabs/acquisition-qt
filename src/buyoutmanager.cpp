@@ -106,10 +106,8 @@ void BuyoutManager::Set(const Item &item, const Buyout &buyout)
         // PropagateTabBuyouts clears nearly every item on every refresh, which
         // used to issue one no-op DELETE per item (F52). CompressItemBuyouts
         // drifts the map from the repo only toward orphan repo rows, which
-        // this guard leaves alone. MigrateItem rekeys in memory only, so it
-        // drifts both ways at once (the old row is orphaned, the new key has
-        // no row — see F54), and a failed save also leaves a rowless map
-        // entry; clearing a rowless entry is just a harmless zero-row DELETE.
+        // this guard leaves alone. A failed save leaves a rowless map entry;
+        // clearing a rowless entry is just a harmless zero-row DELETE.
         // The map entry is erased only after a successful delete so that a
         // failed delete is retried the next time this entry is cleared,
         // instead of leaving the row to resurrect at the next Load().
@@ -459,30 +457,4 @@ Buyout BuyoutManager::StringToBuyout(QString format)
         tmp.last_update = QDateTime::currentDateTime();
     }
     return tmp;
-}
-
-void BuyoutManager::MigrateItem(const QString &old_hash, const QString &new_hash)
-{
-    const auto old_it = m_buyouts.find(old_hash);
-
-    // Return if there is nothing to migrate.
-    if (old_it == m_buyouts.end()) {
-        return;
-    }
-
-    const auto new_it = m_buyouts.find(new_hash);
-
-    if ((new_it == m_buyouts.end()) || (new_it->second.source != Buyout::BUYOUT_SOURCE_MANUAL)) {
-        const auto buyout = old_it->second;
-        m_buyouts[new_hash] = buyout;
-        m_buyouts.erase(old_it);
-        m_save_needed = true;
-        // Migration changes the lookup result for both keys (D1 rule 4,
-        // R1-6/R2-6): the old hash stops resolving and the new one starts.
-        // It is ONE mutation, so the two records share an internal batch —
-        // an unbatched migration must emit a single boundary, not two.
-        const BuyoutBatch batch(*this);
-        RecordChange(ChangeScope::Item, old_hash);
-        RecordChange(ChangeScope::Item, new_hash);
-    }
 }

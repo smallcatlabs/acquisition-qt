@@ -1125,8 +1125,7 @@ void MainWindowTest::probeCountersTrackCaptureRestore()
 // M3 S2, behavioral half of `priceKeysFollowBuyoutEdits` (D1 rule 4): with
 // Price active, user buyout edits — item and tab level, set and clear —
 // reorder affected rows at command end, one model update per command
-// (R2-5/R3-3); migration reorders within the snapshot's outer batch, not at
-// a command end (R1-6/R2-6, R3-4); Date is symmetric. The resident-key
+// (R2-5/R3-3); Date is symmetric. The resident-key
 // assertions (R3-2: entries rebuild before the reorder) land in S3.
 void MainWindowTest::priceKeysFollowBuyoutEdits()
 {
@@ -1224,44 +1223,6 @@ void MainWindowTest::priceKeysFollowBuyoutEdits()
         QCOMPARE(bucketItemNames(*model, bucket),
                  QStringList({"Bravo Sword", "Charlie Sword", "Alpha Sword"}));
         probes.enabled = false;
-    }
-
-    // Migration (MigrateItem via ItemsManager::MigrateBuyouts): reorders
-    // within the snapshot's outer batch — one model update for the whole
-    // snapshot, no command boundary involved.
-    {
-        MainWindowFixture fixture;
-        auto *tree = fixture.window->findChild<QTreeView *>("treeView");
-        QVERIFY(tree);
-
-        const ItemLocation tabA = makeTestStashLocation("stash-alpha", "Alpha Tab", 0);
-        Items items;
-        const auto alpha = makeMainWindowItem("item-alpha", "Alpha", "Sword", tabA);
-        items.push_back(makeMainWindowItem("item-zed", "Zed", "Sword", tabA));
-        items.push_back(alpha);
-
-        // Seed a buyout under Alpha's v4 hash: the fresh datastore's
-        // db_version drives MigrateBuyouts to rekey it to the item id
-        // during the snapshot's pricing sequence.
-        fixture.buyoutFixture.manager->Set(*alpha, makeChaosBuyout(7));
-        fixture.buyoutFixture.manager->MigrateItem(alpha->id(), alpha->hash_v4());
-        QVERIFY(fixture.buyoutFixture.manager->Get(*alpha).IsNull());
-
-        tree->header()->setSortIndicator(1, Qt::AscendingOrder);
-        auto &probes = ModelProbes::instance();
-        probes.reset();
-        probes.enabled = true;
-        fixture.itemsManager->OnItemsRefreshed(items, {tabA}, false);
-        QCOMPARE(probes.model_updates, 1);
-        probes.enabled = false;
-
-        QVERIFY(fixture.buyoutFixture.manager->Get(*alpha) == makeChaosBuyout(7));
-        const QModelIndex bucket = findBucket(*tree->model(), tabA.GetHeader());
-        QVERIFY(bucket.isValid());
-        tree->expand(bucket);
-        // The migrated price is in the displayed order: unpriced Zed sorts
-        // before Alpha's 7c under Price ascending.
-        QCOMPARE(bucketItemNames(*tree->model(), bucket), QStringList({"Zed Sword", "Alpha Sword"}));
     }
 }
 
@@ -1362,7 +1323,7 @@ void MainWindowTest::pricingPassYieldsSingleModelUpdate()
     probes.enabled = false;
 }
 
-// M3 R3-4: one snapshot's MigrateBuyouts -> ApplyAutoTabBuyouts ->
+// M3 R3-4: one snapshot's ApplyAutoTabBuyouts ->
 // ApplyAutoItemBuyouts -> PropagateTabBuyouts sequence produces at most
 // one reorder / model update on the active search, never one per pass;
 // buyout persistence writes still occur.

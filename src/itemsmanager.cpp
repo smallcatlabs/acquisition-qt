@@ -10,7 +10,6 @@
 #include <set>
 
 #include "buyoutmanager.h"
-#include "datastore/datastore.h"
 #include "item.h"
 #include "modlist.h"
 #include "repoe/repoe.h"
@@ -50,10 +49,9 @@ namespace {
 
 } // namespace
 
-ItemsManager::ItemsManager(QSettings &settings, BuyoutManager &buyout_manager, DataStore &datastore)
+ItemsManager::ItemsManager(QSettings &settings, BuyoutManager &buyout_manager)
     : m_settings(settings)
     , m_buyout_manager(buyout_manager)
-    , m_datastore(datastore)
     , m_auto_update_timer(std::make_unique<QTimer>())
 {
     spdlog::trace("ItemsManager::ItemsManager() entered");
@@ -191,9 +189,8 @@ void ItemsManager::OnItemsRefreshed(const Items &items,
     {
         // The snapshot's pricing sequence is one batch (M3 R3-4): nothing
         // observes UI state between these passes, so they must produce a
-        // single model update, never up to four.
+        // single model update, never up to three.
         const BuyoutBatch snapshot_batch(m_buyout_manager);
-        MigrateBuyouts();
         ApplyAutoTabBuyouts();
         ApplyAutoItemBuyouts();
         PropagateTabBuyouts();
@@ -321,48 +318,4 @@ void ItemsManager::OnAutoRefreshTimer()
 {
     spdlog::trace("ItemsManager::OnAutoRefreshTimer() entered");
     Update(TabSelection::Checked);
-}
-
-void ItemsManager::MigrateBuyouts()
-{
-    spdlog::trace("ItemsManager::MigrateBuyouts() entered");
-    // Migration is a pricing pass for batching purposes (M3 D1 rule 4,
-    // R1-6): in production the snapshot batch encloses it, and the
-    // v4-to-v5 recursion nests harmlessly.
-    const BuyoutBatch batch(m_buyout_manager);
-    const int db_version = m_datastore.GetInt("db_version");
-
-    // Do nothing if the database has already been migrated.
-    if (db_version == 5) {
-        spdlog::debug("ItemsManager skipping migration because db_version is {}", db_version);
-        return;
-    }
-
-    // Migrate from v4 to v5.
-    if (db_version == 4) {
-        spdlog::debug("ItemsManager migrating from db_version {} to 5", db_version);
-        for (const auto &item : m_items.Flat()) {
-            m_buyout_manager.MigrateItem(item->hash_v4(), item->id());
-        }
-        m_buyout_manager.Save();
-        m_datastore.SetInt("db_version", 5);
-        return;
-    }
-
-    // Log an error if the version is somehow too high.
-    if (db_version > 5) {
-        spdlog::error("ItemsManager cannot migrate because db_version {} is too new", db_version);
-        return;
-    }
-
-    // Migrate from older versions to v4.
-    spdlog::debug("ItemsManager migrating from db_version {} to 4", db_version);
-    for (const auto &item : m_items.Flat()) {
-        m_buyout_manager.MigrateItem(item->old_hash(), item->hash_v4());
-    }
-    m_buyout_manager.Save();
-    m_datastore.SetInt("db_version", 4);
-
-    // Trigger another migration from v4 to v5.
-    MigrateBuyouts();
 }

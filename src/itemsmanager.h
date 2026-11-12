@@ -20,7 +20,6 @@
 class QSettings;
 
 class BuyoutManager;
-class DataStore;
 class Shop;
 
 /*
@@ -32,7 +31,7 @@ class ItemsManager : public QObject
 {
     Q_OBJECT
 public:
-    explicit ItemsManager(QSettings &settings, BuyoutManager &buyout_manager, DataStore &datastore);
+    explicit ItemsManager(QSettings &settings, BuyoutManager &buyout_manager);
     ~ItemsManager();
     //bool isInitialized() const { return m_worker ? m_worker->isInitialized() : false; }
     //bool isUpdating() const { return m_worker ? m_worker->isUpdating() : false; }
@@ -81,7 +80,6 @@ signals:
     void UpdateModListSignal();
 
 private:
-    void MigrateBuyouts();
     // Scoped per-delta pricing (M2 D7): item-local, fail-safe on both
     // outcomes, O(delta items). The final whole-collection pass at
     // ItemsRefreshed stays authoritative.
@@ -89,7 +87,6 @@ private:
 
     QSettings &m_settings;
     BuyoutManager &m_buyout_manager;
-    DataStore &m_datastore;
 
     std::unique_ptr<QTimer> m_auto_update_timer;
     // Source-keyed published copy (M2 D3): the M2-M2 measurement fired the

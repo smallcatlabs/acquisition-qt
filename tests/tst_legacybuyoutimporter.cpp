@@ -512,13 +512,13 @@ void LegacyBuyoutImporterTest::formulaLikeLabelsStayText()
 
 void LegacyBuyoutImporterTest::importsVersion5StampedFiles()
 {
-    // Master's MigrateBuyouts stamps db_version 5 into upgraded legacy
-    // files while leaving the v4-generation hash keys intact (R1-1), so
-    // a 5-stamped file must match and import exactly like a 4-stamped
-    // one — this is the file shape most <=0.15 upgraders actually have.
-    // Asserting matched/orphaned counts (not just totals) keeps a
-    // regression in LegacyItem::hash() or the version gate visible
-    // (R2-8).
+    // Earlier releases' MigrateBuyouts (removed in #290) stamped
+    // db_version 5 into upgraded legacy files while leaving the
+    // v4-generation hash keys intact (R1-1), so a 5-stamped file must
+    // match and import exactly like a 4-stamped one — this is the file
+    // shape most <=0.15 upgraders actually have. Asserting
+    // matched/orphaned counts (not just totals) keeps a regression in
+    // LegacyItem::hash() or the version gate visible (R2-8).
     QTemporaryDir source_dir;
     QVERIFY(source_dir.isValid());
     const QString source_path = source_dir.filePath("legacy-v5.db");

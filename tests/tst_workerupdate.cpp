@@ -510,7 +510,7 @@ namespace {
         // load emits, so the manager sees every emission of the run.
         void attachManager(bool connect_deltas = true)
         {
-            manager = std::make_unique<ItemsManager>(settings, *bm.manager, *bm.data);
+            manager = std::make_unique<ItemsManager>(settings, *bm.manager);
             QObject::connect(worker.get(),
                              &ItemsManagerWorker::ItemsRefreshed,
                              manager.get(),

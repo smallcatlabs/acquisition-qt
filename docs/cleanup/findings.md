@@ -39,51 +39,6 @@ spec upgrade, July 2026): nothing forces storage changes here, so
 unification was dropped; a comment at the `m_refresh_checked` declaration
 documents the split. Unify only if other work touches this storage anyway.
 
-### F54. The v4→v5 buyout migration never persists under the repo-backed store — Confirmed (mechanism); reachability unverified
-
-Tracked as issue #290, which also answers the reachability question.
-
-Found July 17, 2026, while validating the F52 fix's map-mirrors-repo
-assumption. Pre-existing on master; unrelated to PRs #162/#163.
-
-`BuyoutManager::MigrateItem` moves `m_buyouts` entries from legacy hash
-keys to item-id keys **in memory only**. The `m_buyout_manager.Save()`
-call that follows the migration loop in `ItemsManager::MigrateBuyouts`
-persists nothing but `refresh_checked_state` (the F22 split), and no
-path writes the migrated rows to `BuyoutRepo` or deletes the old-keyed
-ones. So a store that reaches `MigrateBuyouts` at `db_version <= 4`
-migrates in memory, works for one session, then loses those buyouts at
-the next restart: `Load()` refills the map with hash-keyed rows that
-id-based `Get()` never reads, and the `db_version == 5` guard prevents
-re-migration. The buyout data still exists in the repo under keys
-nothing consults — silent, permanent-looking loss from the user's view.
-
-Reachability: dormant for any install already at `db_version` 5. The
-plausible live path was the legacy importer (`LegacyDataStore` reads
-`db_version` from the old database) — but `LegacyDataStore` has no
-callers outside `src/legacy/` (verified July 17 during the F55 work):
-the importer is not wired into the application at all, so that path
-cannot arm the migration today. Whether any other path can put a
-`db_version < 5` into a live store remains unverified; check before
-sizing the fix.
-
-Fix shape: make the migration write through the repo (save the id-keyed
-row, delete the hash-keyed one) inside `MigrateItem`, or have
-`MigrateBuyouts` flush the affected entries after the loop. Related: F22
-(dual persistence), F51 ledger entry (do not rekey `GetLegacyHash` — a
-correct future v4→v5 migration depends on it).
-
-Update (August 14, 2026): the `legacy-buyout-import` branch wires
-`LegacyDataStore` into the application via `LegacyBuyoutImporter`
-(menu-driven, writes id-keyed rows directly through `BuyoutRepo`), so
-the "no callers outside `src/legacy/`" reachability note above is stale
-on that branch. The importer never lowers `db_version`, so it still
-cannot arm this migration; instead it supersedes it — once the importer
-proves out in a release, the plan of record
-(`design/legacy-buyout-import.md`, deferred list) is to delete
-`MigrateBuyouts`/`hash_v4`/`old_hash`/`GetLegacyHash`, resolving this
-finding by removal and retiring the F51 constraint.
-
 ### F63. `Character::guardian` and `skills` are modeled but never ingested — Confirmed; deferred by decision
 
 Related: issue #294 (one function from wire payload to items).
@@ -294,9 +249,10 @@ above). "PR #161" refers to the post-Phase-6 follow-ups branch
 | F47 | `ItemLocation::FixUid()` was dead code | Deleted, items-pipeline M1 |
 | F49 | Folder children suspected of being fetched twice via two paths | Closed by live observation, July 2026: the paths are complementary in the live API — folder children arrive only via the stash list (Standard, 16 child lists; the two individually fetched folders returned no `children` and no items), map/unique children only via the individual reply (Mirage, 73 children). The `OnStashReceived` tripwire warning stays in the code as a permanent guard should the API ever change. July 17 amendment: the warning's "fetched twice this update" claim can be false — during a partial refresh a known-but-unselected child is never queued from the stash list, so the parent path would be its only fetch. Reworded to "may be fetched twice" in the F53/F55 follow-up PR |
 | F48 | Character-list skip-check compared names against an id-keyed index (never matched), so a partial update re-added and re-fetched every character in the league, duplicating their tab entries and items | Found and fixed, items-pipeline M1 (character entries rebuilt from the fresh list, keyed by id) |
-| F51 | Unnamed stash tabs (~30 on the validating account, real in-game data) collapse the label component of the legacy item-buyout hash, suspected of shadowing item buyouts across tabs | Reframed and closed, July 2026: active item buyouts key on the API item id (`BuyoutManager::Set`/`Get` use `item.id()`); the label-based `hash_v4` is consumed only by the one-time v4→v5 migration, where colliding tabs made that migration ambiguous — an accepted legacy quirk. Do not rekey `GetLegacyHash`: it would break future v4→v5 migrations without improving live lookups |
+| F51 | Unnamed stash tabs (~30 on the validating account, real in-game data) collapse the label component of the legacy item-buyout hash, suspected of shadowing item buyouts across tabs | Reframed and closed, July 2026: active item buyouts key on the API item id (`BuyoutManager::Set`/`Get` use `item.id()`); the label-based `hash_v4` is no longer a buyout key: the v4→v5 migration that read it was deleted (#290, see F54). Its one remaining use is the last sort tie-break between items with no API id (`Item::operator<`, `Column::suffix`, pinned by `tst_search` `intendedTieBreakRestored`), where colliding labels cost nothing. `GetLegacyHash` stays; replacing the tie-break is a separate change |
 | F52 | `PropagateTabBuyouts` issued one no-op buyout DELETE per item on every refresh (~17k per refresh on an 18.5k-item account) | Fixed, PR #163: the clear path touches the repo only when the in-memory map holds an entry; per review, `removeItemBuyout`/`removeLocationBuyout` report success and the map entry is erased only afterward, so a failed DELETE is retried on the next clear (pinned by a `BEFORE DELETE RAISE(FAIL)` trigger test). Accepted, test-pinned: a row written behind the manager's back survives an in-session clear and heals at the next `Load()`; save-path failures are still discarded by the signal connection (deliberate asymmetry). Drift note: `Compress*` drifts the map only toward orphan repo rows, which the guard leaves alone; `MigrateItem` rekeys in memory only and so drifts both ways at once (old row orphaned, new key rowless — see F54); a failed save also leaves a rowless map entry; clearing a rowless entry is healed by a zero-row DELETE. Standing M2 constraint: the per-tab delta path must scope buyout propagation to the delta, not rerun the loop per tab reply |
 | F53 | Deleted stash tabs and characters resurrected from the cache at restart: the repos only upserted listed rows and could not even express "everything was deleted" (empty lists returned early) | Fixed, F53/F55 follow-up PR: authoritative-list signals (`stashListReplaced`/`characterListReplaced`, emitted only for fresh top-level lists — never for `ProcessTab`'s folder-children re-emits) drive `reconcileStashList`/`reconcileCharacterList`, deleting rows absent from the recursively flattened list (realm-wide for characters, matching the endpoint) with empty lists handled; children of surviving Map/Unique parents are preserved and reconciled by `stashChildrenReplaced` on the parent's reply instead — scoped to Map/Unique parents only, because live folder replies carry no children (F49) and keying off them would wipe legitimate child rows. With child fetching disabled the parent reply deletes cached child rows, so re-enabling the setting refetches instead of showing stale cache (documented policy). Pinned at repo level (`tst_reconcile`) and end-to-end through the fake network |
+| F54 | The v4→v5 buyout migration (`ItemsManager::MigrateBuyouts`, `BuyoutManager::MigrateItem`) rekeyed buyouts in memory only and never persisted; it ran once per new per-league data file and stamped `db_version` 5 into the file the legacy importer reads | Resolved by removal, #290: the migration, `Item::old_hash`, and the `db_version` read and write are deleted. It could never match anything — the buyout map is loaded from `BuyoutRepo` keyed by API item id, and nothing writes hash-keyed rows — and the legacy importer supersedes it. Files already stamped 5 keep the stamp; the importer accepts 4 and 5 |
 | F50 | Header-less and transport-failed replies were logged as rate-limit-header anomalies, framing plain network failures as protocol problems (they were misread that way during M1 validation) and conflating two distinct cases | Fixed in network-redesign phase 4a: `RateLimitManager::Update()` logs the parse failure at `debug` when the reply carried a transport error or no `X-Rate-Limit-Policy` header at all — neither indicates anything about the protocol, and GGG does not header every error response. The loud `error` is reserved for the case that genuinely does indicate a protocol change: a would-be-clean 2xx, which classification now also completes as `FetchError{Protocol}` rather than delivering it as a success (D8/IR1). The split the finding asked for is therefore structural, not just a rewording — the two cases now differ in outcome, not only in log level |
 | F59 | `RateLimitedReply`'s ownership contract was contradictory: `RateLimiter::Submit`'s declaration told the caller to `deleteLater()` the reply, while the pump's entry owned it via `unique_ptr` and destroyed it synchronously after the completion emit — benign only because `complete` was a direct same-thread connection, one reordering or queued connection away from a use-after-free | Resolved in network-redesign phase 4b: the worker's call sites moved to `PoeApiClient`, and with no caller left holding a reply object the legacy `Submit()` adapter, `RateLimitedReply` (`.h`/`.cpp`), and the synthetic reply were deleted together — the contract no longer exists. (Phase 4a had narrowed it to the adapter only; an earlier claim that 4a resolved it by construction was wrong and corrected then.) `tst_workerupdate` moved to a typed facade fake and `tst_ratelimiter` lost its legacy-wrapper pins |
 | F60 | The legacy stash-index request was built bare — no `setTransferTimeout` — so a stalled GET (or the endpoint's HEAD probe, which inherits the request) had no client-side bound and could hang until the OS gave up, leaving the shop update waiting forever; under the redesign it would also hold a gate permit indefinitely and, with a HEAD waiting under writer preference, stall the entire hub | Fixed in network-redesign phase 4a by construction: `PoeApiClient` owns request building for every API call including this one, and sets the 10 s transfer timeout the gate's liveness invariant depends on (D5/R5-3). `Shop` no longer builds a request at all. Pinned by `tst_poeapiclient`'s `everyRequestCarriesTheTransferTimeout`, which checks EVERY builder rather than only the one that was broken — verified to fail when the call is removed |

@@ -34,9 +34,7 @@ public:
         networkManager = std::make_unique<FakeNetworkManager>();
         rateLimiter = std::make_unique<FakeRateLimiter>(*networkManager);
         api = std::make_unique<PoeApiClient>(*rateLimiter);
-        itemsManager = std::make_unique<ItemsManager>(*settings,
-                                                      *buyoutFixture.manager,
-                                                      *buyoutFixture.data);
+        itemsManager = std::make_unique<ItemsManager>(*settings, *buyoutFixture.manager);
         shop = makeShop();
     }
 
@@ -183,7 +181,7 @@ namespace {
         StoreBackedShop(ShopFixture &fixture, const QDir &dir)
             : store(dir, "TESTER#1234")
             , buyouts(*fixture.buyoutFixture.data, store.buyouts())
-            , items(*fixture.settings, buyouts, *fixture.buyoutFixture.data)
+            , items(*fixture.settings, buyouts)
             , shop(*fixture.settings,
                    *fixture.networkManager,
                    *fixture.api,
