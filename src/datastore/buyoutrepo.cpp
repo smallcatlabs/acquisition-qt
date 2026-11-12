@@ -141,13 +141,15 @@ ON CONFLICT(location_id) DO NOTHING
 namespace {
 
     // The rows a user authored (#293): not a copy of a tab's price that an
-    // older build stored on each item, marked inherited. Every read that
-    // decides whether a price exists, or is manual, reads only these;
-    // other rows are left in the tables and ignored. No location row is
-    // ever inherited, but the same rule is applied to both tables.
+    // older build stored on each item, marked inherited, and not a price
+    // an older build read from a note or a tab's name, sourced game. Every
+    // read that decides whether a price exists, or is manual, reads only
+    // these; other rows are left in the tables and ignored. The same rule
+    // is applied to both tables.
     QString selectAuthored(const char *select_from, const char *condition = nullptr)
     {
-        QString sql = QString::fromLatin1(select_from) + QStringLiteral(" WHERE inherited = 0");
+        QString sql = QString::fromLatin1(select_from)
+                      + QStringLiteral(" WHERE inherited = 0 AND source <> 'game'");
         if (condition) {
             sql += QStringLiteral(" AND ") + QString::fromLatin1(condition);
         }

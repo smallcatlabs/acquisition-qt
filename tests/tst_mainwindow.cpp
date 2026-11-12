@@ -1632,19 +1632,17 @@ void MainWindowTest::pricingPassYieldsSingleModelUpdate()
     probes.enabled = false;
 }
 
-// M3 R3-4: one snapshot's ApplyAutoTabBuyouts ->
-// ApplyAutoItemBuyouts -> PropagateTabBuyouts sequence produces at most
-// one reorder / model update on the active search, never one per pass;
-// buyout persistence writes still occur.
+// M3 R3-4: one snapshot's pricing produces at most one reorder / model
+// update on the active search, never one per step. Since #293 the game's
+// prices it reads (a tab name, a note) are never stored.
 void MainWindowTest::snapshotPricingSequenceEmitsOneModelBatch()
 {
     MainWindowFixture fixture;
     auto *tree = fixture.window->findChild<QTreeView *>("treeView");
     QVERIFY(tree);
 
-    // The tab's label auto-prices the tab, Alpha's note auto-prices the
-    // item, and Bravo inherits the tab price: three distinct passes mutate
-    // buyout state in this one snapshot.
+    // The tab's label prices the tab, Alpha's note prices the item, and
+    // Bravo shows the tab's price: three changes in this one snapshot.
     const ItemLocation tabA = makeTestStashLocation("stash-alpha", "~b/o 10 chaos", 0);
     Items items;
     items.push_back(makeMainWindowItemWithNote("item-a", "Alpha", "Sword", tabA, "~b/o 5 chaos"));
@@ -1658,12 +1656,12 @@ void MainWindowTest::snapshotPricingSequenceEmitsOneModelBatch()
     QCOMPARE(probes.model_updates, 1);
     probes.enabled = false;
 
-    // Persistence is outside batching and unchanged: the pricing writes
-    // reached the repo.
-    const auto itemBuyouts = fixture.buyoutFixture.repo->loadItemBuyouts().value();
-    QVERIFY(itemBuyouts.contains("item-a"));
-    const auto tabBuyouts = fixture.buyoutFixture.repo->loadLocationBuyouts().value();
-    QVERIFY(tabBuyouts.contains("stash-alpha"));
+    // The prices are in force, and none of them is stored.
+    auto &manager = *fixture.buyoutFixture.manager;
+    QCOMPARE(manager.Effective(*items[0]).source, PriceSource::Note);
+    QCOMPARE(manager.Effective(*items[1]).source, PriceSource::TabName);
+    QVERIFY(fixture.buyoutFixture.repo->loadItemBuyouts().value().empty());
+    QVERIFY(fixture.buyoutFixture.repo->loadLocationBuyouts().value().empty());
 }
 
 // M3 R1-6, rule 5: with Name active, a buyout batch emits dataChanged for
@@ -4498,10 +4496,10 @@ void MainWindowTest::priceEditSkipsGamePricedRows()
     const auto &manager = *fixture.buyoutFixture.manager;
     QCOMPARE(manager.Get(*plain).value, 7.0);
     QVERIFY(!manager.Get(*plain).IsGameSet());
-    QCOMPARE(manager.Get(*noted).value, 5.0);
-    QVERIFY(manager.Get(*noted).IsGameSet());
-    QCOMPARE(manager.GetTab(priced).value, 2.0);
-    QVERIFY(manager.GetTab(priced).IsGameSet());
+    QCOMPARE(manager.Effective(*noted).buyout.value, 5.0);
+    QVERIFY(manager.Effective(*noted).IsGameSet());
+    QCOMPARE(manager.EffectiveTab(priced).buyout.value, 2.0);
+    QVERIFY(manager.EffectiveTab(priced).IsGameSet());
     QCOMPARE(manager.Effective(*inside).buyout.value, 2.0);
     QVERIFY(manager.Effective(*inside).buyout.IsInherited());
 }
@@ -4627,7 +4625,7 @@ void MainWindowTest::gamePricedRowsLeftAloneAreNamedInStatusLine()
     applyBuyoutCommand(fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "7");
 
     QCOMPARE(fixture.buyoutFixture.manager->Get(*plain).value, 7.0);
-    QCOMPARE(fixture.buyoutFixture.manager->Get(*noted).value, 5.0);
+    QCOMPARE(fixture.buyoutFixture.manager->Effective(*noted).buyout.value, 5.0);
     const QString status = statusText(fixture);
     QVERIFY2(status.contains("in the game"), qPrintable(status));
     QVERIFY2(!status.contains("Price not saved"), qPrintable(status));

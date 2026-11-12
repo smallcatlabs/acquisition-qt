@@ -3,6 +3,8 @@
 
 #include "buyout.h"
 
+#include <QRegularExpression>
+
 const QString Buyout::m_buyout_type_error;
 
 const Buyout::BuyoutTypeMap Buyout::m_buyout_type_as_tag = {{BUYOUT_TYPE_IGNORE, "[ignore]"},
@@ -164,4 +166,29 @@ bool Buyout::operator==(const Buyout &o) const
 bool Buyout::operator!=(const Buyout &o) const
 {
     return !(o == *this);
+}
+
+Buyout ParseGamePrice(const QString &text)
+{
+    static const QRegularExpression exp("(~\\S+)\\s+(\\d+\\.?\\d*)\\s+(\\w+)");
+    static const std::map<QString, Buyout::BuyoutType> types = {
+        {"~gb/o", Buyout::BUYOUT_TYPE_BUYOUT},
+        {"~b/o", Buyout::BUYOUT_TYPE_BUYOUT},
+        {"~c/o", Buyout::BUYOUT_TYPE_CURRENT_OFFER},
+        {"~price", Buyout::BUYOUT_TYPE_FIXED},
+    };
+    if (text.isEmpty()) {
+        return Buyout();
+    }
+    const QRegularExpressionMatch m = exp.match(text);
+    if (!m.hasMatch()) {
+        return Buyout();
+    }
+    const auto type = types.find(m.captured(1));
+    Buyout parsed;
+    parsed.type = (type != types.end()) ? type->second : Buyout::BUYOUT_TYPE_INHERIT;
+    parsed.value = m.captured(2).toDouble();
+    parsed.currency = Currency::FromString(m.captured(3));
+    parsed.source = Buyout::BUYOUT_SOURCE_GAME;
+    return parsed.IsActive() ? parsed : Buyout();
 }

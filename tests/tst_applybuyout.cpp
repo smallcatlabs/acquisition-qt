@@ -119,8 +119,8 @@ void ApplyBuyoutTest::leavesGamePricedTargetsAlone()
     QCOMPARE(result.applied, 0);
     QCOMPARE(result.locked, 3);
     QCOMPARE(result.not_saved, 0);
-    QCOMPARE(f.buyouts.manager->Get(*noted).value, 5.0);
-    QCOMPARE(f.buyouts.manager->GetTab(priced).value, 2.0);
+    QCOMPARE(f.buyouts.manager->Effective(*noted).buyout.value, 5.0);
+    QCOMPARE(f.buyouts.manager->EffectiveTab(priced).buyout.value, 2.0);
     QCOMPARE(f.buyouts.manager->Effective(*inside).buyout.value, 2.0);
 }
 

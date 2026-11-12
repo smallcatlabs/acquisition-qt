@@ -103,10 +103,13 @@ the usual short forms (`chaos`, `exa`, `divine`, `fuse`, …).
 ## Prices set in the game
 
 If a stash tab's name, or an item's note, contains a trade-site price string such
-as `~b/o 5 chaos` or `~price 1 divine`, Acquisition imports it as a buyout with
+as `~b/o 5 chaos` or `~price 1 divine`, Acquisition shows it as a buyout with
 source *game*. Game-sourced prices are **locked**: you cannot change them in
-Acquisition, because the next refresh would overwrite the change. Edit the tab
-name or item note in the game instead. A tab with a price of its own, set in
+Acquisition, because the game's price wins. Edit the tab name or item note in
+the game instead. Acquisition reads these prices from the game on every
+refresh and does not store them, so they have no *Last Update*. A price you
+set in Acquisition is kept underneath: when the note or the priced tab name is
+removed in the game, your price shows again. A tab with a price of its own, set in
 the game or in Acquisition, is always refreshed regardless of its check box, so
 its prices stay current; this holds even while the tab is empty or not yet
 fetched. Remove-only tabs are the exception: they are refreshed only when

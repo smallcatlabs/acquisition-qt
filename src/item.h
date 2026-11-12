@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "buyout.h"
 #include "itemlocation.h"
 #include "poe/types/item.h"
 #include "poe/types/itemproperty.h"
@@ -147,6 +148,9 @@ public:
     // item, not a current one.
     void RebaseLocation(const ItemLocation &fresh_tab) { m_location.rebaseTabMetadata(fresh_tab); }
     const QString &note() const { return m_note; }
+    // The price the note sets, parsed once when the item is built; a null
+    // buyout when the note sets none.
+    const Buyout &note_price() const { return m_note_price; }
     const QString &category() const { return m_category; }
     int count() const { return m_count; }
     const ModTable &mod_table() const { return m_mod_table; }
@@ -201,6 +205,7 @@ private:
     std::map<QString, ItemMods> m_text_mods;
     std::vector<ItemSocket> m_text_sockets;
     QString m_note;
+    Buyout m_note_price;
     ModTable m_mod_table;
     QString m_uid;
 };

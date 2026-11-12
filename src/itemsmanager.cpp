@@ -13,35 +13,6 @@
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "util/util.h"
 
-namespace {
-
-    // The one rule for prices read from the game (#251), shared by the tab
-    // pass, the item pass and the per-delta pass. `text` is an item's note or
-    // a tab's name. Returns the buyout to store, or nothing to leave the
-    // stored one alone:
-    // - text that yields an ACTIVE buyout sets it (game pricing wins);
-    // - otherwise a stored game-set price is reset to inherit, so a deleted
-    //   note, a renamed tab, or a note naming an unknown currency (#273)
-    //   never leaves a stale, locked price behind;
-    // - anything else (no stored price, a manual price) is left alone.
-    std::optional<Buyout> GameBuyoutUpdate(BuyoutManager &manager,
-                                           const Buyout &stored,
-                                           const QString &text)
-    {
-        if (!text.isEmpty()) {
-            const Buyout parsed = manager.StringToBuyout(text);
-            if (parsed.IsActive()) {
-                return parsed;
-            }
-        }
-        if (stored.IsGameSet()) {
-            return Buyout();
-        }
-        return std::nullopt;
-    }
-
-} // namespace
-
 ItemsManager::ItemsManager(QSettings &settings, BuyoutManager &buyout_manager)
     : m_settings(settings)
     , m_buyout_manager(buyout_manager)
@@ -74,53 +45,6 @@ void ConnectRefreshRequests(ItemsManager &manager, ItemsManagerWorker &worker)
 void ItemsManager::OnStatusUpdate(ProgramState state, const QString &status)
 {
     emit StatusUpdate(state, status);
-}
-
-void ItemsManager::ApplyAutoTabBuyouts()
-{
-    spdlog::trace("ItemsManager::ApplyAutoTabBuyouts() entered");
-    // Pricing passes batch (M3 R1-6): one model update at pass end when
-    // this pass is outermost, never one per SetTab.
-    const BuyoutBatch batch(m_buyout_manager);
-    // Can handle everything related to auto-tab pricing here.
-    // 1. First format we need to honor is ascendency pricing formats which is top priority and overrides other types
-    // 2. Second priority is to honor manual user pricing
-    // 3. Third priority it to apply pricing based on ideally user specified formats (doesn't exist yet)
-
-    // Loop over all tabs, create buyout based on tab name which applies auto-pricing policies
-    for (auto const &loc : m_buyout_manager.GetStashTabLocations()) {
-        const auto update = GameBuyoutUpdate(m_buyout_manager,
-                                             m_buyout_manager.GetTab(loc),
-                                             loc.tab_label());
-        if (update) {
-            m_buyout_manager.SetTab(loc, *update);
-        }
-    }
-
-    // Need to compress tab buyouts here, as the tab names change we accumulate and save BO's
-    // for tabs that no longer exist I think.
-    m_buyout_manager.CompressTabBuyouts();
-}
-
-void ItemsManager::ApplyAutoItemBuyouts()
-{
-    spdlog::trace("ItemsManager::ApplyAutoItemBuyouts() entered");
-    // Pricing passes batch (M3 R1-6): one model update at pass end when
-    // this pass is outermost, never one per Set.
-    const BuyoutBatch batch(m_buyout_manager);
-    // Loop over all items, check for note field with pricing and apply
-    for (auto const &item : m_items.Flat()) {
-        const auto update = GameBuyoutUpdate(m_buyout_manager,
-                                             m_buyout_manager.Get(*item),
-                                             item->note());
-        if (update) {
-            m_buyout_manager.Set(*item, *update);
-        }
-    }
-
-    // Buyouts of items that are gone are deliberately kept, not pruned
-    // (iss381), so that a user's prices are as hard as possible to lose;
-    // stale entries pile up as a result.
 }
 
 void ItemsManager::PropagateTabBuyouts()
@@ -184,14 +108,17 @@ void ItemsManager::OnItemsRefreshed(const Items &items,
     // canonical inventory — deletions and ordering take effect here (D6).
     m_location_inventory.ResetTo(tabs);
 
-    m_buyout_manager.SetStashTabLocations(tabs);
     {
         // The snapshot's pricing sequence is one batch (M3 R3-4): nothing
-        // observes UI state between these passes, so they must produce a
-        // single model update, never up to three.
+        // observes UI state between these steps, so they produce a single
+        // model update. The game's prices are never stored (#293): the tab
+        // list's names are read here, the notes with their items; manual
+        // tab prices of tabs that are gone leave memory, and the refresh
+        // locks are recomputed.
         const BuyoutBatch snapshot_batch(m_buyout_manager);
-        ApplyAutoTabBuyouts();
-        ApplyAutoItemBuyouts();
+        m_buyout_manager.SetStashTabLocations(tabs);
+        m_buyout_manager.CompressTabBuyouts();
+        m_buyout_manager.ObserveNotePrices(m_items.Flat());
         PropagateTabBuyouts();
     }
 
@@ -246,18 +173,12 @@ void ItemsManager::ApplyScopedPricing(const Items &delta_items)
     // one model update per pass, never one per Set.
     const BuyoutBatch batch(m_buyout_manager);
     // Scoped per-delta pricing (D7), restricted to steps that are safe on
-    // BOTH update outcomes (R1-4) — an update can end without a final pass:
+    // BOTH update outcomes (R1-4) — an update can end without a final pass.
+    // A note's price comes with its item (#293); what is left is to report
+    // the items whose note price changed, and to lock their tabs.
+    m_buyout_manager.ObserveNotePrices(delta_items);
     for (const auto &item : delta_items) {
-        // 1. Note-based item buyouts, mirroring ApplyAutoItemBuyouts's
-        //    per-item rule (re-derivable from the item's own note).
-        const auto update = GameBuyoutUpdate(m_buyout_manager,
-                                             m_buyout_manager.Get(*item),
-                                             item->note());
-        if (update) {
-            m_buyout_manager.Set(*item, *update);
-        }
-
-        // 2. Monotone refresh-lock additions only — ClearRefreshLocks stays
+        // Monotone refresh-lock additions only — ClearRefreshLocks stays
         //    exclusive to the final pass. Fail-safe in the right direction:
         //    after a failed update the worst case is one redundant tab in
         //    the next checked refresh, never a priced tab dropped from it.

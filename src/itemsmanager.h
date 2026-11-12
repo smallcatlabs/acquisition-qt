@@ -41,8 +41,6 @@ public:
     // every delta's location anchor and reset by every snapshot. Search
     // buckets render through it.
     const LocationInventory &locationInventory() const { return m_location_inventory; }
-    void ApplyAutoTabBuyouts();
-    void ApplyAutoItemBuyouts();
     // The final pass's refresh locks (the name is from when it also copied
     // each tab's price onto its items).
     void PropagateTabBuyouts();

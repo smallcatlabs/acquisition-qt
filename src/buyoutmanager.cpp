@@ -3,7 +3,6 @@
 
 #include "buyoutmanager.h"
 
-#include <QRegularExpression>
 #include <QVariant>
 
 #include <utility>
@@ -14,13 +13,6 @@
 #include "itemlocation.h"
 #include "util/glaze_qt.h"  // IWYU pragma: keep
 #include "util/spdlog_qt.h" // IWYU pragma: keep
-
-const std::unordered_map<QString, BuyoutType> BuyoutManager::m_string_to_buyout_type = {
-    {"~gb/o", Buyout::BUYOUT_TYPE_BUYOUT},
-    {"~b/o", Buyout::BUYOUT_TYPE_BUYOUT},
-    {"~c/o", Buyout::BUYOUT_TYPE_CURRENT_OFFER},
-    {"~price", Buyout::BUYOUT_TYPE_FIXED},
-};
 
 BuyoutManager::BuyoutManager(DataStore &data, BuyoutRepo &repo)
     : m_data(data)
@@ -174,9 +166,12 @@ namespace {
 
 EffectivePrice BuyoutManager::Effective(const Item &item) const
 {
-    // The item's own price, stored on it (a note's price, or one set in
-    // Acquisition); else its tab's, read now by the tab's id, which marks
-    // it inherited and keeps the tab price's source and date.
+    // The note's price; else the price set on the item in Acquisition;
+    // else its tab's, read now by the tab's id, which marks it inherited
+    // and keeps the tab price's source and date.
+    if (item.note_price().IsActive()) {
+        return EffectivePrice{.buyout = item.note_price(), .source = PriceSource::Note};
+    }
     EffectivePrice price{.buyout = Get(item), .source = PriceSource::None};
     price.source = sourceOf(price.buyout, true);
     if (price.source != PriceSource::None) {
@@ -192,6 +187,11 @@ EffectivePrice BuyoutManager::Effective(const Item &item) const
 
 EffectivePrice BuyoutManager::EffectiveTab(const ItemLocation &location) const
 {
+    // The tab name's price; else the price set on the tab in Acquisition.
+    const auto named = m_tab_name_prices.find(location.id());
+    if (named != m_tab_name_prices.end()) {
+        return EffectivePrice{.buyout = named->second, .source = PriceSource::TabName};
+    }
     EffectivePrice price{.buyout = GetTab(location), .source = PriceSource::None};
     price.source = sourceOf(price.buyout, false);
     return price;
@@ -208,6 +208,27 @@ std::vector<std::pair<std::shared_ptr<Item>, Buyout>> BuyoutManager::PostablePri
         }
     }
     return postable;
+}
+
+void BuyoutManager::ObserveNotePrices(const Items &items)
+{
+    const BuyoutBatch batch(*this);
+    for (const auto &item : items) {
+        const Buyout &price = item->note_price();
+        const auto seen = m_seen_note_prices.find(item->id());
+        if (seen == m_seen_note_prices.end()) {
+            if (price.IsActive()) {
+                m_seen_note_prices.emplace(item->id(), price);
+                RecordChange(ChangeScope::Item, item->id());
+            }
+        } else if (!price.IsActive()) {
+            m_seen_note_prices.erase(seen);
+            RecordChange(ChangeScope::Item, item->id());
+        } else if (seen->second != price) {
+            seen->second = price;
+            RecordChange(ChangeScope::Item, item->id());
+        }
+    }
 }
 
 Buyout BuyoutManager::GetTab(const ItemLocation &location) const
@@ -407,38 +428,32 @@ bool BuyoutManager::LoadBuyouts()
 void BuyoutManager::SetStashTabLocations(const std::vector<ItemLocation> &tabs)
 {
     m_tabs = tabs;
+    // The tab-name prices of the tab list the final pass publishes: only
+    // here (D7), and keyed by tab id, so an item carrying a stale label is
+    // priced by its tab's current name.
+    std::unordered_map<QString, Buyout> prices;
+    for (const ItemLocation &tab : m_tabs) {
+        Buyout parsed = ParseGamePrice(tab.tab_label());
+        if (parsed.IsActive()) {
+            prices.emplace(tab.id(), std::move(parsed));
+        }
+    }
+    const BuyoutBatch batch(*this);
+    for (const auto &[id, price] : prices) {
+        const auto old = m_tab_name_prices.find(id);
+        if ((old == m_tab_name_prices.end()) || (old->second != price)) {
+            RecordChange(ChangeScope::Tab, id);
+        }
+    }
+    for (const auto &[id, price] : m_tab_name_prices) {
+        if (!prices.contains(id)) {
+            RecordChange(ChangeScope::Tab, id);
+        }
+    }
+    m_tab_name_prices = std::move(prices);
 }
 
 const std::vector<ItemLocation> &BuyoutManager::GetStashTabLocations() const
 {
     return m_tabs;
-}
-
-BuyoutType BuyoutManager::StringToBuyoutType(QString bo_str) const
-{
-    const auto &it = m_string_to_buyout_type.find(bo_str);
-    if (it != m_string_to_buyout_type.end()) {
-        return it->second;
-    }
-    return Buyout::BUYOUT_TYPE_INHERIT;
-}
-
-Buyout BuyoutManager::StringToBuyout(QString format)
-{
-    // Parse format string and initialize buyout object, if string does not match any known format
-    // then the buyout object will not be valid (IsValid will return false).
-    static const QRegularExpression exp("(~\\S+)\\s+(\\d+\\.?\\d*)\\s+(\\w+)");
-
-    Buyout tmp;
-    // regex_search allows for stuff before ~ and after currency type.  We only want to honor the formats
-    // that POE trade also accept so this may need to change if it's too generous
-    QRegularExpressionMatch m = exp.match(format);
-    if (m.hasMatch()) {
-        tmp.type = StringToBuyoutType(m.captured(1));
-        tmp.value = m.captured(2).toDouble();
-        tmp.currency = Currency::FromString(m.captured(3));
-        tmp.source = Buyout::BUYOUT_SOURCE_GAME;
-        tmp.last_update = QDateTime::currentDateTime();
-    }
-    return tmp;
 }
