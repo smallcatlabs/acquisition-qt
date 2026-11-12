@@ -31,7 +31,8 @@ arrived before the failure keep their new contents.
 The Path of Exile API limits how fast Acquisition may fetch. Acquisition reads the
 limits the API sends back and paces itself, so a large account simply takes a
 while. The status bar button reads **Rate Limit Status** normally, or
-*Rate limited for N seconds* while waiting. Clicking it opens the
+*Rate limited for N seconds* while a wait of a second or more is under way, and
+returns to **Rate Limit Status** when the wait ends or the refresh is stopped. Clicking it opens the
 **Rate Limit Status Window**, which lists each policy and rule with its current
 hits, limit, period, and timeout. Nothing here needs configuring; it exists so
 you can see why a refresh is paused.
@@ -56,8 +57,9 @@ Acquisition checks the GitHub releases at startup and once a day after that.
 When a newer version exists, an **Update available** button appears in the
 status bar. Clicking it names the new version and offers **Go to Github** (the
 download page), **Ignore**, or **Ignore, and don't ask again**. Pre-releases are
-offered separately from stable releases, and a version you choose not to be
-asked about again is not offered again.
+offered separately from stable releases, and only when newer than the latest
+stable release. A version you choose not to be asked
+about again is not offered again, and the button goes away.
 
 ## Crash reports
 
