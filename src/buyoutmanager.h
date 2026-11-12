@@ -61,7 +61,10 @@ public:
 
     void CompressTabBuyouts();
 
-    void SetRefreshChecked(const ItemLocation &tab, bool value);
+    // Stores whether Refresh Checked fetches `tab`. An invalid location
+    // (the By-Item header row) and a refresh-locked tab are refused and
+    // nothing is stored. True when the flag was stored.
+    bool SetRefreshChecked(const ItemLocation &tab, bool value);
     bool GetRefreshChecked(const ItemLocation &tab) const;
 
     bool GetRefreshLocked(const ItemLocation &tab) const;

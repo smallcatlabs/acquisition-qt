@@ -195,6 +195,8 @@ private slots:
     void removedSelectionResetsPriceEditor();
     void byItemHeaderIsNotPriceable();
     void headerSelectionSurvivesItemDetailsTimer();
+    void byItemHeaderSelectionWritesNoRefreshState();
+    void refreshSelectedWithoutTabsStartsNoUpdate();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -4438,6 +4440,77 @@ void MainWindowTest::headerSelectionSurvivesItemDetailsTimer()
 
     QTest::qWait(300); // past the 100 ms details timer
     QCOMPARE(nameLabel->text(), tab.GetHeader());
+}
+
+// #282: Check Selected and Uncheck Selected on the By-Item header row store
+// nothing — the row has no tab, so there is no id to store a flag under.
+void MainWindowTest::byItemHeaderSelectionWritesNoRefreshState()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tree);
+
+    const ItemLocation tab = makeTestStashLocation("stash-flat", "Flat", 0);
+    Items items;
+    items.push_back(makeMainWindowItem("flat-item", "Flat", "Sword", tab));
+    fixture.itemsManager->OnItemsRefreshed(items, {tab}, false);
+    switchToByItemView(fixture);
+
+    const QModelIndex header = tree->model()->index(0, 0);
+    QCOMPARE(header.data().toString(), "All Items");
+    tree->selectionModel()->setCurrentIndex(header,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+
+    fixture.window->OnUncheckSelected();
+    QVERIFY(fixture.buyoutFixture.manager->GetRefreshChecked(ItemLocation()));
+    QVERIFY(fixture.buyoutFixture.manager->GetRefreshChecked(tab));
+}
+
+// #282: Refresh Selected sends only real tabs, and starts no update when
+// none is selected. An update with nothing to fetch would otherwise run to
+// a clean completed refresh, which is what an automatic shop submission
+// waits for.
+void MainWindowTest::refreshSelectedWithoutTabsStartsNoUpdate()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tree);
+
+    const ItemLocation tab = makeTestStashLocation("stash-flat", "Flat", 0);
+    Items items;
+    items.push_back(makeMainWindowItem("flat-item", "Flat", "Sword", tab));
+    fixture.itemsManager->OnItemsRefreshed(items, {tab}, false);
+    switchToByItemView(fixture);
+
+    std::vector<std::vector<ItemLocation>> updates;
+    QObject::connect(fixture.itemsManager.get(),
+                     &ItemsManager::UpdateSignal,
+                     fixture.itemsManager.get(),
+                     [&updates](Util::TabSelection, const std::vector<ItemLocation> &tabs) {
+                         updates.push_back(tabs);
+                     });
+
+    // Nothing selected.
+    tree->selectionModel()->clearSelection();
+    fixture.window->OnRefreshSelected();
+    QCOMPARE(updates.size(), size_t(0));
+
+    // Only the By-Item header, which names no tab.
+    const QModelIndex header = tree->model()->index(0, 0);
+    tree->selectionModel()->setCurrentIndex(header,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    fixture.window->OnRefreshSelected();
+    QCOMPARE(updates.size(), size_t(0));
+
+    // The header and an item: the item's tab alone is sent.
+    const QModelIndex item = tree->model()->index(0, 0, header);
+    tree->selectionModel()->select(item, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+    fixture.window->OnRefreshSelected();
+    QCOMPARE(updates.size(), size_t(1));
+    QCOMPARE(updates.front().size(), size_t(1));
+    QCOMPARE(updates.front().front().id(), tab.id());
 }
 
 QTEST_MAIN(MainWindowTest)

@@ -254,11 +254,12 @@ bool ItemsModel::setData(const QModelIndex &index, const QVariant &value, int ro
         if (m_search.isFolderBucket(ref.bucket_row)) {
             return SetFolderChecked(ref.bucket_row, value.toInt() != Qt::Unchecked);
         }
+        // The store refuses the By-Item header's empty location and a
+        // refresh-locked tab.
         const ItemLocation &location = m_search.GetTabLocation(index);
-        if (!location.IsValid() || m_bo_manager.GetRefreshLocked(location)) {
+        if (!m_bo_manager.SetRefreshChecked(location, value.toBool())) {
             return false;
         }
-        m_bo_manager.SetRefreshChecked(location, value.toBool());
 
         // It's possible that our tabs can have the same name.  Right now we don't have a
         // way to differentiate these tabs so indicate dataChanged event for each tab with
@@ -318,9 +319,7 @@ bool ItemsModel::SetFolderChecked(int folder_row, bool checked)
     for (int n = 0; n < members; ++n) {
         const ItemLocation &location = m_search.bucket(m_search.childBucketRow(folder_row, n))
                                            .location();
-        if (!m_bo_manager.GetRefreshLocked(location)) {
-            m_bo_manager.SetRefreshChecked(location, checked);
-        }
+        m_bo_manager.SetRefreshChecked(location, checked); // refused when locked
     }
     const QModelIndex folder = BucketIndex(folder_row);
     emit dataChanged(index(0, 0, folder), index(members - 1, 0, folder), {Qt::CheckStateRole});
