@@ -154,6 +154,7 @@ private slots:
     void phraseInPostTextIsNotARejectedSession();
     void loggedOutHeadingIsARejectedSession();
     void automaticFailuresWarnOncePerKind();
+    void unrecognisedErrorShowsNoPageText();
 };
 
 namespace {
@@ -1911,6 +1912,28 @@ void ShopTest::automaticFailuresWarnOncePerKind()
         drainEvents();
     }
     QCOMPARE(warnings.count(), 3);
+}
+
+// An error marker that is not an error list: the message must not be the
+// next list item somewhere later in the page (a real page has navigation
+// and footer lists; the captures have them trimmed away). The marker and
+// the later list are inserted into the captured edit page; derived.
+void ShopTest::unrecognisedErrorShowsNoPageText()
+{
+    ShopFixture fixture;
+    QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    QByteArray reply = editPageWithError("<div class=\"input-error\">Check this field.</div>");
+    const QByteArray form_end = "</form>";
+    QVERIFY(reply.contains(form_end));
+    reply.replace(form_end,
+                  form_end + "\n<ul class=\"footerLinks\"><li>Unrelated footer link</li></ul>");
+    failSubmissionAt(fixture, FailAt::Post, 200, QNetworkReply::NoError, reply);
+
+    QCOMPARE(warnings.count(), 1);
+    const QString notice = warnings.first().first().toString() + lastStatus(statuses);
+    QVERIFY2(!notice.contains("Unrelated"), qPrintable(notice));
+    QVERIFY2(notice.contains("does not recognise"), qPrintable(notice));
 }
 
 QTEST_MAIN(ShopTest)

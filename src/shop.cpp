@@ -47,26 +47,33 @@ namespace {
     // expired security token.
     constexpr std::chrono::milliseconds kEditToPostDelay{500};
 
-    // An element whose class marks an error, then the first list item after
-    // it: the forum's error message. The match can start at an input that
-    // carries the class, such as the hash input, so only the list item's
-    // text may be used — never the whole match (#315).
-    const QRegularExpression kErrorRegex(
-        R"regex(
-		# Start the match looking for any class attribute that indicates an error
-		class="(?:input-error|errors)"
+    // The forum's error messages: the items of a <ul class="errors">
+    // list. Only text inside such a list is ever used as a message: an
+    // element that merely carries an error class (an input can, the hash
+    // input among them) is followed by arbitrary page text, and the next
+    // list item after it may be navigation or another user's post (#315).
+    const QRegularExpression kErrorListRegex(R"regex(<ul\s+class="errors"[^>]*>(.*?)</ul>)regex",
+                                             QRegularExpression::CaseInsensitiveOption
+                                                 | QRegularExpression::DotMatchesEverythingOption);
+    const QRegularExpression kListItemRegex(R"regex(<li[^>]*>(.*?)</li>)regex",
+                                            QRegularExpression::CaseInsensitiveOption
+                                                | QRegularExpression::DotMatchesEverythingOption);
 
-		# Skip over as much as possible while looking for an <li> start tag that
-		# should be the start of the error message.
-		.*?
-
-		# Match the list item element and capture it's contents, because this is
-		# expected to be the error message.
-		<li>(.*?)</li>
-	)regex",
-        QRegularExpression::CaseInsensitiveOption | QRegularExpression::MultilineOption
-            | QRegularExpression::DotMatchesEverythingOption
-            | QRegularExpression::ExtendedPatternSyntaxOption);
+    QStringList ErrorMessages(const QString &page)
+    {
+        QStringList messages;
+        QRegularExpressionMatchIterator lists = kErrorListRegex.globalMatch(page);
+        while (lists.hasNext()) {
+            const QString list = lists.next().captured(1);
+            QRegularExpressionMatchIterator items = kListItemRegex.globalMatch(list);
+            while (items.hasNext()) {
+                messages.append(QTextDocumentFragment::fromHtml(items.next().captured(1))
+                                    .toPlainText()
+                                    .trimmed());
+            }
+        }
+        return messages;
+    }
 
     const QRegularExpression kRateLimitRegex(R"regex(You must wait (\d+) seconds.)regex",
                                              QRegularExpression::CaseInsensitiveOption);
@@ -195,15 +202,11 @@ namespace {
             return SessionRejected("the forum answered the POST with an authentication page");
         }
 
-        // Errors show up as an element whose class is "errors" or
-        // "input-error", followed by the message in a list item. One or more
+        // The forum lists its errors in a <ul class="errors">. One or more
         // may be present; any that is not a request to retry fails the post.
+        // An error class anywhere else fails it without a message.
         std::optional<RetryAfter> retry;
-        QRegularExpressionMatchIterator matches = kErrorRegex.globalMatch(reply.body);
-        while (matches.hasNext()) {
-            const QString message = QTextDocumentFragment::fromHtml(matches.next().captured(1))
-                                        .toPlainText()
-                                        .trimmed();
+        for (const QString &message : ErrorMessages(QString::fromUtf8(reply.body))) {
             if (message.startsWith("Security token has expired.")) {
                 if (!retry) {
                     retry = RetryAfter{0, message};
