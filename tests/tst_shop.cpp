@@ -153,6 +153,7 @@ private slots:
     void phraseInPostTextIsNotARejectedSession_data();
     void phraseInPostTextIsNotARejectedSession();
     void loggedOutHeadingIsARejectedSession();
+    void automaticFailuresWarnOncePerKind();
 };
 
 namespace {
@@ -1872,6 +1873,44 @@ void ShopTest::loggedOutHeadingIsARejectedSession()
     QCOMPARE(rejected.count(), 1);
     QVERIFY(!fixture.shop->auto_update());
     QCOMPARE(fixture.networkManager->count(), 1);
+}
+
+// A manual request's notice never uses up an automatic one, and automatic
+// failures are remembered per kind: a different failure still warns once.
+void ShopTest::automaticFailuresWarnOncePerKind()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    size_t requests = 0;
+
+    // The user asks, and the stash index cannot be read: told.
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->reject(requests++, RateLimit::FetchError::Kind::Network, "network error");
+    drainEvents();
+    QCOMPARE(warnings.count(), 1);
+
+    // The same failure on two automatic submissions: told once.
+    fixture.shop->SetAutoUpdate(true);
+    for (int i = 0; i < 2; ++i) {
+        fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+        fixture.rateLimiter->reject(requests++,
+                                    RateLimit::FetchError::Kind::Network,
+                                    "network error");
+        drainEvents();
+    }
+    QCOMPARE(warnings.count(), 2);
+
+    // A different failure on two automatic submissions: told once more.
+    for (int i = 0; i < 2; ++i) {
+        fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+        fixture.rateLimiter->resolve(requests++, kStashIndexJson);
+        drainEvents();
+        fixture.networkManager->sent(fixture.networkManager->count() - 1)
+            .reply->finish({}, 0, QNetworkReply::OperationCanceledError, QByteArray());
+        drainEvents();
+    }
+    QCOMPARE(warnings.count(), 3);
 }
 
 QTEST_MAIN(ShopTest)

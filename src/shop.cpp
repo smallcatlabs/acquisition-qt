@@ -105,14 +105,16 @@ namespace {
                || kSessionRejectedHeading.match(QString::fromUtf8(reply.body)).hasMatch();
     }
 
-    Shop::Failure Error(const QString &message)
+    using Cause = Shop::Failure::Cause;
+
+    Shop::Failure Error(Cause cause, const QString &message)
     {
-        return {Shop::Failure::Kind::Error, message};
+        return {Shop::Failure::Kind::Error, cause, message};
     }
 
     Shop::Failure SessionRejected(const QString &reason)
     {
-        return {Shop::Failure::Kind::SessionRejected, reason};
+        return {Shop::Failure::Kind::SessionRejected, Cause::Session, reason};
     }
 
     // The edit form a POST needs: the title (HTML-escaped, as the page
@@ -132,15 +134,17 @@ namespace {
         if (reply.error != QNetworkReply::NoError) {
             if (reply.status == 0) {
                 // No HTTP response at all: nothing is known about the thread.
-                return Error(
-                    QString("pathofexile.com did not answer (%1).").arg(reply.error_string));
+                return Error(Cause::Unreachable,
+                             QString("pathofexile.com did not answer (%1).").arg(reply.error_string));
             }
             if (reply.status >= 500) {
-                return Error(QString("pathofexile.com answered with an error (HTTP %1). Try again "
+                return Error(Cause::SiteError,
+                             QString("pathofexile.com answered with an error (HTTP %1). Try again "
                                      "later.")
                                  .arg(reply.status));
             }
-            return Error(QString("The forum would not open thread %1 for editing (HTTP %2). "
+            return Error(Cause::ThreadNotEditable,
+                         QString("The forum would not open thread %1 for editing (HTTP %2). "
                                  "Check the thread number.")
                              .arg(thread)
                              .arg(reply.status));
@@ -153,7 +157,8 @@ namespace {
                                            "value=\"",
                                            "\">");
         if (form.hash.isEmpty() || form.title.isEmpty()) {
-            return Error(QString("The forum's page for thread %1 had no edit form. Check the "
+            return Error(Cause::ThreadNotEditable,
+                         QString("The forum's page for thread %1 had no edit form. Check the "
                                  "thread number, that the thread was started by the account the "
                                  "POESESSID belongs to, and that the POESESSID is still logged in.")
                              .arg(thread));
@@ -180,9 +185,11 @@ namespace {
         }
         if (reply.error != QNetworkReply::NoError) {
             if (reply.status == 0) {
-                return Error(QString("The forum did not answer (%1).").arg(reply.error_string));
+                return Error(Cause::Unreachable,
+                             QString("The forum did not answer (%1).").arg(reply.error_string));
             }
-            return Error(QString("The forum refused the post (HTTP %1).").arg(reply.status));
+            return Error(Cause::PostRefused,
+                         QString("The forum refused the post (HTTP %1).").arg(reply.status));
         }
         if (IsPoeSessionRejected(reply)) {
             return SessionRejected("the forum answered the POST with an authentication page");
@@ -204,18 +211,20 @@ namespace {
             } else if (message.startsWith("Rate limiting", Qt::CaseInsensitive)) {
                 const int seconds = kRateLimitRegex.match(message).captured(1).toInt();
                 if (seconds == 0) {
-                    return Error("The forum is limiting posts but did not say for how long. Try "
+                    return Error(Cause::RateLimited,
+                                 "The forum is limiting posts but did not say for how long. Try "
                                  "again in a few minutes.");
                 }
                 if (!retry || retry->seconds < seconds) {
                     retry = RetryAfter{seconds, message};
                 }
             } else if (message.startsWith("Failed to find item.", Qt::CaseInsensitive)) {
-                return Error("The forum could not find one of your items; your stash has "
+                return Error(Cause::ItemNotFound,
+                             "The forum could not find one of your items; your stash has "
                              "probably changed since the last refresh. Refresh your tabs and "
                              "update the shop again.");
             } else {
-                return Error("The forum reported an error: " + message);
+                return Error(Cause::ForumError, "The forum reported an error: " + message);
             }
         }
         if (retry) {
@@ -223,7 +232,8 @@ namespace {
         }
         if (reply.body.contains("class=\"errors\"")
             || reply.body.contains("class=\"input-error\"")) {
-            return Error("The forum reported an error the shop does not recognise.");
+            return Error(Cause::ForumError,
+                         "The forum reported an error the shop does not recognise.");
         }
         // No known error is not enough: a saved edit answers with the
         // thread's own page, which links to view-thread/<id> (written
@@ -234,7 +244,8 @@ namespace {
                 .arg(QRegularExpression::escape(thread)));
         if (reply.body.contains("name=\"hash\"")
             || !thread_link.match(QString::fromUtf8(reply.body)).hasMatch()) {
-            return Error(QString("The forum sent a page Acquisition did not expect, so the post "
+            return Error(Cause::UnexpectedPage,
+                         QString("The forum sent a page Acquisition did not expect, so the post "
                                  "for thread %1 may not have been saved.")
                              .arg(thread));
         }
@@ -335,10 +346,11 @@ void Shop::OnRefreshFinished(const RefreshOutcome &outcome)
     SubmitAutomaticShop();
 }
 
-void Shop::Warn(Notice notice, bool automatic, const QString &message)
+void Shop::Warn(Notice notice, bool automatic, const QString &message, int detail)
 {
-    const bool first_time = m_warned.insert(notice).second;
-    if (!automatic || first_time) {
+    // A manual request is always told and never uses up an automatic
+    // notice; an automatic one is told the first time only.
+    if (!automatic || m_warned.insert({notice, detail}).second) {
         emit UserWarning(message);
     }
 }
@@ -469,12 +481,15 @@ void Shop::OnStashIndexReceived(
     if (!result) {
         const auto &error = result.error();
         if (error.kind == RateLimit::FetchError::Kind::Canceled) {
-            FailActiveJob({Failure::Kind::Canceled, "the stash index request was canceled"});
+            FailActiveJob({Failure::Kind::Canceled,
+                           Failure::Cause::Canceled,
+                           "the stash index request was canceled"});
         } else if (error.kind == RateLimit::FetchError::Kind::Http
                    && (error.http_status == 401 || error.http_status == 403)) {
             FailActiveJob(SessionRejected("the legacy stash index returned HTTP 401/403"));
         } else {
-            FailActiveJob(Error(QString("Acquisition could not read your stash tab list from "
+            FailActiveJob(Error(Cause::StashIndex,
+                                QString("Acquisition could not read your stash tab list from "
                                         "pathofexile.com (%1: %2).")
                                     .arg(RateLimit::ToString(error.kind), error.message)));
         }
@@ -483,7 +498,8 @@ void Shop::OnStashIndexReceived(
     const poe::WebStashListWrapper *tabs_wrapper = &result.value();
 
     if (!tabs_wrapper->tabs) {
-        FailActiveJob(Error("The stash tab list from pathofexile.com had no tabs in it."));
+        FailActiveJob(
+            Error(Cause::StashIndex, "The stash tab list from pathofexile.com had no tabs in it."));
         return;
     }
 
@@ -573,7 +589,8 @@ void Shop::FailActiveJob(const Failure &failure)
         emit StatusUpdate(ProgramState::Ready, "Forum shop not updated: " + failure.message);
         Warn(Notice::SubmissionFailed,
              automatic,
-             "Your forum shop was not updated.\n\n" + failure.message);
+             "Your forum shop was not updated.\n\n" + failure.message,
+             static_cast<int>(failure.cause));
         break;
     }
 }
@@ -731,13 +748,15 @@ void Shop::OnShopSubmitted(QNetworkReply *reply)
     if (const auto *retry = std::get_if<RetryAfter>(&outcome)) {
         spdlog::warn("Shop: the forum asked for a retry: {}", retry->reason);
         if (retry->seconds > kMaxRateLimitWaitSeconds) {
-            FailActiveJob(Error(QString("The forum asks you to wait %1 seconds before posting "
+            FailActiveJob(Error(Cause::RateLimited,
+                                QString("The forum asks you to wait %1 seconds before posting "
                                         "again. Update the shop after that.")
                                     .arg(retry->seconds)));
             return;
         }
         if (job.attempts >= kMaxAttemptsPerThread) {
-            FailActiveJob(Error(QString("The forum did not accept the post for thread %1 after %2 "
+            FailActiveJob(Error(Cause::RetriesExhausted,
+                                QString("The forum did not accept the post for thread %1 after %2 "
                                         "attempts. Its last answer was: %3")
                                     .arg(job.threads[job.requests_completed])
                                     .arg(job.attempts)

@@ -12,6 +12,7 @@
 #include <expected>
 #include <memory>
 #include <set>
+#include <utility>
 
 #include "poe/types/website/webstashtab.h"
 #include "ratelimit/fetcherror.h"
@@ -72,7 +73,24 @@ public:
     struct Failure
     {
         enum class Kind { Error, SessionRejected, Canceled };
+        // What failed, so that an automatic submission is told about each
+        // kind of failure once per session.
+        enum class Cause {
+            StashIndex,
+            Unreachable,
+            SiteError,
+            ThreadNotEditable,
+            PostRefused,
+            ItemNotFound,
+            RateLimited,
+            ForumError,
+            UnexpectedPage,
+            RetriesExhausted,
+            Session,
+            Canceled
+        };
         Kind kind{Kind::Error};
+        Cause cause{Cause::ForumError};
         QString message;
     };
 
@@ -132,9 +150,11 @@ private:
     // admission (SubmitShopToForum) still refuses while a job is active.
     void SubmitAutomaticShop();
 
-    // What the user is told about. A manual request hears every notice;
-    // an automatic submission hears each kind once per session, so a
-    // standing condition does not raise a dialog after every refresh.
+    // What the user is told about. A manual request hears every notice and
+    // never uses one up; an automatic submission hears each notice (and,
+    // for a failed submission, each Failure::Cause as `detail`) once per
+    // session, so a standing condition does not raise a dialog after every
+    // refresh.
     enum class Notice {
         BuyoutsNotLoaded,
         NoThreads,
@@ -144,7 +164,7 @@ private:
         SessionRejected,
         SubmissionFailed
     };
-    void Warn(Notice notice, bool automatic, const QString &message);
+    void Warn(Notice notice, bool automatic, const QString &message, int detail = 0);
 
     // The admission gate both submission paths ask first: the buyouts
     // loaded (fail-closed, #250), threads set, and a POESESSID present.
@@ -187,7 +207,7 @@ private:
     QStringList m_threads;
     QString m_shop_template;
     bool m_auto_update;
-    std::set<Notice> m_warned;
+    std::set<std::pair<Notice, int>> m_warned;
     std::chrono::milliseconds m_retry_delay{5000};
 
     // The submission desired state (M2 D8/R3-1): at most one active job and
