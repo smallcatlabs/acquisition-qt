@@ -84,8 +84,6 @@ LogPanel::LogPanel(MainWindow *window, Ui::MainWindow *ui)
                 m_num_errors.fetch_add(1, std::memory_order_relaxed);
             } else if (msg.level == spdlog::level::warn) {
                 m_num_warnings.fetch_add(1, std::memory_order_relaxed);
-            } else {
-                m_num_messages.fetch_add(1, std::memory_order_relaxed);
             }
             // IMPORTANT: queue UI update onto LogPanel's thread (GUI thread)
             // Otherwise calls to spdlog from other threads (e.g. ItemsWorkerManager)
@@ -125,7 +123,6 @@ void LogPanel::UpdateStatusLabel()
 {
     const unsigned int errors = m_num_errors.load(std::memory_order_relaxed);
     const unsigned int warnings = m_num_warnings.load(std::memory_order_relaxed);
-    const unsigned int messages = m_num_messages.load(std::memory_order_relaxed);
 
     QString label = "Event Log";
     QString style = "";
@@ -139,9 +136,6 @@ void LogPanel::UpdateStatusLabel()
         label = "warning(s)";
         style = "font-weight: bold; color: " + WARNING_COLOR.name();
         k = warnings;
-    } else if (messages > 0) {
-        label = "message(s)";
-        k = messages;
     }
 
     if (k > 0) {
@@ -160,7 +154,6 @@ void LogPanel::TogglePanelVisibility()
         // Since we'll be showing the panel to the user, we can
         // reset the message counters.
         m_output->show();
-        m_num_messages.store(0, std::memory_order_relaxed);
         m_num_warnings.store(0, std::memory_order_relaxed);
         m_num_errors.store(0, std::memory_order_relaxed);
         UpdateStatusLabel();

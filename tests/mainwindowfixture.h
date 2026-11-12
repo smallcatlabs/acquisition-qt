@@ -72,7 +72,6 @@ public:
         window = std::make_unique<MainWindow>(*settings,
                                               *networkManager,
                                               *rateLimiter,
-                                              *buyoutFixture.data,
                                               *itemsManager,
                                               *buyoutFixture.manager,
                                               *buyoutFixture.repo,

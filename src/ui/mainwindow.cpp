@@ -42,7 +42,6 @@
 #include "currencymanager.h"
 #include "datastore/buyoutrepo.h"
 #include "datastore/characterrepo.h"
-#include "datastore/datastore.h"
 #include "datastore/stashrepo.h"
 #include "imagecache.h"
 #include "item.h"
@@ -64,7 +63,6 @@
 #include "ui/mainwindowhelpers.h"
 #include "ui/searchform.h"
 #include "ui/verticalscrollarea.h"
-#include "util/glaze_qt.h" // IWYU pragma: keep
 #include "util/networkmanager.h"
 #include "util/spdlog_qt.h"
 #include "util/updatechecker.h"
@@ -148,7 +146,6 @@ namespace {
 MainWindow::MainWindow(QSettings &settings,
                        NetworkManager &network_manager,
                        RateLimiter &rate_limiter,
-                       DataStore &datastore,
                        ItemsManager &items_manager,
                        BuyoutManager &buyout_manager,
                        BuyoutRepo &buyout_repo,
@@ -161,7 +158,6 @@ MainWindow::MainWindow(QSettings &settings,
     : m_settings(settings)
     , m_network_manager(network_manager)
     , m_rate_limiter(rate_limiter)
-    , m_datastore(datastore)
     , m_items_manager(items_manager)
     , m_buyout_manager(buyout_manager)
     , m_buyout_repo(buyout_repo)
@@ -363,12 +359,6 @@ void MainWindow::InitializeUi()
     connect(ui->treeView, &QTreeView::customContextMenuRequested, this, [&](const QPoint &pos) {
         m_context_menu.popup(ui->treeView->viewport()->mapToGlobal(pos));
     });
-
-    m_refresh_button.setStyleSheet("color: blue; font-weight: bold;");
-    m_refresh_button.setFlat(true);
-    m_refresh_button.hide();
-    statusBar()->addPermanentWidget(&m_refresh_button);
-    connect(&m_refresh_button, &QPushButton::clicked, this, &MainWindow::OnRefreshAllTabs);
 
     m_update_button.setText("Update available");
     m_update_button.setStyleSheet("color: blue; font-weight: bold;");

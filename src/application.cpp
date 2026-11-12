@@ -303,7 +303,6 @@ Application::UserSession::UserSession(const Application::CoreServices &core)
     main_window.reset(CreateMainWindow(settings,
                                        network_manager,
                                        *rate_limiter,
-                                       *data,
                                        *items_manager,
                                        *buyout_manager,
                                        userstore->buyouts(),
