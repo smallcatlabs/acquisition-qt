@@ -6,8 +6,6 @@
 
 #include <QDesktopServices>
 #include <QFile>
-#include <QFileDialog>
-#include <QFileInfo>
 #include <QMessageBox>
 #include <QNetworkCookie>
 #include <QNetworkCookieJar>
@@ -37,13 +35,11 @@
 constexpr const char *POE_LEAGUE_LIST_URL
     = "https://api.pathofexile.com/leagues?type=main&compact=1";
 
-LoginDialog::LoginDialog(const QDir &app_data_dir,
-                         QSettings &settings,
+LoginDialog::LoginDialog(QSettings &settings,
                          NetworkManager &network_manager,
                          OAuthManager &oauth_manager,
                          DataStore &datastore)
     : QDialog(nullptr)
-    , m_app_data_dir(app_data_dir)
     , m_settings(settings)
     , m_network_manager(network_manager)
     , m_oauth_manager(oauth_manager)
@@ -70,9 +66,6 @@ LoginDialog::LoginDialog(const QDir &app_data_dir,
     for (const auto &level_name : spdlog::level::level_string_views) {
         ui->loggingLevelComboBox->addItem(QString::fromUtf8(level_name));
     }
-
-    // Display the data directory
-    ui->userDirButton->setText(m_app_data_dir.absolutePath());
 
     // Hide the error message by default
     ui->errorLabel->setText("");
@@ -117,7 +110,6 @@ LoginDialog::LoginDialog(const QDir &app_data_dir,
             &QComboBox::currentTextChanged,
             this,
             &LoginDialog::OnLoggingLevelChanged);
-    connect(ui->userDirButton, &QPushButton::pressed, this, &LoginDialog::OnUserDirButtonPushed);
     connect(ui->themeComboBox, &QComboBox::currentTextChanged, this, &LoginDialog::OnThemeChanged);
 
     // Listen for access from the OAuth manager.
@@ -451,23 +443,6 @@ void LoginDialog::OnReportCrashesCheckBoxChanged(Qt::CheckState state)
         } else {
             restore_checkbox(true);
         }
-    }
-}
-
-void LoginDialog::OnUserDirButtonPushed()
-{
-    const QString current_dir = QFileInfo(m_settings.fileName()).absolutePath();
-    const QString parent_dir = QFileInfo(current_dir).absolutePath();
-    const QString new_dir = QFileDialog::getExistingDirectory(this,
-                                                              "Select the user directory",
-                                                              parent_dir);
-    // An empty result means the picker was cancelled.
-    if (new_dir.isEmpty()) {
-        return;
-    }
-    if (new_dir != current_dir) {
-        ui->userDirButton->setText(new_dir);
-        emit ChangeUserDir(new_dir);
     }
 }
 

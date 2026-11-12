@@ -25,6 +25,7 @@
 #include "shop.h"
 #include "ui/logindialog.h"
 #include "util/crashreporting.h"
+#include "util/datadirlock.h"
 #include "util/logging.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "version_defines.h"
@@ -142,6 +143,16 @@ int main(int argc, char *argv[])
     // Setup the data dir, which is where the log will be written.
     const auto appDir = QDir(QCoreApplication::applicationDirPath());
     const auto appDataDir = QDir(parser.value(option_data_dir));
+
+    // One instance per data directory: two would refresh with the same stored
+    // token, write the same databases and could both post the shop. Taken
+    // before settings, Sentry and logging touch the directory, and held until
+    // main() returns.
+    const auto dataDirLock = LockDataDirectory(appDataDir);
+    if (!dataDirLock) {
+        QMessageBox::critical(nullptr, "Acquisition", DataDirLockRefusal(appDataDir));
+        return EXIT_FAILURE;
+    }
 
     // The settings are read before anything else starts, because the user's
     // crash-reporting choice decides whether sentry starts at all.

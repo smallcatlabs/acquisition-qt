@@ -6,10 +6,10 @@
 #include <QApplication>
 #include <QBuffer>
 #include <QDesktopServices>
-#include <QFileDialog>
 #include <QFileInfo>
 #include <QMessageBox>
 #include <QOAuthHttpServerReplyHandler>
+#include <QProcess>
 #include <QPushButton>
 #include <QSettings>
 #include <QSignalSpy>
@@ -38,6 +38,7 @@
 #include "util/checkmsvc.h"
 #include "util/crashreporting.h"
 #include "util/databackup.h"
+#include "util/datadirlock.h"
 #include "util/fatalerror.h"
 #include "util/logging.h"
 #include "util/networkmanager.h"
@@ -62,8 +63,6 @@ private slots:
     void backupSkippedWithoutDataDirRecordsVersion();
     void backupSkippedForEmptyDataDirRecordsVersion();
     void backupTakenOnNewVersion();
-    void cancellingDataDirPickerChangesNothing();
-    void choosingDataDirEmitsIt();
     void updateButtonOpensUpdatePrompt();
     void skippedReleaseIsNotOfferedAgain();
     void imageCacheDeletesReplies_data();
@@ -86,6 +85,10 @@ private slots:
     void imageCacheSignalsFailedFetch();
     void imageCacheKeepsNoFileForUndecodableBody();
     void imageCacheKeysOnRequestedUrl();
+    void dataDirLockRefusesSecondHolder();
+    void dataDirLockTakesOverStaleLock();
+    void dataDirLockRefusesForeignHostLock();
+    void dataDirLockRefusalNamesHolderAndFile();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -171,7 +174,7 @@ struct LoginDialogServices
 
     std::unique_ptr<LoginDialog> makeDialog()
     {
-        return std::make_unique<LoginDialog>(QDir(dir.path()), settings, network, oauth, datastore);
+        return std::make_unique<LoginDialog>(settings, network, oauth, datastore);
     }
 
     QTemporaryDir dir;
@@ -308,50 +311,6 @@ namespace {
         trigger();
         return answered;
     }
-
-    // Press the login dialog's data-directory button and answer the file
-    // dialog it opens with `answer` once that dialog is showing.
-    bool pressUserDirButton(LoginDialog &dialog, const std::function<void(QFileDialog &)> &answer)
-    {
-        auto *button = dialog.findChild<QPushButton *>("userDirButton");
-        if (!button) {
-            return false;
-        }
-        return answerModal<QFileDialog>([button] { emit button->pressed(); }, answer);
-    }
-
-} // namespace
-
-void ShellTest::cancellingDataDirPickerChangesNothing()
-{
-    LoginDialogServices services;
-    QVERIFY(services.dir.isValid());
-    auto dialog = services.makeDialog();
-    QSignalSpy changed(dialog.get(), &LoginDialog::ChangeUserDir);
-
-    QVERIFY(pressUserDirButton(*dialog, [](QFileDialog &picker) { picker.reject(); }));
-    QCOMPARE(changed.count(), 0);
-}
-
-void ShellTest::choosingDataDirEmitsIt()
-{
-    LoginDialogServices services;
-    QVERIFY(services.dir.isValid());
-    QTemporaryDir other;
-    QVERIFY(other.isValid());
-    auto dialog = services.makeDialog();
-    QSignalSpy changed(dialog.get(), &LoginDialog::ChangeUserDir);
-
-    QVERIFY(pressUserDirButton(*dialog, [&](QFileDialog &picker) {
-        picker.setDirectory(other.path());
-        static_cast<QDialog &>(picker).accept(); // QFileDialog::accept is protected
-    }));
-    QCOMPARE(changed.count(), 1);
-    QCOMPARE(QFileInfo(changed.at(0).at(0).toString()).canonicalFilePath(),
-             QFileInfo(other.path()).canonicalFilePath());
-}
-
-namespace {
 
     constexpr const char *NEWER_RELEASES
         = R"json([{"tag_name":"v99.0.0","draft":false,"prerelease":false}])json";
@@ -944,6 +903,140 @@ void ShellTest::imageCacheKeepsNoFileForUndecodableBody()
     QVERIFY(!cache.contains(url));
     const QStringList files = QDir(dir.filePath("cache")).entryList(QDir::Files);
     QVERIFY2(files.isEmpty(), qPrintable(files.join(", ")));
+}
+
+void ShellTest::dataDirLockRefusesSecondHolder()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir data_dir(dir.filePath("fresh")); // not created yet
+
+    auto first = LockDataDirectory(data_dir);
+    QVERIFY(first);
+    QVERIFY(first->isLocked());
+    QVERIFY(LockDataDirectory(data_dir) == nullptr);
+
+    first.reset();
+    auto again = LockDataDirectory(data_dir);
+    QVERIFY(again);
+    QVERIFY(again->isLocked());
+}
+
+void ShellTest::dataDirLockTakesOverStaleLock()
+{
+    // A crashed instance leaves its lock file behind. Build that file from
+    // a real lock file's content with the PID of a process that has exited.
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir data_dir(dir.path());
+
+    // A process that has exited: this test binary, asked only for its help
+    // text, which needs no shell or other program on any platform.
+    QProcess child;
+    child.start(QCoreApplication::applicationFilePath(), {"-help"});
+    QVERIFY(child.waitForStarted());
+    const qint64 dead_pid = child.processId();
+    QVERIFY(child.waitForFinished());
+    {
+        QLockFile probe(data_dir.filePath("probe.lock"));
+        QVERIFY(probe.lock());
+        qint64 pid = 0;
+        QString host;
+        QString app;
+        QVERIFY(probe.getLockInfo(&pid, &host, &app));
+        QFile file(data_dir.filePath("probe.lock"));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QByteArray content = file.readAll();
+        file.close();
+        // Control: the same file naming a live process is not stale.
+        {
+            QFile live(data_dir.filePath("acquisition.lock"));
+            QVERIFY(live.open(QIODevice::WriteOnly));
+            live.write(content);
+        }
+        QVERIFY(LockDataDirectory(data_dir) == nullptr);
+
+        // Replace the PID in its own line (the first) only: its digits may
+        // also occur in the host name or machine id lines.
+        QList<QByteArray> lines = content.split('\n');
+        QCOMPARE(lines.at(0), QByteArray::number(pid));
+        lines[0] = QByteArray::number(dead_pid);
+        content = lines.join('\n');
+        QFile stale(data_dir.filePath("acquisition.lock"));
+        QVERIFY(stale.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        stale.write(content);
+    }
+
+    auto lock = LockDataDirectory(data_dir);
+    QVERIFY(lock);
+    QVERIFY(lock->isLocked());
+}
+
+// Writes acquisition.lock as a lock taken on another computer would be:
+// a real lock file's content with the host name line replaced.
+static bool writeForeignHostLock(const QDir &data_dir)
+{
+    QLockFile probe(data_dir.filePath("probe.lock"));
+    if (!probe.lock()) {
+        return false;
+    }
+    QFile file(data_dir.filePath("probe.lock"));
+    if (!file.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+    QList<QByteArray> lines = file.readAll().split('\n');
+    if (lines.size() < 3) {
+        return false;
+    }
+    lines[2] = "another-computer.example";
+    QFile foreign(data_dir.filePath("acquisition.lock"));
+    return foreign.open(QIODevice::WriteOnly) && (foreign.write(lines.join('\n')) > 0);
+}
+
+void ShellTest::dataDirLockRefusesForeignHostLock()
+{
+    // A lock taken on another computer (a shared or synced data directory)
+    // cannot be judged stale from here, so it is refused, not taken over.
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir data_dir(dir.path());
+    QVERIFY(writeForeignHostLock(data_dir));
+    QVERIFY(LockDataDirectory(data_dir) == nullptr);
+
+    const QString message = DataDirLockRefusal(data_dir);
+    QVERIFY2(message.contains("another-computer.example"), qPrintable(message));
+    QVERIFY2(message.contains(QDir::toNativeSeparators(data_dir.filePath("acquisition.lock"))),
+             qPrintable(message));
+}
+
+void ShellTest::dataDirLockRefusalNamesHolderAndFile()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir data_dir(dir.path());
+    const auto held = LockDataDirectory(data_dir);
+    QVERIFY(held && held->isLocked());
+
+    const QString message = DataDirLockRefusal(data_dir);
+    const QString lock_path = QDir::toNativeSeparators(data_dir.filePath("acquisition.lock"));
+    QVERIFY2(message.contains(QDir::toNativeSeparators(data_dir.absolutePath())),
+             qPrintable(message));
+    QVERIFY2(message.contains(lock_path), qPrintable(message));
+    QVERIFY2(message.contains(QString::number(QCoreApplication::applicationPid())),
+             qPrintable(message));
+
+    // An unreadable lock file: the message still names the file.
+    QTemporaryDir other;
+    QVERIFY(other.isValid());
+    {
+        QFile garbage(QDir(other.path()).filePath("acquisition.lock"));
+        QVERIFY(garbage.open(QIODevice::WriteOnly));
+        garbage.write("not a lock file");
+    }
+    const QString unknown = DataDirLockRefusal(QDir(other.path()));
+    QVERIFY2(unknown.contains(
+                 QDir::toNativeSeparators(QDir(other.path()).filePath("acquisition.lock"))),
+             qPrintable(unknown));
 }
 
 QTEST_MAIN(ShellTest)

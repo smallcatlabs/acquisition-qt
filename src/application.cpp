@@ -8,7 +8,6 @@
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
-#include <QFileDialog>
 #include <QMessageBox>
 #include <QNetworkCookieJar>
 #include <QSettings>
@@ -61,13 +60,6 @@ void Application::InitCoreServices()
 
     // Connect signals from the login dialog.
     connect(&login(), &LoginDialog::ChangeTheme, this, &Application::SetTheme);
-    // Queued: SetUserDir destroys the login dialog, whose button is still
-    // emitting when this signal fires.
-    connect(&login(),
-            &LoginDialog::ChangeUserDir,
-            this,
-            &Application::SetUserDir,
-            Qt::QueuedConnection);
     connect(&login(), &LoginDialog::LoginComplete, this, &Application::OnLogin);
 
     if (settings().value("realm").toString().isEmpty()) {
@@ -230,11 +222,7 @@ Application::CoreServices::CoreServices(const QDir &appDataDir)
     oauth_manager = std::make_unique<OAuthManager>(*network_manager, *global_data);
 
     spdlog::trace("Application: creating login dialog");
-    login = std::make_unique<LoginDialog>(dir.absolutePath(),
-                                          *settings,
-                                          *network_manager,
-                                          *oauth_manager,
-                                          *global_data);
+    login = std::make_unique<LoginDialog>(*settings, *network_manager, *oauth_manager, *global_data);
 }
 
 Application::UserSession::UserSession(const Application::CoreServices &core)
@@ -405,25 +393,6 @@ void Application::SetTheme(const QString &theme)
 
     spdlog::trace("Application::SetTheme() setting stylesheet");
     qApp->setStyleSheet(style_data);
-}
-
-void Application::SetUserDir(const QString &dir)
-{
-    // Same shutdown invariant as InitUserSession(): resetting m_session (and
-    // m_core beneath it) tears down the worker and hub, which is only safe once
-    // the event loop has stopped (network-redesign.md, "Shutdown and task
-    // ownership"). The data directory is chosen from the login dialog before any
-    // session exists; a change once a session is live would destroy owners
-    // mid-loop, so refuse it loudly rather than corrupt suspended frames.
-    if (m_session) {
-        FatalError("Application: refusing to change the data directory while a user "
-                   "session is live (network-redesign.md shutdown invariant)");
-    }
-
-    m_core.reset();
-    m_data_dir = QDir(dir);
-
-    InitCoreServices();
 }
 
 void Application::OnItemsRefreshed(bool initial_refresh)

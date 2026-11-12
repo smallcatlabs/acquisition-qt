@@ -39,7 +39,6 @@ still needs a POESESSID cookie; see [Forum shop](forum-shop.md).
 | Use system proxy | Route network traffic through the operating system's proxy settings |
 | Logging Level | Same as the **Settings → Logging** menu in the main window |
 | Theme | Dark, Light, or Default (the platform theme) |
-| Profile Folder | Shows the data directory in use (see below) |
 
 ## What happens after login
 
@@ -77,12 +76,22 @@ and the global database in `data/` holds the OAuth token. Anyone who can read
 those files can act as your account, so do not share `settings.ini` or the data
 directory, and turn off **Remember me** on a computer you share.
 
-Use `--data-dir <path>` to run with a different directory, for example to keep
-two accounts apart or to try a beta without touching your real data:
+The directory is chosen when Acquisition starts: use `--data-dir <path>` to run
+with a different one, for example to keep two accounts apart or to try a beta
+without touching your real data:
 
 ```
 acquisition --data-dir /path/to/other/dir
 ```
+
+Only one Acquisition at a time can use a data directory. A second one started
+on the same directory says so, shows what holds the lock and where the lock
+file is, and exits. The running one keeps a lock file, `acquisition.lock`,
+which is removed when it closes. One left behind by a crash on the same
+computer is taken over at the next start. One written on another computer (a
+shared or synced data directory) or one that cannot be read is not: if you are
+sure no Acquisition is using the directory, delete the file named in the
+message.
 
 The other command-line option is `--log-level <level>`; see
 [Settings and troubleshooting](settings-and-troubleshooting.md#logging).
