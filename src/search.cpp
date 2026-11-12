@@ -1750,8 +1750,7 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
     }
     if (!m_filtered) {
         for (const auto &location : m_bo_manager.GetStashTabLocations()) {
-            target_buckets.emplace(LocationInventory::KeyFor(location),
-                                   canonicalLocation(location));
+            target_buckets.emplace(LocationInventory::KeyFor(location), canonicalLocation(location));
         }
         if (m_location_inventory) {
             for (const auto &[key, location] : m_location_inventory->entries()) {

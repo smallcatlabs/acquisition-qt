@@ -3,8 +3,8 @@
 
 #include <QtTest>
 
-#include <QNetworkRequest>
 #include <QNetworkReply>
+#include <QNetworkRequest>
 #include <QScopedPointer>
 #include <QStandardPaths>
 
@@ -121,7 +121,7 @@ void SecurityLoggingTest::malformedOAuthTokenDoesNotEchoInput()
 {
     constexpr auto secret = "oauth-token-secret-never-log";
     const QByteArray malformed = QByteArrayLiteral("{\"access_token\":\"") + secret
-                               + QByteArrayLiteral("\" \"token_type\":\"Bearer\"}");
+                                 + QByteArrayLiteral("\" \"token_type\":\"Bearer\"}");
 
     const auto token = json::readOAuthToken(malformed);
 

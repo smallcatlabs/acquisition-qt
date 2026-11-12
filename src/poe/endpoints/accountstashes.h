@@ -11,8 +11,9 @@ namespace poe {
 
     // https://www.pathofexile.com/developer/docs/reference#stashes-list
 
-    struct AccountStashes {
+    struct AccountStashes
+    {
         std::vector<poe::StashTab> stashes;
     };
 
-}
+} // namespace poe

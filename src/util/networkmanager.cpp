@@ -129,14 +129,13 @@ QNetworkReply *NetworkManager::createRequest(QNetworkAccessManager::Operation op
         } else {
             QString masked{QString::fromUtf8(m_bearerToken)};
             masked.fill('*');
-            spdlog::trace("NetworkManager: setting bearer token: {} (masked for security)",
-                          masked);
+            spdlog::trace("NetworkManager: setting bearer token: {} (masked for security)", masked);
             request.setRawHeader("Authorization", m_bearerToken);
         }
     } else if (host == POE_CDN_HOST) {
         // Prefer the cache for cdn content.
-        request
-            .setAttribute(QNetworkRequest::CacheLoadControlAttribute, QNetworkRequest::PreferCache);
+        request.setAttribute(QNetworkRequest::CacheLoadControlAttribute,
+                             QNetworkRequest::PreferCache);
     }
 
     spdlog::trace("Network: requesting {}", request.url().toDisplayString());

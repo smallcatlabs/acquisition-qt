@@ -85,7 +85,7 @@ QString Util::GetCsrfToken(const QByteArray &page, const QString &name)
     //  name="hash" value="..."
     //	or
     //	name="hash" class="input-error" value="..."
-    // 
+    //
     // clang-format off
     static const QString expr = QString(R"regex(
 		name="%1"
@@ -308,4 +308,3 @@ QByteArray Util::FixTimezone(const QByteArray &rfc2822_date)
     }
     return rfc2822_date;
 }
-

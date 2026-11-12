@@ -666,8 +666,7 @@ void SearchTest::modsFormAdapterFreeTextPersistsAndRestoresIndex()
     QCOMPARE(modCombo->currentText(), "Free typed mod");
     QCOMPARE(modCombo->currentIndex(), -1);
 
-    searchA.setFilterState(modsIndex,
-                           ModsState{{ModRow{"Saved mod", std::nullopt, std::nullopt}}});
+    searchA.setFilterState(modsIndex, ModsState{{ModRow{"Saved mod", std::nullopt, std::nullopt}}});
     harness.form.loadFrom(searchA);
     modCombo = harness.host.findChild<QComboBox *>("modsRowCombo");
     QVERIFY(modCombo);
@@ -703,8 +702,7 @@ void SearchTest::modsFormAdapterDoesNotArmCompleterOnProgrammaticRows()
     QTest::qWait(timer->interval() + 75);
     QCOMPARE(blankRowTimeouts.count(), 0);
 
-    searchA.setFilterState(modsIndex,
-                           ModsState{{ModRow{"Saved mod", std::nullopt, std::nullopt}}});
+    searchA.setFilterState(modsIndex, ModsState{{ModRow{"Saved mod", std::nullopt, std::nullopt}}});
     harness.form.loadFrom(searchA);
     modCombo = harness.host.findChild<QComboBox *>("modsRowCombo");
     QVERIFY(modCombo);
@@ -725,8 +723,7 @@ void SearchTest::modsFormAdapterRepacksRows()
 
     Search searchA(*harness.buyoutFixture.manager, "A", harness.catalog);
     Search searchB(*harness.buyoutFixture.manager, "B", harness.catalog);
-    searchA.setFilterState(modsIndex,
-                           ModsState{{ModRow{"Saved mod", std::nullopt, std::nullopt}}});
+    searchA.setFilterState(modsIndex, ModsState{{ModRow{"Saved mod", std::nullopt, std::nullopt}}});
 
     auto *rowsContainer = harness.host.findChild<QWidget *>("modsRowsContainer");
     QVERIFY(rowsContainer);

@@ -463,8 +463,7 @@ namespace {
         }
 
         // Past the spacing floor: the GET dispatches and sits in flight.
-        advanceAndSettle(rig.scheduler,
-                         kGateSpacing - std::chrono::milliseconds(kNormalBufferMsec));
+        advanceAndSettle(rig.scheduler, kGateSpacing - std::chrono::milliseconds(kNormalBufferMsec));
         QCOMPARE(rig.network->count(), 2);
         QCOMPARE(rig.network->sent(1).op, QNetworkAccessManager::GetOperation);
         if (where == Checkpoint::Flight) {
@@ -577,7 +576,10 @@ void WorkerIntegrationTest::i_shut_retry()
 
 namespace {
 
-    QString urlOf(const FakeNetworkManager::Sent &sent) { return sent.request.url().toString(); }
+    QString urlOf(const FakeNetworkManager::Sent &sent)
+    {
+        return sent.request.url().toString();
+    }
 
     // The index of the single sent request matching an operation and a URL
     // fragment (the facade's list URLs are .../stash/<league> and
@@ -586,7 +588,8 @@ namespace {
     int findSent(Rig &rig, QNetworkAccessManager::Operation op, const QString &url_contains)
     {
         for (int i = 0; i < rig.network->count(); ++i) {
-            if (rig.network->sent(i).op == op && urlOf(rig.network->sent(i)).contains(url_contains)) {
+            if (rig.network->sent(i).op == op
+                && urlOf(rig.network->sent(i)).contains(url_contains)) {
                 return i;
             }
         }
@@ -720,7 +723,8 @@ void WorkerIntegrationTest::i_cancel_flight()
     // spacing floor at the coroutine's RESUME instant (the current fake time),
     // so the two sends must be paced out across separate advances, exactly as
     // the hub's own tests do.
-    for (int step = 0; step < 12 && findSent(rig, QNetworkAccessManager::GetOperation, "/character") < 0;
+    for (int step = 0;
+         step < 12 && findSent(rig, QNetworkAccessManager::GetOperation, "/character") < 0;
          ++step) {
         advanceAndSettle(rig.scheduler, kGateSpacing);
     }
@@ -735,7 +739,9 @@ void WorkerIntegrationTest::i_cancel_flight()
 
     // The sibling fails in flight -> worker aborts -> shared token stops while
     // the victim is still in flight.
-    rig.network->sent(char_get).reply->finish(policyHeaders(), 500, QNetworkReply::InternalServerError);
+    rig.network->sent(char_get).reply->finish(policyHeaders(),
+                                              500,
+                                              QNetworkReply::InternalServerError);
     settle(rig.scheduler);
 
     // Cancellation never aborts the in-flight reply (D2/R6-1): the victim is
@@ -842,7 +848,8 @@ void WorkerIntegrationTest::i_retention()
         list_get = findSent(rig, QNetworkAccessManager::GetOperation, "/stash/Standard");
         // The content GETs also match "/stash/"; pin the list GET to the bare
         // league URL so a content GET is never mistaken for it.
-        if (list_get >= 0 && urlOf(rig.network->sent(list_get)) != "https://api.pathofexile.com/stash/Standard") {
+        if (list_get >= 0
+            && urlOf(rig.network->sent(list_get)) != "https://api.pathofexile.com/stash/Standard") {
             list_get = -1;
         }
     }

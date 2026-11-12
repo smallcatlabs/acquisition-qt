@@ -549,8 +549,8 @@ void ItemsManagerWorker::RunUpdate()
         CheckUpdateFinished();
     } catch (const std::exception &e) {
         spdlog::error("ItemsManagerWorker: the update orchestration threw: {}", e.what());
-        RecordFirstError(MakeInternalError(
-            QString("the update orchestration threw: %1").arg(e.what())));
+        RecordFirstError(
+            MakeInternalError(QString("the update orchestration threw: %1").arg(e.what())));
         AbortUpdate();
     } catch (...) {
         spdlog::error("ItemsManagerWorker: the update orchestration threw an unknown exception");
@@ -851,11 +851,10 @@ void ItemsManagerWorker::OnStashListReceived(const Result<poe::StashListWrapper>
     // bucket's stable id is its display parent's), so a deleted parent
     // takes its children's buckets with it — the same predicate the old
     // per-item pass applied.
-    const size_t dropped = m_items.EraseSourcesIf(
-        [this](const FetchSourceKey &key, const ItemLocation &location) {
-            return (key.type == ItemLocationType::STASH)
-                   && (m_tab_id_index.count(location.id()) == 0);
-        });
+    const size_t dropped = m_items.EraseSourcesIf([this](const FetchSourceKey &key,
+                                                         const ItemLocation &location) {
+        return (key.type == ItemLocationType::STASH) && (m_tab_id_index.count(location.id()) == 0);
+    });
     if (dropped > 0) {
         spdlog::debug("ItemsManagerWorker: dropped {} items from deleted stash tabs", dropped);
     }
@@ -1118,8 +1117,7 @@ void ItemsManagerWorker::OnStashReceived(const Result<poe::StashPayload> &result
         const size_t dropped = m_items.EraseSourcesIf(
             [&](const FetchSourceKey &key, const ItemLocation &item_location) {
                 return (key.type == ItemLocationType::STASH)
-                       && (item_location.id() == location.id())
-                       && (expected_keys.count(key) == 0);
+                       && (item_location.id() == location.id()) && (expected_keys.count(key) == 0);
             });
         if (dropped > 0) {
             spdlog::debug("ItemsManagerWorker: dropped {} ghost child items from {}",
@@ -1390,9 +1388,8 @@ void ItemsManagerWorker::FinishUpdate()
 
     // Sort items (the snapshot's deterministic presentation order; the flat
     // view is rebuilt here if any delta dirtied it).
-    m_items.SortFlat([](const std::shared_ptr<Item> &a, const std::shared_ptr<Item> &b) {
-        return *a < *b;
-    });
+    m_items.SortFlat(
+        [](const std::shared_ptr<Item> &a, const std::shared_ptr<Item> &b) { return *a < *b; });
 
     // Let everyone know the update is done.
     spdlog::trace("ItemsManagerWorker::FinishUpdate() emitting ItemsRefreshed");

@@ -420,10 +420,10 @@ QDateTime RateLimitPolicy::GetNextSafeSend(const std::deque<RateLimit::Event> &h
                 lines.append(QString("</EVENT>"));
                 // Find the latest time and use it. This helps us avoid violations due
                 // to things like clock differences and network delays.
-                const QDateTime &request_time
-                    = event.request_time.isValid() ? event.request_time : now;
-                const QDateTime &received_time
-                    = event.received_time.isValid() ? event.received_time : now;
+                const QDateTime &request_time = event.request_time.isValid() ? event.request_time
+                                                                             : now;
+                const QDateTime &received_time = event.received_time.isValid() ? event.received_time
+                                                                               : now;
                 const QDateTime &reply_time = event.reply_time.isValid() ? event.reply_time : now;
                 t = std::max({request_time, received_time, reply_time});
                 lines.append(QString("%1: using most recent time: %2").arg(tag, Timestamp(t)));

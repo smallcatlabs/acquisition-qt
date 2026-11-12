@@ -403,31 +403,28 @@ SearchForm::SearchForm(QVBoxLayout &layout,
         m_adapters.emplace_back(
             std::make_unique<BoolFilterForm>(parent, spec.caption, formCallbacks, spec.refreshMode));
     };
-    const auto addMinMax = [this](QLayout *parent,
-                                  const FilterSpec &spec,
-                                  const FilterCallbacks &formCallbacks) {
-        m_adapters.emplace_back(std::make_unique<MinMaxFilterForm>(parent,
-                                                                   spec.caption,
-                                                                   formCallbacks,
-                                                                   spec.refreshMode));
-    };
-    const auto addColors = [this](QLayout *parent,
-                                  const FilterSpec &spec,
-                                  const FilterCallbacks &formCallbacks) {
-        m_adapters.emplace_back(std::make_unique<ColorsFilterForm>(parent,
-                                                                   spec.caption,
-                                                                   formCallbacks,
-                                                                   spec.refreshMode));
-    };
+    const auto addMinMax =
+        [this](QLayout *parent, const FilterSpec &spec, const FilterCallbacks &formCallbacks) {
+            m_adapters.emplace_back(std::make_unique<MinMaxFilterForm>(parent,
+                                                                       spec.caption,
+                                                                       formCallbacks,
+                                                                       spec.refreshMode));
+        };
+    const auto addColors =
+        [this](QLayout *parent, const FilterSpec &spec, const FilterCallbacks &formCallbacks) {
+            m_adapters.emplace_back(std::make_unique<ColorsFilterForm>(parent,
+                                                                       spec.caption,
+                                                                       formCallbacks,
+                                                                       spec.refreshMode));
+        };
     const auto addMods = [this](QLayout *parent,
                                 const FilterSpec &spec,
                                 qsizetype index,
                                 const FilterCallbacks &formCallbacks) {
         m_adapters.emplace_back(
-            std::make_unique<ModsFilterForm>(parent,
-                                             formCallbacks,
-                                             spec.refreshMode,
-                                             [this, index] { saveBoundState(index); }));
+            std::make_unique<ModsFilterForm>(parent, formCallbacks, spec.refreshMode, [this, index] {
+                saveBoundState(index);
+            }));
     };
 
     Q_ASSERT(m_catalog.size() >= 4);

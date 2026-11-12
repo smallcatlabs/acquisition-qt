@@ -204,7 +204,6 @@ int main(int argc, char *argv[])
     spdlog::info("Logging level will be {}", loglevel);
     spdlog::set_level(loglevel);
 
-
 #ifdef Q_OS_WINDOWS
     // On Windows, it's possible there are incompatible versions of the MSVC runtime
     // DLLs that can cause unexpected crashes, so acquisition does some extra work

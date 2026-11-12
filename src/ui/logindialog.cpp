@@ -123,10 +123,7 @@ LoginDialog::LoginDialog(const QDir &app_data_dir,
     connect(ui->themeComboBox, &QComboBox::currentTextChanged, this, &LoginDialog::OnThemeChanged);
 
     // Listen for access from the OAuth manager.
-    connect(&m_oauth_manager,
-            &OAuthManager::grantAccess,
-            this,
-            &LoginDialog::OnOAuthAccessGranted);
+    connect(&m_oauth_manager, &OAuthManager::grantAccess, this, &LoginDialog::OnOAuthAccessGranted);
 
     // Use OnLoginTabChanged to do things like enable the login button.
     OnLoginTabChanged(ui->loginTabs->currentIndex());
@@ -187,8 +184,6 @@ void LoginDialog::LoadSettings()
             break;
         }
     }
-
-
 }
 
 void LoginDialog::RequestLeagues()

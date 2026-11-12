@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include <QObject>
 #include <QNetworkAccessManager>
+#include <QObject>
 
 class QNetworkDiskCache;
 
@@ -34,7 +34,7 @@ protected:
                                  QIODevice *outgoingData = nullptr) override;
 
 private:
-    QNetworkDiskCache* m_diskCache;
+    QNetworkDiskCache *m_diskCache;
     QByteArray m_bearerToken;
 
     using AttributeGetter = std::function<QVariant(QNetworkRequest::Attribute)>;

@@ -25,6 +25,5 @@ struct OAuthToken
     std::optional<QDateTime> refresh_expiration;
 
 private:
-    void setBirthday(const QDateTime& date);
-
+    void setBirthday(const QDateTime &date);
 };
