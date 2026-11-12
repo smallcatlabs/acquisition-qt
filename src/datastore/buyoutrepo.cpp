@@ -140,6 +140,20 @@ ON CONFLICT(location_id) DO NOTHING
 
 namespace {
 
+    // The rows a user authored (#293): not a copy of a tab's price that an
+    // older build stored on each item, marked inherited. Every read that
+    // decides whether a price exists, or is manual, reads only these;
+    // other rows are left in the tables and ignored. No location row is
+    // ever inherited, but the same rule is applied to both tables.
+    QString selectAuthored(const char *select_from, const char *condition = nullptr)
+    {
+        QString sql = QString::fromLatin1(select_from) + QStringLiteral(" WHERE inherited = 0");
+        if (condition) {
+            sql += QStringLiteral(" AND ") + QString::fromLatin1(condition);
+        }
+        return sql;
+    }
+
     QString locationTypeTag(ItemLocationType type)
     {
         switch (type) {
@@ -204,10 +218,10 @@ std::optional<std::unordered_map<QString, Buyout>> BuyoutRepo::loadItemBuyouts()
     spdlog::debug("BuyoutRepo: getting item buyouts");
 
     QSqlQuery q(m_db);
-    if (!q.prepare("SELECT"
-                   "    item_id, location_id, location_type,"
-                   "    currency, inherited, last_update, source, type, value"
-                   " FROM item_buyouts")) {
+    if (!q.prepare(selectAuthored("SELECT"
+                                  "    item_id, location_id, location_type,"
+                                  "    currency, inherited, last_update, source, type, value"
+                                  " FROM item_buyouts"))) {
         spdlog::error("BuyoutRepo: prepare() failed: {}", q.lastError().text());
         return std::nullopt;
     }
@@ -242,10 +256,10 @@ std::optional<std::unordered_map<QString, Buyout>> BuyoutRepo::loadLocationBuyou
     spdlog::debug("BuyoutRepo: getting location buyouts");
 
     QSqlQuery q(m_db);
-    if (!q.prepare("SELECT"
-                   "    location_id, location_type,"
-                   "    currency, inherited, last_update, source, type, value"
-                   " FROM location_buyouts")) {
+    if (!q.prepare(selectAuthored("SELECT"
+                                  "    location_id, location_type,"
+                                  "    currency, inherited, last_update, source, type, value"
+                                  " FROM location_buyouts"))) {
         spdlog::error("BuyoutRepo: prepare() failed: {}", q.lastError().text());
         return std::nullopt;
     }
@@ -394,12 +408,13 @@ BuyoutBatchSaveResult BuyoutRepo::saveImportBatch(const std::vector<ItemBuyoutWr
     QSqlQuery item_query(m_db);
     if (!items.empty()
         && (!item_source_query.prepare(
-                "SELECT source,"
-                "    (location_id = :location_id AND location_type = :location_type"
-                "     AND currency = :currency AND inherited = :inherited"
-                "     AND last_update = :last_update AND source = :source"
-                "     AND type = :type AND value = :value) AS identical"
-                " FROM item_buyouts WHERE item_id = :item_id")
+                selectAuthored("SELECT source,"
+                               "    (location_id = :location_id AND location_type = :location_type"
+                               "     AND currency = :currency AND inherited = :inherited"
+                               "     AND last_update = :last_update AND source = :source"
+                               "     AND type = :type AND value = :value) AS identical"
+                               " FROM item_buyouts",
+                               "item_id = :item_id"))
             || !item_query.prepare(IMPORT_ITEM_BUYOUT))) {
         rollback(
             QString("Could not prepare item buyout import: %1").arg(item_query.lastError().text()));
@@ -443,11 +458,13 @@ BuyoutBatchSaveResult BuyoutRepo::saveImportBatch(const std::vector<ItemBuyoutWr
     QSqlQuery location_query(m_db);
     if (!locations.empty()
         && (!location_source_query.prepare(
-                "SELECT source,"
-                "    (location_type = :location_type AND currency = :currency"
-                "     AND inherited = :inherited AND last_update = :last_update"
-                "     AND source = :source AND type = :type AND value = :value) AS identical"
-                " FROM location_buyouts WHERE location_id = :location_id")
+                selectAuthored("SELECT source,"
+                               "    (location_type = :location_type AND currency = :currency"
+                               "     AND inherited = :inherited AND last_update = :last_update"
+                               "     AND source = :source AND type = :type AND value = :value)"
+                               " AS identical"
+                               " FROM location_buyouts",
+                               "location_id = :location_id"))
             || !location_query.prepare(IMPORT_LOCATION_BUYOUT))) {
         rollback(QString("Could not prepare location buyout import: %1")
                      .arg(location_query.lastError().text()));

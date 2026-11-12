@@ -287,12 +287,24 @@ std::vector<int> Search::InvalidateBuyoutOrder(const BuyoutChangeSet &changes, i
     // scoped pricing pass stays O(delta + affected bucket); an id the
     // index cannot fully represent (duplicated across buckets, or the
     // empty id) forces the every-bucket path, the same fallback shape as
-    // the rule-5 repaint. Only item-level buyouts feed Price/Date keys
-    // (BuyoutManager::Get is item-keyed; tab prices reach items through
-    // propagation's item-level Sets in the same batch), so tab ids alone
-    // affect no order.
+    // the rule-5 repaint. A changed tab price is a change to the price of
+    // every item that shows it (BuyoutManager::Effective falls back to the
+    // tab's), so a changed tab's items are affected too. They are found
+    // through the By-Tab buckets, which are kept in both view modes and
+    // hold the same visible items as the flat bucket.
     bool every_bucket = changes.everything;
     std::set<LocationInventory::Key> affected_tabs;
+    std::set<QString> ids = changes.item_ids;
+    if (!every_bucket && !changes.tab_ids.empty()) {
+        for (const Bucket &bucket : m_bucket_by_tab) {
+            if (changes.tab_ids.count(bucket.location().id()) > 0) {
+                affected_tabs.insert(LocationInventory::KeyFor(bucket.location()));
+                for (const auto &item : bucket.items()) {
+                    ids.insert(item->id());
+                }
+            }
+        }
+    }
     if (!every_bucket) {
         for (const QString &id : changes.item_ids) {
             if (visibleIdUnindexed(id)) {
@@ -317,7 +329,7 @@ std::vector<int> Search::InvalidateBuyoutOrder(const BuyoutChangeSet &changes, i
                               || (affected_tabs.count(LocationInventory::KeyFor(bucket.location()))
                                   > 0);
         if (affected) {
-            bucket.RebuildKeyEntries(col, changes.item_ids, every_bucket);
+            bucket.RebuildKeyEntries(col, ids, every_bucket);
             bucket.InvalidateOrder();
             if (!by_item && bucket.expanded()) {
                 resort_rows.push_back(static_cast<int>(row));
@@ -327,7 +339,7 @@ std::vector<int> Search::InvalidateBuyoutOrder(const BuyoutChangeSet &changes, i
     const bool flat_affected = every_bucket || !affected_tabs.empty();
     for (auto &bucket : m_bucket_by_item) {
         if (flat_affected) {
-            bucket.RebuildKeyEntries(col, changes.item_ids, every_bucket);
+            bucket.RebuildKeyEntries(col, ids, every_bucket);
             bucket.InvalidateOrder();
             if (by_item) {
                 resort_rows.push_back(0);

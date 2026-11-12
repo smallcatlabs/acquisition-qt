@@ -94,9 +94,9 @@ void ApplyBuyoutTest::appliesToTabsAndItems()
     QCOMPARE(f.buyouts.manager->GetTab(tab).value, 7.0);
     QCOMPARE(f.buyouts.manager->Get(*own).value, 7.0);
     QVERIFY(!f.buyouts.manager->Get(*own).IsInherited());
-    // The tab price reaches the item that inherits it in the same command.
-    QCOMPARE(f.buyouts.manager->Get(*other).value, 7.0);
-    QVERIFY(f.buyouts.manager->Get(*other).IsInherited());
+    // The item without its own price shows the tab's.
+    QCOMPARE(f.buyouts.manager->Effective(*other).buyout.value, 7.0);
+    QVERIFY(f.buyouts.manager->Effective(*other).buyout.IsInherited());
 }
 
 void ApplyBuyoutTest::leavesGamePricedTargetsAlone()
@@ -121,7 +121,7 @@ void ApplyBuyoutTest::leavesGamePricedTargetsAlone()
     QCOMPARE(result.not_saved, 0);
     QCOMPARE(f.buyouts.manager->Get(*noted).value, 5.0);
     QCOMPARE(f.buyouts.manager->GetTab(priced).value, 2.0);
-    QCOMPARE(f.buyouts.manager->Get(*inside).value, 2.0);
+    QCOMPARE(f.buyouts.manager->Effective(*inside).buyout.value, 2.0);
 }
 
 void ApplyBuyoutTest::countsWhatWasNotSaved()

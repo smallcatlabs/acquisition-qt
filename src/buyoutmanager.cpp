@@ -101,7 +101,10 @@ bool BuyoutManager::Set(const Item &item, const Buyout &buyout)
     }
 
     const auto it = m_buyouts.find(item.id());
-    if (buyout.IsNull()) {
+    // "Inherit" is no price of its own: the row goes, as a cleared one does
+    // (the pricing passes used to delete an item's inherit row; a tab's
+    // stayed, unread).
+    if (buyout.IsNull() || (buyout.type == Buyout::BUYOUT_TYPE_INHERIT)) {
         // Only touch the database when the manager holds an entry to clear:
         // PropagateTabBuyouts clears nearly every item on every refresh, which
         // used to issue one no-op DELETE per item (F52).
@@ -171,11 +174,19 @@ namespace {
 
 EffectivePrice BuyoutManager::Effective(const Item &item) const
 {
-    // The pricing passes store the price in force on the item: a note's
-    // price, a price set on the item, or a copy of its tab's price marked
-    // inherited.
+    // The item's own price, stored on it (a note's price, or one set in
+    // Acquisition); else its tab's, read now by the tab's id, which marks
+    // it inherited and keeps the tab price's source and date.
     EffectivePrice price{.buyout = Get(item), .source = PriceSource::None};
     price.source = sourceOf(price.buyout, true);
+    if (price.source != PriceSource::None) {
+        return price;
+    }
+    EffectivePrice tab = EffectiveTab(item.location());
+    if (tab.buyout.IsActive()) {
+        tab.buyout.inherited = true;
+        return tab;
+    }
     return price;
 }
 
@@ -234,7 +245,10 @@ bool BuyoutManager::SetTab(const ItemLocation &location, const Buyout &buyout)
     }
 
     const auto it = m_tab_buyouts.find(location.id());
-    if (buyout.IsNull()) {
+    // "Inherit" is no price of its own: the row goes, as a cleared one does
+    // (the pricing passes used to delete an item's inherit row; a tab's
+    // stayed, unread).
+    if (buyout.IsNull() || (buyout.type == Buyout::BUYOUT_TYPE_INHERIT)) {
         if (it == m_tab_buyouts.end()) {
             return true;
         }
