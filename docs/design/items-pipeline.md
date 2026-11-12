@@ -113,7 +113,9 @@ re-parallelization.)
   Excluded from `operator==`, `operator<`, and
   `GetLegacyHash()` so buyout keys and sort order are untouched.
   `ParseCachedItems` sets it too (the datastore keys child stashes by
-  their own ids), so cached and live items agree.
+  their own ids), so cached and live items agree. **Amended November 12,
+  2026:** the cache load now lives in `src/cacheload.cpp` as
+  `LoadCachedItems` (#294).
 - Every stash/character reply is an **atomic replace**: erase items whose
   fetch-source id matches the fetched id, parse, append — synchronously,
   in one event-loop slot. Nothing is culled before its replacement is in

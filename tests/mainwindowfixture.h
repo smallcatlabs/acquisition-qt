@@ -63,6 +63,7 @@ public:
                                                             *buyoutFixture.data,
                                                             *itemsManager);
         shop = std::make_unique<Shop>(*settings,
+                                      identity,
                                       *networkManager,
                                       *api,
                                       *buyoutFixture.data,
@@ -70,6 +71,7 @@ public:
                                       *buyoutFixture.manager);
         imageCache = std::make_unique<ImageCache>(*networkManager, tempDir.filePath("cache"));
         window = std::make_unique<MainWindow>(*settings,
+                                              identity,
                                               *networkManager,
                                               *rateLimiter,
                                               *itemsManager,
@@ -106,6 +108,7 @@ public:
     std::unique_ptr<StashRepo> stashRepo;
     std::unique_ptr<CharacterRepo> characterRepo;
     std::unique_ptr<QSettings> settings;
+    const SessionIdentity identity = makeTestIdentity("TestAccount", "pc", "Standard");
     std::unique_ptr<NetworkManager> networkManager;
     std::unique_ptr<RateLimiter> rateLimiter;
     std::unique_ptr<PoeApiClient> api;

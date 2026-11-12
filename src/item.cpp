@@ -75,7 +75,7 @@ static QString fixup_name(const QString &name)
 // the other's warn for it; the second path still logs at debug. Key on the
 // caller's prefix too if that ever matters.
 //
-// Item is constructed on the parser thread during the cache load and on the
+// Item is constructed on the cache-load thread (src/cacheload.cpp) and on the
 // main thread during a refresh, so the lock is not optional. It is only ever
 // reached on the anomalous path.
 static bool first_report_of(std::string_view message)

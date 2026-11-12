@@ -450,3 +450,7 @@ amendment changes one, the amendment governs.
   present members shows no checkbox (D10); and a collapsed tab holding
   the selected item stays collapsed through a refresh (the reselection
   amendment above).
+- **November 12, 2026 — cache load moved (#294).** `ParseCachedItems`,
+  named in the S1 amendment above (a Folder reply's children), is now
+  `LoadCachedItems` in `src/cacheload.cpp`; the filing it describes is
+  unchanged.
