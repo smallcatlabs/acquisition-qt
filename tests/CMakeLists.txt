@@ -83,6 +83,7 @@ add_test(NAME filters_boundary
 acq_add_test(tst_buyout)
 acq_add_test(tst_buyoutmanager)
 acq_add_test(tst_itemlocation)
+acq_add_test(tst_item)
 acq_add_test(tst_legacydatastore)
 acq_add_test(tst_legacybuyoutimporter)
 acq_add_test(tst_qtassumptions)
