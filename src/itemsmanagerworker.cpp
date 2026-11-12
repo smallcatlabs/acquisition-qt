@@ -5,19 +5,13 @@
 
 #include <QCoroFuture>
 
-#include <QDir>
-#include <QFileInfo>
 #include <QSettings>
-#include <QThread>
 
 #include <algorithm>
 #include <unordered_map>
 #include <utility>
 
 #include "buyoutmanager.h"
-#include "datastore/characterrepo.h"
-#include "datastore/stashrepo.h"
-#include "datastore/userstore.h"
 #include "itemlocation.h"
 #include "itemsfromwire.h"
 #include "modlist.h"
@@ -26,7 +20,6 @@
 #include "poe/types/character.h"
 #include "poe/types/item.h"
 #include "poe/types/stashtab.h"
-#include "repoe/repoe.h"
 #include "util/json_readers.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "util/util.h"
@@ -62,23 +55,6 @@ namespace {
         }
     }
 
-    // Folder-tree D12 (R8, A4): a Folder-type stash holds tabs, never items.
-    // Items one carries — in a live reply or a cached row — are discarded
-    // here, so they never enter the item store and the two view modes
-    // cannot disagree about them. One warning per tab, naming the count.
-    bool DiscardFolderItems(const poe::StashTab &stash)
-    {
-        if ((stash.type != "Folder") || !stash.items || stash.items->empty()) {
-            return false;
-        }
-        spdlog::warn("Discarding {} items carried by folder '{}' ({}): folders hold tabs, "
-                     "not items",
-                     stash.items->size(),
-                     stash.name,
-                     stash.id);
-        return true;
-    }
-
     // Folder-tree D12: a tab listed under a folder's `children` should name
     // that folder as its own `folder`. A mismatch is logged, as an API-change
     // tripwire; no fallback is applied.
@@ -109,6 +85,7 @@ namespace {
 } // namespace
 
 ItemsManagerWorker::ItemsManagerWorker(QSettings &settings,
+                                       const SessionIdentity &identity,
                                        BuyoutManager &buyout_manager,
                                        PoeApiClient &api,
                                        QObject *parent)
@@ -116,6 +93,7 @@ ItemsManagerWorker::ItemsManagerWorker(QSettings &settings,
     , m_settings(settings)
     , m_buyout_manager(buyout_manager)
     , m_api(api)
+    , m_identity(identity)
     , m_type(TabSelection::Checked)
     , m_update_all(false)
     , m_need_stash_list(false)
@@ -125,21 +103,11 @@ ItemsManagerWorker::ItemsManagerWorker(QSettings &settings,
     , m_update_tab_contents(true)
 {
     spdlog::trace("ItemsManagerWorker::ItemsManagerWorker() entered");
-
-    m_realm = m_settings.value("realm").toString();
-    m_league = m_settings.value("league").toString();
-    m_account = m_settings.value("account").toString();
-    spdlog::trace("ItemsManagerWorker: league = {}", m_league);
-    spdlog::trace("ItemsManagerWorker: account = {}", m_account);
+    spdlog::trace("ItemsManagerWorker: league = {}", m_identity.league());
+    spdlog::trace("ItemsManagerWorker: account = {}", m_identity.account());
 }
 
-ItemsManagerWorker::~ItemsManagerWorker()
-{
-    m_shutdown.store(true);
-    if (m_parser_thread && m_parser_thread->isRunning()) {
-        m_parser_thread->wait();
-    }
-}
+ItemsManagerWorker::~ItemsManagerWorker() = default;
 
 void ItemsManagerWorker::UpdateRequest(TabSelection type, const std::vector<ItemLocation> &locations)
 {
@@ -149,205 +117,30 @@ void ItemsManagerWorker::UpdateRequest(TabSelection type, const std::vector<Item
     m_locations = locations;
 }
 
-void ItemsManagerWorker::OnRePoEReady()
+void ItemsManagerWorker::Seed(CachedItems cached)
 {
-    spdlog::trace("ItemsManagerWorker::OnRePoEReady() entered");
-    StartParseThread();
-}
-
-void ItemsManagerWorker::StartParseThread()
-{
-    // Create a separate thread to load the items, which allows the UI to
-    // update the status bar while items are being parsed. This operation
-    // can take tens of seconds or longer depending on the nubmer of tabs
-    // and items.
-    const QFileInfo info(m_settings.fileName());
-    const QString dataDir = info.absolutePath() + "/data/";
-    m_shutdown.store(false);
-    m_parser_thread = QThread::create([this, dataDir]() {
-        auto result = ParseCachedItems(dataDir);
-        if (m_shutdown.load()) {
-            return;
-        }
-        QMetaObject::invokeMethod(
-            this,
-            [this, result = std::move(result)]() mutable { OnParseCompleted(std::move(result)); },
-            Qt::QueuedConnection);
-    });
-    connect(m_parser_thread, &QThread::finished, m_parser_thread, &QThread::deleteLater);
-    m_parser_thread->start();
-}
-
-ParseResult ItemsManagerWorker::ParseCachedItems(const QString &dataDir) const
-{
-    spdlog::trace("ItemsManagerWorker::ParseItemMods() entered");
-    ParseResult result;
-    auto sendStatusUpdate = [this](ProgramState state, const QString &status) {
-        emit const_cast<ItemsManagerWorker *>(this)->StatusUpdate(state, status);
-    };
-
-    // Manual-testing aid: delay each cached tab so that mid-parse GUI actions
-    // (quit, refresh-while-initializing) can be exercised by hand. Unset or
-    // zero in normal use.
-    const int parse_delay_ms = qEnvironmentVariableIntValue("ACQ_PARSE_DELAY_MS");
-    if (parse_delay_ms > 0) {
-        spdlog::warn("ACQ_PARSE_DELAY_MS is set: delaying {}ms per cached tab", parse_delay_ms);
+    if (m_state != WorkerState::Initializing) {
+        spdlog::error("ItemsManagerWorker: ignoring a second cache load");
+        return;
     }
-
-    // Create a datastore to get a connection to the database.
-    // NOTE: we only need read access, but this isn't enforced or checked.
-    QDir data_dir{dataDir};
-    UserStore userstore{data_dir, m_account};
-
-    // Get cached characters and stash tabs.
-    const auto stashes = userstore.stashes().getStashList(m_realm, m_league);
-    const auto characters = userstore.characters().getCharacterList(m_realm, m_league);
-
-    // Do not process children from unique and map stashers.
-    auto special = [](const poe::StashTab &stash) {
-        return stash.parent && ((stash.type == "UniqueStash") || (stash.type == "MapStash"));
-    };
-
-    result.tabs.reserve(stashes.size() + characters.size());
-    for (const auto &stash : stashes) {
-        if (!special(stash)) {
-            result.tabs.push_back(ItemLocation(stash));
-        }
-    }
-    for (const auto &character : characters) {
-        result.tabs.push_back(ItemLocation(character, int(result.tabs.size())));
-    }
-    result.tabs.shrink_to_fit();
-
-    // Save location ids.
-    spdlog::trace("ItemsManagerWorker::ParseItemMods() saving location ids");
-    for (const auto &tab : result.tabs) {
-        result.tab_id_index.emplace(tab.id());
-    }
-
-    // Get cached items
-    spdlog::trace("ItemsManagerWorker::ParseItemMods() getting cached items");
-
-    // Get stash items.
-    for (size_t i = 0; i < stashes.size(); ++i) {
-        if (m_shutdown.load()) {
-            return result;
-        }
-        if (parse_delay_ms > 0) {
-            QThread::msleep(parse_delay_ms);
-        }
-        const auto id = stashes[i].id;
-        const auto stash = userstore.stashes().getStash(id, m_realm, m_league);
-        if (!stash) {
-            // The row was listed but its contents were never fetched, so
-            // there is nothing cached to load for it here.
-            continue;
-        }
-        sendStatusUpdate(ProgramState::Initializing,
-                         QString("Parsing items from stash %1/%2: %3 '%4'")
-                             .arg(QString::number(i),
-                                  QString::number(stashes.size()),
-                                  stash->id,
-                                  stash->name));
-        ItemLocation location;
-        if (!special(*stash)) {
-            location = ItemLocation{*stash};
-        } else {
-            // Items in special tabs should use their parent's ItemLocation.
-            for (const auto &tab : result.tabs) {
-                if (tab.id() == stash->parent) {
-                    location = tab;
-                    break;
-                }
-            }
-            if (!location.IsValid()) {
-                spdlog::error("ItemsManagerWorker: could not find stash parent");
-                continue;
-            }
-            // The items display under the parent, but they were fetched from
-            // (and are keyed for replacement by) this child stash.
-            location.setFetchId(stash->id);
-        }
-        LoadItems(*stash, location, result);
-    }
-
-    // Get character items.
-    for (size_t i = 0; i < characters.size(); ++i) {
-        if (m_shutdown.load()) {
-            return result;
-        }
-        if (parse_delay_ms > 0) {
-            QThread::msleep(parse_delay_ms);
-        }
-        const auto name = characters[i].name;
-        const auto character = userstore.characters().getCharacter(name, m_realm);
-        if (!character) {
-            // Listed but never fetched: nothing cached to load here.
-            continue;
-        }
-        sendStatusUpdate(ProgramState::Initializing,
-                         QString("Parsing items from character %1/%2: %3")
-                             .arg(i)
-                             .arg(characters.size())
-                             .arg(name));
-        ItemLocation tab{*character, int(stashes.size() + i)};
-        LoadItems(*character, tab, result);
-    }
-
-    sendStatusUpdate(ProgramState::Ready,
-                     QString("Parsed %1 items from %2 tabs")
-                         .arg(result.items.size())
-                         .arg(result.tabs.size()));
-
-    return result;
-}
-
-void ItemsManagerWorker::OnParseCompleted(ParseResult result)
-{
-    m_tabs = std::move(result.tabs);
-    m_items.ResetTo(std::move(result.items));
-    m_tab_id_index = std::move(result.tab_id_index);
+    m_tabs = std::move(cached.tabs);
+    m_items.ResetTo(std::move(cached.items));
+    m_tab_id_index = std::move(cached.tab_id_index);
     m_state = WorkerState::Idle;
+    emit StatusUpdate(ProgramState::Ready,
+                      (cached.status == CachedItems::Status::Complete)
+                          ? QString("Parsed %1 items from %2 tabs")
+                                .arg(QString::number(m_items.size()), QString::number(m_tabs.size()))
+                          : QString("Could not read the cached items; see the log"));
     // let ItemManager know that the retrieval of cached items/tabs has been completed (calls ItemsManager::OnItemsRefreshed method)
-    spdlog::trace("ItemsManagerWorker::ParseItemMods() emitting ItemsRefreshed signal");
+    spdlog::trace("ItemsManagerWorker::Seed() emitting ItemsRefreshed signal");
     emit ItemsRefreshed(m_items.Flat(), m_tabs, true);
 
     if (m_updateRequest) {
-        spdlog::trace("ItemsManagerWorker::ParseItemMods() triggering requested update");
+        spdlog::trace("ItemsManagerWorker::Seed() triggering requested update");
         m_updateRequest = false;
         Update(m_type, m_locations);
     }
-}
-
-void ItemsManagerWorker::LoadItems(const poe::StashTab &stash,
-                                   ItemLocation location,
-                                   ParseResult &result) const
-{
-    const auto items = stash.items;
-    if (!items || DiscardFolderItems(stash)) {
-        return;
-    }
-    result.items.reserve(result.items.size() + items->size());
-    spdlog::debug("ItemManagerWorker: loading {} items from stash # {}: {} ({})",
-                  items->size(),
-                  stash.index.value_or(-1),
-                  stash.id,
-                  stash.name);
-    AppendWireItems(stash, location, result.items);
-}
-
-void ItemsManagerWorker::LoadItems(const poe::Character &character,
-                                   ItemLocation location,
-                                   ParseResult &result) const
-{
-    AppendWireItems(character, location, result.items, [&](const char *name, size_t count) {
-        result.items.reserve(result.items.size() + count);
-        spdlog::debug("ItemManagerWorker: loading {} items from character {} {} ({})",
-                      count,
-                      name,
-                      character.id,
-                      character.name);
-    });
 }
 
 void ItemsManagerWorker::AutoUpdate()
@@ -673,7 +466,7 @@ QCoro::Task<> ItemsManagerWorker::FetchStashList(std::stop_token token)
         Result<poe::StashListWrapper> result;
         try {
             // Move the payload out (S1-7): the worker is the single consumer.
-            auto future = m_api.listStashes(m_realm, m_league, token);
+            auto future = m_api.listStashes(m_identity.realm(), m_identity.league(), token);
             result = co_await qCoro(future).takeResult();
         } catch (...) {
             result = std::unexpected(MakeInternalError("the stash list fetch threw"));
@@ -700,7 +493,7 @@ QCoro::Task<> ItemsManagerWorker::FetchCharacterList(std::stop_token token)
     try {
         Result<poe::CharacterListWrapper> result;
         try {
-            auto future = m_api.listCharacters(m_realm, token);
+            auto future = m_api.listCharacters(m_identity.realm(), token);
             result = co_await qCoro(future).takeResult();
         } catch (...) {
             result = std::unexpected(MakeInternalError("the character list fetch threw"));
@@ -723,7 +516,11 @@ QCoro::Task<> ItemsManagerWorker::FetchStash(ItemLocation location,
     try {
         Result<poe::StashPayload> result;
         try {
-            auto future = m_api.getStash(m_realm, m_league, stash_id, substash_id, token);
+            auto future = m_api.getStash(m_identity.realm(),
+                                         m_identity.league(),
+                                         stash_id,
+                                         substash_id,
+                                         token);
             result = co_await qCoro(future).takeResult();
         } catch (...) {
             result = std::unexpected(MakeInternalError("the stash fetch threw"));
@@ -744,7 +541,7 @@ QCoro::Task<> ItemsManagerWorker::FetchCharacter(ItemLocation location,
     try {
         Result<poe::CharacterPayload> result;
         try {
-            auto future = m_api.getCharacter(m_realm, name, token);
+            auto future = m_api.getCharacter(m_identity.realm(), name, token);
             result = co_await qCoro(future).takeResult();
         } catch (...) {
             result = std::unexpected(MakeInternalError("the character fetch threw"));
@@ -792,7 +589,7 @@ void ItemsManagerWorker::ProcessTab(const poe::StashTab &tab, std::vector<ItemsR
     if (tab.children) {
         // These children need to be added to the database, since they weren't included
         // in the original list.
-        emit stashListReceived(*tab.children, m_realm, m_league);
+        emit stashListReceived(*tab.children, m_identity.realm(), m_identity.league());
         for (const auto &child : *tab.children) {
             ProcessTab(child, batch);
         }
@@ -819,11 +616,11 @@ void ItemsManagerWorker::OnStashListReceived(const Result<poe::StashListWrapper>
 
     const auto &stashes = result->stashes;
 
-    emit stashListReceived(stashes, m_realm, m_league);
+    emit stashListReceived(stashes, m_identity.realm(), m_identity.league());
     // Only a fresh top-level list may drive datastore deletion — never the
     // partial stashListReceived re-emits ProcessTab makes for folder
     // children (F53).
-    emit stashListReplaced(stashes, m_realm, m_league);
+    emit stashListReplaced(stashes, m_identity.realm(), m_identity.league());
 
     spdlog::debug("Received stash list, there are {} stash tabs", stashes.size());
 
@@ -896,9 +693,9 @@ void ItemsManagerWorker::OnCharacterListReceived(const Result<poe::CharacterList
 
     const auto &characters = result->characters;
 
-    emit characterListReceived(characters, m_realm);
+    emit characterListReceived(characters, m_identity.realm());
     // The fresh list is authoritative for the datastore too (F53).
-    emit characterListReplaced(characters, m_realm);
+    emit characterListReplaced(characters, m_identity.realm());
 
     // The fresh list is authoritative for characters: rebuild the character
     // entries of m_tabs from it, keeping stash entries untouched. This also
@@ -924,15 +721,19 @@ void ItemsManagerWorker::OnCharacterListReceived(const Result<poe::CharacterList
         const QString name = character.name;
         const QString realm = character.realm;
         const QString league = character.league.value_or("");
-        if (realm != m_realm) {
-            spdlog::trace("Skipping {} because this character is not in realm {}", name, m_realm);
+        if (realm != m_identity.realm()) {
+            spdlog::trace("Skipping {} because this character is not in realm {}",
+                          name,
+                          m_identity.realm());
             continue;
         }
-        if (league != m_league) {
-            spdlog::trace("Skipping {} because this character is not in league {}", name, m_league);
+        if (league != m_identity.league()) {
+            spdlog::trace("Skipping {} because this character is not in league {}",
+                          name,
+                          m_identity.league());
             continue;
         }
-        ItemLocation location(character, int(m_tabs.size()));
+        ItemLocation location(character);
         if (m_tab_id_index.count(location.id()) > 0) {
             spdlog::trace("Skipping {} because it appears twice in the character list.", name);
             continue;
@@ -948,7 +749,7 @@ void ItemsManagerWorker::OnCharacterListReceived(const Result<poe::CharacterList
             batch.push_back(ItemsRequest{CharacterFetch{name}, location});
         }
     }
-    spdlog::debug("There are {} characters to update in '{}'", batch.size(), m_league);
+    spdlog::debug("There are {} characters to update in '{}'", batch.size(), m_identity.league());
 
     // Drop items belonging to characters the server no longer lists.
     const size_t dropped = m_items.EraseSourcesIf(
@@ -1011,7 +812,7 @@ void ItemsManagerWorker::OnStashReceived(const Result<poe::StashPayload> &result
 
     // The bytes ride along untouched (F62): the facade parsed this stash
     // from exactly this substring of the reply, and the datastore stores it.
-    emit stashReceived(stash, result->bytes, m_realm, m_league);
+    emit stashReceived(stash, result->bytes, m_identity.realm(), m_identity.league());
 
     // Atomically replace whatever this request fetched last time: for a
     // normal tab that is the tab's items, for a child of a special tab it
@@ -1118,7 +919,10 @@ void ItemsManagerWorker::OnStashReceived(const Result<poe::StashPayload> &result
         // folder's own reply carries no children in the live API (F49), so
         // keying off a folder reply would wipe its legitimate child rows.
         if ((stash.type == "MapStash") || (stash.type == "UniqueStash")) {
-            emit stashChildrenReplaced(location.id(), child_ids, m_realm, m_league);
+            emit stashChildrenReplaced(location.id(),
+                                       child_ids,
+                                       m_identity.realm(),
+                                       m_identity.league());
         }
         const std::set<FetchSourceKey> expected_keys(expected.begin(), expected.end());
         const size_t dropped = m_items.EraseSourcesIf(
@@ -1182,7 +986,7 @@ void ItemsManagerWorker::OnCharacterReceived(const Result<poe::CharacterPayload>
 
     const auto &character = result->character;
 
-    emit characterReceived(character, result->bytes, m_realm);
+    emit characterReceived(character, result->bytes, m_identity.realm());
 
     // Atomically replace this character's items: one bucket swap, as in
     // OnStashReceived.

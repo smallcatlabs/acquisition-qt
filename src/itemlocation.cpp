@@ -15,9 +15,8 @@ ItemLocation::ItemLocation()
     : m_type(ItemLocationType::STASH)
 {}
 
-ItemLocation::ItemLocation(const poe::Character &character, int tab_id)
+ItemLocation::ItemLocation(const poe::Character &character)
     : m_type{ItemLocationType::CHARACTER}
-    , m_tab_id{tab_id}
     , m_unique_id(character.id)
     , m_fetch_id(character.id)
     , m_character{character.name}

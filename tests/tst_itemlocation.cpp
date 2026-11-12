@@ -49,7 +49,7 @@ void ItemLocationTest::characterFetchIdDefaultsToOwnId()
     poe::Character character;
     character.id = "abcdef0123456789";
     character.name = "TestCharacter";
-    const ItemLocation location(character, 3);
+    const ItemLocation location(character);
     QCOMPARE(location.fetch_id(), QString("abcdef0123456789"));
     QCOMPARE(location.fetch_id(), location.id());
 }
@@ -96,7 +96,7 @@ void ItemLocationTest::folderIdComesFromStash()
     poe::Character character;
     character.id = "abcdef0123456789";
     character.name = "TestCharacter";
-    QVERIFY(ItemLocation(character, 0).folder_id().isEmpty());
+    QVERIFY(ItemLocation(character).folder_id().isEmpty());
 }
 
 void ItemLocationTest::folderTestFollowsTabType()
@@ -109,7 +109,7 @@ void ItemLocationTest::folderTestFollowsTabType()
     poe::Character character;
     character.id = "abcdef0123456789";
     character.name = "Folder";
-    QVERIFY(!ItemLocation(character, 0).IsFolder());
+    QVERIFY(!ItemLocation(character).IsFolder());
     QVERIFY(!ItemLocation().IsFolder());
 }
 
