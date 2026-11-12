@@ -5,11 +5,11 @@
 
 #include <QNetworkReply>
 #include <QObject>
-#include <QUrlQuery>
 
 #include <expected>
 #include <map>
 #include <memory>
+#include <set>
 #include <vector>
 
 #include "buyout.h"
@@ -66,7 +66,8 @@ public:
 
 public slots:
     void OnEditPageFinished();
-    void OnShopSubmitted(QUrlQuery query, QNetworkReply *reply);
+    // `title` is the edit page's raw, HTML-escaped title.
+    void OnShopSubmitted(const QString &title, QNetworkReply *reply);
     // The automatic-submission gate (items-pipeline M2, D8/R1-1): auto
     // update fires only on a CLEAN completed refresh. A completed-with-skips
     // outcome must never auto-post — the skipped tabs' stale contents would
@@ -77,6 +78,9 @@ signals:
     void StatusUpdate(ProgramState state, const QString &status);
     void UserWarning(const QString &message);
     void PoeSessionRejected();
+    // Emitted when the automatic-update setting changes, whoever changed
+    // it, so the menu item can follow it.
+    void AutoUpdateChanged(bool enabled);
 
 private:
     // One forum submission job (items-pipeline M2, D8/R2-1): its input is
@@ -128,10 +132,16 @@ private:
     // admission (SubmitShopToForum) still refuses while a job is active.
     void SubmitAutomaticShop();
 
-    // The fail-closed gate both submission paths ask first (#250): false
-    // when the buyouts did not load, after telling the user — every time
-    // for a manual request, once per session for automatic ones.
-    bool BuyoutsReadyToPost(bool automatic);
+    // What the user is told about. A manual request hears every notice;
+    // an automatic submission hears each kind once per session, so a
+    // standing condition does not raise a dialog after every refresh.
+    enum class Notice { BuyoutsNotLoaded, NoThreads, NoSession, Busy, PageShortfall };
+    void Warn(Notice notice, bool automatic, const QString &message);
+
+    // The admission gate both submission paths ask first: the buyouts
+    // loaded (fail-closed, #250), threads set, and a POESESSID present.
+    // False after telling the user why, by Warn's rule.
+    bool ReadyToPost(bool automatic);
 
     // The two terminal exits every submission converges on (M2 D8).
     // Success — including the unchanged-hash no-post — releases the job and
@@ -163,8 +173,7 @@ private:
     QStringList m_threads;
     QString m_shop_template;
     bool m_auto_update;
-    bool m_warned_unloaded_buyouts{false};
-    bool m_warned_page_shortfall{false};
+    std::set<Notice> m_warned;
 
     // The submission desired state (M2 D8/R3-1): at most one active job and
     // at most one waiting automatic capture behind it — the newest clean

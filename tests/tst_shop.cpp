@@ -4,16 +4,23 @@
 #include <QtTest/QtTest>
 
 #include <QBuffer>
+#include <QMap>
 #include <QSettings>
 #include <QSqlQuery>
 #include <QStandardPaths>
 
 #include <memory>
+#include <sstream>
+
+#include <spdlog/sinks/dist_sink.h>
+#include <spdlog/sinks/ostream_sink.h>
+#include <spdlog/spdlog.h>
 
 #include "datastore/userstore.h"
 #include "fakenetwork.h"
 #include "fakenetworkmanager.h"
 #include "itemsmanager.h"
+#include "mainwindowfixture.h"
 #include "poe/poeapiclient.h"
 #include "shop.h"
 #include "testfixtures.h"
@@ -102,6 +109,23 @@ private slots:
     // #250: the shop refuses to post while the buyouts did not load.
     void unloadedBuyoutsBlockSubmission();
     void healthyEmptyStoreStillPostsEmpty();
+
+    // #315: a forum reply never reaches the log beyond an error item's
+    // text and the page's length.
+    void forumErrorReplyIsNotLogged_data();
+    void forumErrorReplyIsNotLogged();
+
+    // #258: every form value reaches the forum as the user wrote it.
+    void formValuesArePercentEncoded();
+
+    // #279: one admission gate. A manual request is always told why it
+    // was refused; an automatic one hears each reason once per session.
+    void automaticRefusalWarnsOncePerReason();
+    void manualRequestWhileUpdatingTellsTheUser();
+    void rejectedSessionReportsAutoUpdateOff();
+    // tst_mainwindow has no shop test to sit beside, so the menu check
+    // lives here with the main-window fixture.
+    void autoUpdateMenuFollowsTheSetting();
 };
 
 namespace {
@@ -166,12 +190,32 @@ namespace {
         drainEvents();
     }
 
-    // The form body of a forum POST. QNetworkAccessManager::post(request,
-    // QByteArray) wraps the body in a QBuffer parented to the reply.
-    QUrlQuery postedForm(const FakeNetworkManager::Sent &sent)
+    // The form fields of a forum POST, decoded the way a server decodes
+    // application/x-www-form-urlencoded (the WHATWG URL standard's form
+    // parser): '+' is a space, then percent-decoding as UTF-8. Deliberately
+    // not QUrlQuery, which keeps '+' as itself and so cannot see the encoder
+    // sending one. QNetworkAccessManager::post(request, QByteArray) wraps the
+    // body in a QBuffer parented to the reply.
+    QMap<QString, QString> postedForm(const FakeNetworkManager::Sent &sent)
     {
+        QMap<QString, QString> fields;
         const auto *buffer = sent.reply ? sent.reply->findChild<QBuffer *>() : nullptr;
-        return buffer ? QUrlQuery(QString::fromUtf8(buffer->data())) : QUrlQuery();
+        if (!buffer) {
+            return fields;
+        }
+        const auto decode = [](QByteArray part) {
+            part.replace('+', ' ');
+            return QString::fromUtf8(QByteArray::fromPercentEncoding(part));
+        };
+        for (const QByteArray &pair : buffer->data().split('&')) {
+            const qsizetype equals = pair.indexOf('=');
+            if (equals < 0) {
+                fields.insert(decode(pair), QString());
+            } else {
+                fields.insert(decode(pair.left(equals)), decode(pair.mid(equals + 1)));
+            }
+        }
+        return fields;
     }
 
     // A Shop over a real per-account UserStore instead of the in-memory
@@ -224,6 +268,36 @@ namespace {
         fixture.settings->setValue("realm", "pc");
         fixture.settings->setValue("league", "Standard");
     }
+
+    // Swaps the default logger for one writing to a string, the way
+    // tst_securitylogging does (F42: the default logger is replaced, its
+    // sinks are never touched), and restores the previous one.
+    class LogCapture
+    {
+    public:
+        LogCapture()
+            : m_previous(spdlog::default_logger())
+        {
+            auto sink = std::make_shared<spdlog::sinks::ostream_sink_mt>(m_output);
+            auto logger = std::make_shared<spdlog::logger>("shop-log-capture", sink);
+            logger->set_level(spdlog::level::trace);
+            logger->set_pattern("%v");
+            spdlog::set_default_logger(std::move(logger));
+        }
+        ~LogCapture() { spdlog::set_default_logger(std::move(m_previous)); }
+        LogCapture(const LogCapture &) = delete;
+        LogCapture &operator=(const LogCapture &) = delete;
+
+        QString text() const
+        {
+            spdlog::default_logger()->flush();
+            return QString::fromStdString(m_output.str());
+        }
+
+    private:
+        std::ostringstream m_output;
+        std::shared_ptr<spdlog::logger> m_previous;
+    };
 
 } // namespace
 
@@ -844,8 +918,7 @@ void ShopTest::morePagesThanThreadsWarnsWithoutReposting()
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
     QCOMPARE(fixture.networkManager->sent(1).request.url().toString(),
              QString("https://www.pathofexile.com/forum/edit-thread/123"));
-    QCOMPARE(postedForm(fixture.networkManager->sent(1))
-                 .queryItemValue("content", QUrl::FullyDecoded),
+    QCOMPARE(postedForm(fixture.networkManager->sent(1)).value("content"),
              fixture.shop->shop_data().first());
     fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, QByteArray("ok"));
     drainEvents();
@@ -961,9 +1034,183 @@ void ShopTest::healthyEmptyStoreStillPostsEmpty()
     QCOMPARE(fixture.networkManager->count(), 1);
     fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
-    QCOMPARE(postedForm(fixture.networkManager->sent(1)).queryItemValue("content"),
-             QString("Empty"));
+    QCOMPARE(postedForm(fixture.networkManager->sent(1)).value("content"), QString("Empty"));
     QCOMPARE(warnings.count(), 0);
+}
+
+// The two replies below are NOT captures of forum pages: none is in the
+// repository. Each is built from the shapes the parsing code documents —
+// Shop::error_regex (an element whose class is "errors" or "input-error",
+// then an <li> holding the message) and Util::GetCsrfToken's comment (the
+// hash input may itself carry class="input-error").
+void ShopTest::forumErrorReplyIsNotLogged_data()
+{
+    QTest::addColumn<QByteArray>("reply");
+
+    // An error marker with no list item: the catch-all that logged the
+    // whole page.
+    QTest::newRow("unrecognised marker")
+        << QByteArray("<form method=\"post\">\n"
+                      "<input type=\"hidden\" name=\"hash\" value=\"leaky-csrf-token\">\n"
+                      "<div class=\"errors\">Something the shop does not know.</div>\n"
+                      "</form>");
+
+    // The hash input carries the error class, so a match starting at the
+    // first marker spans the token before reaching the list item.
+    QTest::newRow("error class on the hash input")
+        << QByteArray("<form method=\"post\">\n"
+                      "<input type=\"hidden\" name=\"hash\" class=\"input-error\" "
+                      "value=\"leaky-csrf-token\">\n"
+                      "<ul class=\"errors\"><li>Something the shop does not know.</li></ul>\n"
+                      "</form>");
+}
+
+void ShopTest::forumErrorReplyIsNotLogged()
+{
+    QFETCH(QByteArray, reply);
+
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    LogCapture log;
+
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+    fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, reply);
+    drainEvents();
+
+    const QString logged = log.text();
+    QVERIFY2(!logged.contains("leaky-csrf-token"), qPrintable(logged));
+    QVERIFY2(!logged.contains("<form"), qPrintable(logged));
+}
+
+// The forum decodes the POST body as a form: a '+' the encoder leaves
+// alone arrives as a space, and a "%41" it leaves alone arrives as "A".
+// The title comes from the edit page, HTML-escaped as the page carries it.
+void ShopTest::formValuesArePercentEncoded()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    publishPricedItem(fixture, "item-a", 1);
+    fixture.shop->SetShopTemplate("[items] +1 & 50% %41 é");
+
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    QByteArray edit_page = kEditThreadPage;
+    edit_page.replace("value=\"My Shop\"", "value=\"WTS +1 gems &amp; 50% off\"");
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, edit_page);
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+
+    const auto form = postedForm(fixture.networkManager->sent(1));
+    QCOMPARE(form.value("content"), fixture.shop->shop_data().first());
+    QVERIFY(form.value("content").endsWith("[/spoiler] +1 & 50% %41 é"));
+    QCOMPARE(form.value("title"), QString("WTS +1 gems & 50% off"));
+    QCOMPARE(form.value("hash"), QString("fakecsrfhash"));
+    QCOMPARE(form.value("notify_owner"), QString("0"));
+    QCOMPARE(form.value("submit"), QString("Submit"));
+}
+
+// Clean refreshes with automatic updates on and a precondition missing:
+// each missing precondition is reported once, however many refreshes
+// follow; a manual request is told every time.
+void ShopTest::automaticRefusalWarnsOncePerReason()
+{
+    ShopFixture fixture;
+    fixture.settings->setValue("session_id", "fake-poesessid");
+    fixture.shop->SetAutoUpdate(true);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+
+    // No threads.
+    for (int i = 0; i < 2; ++i) {
+        fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+        drainEvents();
+    }
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY(warnings.last().first().toString().contains("No forum threads"));
+
+    // Threads, but no POESESSID: a different reason, reported once.
+    fixture.shop->SetThread({"123"});
+    fixture.settings->remove("session_id");
+    for (int i = 0; i < 2; ++i) {
+        fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+        drainEvents();
+    }
+    QCOMPARE(warnings.count(), 2);
+    QVERIFY(warnings.last().first().toString().contains("POESESSID"));
+
+    // The user asked: told again.
+    fixture.shop->SubmitShopToForum(true);
+    QCOMPARE(warnings.count(), 3);
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(0));
+}
+
+void ShopTest::manualRequestWhileUpdatingTellsTheUser()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+
+    fixture.shop->SubmitShopToForum(true);
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(1));
+    QCOMPARE(warnings.count(), 0);
+
+    // A second request while the first is still running is refused, and
+    // the user hears why.
+    fixture.shop->SubmitShopToForum(true);
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(1));
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY(warnings.first().first().toString().contains("already"));
+}
+
+void ShopTest::rejectedSessionReportsAutoUpdateOff()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    QSignalSpy changes(fixture.shop.get(), &Shop::AutoUpdateChanged);
+    fixture.shop->SetAutoUpdate(true);
+    QCOMPARE(changes.count(), 1);
+    QCOMPARE(changes.last().first().toBool(), true);
+
+    fixture.shop->SubmitShopToForum();
+    fixture.rateLimiter->reject(0, RateLimit::FetchError::Kind::Http, "HTTP status 403", 403);
+    drainEvents();
+
+    QVERIFY(!fixture.shop->auto_update());
+    QCOMPARE(changes.count(), 2);
+    QCOMPARE(changes.last().first().toBool(), false);
+}
+
+// The window's own network stack is real, so nothing here may submit: the
+// setting is changed directly, as the rejection path above changes it.
+void ShopTest::autoUpdateMenuFollowsTheSetting()
+{
+    // MainWindow's log panel attaches through the "main" logger's sink hub
+    // (F42), as in tst_mainwindow.
+    auto hub = std::make_shared<spdlog::sinks::dist_sink_mt>();
+    auto main_logger = std::make_shared<spdlog::logger>("main");
+    main_logger->sinks().push_back(hub);
+    spdlog::register_logger(main_logger);
+    const auto drop_main = qScopeGuard([] { spdlog::drop("main"); });
+
+    {
+        MainWindowFixture fixture;
+        auto *action = fixture.window->findChild<QAction *>("actionSetAutomaticallyShopUpdate");
+        QVERIFY(action);
+        QVERIFY(!action->isChecked());
+
+        action->trigger();
+        QVERIFY(action->isChecked());
+        QVERIFY(fixture.shop->auto_update());
+
+        fixture.shop->SetAutoUpdate(false);
+        QVERIFY(!action->isChecked());
+
+        fixture.shop->SetAutoUpdate(true);
+        QVERIFY(action->isChecked());
+    }
 }
 
 QTEST_MAIN(ShopTest)

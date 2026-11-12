@@ -496,6 +496,12 @@ void MainWindow::InitializeUi()
             &QAction::triggered,
             this,
             &MainWindow::OnSetAutomaticShopUpdate);
+    // The shop can turn automatic updates off itself (a rejected
+    // POESESSID); the menu item follows the setting, not the last click.
+    connect(&m_shop,
+            &Shop::AutoUpdateChanged,
+            ui->actionSetAutomaticallyShopUpdate,
+            &QAction::setChecked);
 
     // Connect the Theme submenu. The group keeps exactly one theme checked:
     // clicking the active theme leaves it checked.

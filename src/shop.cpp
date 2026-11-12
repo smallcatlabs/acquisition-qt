@@ -12,7 +12,6 @@
 #include <QTextDocumentFragment>
 #include <QTimer>
 #include <QUrl>
-#include <QUrlQuery>
 
 #include "buyoutmanager.h"
 #include "datastore/datastore.h"
@@ -125,6 +124,7 @@ void Shop::SetThread(const QStringList &threads)
 void Shop::SetAutoUpdate(bool update)
 {
     spdlog::debug("Shop: setting autoupdate to {}", update);
+    const bool changed = (update != m_auto_update);
     m_auto_update = update;
     m_settings.setValue("shop_autoupdate", update);
     // Disabling automation drops the waiting automatic capture (M2 D8/R5-6):
@@ -133,6 +133,9 @@ void Shop::SetAutoUpdate(bool update)
     if (!update && m_waiting_capture) {
         spdlog::debug("Shop: dropping the waiting automatic capture — auto-update disabled");
         m_waiting_capture.reset();
+    }
+    if (changed) {
+        emit AutoUpdateChanged(update);
     }
 }
 
@@ -172,42 +175,53 @@ void Shop::OnRefreshFinished(const RefreshOutcome &outcome)
     SubmitAutomaticShop();
 }
 
-bool Shop::BuyoutsReadyToPost(bool automatic)
+void Shop::Warn(Notice notice, bool automatic, const QString &message)
 {
-    if (m_buyout_manager.BuyoutsLoaded()) {
-        return true;
+    const bool first_time = m_warned.insert(notice).second;
+    if (!automatic || first_time) {
+        emit UserWarning(message);
     }
-    spdlog::error("Shop: not submitting the shop because the buyouts did not load.");
-    if (!automatic || !m_warned_unloaded_buyouts) {
-        m_warned_unloaded_buyouts = true;
-        emit UserWarning("Acquisition could not load your prices, so your forum shop was not "
-                         "updated. Your shop threads have been left as they are."
-                         "\n\n"
-                         "Check the log file for details.");
+}
+
+bool Shop::ReadyToPost(bool automatic)
+{
+    if (!m_buyout_manager.BuyoutsLoaded()) {
+        spdlog::error("Shop: not submitting the shop because the buyouts did not load.");
+        Warn(Notice::BuyoutsNotLoaded,
+             automatic,
+             "Acquisition could not load your prices, so your forum shop was not "
+             "updated. Your shop threads have been left as they are."
+             "\n\n"
+             "Check the log file for details.");
+        return false;
     }
-    return false;
+    if (m_threads.empty()) {
+        spdlog::error("Shop: cannot submit shops because shop threads are not set.");
+        Warn(Notice::NoThreads,
+             automatic,
+             "No forum threads have been set."
+             "\n\n"
+             "Use the Shop --> 'Forum shop thread...' menu item.");
+        return false;
+    }
+    if (m_settings.value("session_id").toString().isEmpty()) {
+        spdlog::error("Shop: cannot submit a shop because the POESESSID is not set");
+        Warn(Notice::NoSession,
+             automatic,
+             "Cannot update forum shop threads because POESESSID has not been set."
+             "\n\n"
+             "Use the Shop --> 'Update Shop POESESSID' menu item."
+             "\n\n"
+             "This is required even if you have logged in with OAuth, because the "
+             "forums do not support OAuth.");
+        return false;
+    }
+    return true;
 }
 
 void Shop::SubmitAutomaticShop()
 {
-    if (!BuyoutsReadyToPost(true)) {
-        return;
-    }
-    if (m_threads.empty()) {
-        spdlog::error("Shop: cannot submit shops because shop threads are not set.");
-        emit UserWarning("No forum threads have been set."
-                         "\n\n"
-                         "Use the Shop --> 'Forum shop thread...' menu item.");
-        return;
-    }
-    if (m_settings.value("session_id").toString().isEmpty()) {
-        spdlog::error("Shop: cannot submit a shop because the POESESSID is not set");
-        emit UserWarning("Cannot update forum shop threads because POESESSID has not been set."
-                         "\n\n"
-                         "Use the Shop --> 'Update Shop POESESSID' menu item."
-                         "\n\n"
-                         "This is required even if you have logged in with OAuth, because the "
-                         "forums do not support OAuth.");
+    if (!ReadyToPost(true)) {
         return;
     }
 
@@ -242,30 +256,15 @@ QString Shop::SpoilerBuyout(const Buyout &bo)
 void Shop::SubmitShopToForum(bool force)
 {
     spdlog::debug("Shop: submitting shop(s) to forums with force = {}", force);
-    if (!BuyoutsReadyToPost(false)) {
+    if (!ReadyToPost(false)) {
         return;
     }
     if (m_active_job) {
-        spdlog::warn("Shop: cannnot submit shops because the last update is not finished.");
-        return;
-    }
-    if (m_threads.empty()) {
-        spdlog::error("Shop: cannot submit shops because shop threads are not set.");
-        emit UserWarning("No forum threads have been set."
-                         "\n\n"
-                         "Use the Shop --> 'Forum shop thread...' menu item.");
-        return;
-    }
-
-    const QString session_id = m_settings.value("session_id").toString();
-    if (session_id.isEmpty()) {
-        spdlog::error("Shop: cannot submit a shop because the POESESSID is not set");
-        emit UserWarning("Cannot update forum shop threads because POESESSID has not been set."
-                         "\n\n"
-                         "Use the Shop --> 'Update Shop POESESSID' menu item."
-                         "\n\n"
-                         "This is required even if you have logged in with OAuth, because the "
-                         "forums do not support OAuth.");
+        spdlog::warn("Shop: cannot submit shops because the last update is not finished.");
+        Warn(Notice::Busy,
+             false,
+             "Your forum shop is already being updated. Try again when that update has "
+             "finished.");
         return;
     }
 
@@ -438,16 +437,15 @@ void Shop::OnStashIndexUpdated()
     if (job.threads.size() < job.shop_data.size()) {
         const qsizetype missing = job.shop_data.size() - job.threads.size();
         spdlog::warn("Shop: need {} more shops defined to fit all your items.", missing);
-        if (!job.automatic || !m_warned_page_shortfall) {
-            m_warned_page_shortfall = true;
-            emit UserWarning(QString("Your forum shop needs %1 more thread(s) to list all of your "
-                                     "priced items. Only the first %2 page(s) are posted."
-                                     "\n\n"
-                                     "Use the Shop --> 'Forum shop thread...' menu item to add "
-                                     "threads.")
-                                 .arg(missing)
-                                 .arg(job.threads.size()));
-        }
+        Warn(Notice::PageShortfall,
+             job.automatic,
+             QString("Your forum shop needs %1 more thread(s) to list all of your "
+                     "priced items. Only the first %2 page(s) are posted."
+                     "\n\n"
+                     "Use the Shop --> 'Forum shop thread...' menu item to add "
+                     "threads.")
+                 .arg(missing)
+                 .arg(job.threads.size()));
     }
 
     // Don't resubmit the shop if the data hasn't changed. The no-post case
@@ -664,24 +662,21 @@ void Shop::SubmitNextShop(const QString &title, const QString &hash)
                                 ? job.shop_data[job.requests_completed]
                                 : "Empty";
 
-    QUrlQuery query;
-    query.addQueryItem("title", Util::Decode(title));
-    query.addQueryItem("content", content);
-    query.addQueryItem("notify_owner", "0");
-    query.addQueryItem("hash", hash);
-    query.addQueryItem("submit", "Submit");
-
-    QByteArray data(query.query().toUtf8());
+    const QByteArray data = Util::EncodeForm({{"title", Util::Decode(title)},
+                                              {"content", content},
+                                              {"notify_owner", "0"},
+                                              {"hash", hash},
+                                              {"submit", "Submit"}});
     QNetworkRequest request((QUrl(ShopEditUrl(job.requests_completed))));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
     request.setRawHeader("Cache-Control", "max-age=0");
     request.setTransferTimeout(kEditThreadTimeout);
 
     QNetworkReply *reply = m_network_manager.post(request, data);
-    connect(reply, &QNetworkReply::finished, this, [=, this]() { OnShopSubmitted(query, reply); });
+    connect(reply, &QNetworkReply::finished, this, [=, this]() { OnShopSubmitted(title, reply); });
 }
 
-void Shop::OnShopSubmitted(QUrlQuery query, QNetworkReply *reply)
+void Shop::OnShopSubmitted(const QString &title, QNetworkReply *reply)
 {
     spdlog::debug("Shop: shop submission reply received.");
 
@@ -763,7 +758,9 @@ void Shop::OnShopSubmitted(QUrlQuery query, QNetworkReply *reply)
                     spdlog::trace("Shop: setting {} second delay.", seconds);
                 }
             } else {
-                spdlog::error("Shop: unknown error fragment: {}", error_match.captured(0));
+                // Only the list item's text, logged above: the whole match
+                // can start at the hash input and span the CSRF token (#315).
+                spdlog::error("Shop: the forum reported an error the shop does not handle");
                 spdlog::debug("Shop: the query was: {}", reply->request().url().toDisplayString());
                 FailActiveJob();
                 return;
@@ -772,7 +769,6 @@ void Shop::OnShopSubmitted(QUrlQuery query, QNetworkReply *reply)
         if (seconds > 0) {
             // Resubmit if the errors indicate we only have to try again later.
             const int ms = seconds * 1000;
-            const QString title = query.queryItemValue("title");
             const QString hash = Util::GetCsrfToken(bytes, "hash");
             spdlog::warn("Shop: resubmitting shop after {} seconds.", seconds);
             QTimer::singleShot(ms, this, [=, this]() { SubmitNextShop(title, hash); });
@@ -798,8 +794,9 @@ void Shop::OnShopSubmitted(QUrlQuery query, QNetworkReply *reply)
     // relavent, but that's not certain or documented anywhere, so let's do both.
     QString input_error = Util::FindTextBetween(page, "class=\"input-error\">", "</div>");
     if (!input_error.isEmpty()) {
-        spdlog::error("Shop: (DEPRECATED) Input error while submitting shop to forums: {}",
-                      input_error);
+        spdlog::error("Shop: (DEPRECATED) Input error while submitting shop to forums ({} "
+                      "characters of markup not logged)",
+                      input_error.size());
         FailActiveJob();
         return;
     }
@@ -809,9 +806,9 @@ void Shop::OnShopSubmitted(QUrlQuery query, QNetworkReply *reply)
     for (auto &substr : {"class=\"errors\"", "class=\"input-error\""}) {
         if (page.contains(substr)) {
             spdlog::error("Shop: (DEPRECATED) An error was detected but not handled while "
-                          "submitting shop to forums: {}",
-                          substr);
-            spdlog::error(page);
+                          "submitting shop to forums: {} (the {}-byte reply is not logged)",
+                          substr,
+                          bytes.size());
             FailActiveJob();
             return;
         }
@@ -834,7 +831,8 @@ void Shop::CopyToClipboard()
         spdlog::warn(
             "Shop: you have multiple shops; only the first will be copied to the clipboard");
     }
-    spdlog::trace("Shop: copying shop data to clipboard for thread: {}", m_shop_data[0]);
+    spdlog::trace("Shop: copying {} characters of shop data to the clipboard",
+                  m_shop_data[0].size());
     QClipboard *clipboard = QApplication::clipboard();
     clipboard->setText(m_shop_data[0]);
 }
