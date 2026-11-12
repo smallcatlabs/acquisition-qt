@@ -20,7 +20,8 @@ selected row. The three controls under the list are:
 3. **Value**
 
 A choice of buyout type or currency applies at once, with the value in the
-box. A value you type is saved, to the rows that were selected when you began
+box; when a price needs a value and the box is still empty, the choice waits
+for you to type one (a refresh does not undo it). A value you type is saved, to the rows that were selected when you began
 typing it and to no others, when you:
 
 - press Enter;
@@ -46,9 +47,10 @@ The value must be a number greater than zero. Use a point or a comma as the
 decimal separator (`2.5` or `2,5`). Text that is not such a number, for example
 `79/20`, `abc` or `0`, is shown in red and is not saved: the rows keep their
 previous price, and the status line says the text is not a price. The same
-goes for an empty box and for a price with no currency chosen. On Enter, or on
-a choice of type or currency, the text stays in the box to be corrected; when
-other rows are selected instead, it is dropped. A comma followed by exactly three
+goes for Enter on an empty box and for a price with no currency chosen. What
+you entered stays in the box to be corrected, also after closing the window
+is cancelled or the shop is updated or copied; only when other rows are
+selected instead is it dropped. A comma followed by exactly three
 digits, such as `1,000`, is not saved either, because it could mean one
 thousand or one; type `1000` or `1.0` instead.
 

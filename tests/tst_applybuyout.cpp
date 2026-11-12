@@ -174,17 +174,28 @@ void ApplyBuyoutTest::noticeNamesTheCause()
     const QString missing = ApplyBuyoutNotice(gone, true);
     QVERIFY2(missing.contains("2 row(s)") && missing.contains("no longer there"),
              qPrintable(missing));
-    QVERIFY(ApplyBuyoutNotice(ApplyBuyoutResult{.applied = 2, .locked = 0, .not_saved = 0}, true)
-                .isEmpty());
+    QVERIFY(
+        ApplyBuyoutNotice(ApplyBuyoutResult{.applied = 2, .locked = 0, .not_saved = 0, .missing = 0},
+                          true)
+            .isEmpty());
     // Rows priced in the game are left alone, and the user is told why.
-    const QString locked
-        = ApplyBuyoutNotice(ApplyBuyoutResult{.applied = 2, .locked = 1, .not_saved = 0}, true);
+    const QString locked = ApplyBuyoutNotice(ApplyBuyoutResult{.applied = 2,
+                                                               .locked = 1,
+                                                               .not_saved = 0,
+                                                               .missing = 0},
+                                             true);
     QVERIFY2(locked.contains("in the game"), qPrintable(locked));
-    const QString rejected
-        = ApplyBuyoutNotice(ApplyBuyoutResult{.applied = 0, .locked = 0, .not_saved = 1}, true);
+    const QString rejected = ApplyBuyoutNotice(ApplyBuyoutResult{.applied = 0,
+                                                                 .locked = 0,
+                                                                 .not_saved = 1,
+                                                                 .missing = 0},
+                                               true);
     QVERIFY(rejected.contains("log file"));
-    const QString unloaded
-        = ApplyBuyoutNotice(ApplyBuyoutResult{.applied = 0, .locked = 0, .not_saved = 1}, false);
+    const QString unloaded = ApplyBuyoutNotice(ApplyBuyoutResult{.applied = 0,
+                                                                 .locked = 0,
+                                                                 .not_saved = 1,
+                                                                 .missing = 0},
+                                               false);
     QVERIFY(unloaded.contains("cannot be saved in this session"));
 }
 

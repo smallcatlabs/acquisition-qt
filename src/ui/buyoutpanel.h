@@ -36,13 +36,14 @@ public:
     explicit BuyoutPanel(QWidget *parent = nullptr);
 
     void setPriceLookup(PriceLookup lookup);
-    // Shows `targets`: a pending value for other targets is committed (or,
+    // Shows `targets`: what is pending for other targets is committed (or,
     // when it cannot be, dropped with a notice) first; then the first
     // target's price is read and shown. The controls are editable unless
     // that price was set in the game. With no targets nothing is editable.
     void showTargets(const PriceTargets &targets);
-    // Commits a pending value now; one that cannot be committed is dropped
-    // with a notice.
+    // Commits what is pending now (the window closing, a manual shop update,
+    // a clipboard copy). What cannot be committed stays pending, and the
+    // status line says why.
     void finishEditing();
 
 signals:
@@ -54,11 +55,12 @@ private:
     // Shows the first target's stored price, read now.
     void showStoredPrice();
     void redraw(const Buyout &buyout, bool editable);
+    enum class Trigger { Enter, Choice, Finish };
     // Emits committed() for what the controls hold and returns true, or
     // says why it cannot (no number, not a number, no currency) and
-    // returns false. A typed value stops being pending only here, on
-    // success.
-    bool commit();
+    // returns false. What was entered stops being pending only here, on
+    // success, or when showTargets() drops it.
+    bool commit(Trigger trigger);
     // Marks the value box when its text is not a price.
     void showValueValidity();
     void setPricedControlsEnabled(bool enabled);
@@ -71,4 +73,9 @@ private:
     // Set while the panel changes its own controls. Nothing Qt emits
     // meanwhile can reach commit(): every commit path checks it first.
     bool m_updating{false};
+    // The user entered something (a value, or a type or currency choice)
+    // that no emitted commit has taken yet.
+    bool m_pending{false};
+    // The value box was typed in since the last commit.
+    bool m_typed{false};
 };

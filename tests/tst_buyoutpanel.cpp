@@ -30,6 +30,8 @@ private slots:
     void emptiedBoxSaysSo();
     void numberWithoutCurrencyWaitsForOne();
     void noTargetsDisablesThePanel();
+    void finishEditingKeepsTextItCouldNotCommit();
+    void typeChoiceWithEmptyBoxStaysPendingQuietly();
 };
 
 namespace {
@@ -311,6 +313,54 @@ void BuyoutPanelTest::noTargetsDisablesThePanel()
     QVERIFY(!p.currency->isEnabled());
     QVERIFY(!p.value->isEnabled());
     QCOMPARE(p.value->text(), QString());
+}
+
+// finishEditing() (a cancelled window close, a manual shop update, a
+// clipboard copy) on text that is not a price says why and keeps it
+// pending: Enter afterwards still says why.
+void BuyoutPanelTest::finishEditingKeepsTextItCouldNotCommit()
+{
+    Panel p;
+    QSignalSpy committed(&p.panel, &BuyoutPanel::committed);
+    QSignalSpy notices(&p.panel, &BuyoutPanel::notice);
+    p.value->clear();
+    QTest::keyClicks(p.value, "abc");
+
+    p.panel.finishEditing();
+    QCOMPARE(notices.count(), 1);
+    QCOMPARE(p.value->text(), "abc");
+
+    QTest::keyClick(p.value, Qt::Key_Return);
+    QCOMPARE(notices.count(), 2);
+    QCOMPARE(committed.count(), 0);
+}
+
+// Choosing a priced type on an unpriced row with the box empty is a first
+// step, not an error: no notice, and the choice stays pending through the
+// same rows being shown again; typing a number and Enter then commit once.
+void BuyoutPanelTest::typeChoiceWithEmptyBoxStaysPendingQuietly()
+{
+    Panel p;
+    p.prices["item-d"] = Buyout();
+    p.panel.showTargets(items({"item-d"}));
+    QSignalSpy committed(&p.panel, &BuyoutPanel::committed);
+    QSignalSpy notices(&p.panel, &BuyoutPanel::notice);
+
+    p.type->setCurrentIndex(Buyout::BUYOUT_TYPE_BUYOUT);
+    emit p.type->activated(Buyout::BUYOUT_TYPE_BUYOUT);
+    QCOMPARE(notices.count(), 0);
+    QVERIFY(p.value->isEnabled());
+
+    p.panel.showTargets(items({"item-d"}));
+    QCOMPARE(p.type->currentIndex(), int(Buyout::BUYOUT_TYPE_BUYOUT));
+    QVERIFY(p.value->isEnabled());
+
+    QTest::keyClicks(p.value, "5");
+    QTest::keyClick(p.value, Qt::Key_Return);
+    QCOMPARE(committed.count(), 1);
+    QCOMPARE(committedBuyout(committed).type, Buyout::BUYOUT_TYPE_BUYOUT);
+    QCOMPARE(committedBuyout(committed).value, 5.0);
+    QCOMPARE(notices.count(), 0);
 }
 
 QTEST_MAIN(BuyoutPanelTest)

@@ -37,20 +37,26 @@ BuyoutPanel::BuyoutPanel(QWidget *parent)
     Util::PopulateBuyoutTypeComboBox(m_type);
     Util::PopulateBuyoutCurrencyComboBox(m_currency);
 
-    // A choice of type or currency commits at once, with the value the box
-    // holds, typed or not; Enter commits a typed value. When the value
-    // cannot be committed the text stays, pending, and the status line says
-    // why.
+    // What the user enters is pending until a commit is emitted. A choice
+    // of type or currency commits at once, with the value the box holds;
+    // Enter commits too. When a commit cannot be made, what was entered
+    // stays, pending, and (unless it is only a choice made before typing a
+    // value) the status line says why.
+    connect(m_value, &QLineEdit::textEdited, this, [this] {
+        m_pending = true;
+        m_typed = true;
+    });
     const auto choose = [this] {
         if (!m_updating) {
-            commit();
+            m_pending = true;
+            commit(Trigger::Choice);
         }
     };
     connect(m_type, &QComboBox::activated, this, choose);
     connect(m_currency, &QComboBox::activated, this, choose);
     connect(m_value, &QLineEdit::returnPressed, this, [this] {
-        if (!m_updating && m_value->isModified()) {
-            commit();
+        if (!m_updating && m_pending) {
+            commit(Trigger::Enter);
         }
     });
     connect(m_value, &QLineEdit::textChanged, this, &BuyoutPanel::showValueValidity);
@@ -67,11 +73,14 @@ void BuyoutPanel::setPriceLookup(PriceLookup lookup)
 void BuyoutPanel::showTargets(const PriceTargets &targets)
 {
     if (targets == m_targets) {
-        if (m_value->isModified()) {
-            return; // the same rows again: a value being typed stays
+        if (m_pending) {
+            return; // the same rows again: what is being entered stays
         }
-    } else {
-        finishEditing();
+    } else if (m_pending && !commit(Trigger::Finish)) {
+        // The rows it was entered for are going: what cannot be committed
+        // is dropped (commit() said why).
+        m_pending = false;
+        m_typed = false;
     }
     m_targets = targets;
     showStoredPrice();
@@ -93,10 +102,8 @@ void BuyoutPanel::showStoredPrice()
 
 void BuyoutPanel::finishEditing()
 {
-    if (m_value->isModified() && !commit()) {
-        // The rows it was typed for are going: what cannot be committed is
-        // dropped (commit() said why).
-        m_value->setModified(false);
+    if (m_pending) {
+        commit(Trigger::Finish);
     }
 }
 
@@ -114,7 +121,7 @@ void BuyoutPanel::redraw(const Buyout &buyout, bool editable)
     setPricedControlsEnabled(editable && buyout.IsPriced());
 }
 
-bool BuyoutPanel::commit()
+bool BuyoutPanel::commit(Trigger trigger)
 {
     const QString text = m_value->text();
     const std::optional<double> value = ParseBuyoutValue(text);
@@ -131,8 +138,12 @@ bool BuyoutPanel::commit()
 
     if (bo.IsPriced()) {
         if (text.trimmed().isEmpty()) {
-            emit notice(tr("No price typed, so nothing was applied: type a number greater than "
-                           "zero, such as 5 or 2.5."));
+            // A priced type chosen before a value is typed is a first step,
+            // not an error.
+            if ((trigger == Trigger::Enter) || m_typed) {
+                emit notice(tr("No price typed, so nothing was applied: type a number greater than "
+                               "zero, such as 5 or 2.5."));
+            }
             return false;
         }
         if (!value) {
@@ -152,7 +163,8 @@ bool BuyoutPanel::commit()
         return false;
     }
     emit committed(m_targets, bo);
-    m_value->setModified(false);
+    m_pending = false;
+    m_typed = false;
     showStoredPrice();
     return true;
 }

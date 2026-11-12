@@ -93,7 +93,11 @@ ResolvedTargets ResolvePriceTargets(const PriceTargets &targets,
     const auto &known = locations.entries();
     for (const PriceTarget &row : targets.rows) {
         if (row.isItem()) {
-            const Found &f = found.at(row.item->id());
+            // A named id: at() returns a reference, and GCC's
+            // -Wdangling-reference flags one taken from a call whose
+            // argument is a temporary (Item::id() returns by value).
+            const QString id = row.item->id();
+            const Found &f = found.at(id);
             if (const Item *item = f.there ? f.there : f.anywhere) {
                 resolved.targets.items.push_back(item);
             } else {

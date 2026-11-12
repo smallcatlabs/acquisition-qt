@@ -213,6 +213,7 @@ private slots:
     void deselectedCurrentRowIsNotShown();
     void emptySelectionDisablesTheEditor();
     void numberWithoutCurrencySaysSo();
+    void typeChoiceSurvivesARefresh();
     void headerSelectionSurvivesItemDetailsTimer();
 
 private:
@@ -5010,6 +5011,36 @@ void MainWindowTest::numberWithoutCurrencySaysSo()
     const Buyout stored = fixture.buyoutFixture.manager->Get(*r.a);
     QCOMPARE(stored.value, 5.0);
     QCOMPARE(stored.currency.type, Currency::CURRENCY_ORB_OF_ALTERATION);
+}
+
+// Choosing b/o (and a currency) on an unpriced row before typing a value is
+// an ordinary first step: no notice, and a refresh delta for the row's tab
+// does not undo the choice; typing and Enter then save the price once.
+void MainWindowTest::typeChoiceSurvivesARefresh()
+{
+    MainWindowFixture fixture;
+    const ThreeRows r = threeRows(fixture);
+    clickRow(fixture, r.rowA);
+    auto *type = fixture.window->findChild<QComboBox *>("buyoutTypeComboBox");
+    auto *currency = fixture.window->findChild<QComboBox *>("buyoutCurrencyComboBox");
+    auto *value = fixture.window->findChild<QLineEdit *>("buyoutValueLineEdit");
+    type->setCurrentIndex(Buyout::BUYOUT_TYPE_BUYOUT);
+    emit type->activated(Buyout::BUYOUT_TYPE_BUYOUT);
+    currency->setCurrentIndex(Currency::CURRENCY_CHAOS_ORB);
+    emit currency->activated(Currency::CURRENCY_CHAOS_ORB);
+    QVERIFY2(!statusText(fixture).contains("No price"), qPrintable(statusText(fixture)));
+
+    fixture.itemsManager->OnTabRefreshed(r.tab, threeRowsAgain(r));
+    QCOMPARE(type->currentIndex(), int(Buyout::BUYOUT_TYPE_BUYOUT));
+    QVERIFY(value->isEnabled());
+
+    QSignalSpy changes(fixture.buyoutFixture.manager.get(), &BuyoutManager::BuyoutsChanged);
+    QTest::keyClicks(value, "5");
+    QTest::keyClick(value, Qt::Key_Return);
+    QCOMPARE(changes.count(), 1);
+    const Buyout stored = fixture.buyoutFixture.manager->Get(*r.a);
+    QCOMPARE(stored.value, 5.0);
+    QCOMPARE(stored.currency.type, Currency::CURRENCY_CHAOS_ORB);
 }
 
 // #282: selecting a tab header after an item stops the item's pending
