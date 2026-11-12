@@ -21,6 +21,7 @@ private slots:
     void matchModWritesOutputOnMismatch();
     void requirementNamesAreCanonical();
     void catalystQualityCountsAsQuality();
+    void resonatorAndAbyssSocketsHaveNoColour();
 };
 
 // The fixture shape of tst_filters.cpp's makeFilterItem: a minimal wire item
@@ -201,6 +202,46 @@ void ItemTest::catalystQualityCountsAsQuality()
                                        .arg(plainFirst ? plain : typed, plainFirst ? typed : plain));
         QCOMPARE(both->numeric_properties().at("Quality"), 5.0);
     }
+}
+
+// #267: the socket attribute is decided on the whole string. "DV" (a Delve
+// resonator socket) is not a Dexterity socket, and "A" (abyss) has no colour
+// either; both still count as sockets and take part in links.
+void ItemTest::resonatorAndAbyssSocketsHaveNoColour()
+{
+    const auto resonator = makeItem("resonator", R"json(,
+        "sockets": [
+            {"group": 0, "attr": "DV", "sColour": "DV"},
+            {"group": 0, "attr": "DV", "sColour": "DV"}
+        ])json");
+    QCOMPARE(resonator->sockets_cnt(), 2);
+    QCOMPARE(resonator->links_cnt(), 2);
+    QCOMPARE(resonator->sockets().r, 0);
+    QCOMPARE(resonator->sockets().g, 0);
+    QCOMPARE(resonator->sockets().b, 0);
+    QCOMPARE(resonator->sockets().w, 0);
+
+    const auto belt = makeItem("abyss-belt", R"json(,
+        "sockets": [
+            {"group": 0, "attr": "A", "sColour": "A"}
+        ])json");
+    QCOMPARE(belt->sockets_cnt(), 1);
+    QCOMPARE(belt->links_cnt(), 1);
+    QCOMPARE(belt->sockets().g, 0);
+
+    // The ordinary attributes are unchanged.
+    const auto armour = makeItem("armour", R"json(,
+        "sockets": [
+            {"group": 0, "attr": "S", "sColour": "R"},
+            {"group": 0, "attr": "D", "sColour": "G"},
+            {"group": 1, "attr": "I", "sColour": "B"},
+            {"group": 1, "attr": "G", "sColour": "W"}
+        ])json");
+    QCOMPARE(armour->sockets().r, 1);
+    QCOMPARE(armour->sockets().g, 1);
+    QCOMPARE(armour->sockets().b, 1);
+    QCOMPARE(armour->sockets().w, 1);
+    QCOMPARE(armour->links_cnt(), 2);
 }
 
 QTEST_GUILESS_MAIN(ItemTest)

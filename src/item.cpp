@@ -543,16 +543,18 @@ void Item::LoadSockets(const std::vector<poe::ItemSocket> &sockets)
     int counter = 0;
     int prev_group = -1;
     for (const auto &socket : sockets) {
-        char attr = '\0';
+        QString code;
         if (socket.attr) {
-            attr = (*socket.attr)[0].toLatin1();
+            code = *socket.attr;
         } else if (socket.sColour) {
-            attr = (*socket.sColour)[0].toLatin1();
+            code = *socket.sColour;
         }
 
-        if (!attr) {
+        if (code.isEmpty()) {
             continue;
         }
+        // The tooltip and the POB export still read the first letter.
+        const char attr = code[0].toLatin1();
 
         const int group = socket.group;
         ItemSocket current_socket = {static_cast<unsigned char>(group), attr};
@@ -565,23 +567,20 @@ void Item::LoadSockets(const std::vector<poe::ItemSocket> &sockets)
         prev_group = current_socket.group;
         ++counter;
         m_links_cnt = std::max(m_links_cnt, counter);
-        switch (current_socket.attr) {
-        case 'S':
+        // Decided on the whole code: "DV" (Delve resonator) is not "D", and
+        // "DV" and "A" (abyss) sockets have no colour.
+        if (code == "S") {
             m_sockets.r++;
             current_group.r++;
-            break;
-        case 'D':
+        } else if (code == "D") {
             m_sockets.g++;
             current_group.g++;
-            break;
-        case 'I':
+        } else if (code == "I") {
             m_sockets.b++;
             current_group.b++;
-            break;
-        case 'G':
+        } else if (code == "G") {
             m_sockets.w++;
             current_group.w++;
-            break;
         }
     }
     m_socket_groups.push_back(current_group);
