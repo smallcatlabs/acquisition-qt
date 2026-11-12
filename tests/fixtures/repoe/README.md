@@ -13,4 +13,5 @@ entry is edited. Entries were cut by their position in the source array
 with a script that slices each top-level element's raw text out of the
 file and checks that it parses to the same object.
 
-Source positions, in file order: 1593, 1674, 2857.
+Source positions, in file order: 1202, 1593, 1644, 1650, 1656, 1661, 1674,
+2832, 2857.
