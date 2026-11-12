@@ -84,6 +84,9 @@ void UpdateChecker::OnUpdateReplyReceived() {
 
     // Check for network errors.
     QNetworkReply* reply = qobject_cast<QNetworkReply*>(QObject::sender());
+    // The reply is ours to release on every path; it stays readable until
+    // control returns to the event loop.
+    reply->deleteLater();
     if (reply->error() != QNetworkReply::NoError) {
         spdlog::error("The network reply came with an error: {}", reply->errorString());
         return;

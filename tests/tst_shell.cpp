@@ -4,6 +4,7 @@
 #include <QtTest>
 
 #include <QApplication>
+#include <QBuffer>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QPushButton>
@@ -22,6 +23,7 @@
 
 #include "datastore/sqlitedatastore.h"
 #include "fakenetworkmanager.h"
+#include "imagecache.h"
 #include "mainwindowfixture.h"
 #include "ui/logindialog.h"
 #include "ui/mainwindow_bridge.h"
@@ -52,6 +54,10 @@ private slots:
     void choosingDataDirEmitsIt();
     void updateButtonOpensUpdatePrompt();
     void skippedReleaseIsNotOfferedAgain();
+    void imageCacheDeletesReplies_data();
+    void imageCacheDeletesReplies();
+    void updateCheckerDeletesReplies_data();
+    void updateCheckerDeletesReplies();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -406,6 +412,70 @@ void ShellTest::skippedReleaseIsNotOfferedAgain()
     checker.CheckForUpdates();
     answerUpdateCheck(network, NEWER_RELEASES);
     QCOMPARE(available.count(), 1);
+}
+
+void ShellTest::imageCacheDeletesReplies_data()
+{
+    QTest::addColumn<bool>("fails");
+    QTest::newRow("success") << false;
+    QTest::newRow("network error") << true;
+}
+
+void ShellTest::imageCacheDeletesReplies()
+{
+    QFETCH(bool, fails);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    FakeNetworkManager network;
+    ImageCache cache(network, dir.filePath("cache"));
+
+    QByteArray png;
+    {
+        QImage image(1, 1, QImage::Format_ARGB32);
+        image.fill(Qt::red);
+        QBuffer buffer(&png);
+        QVERIFY(buffer.open(QIODevice::WriteOnly));
+        QVERIFY(image.save(&buffer, "PNG"));
+    }
+
+    cache.fetch("https://web.poecdn.com/image/Art/2DItems/Rings/Ring1.png");
+    QCOMPARE(network.count(), 1);
+    QPointer<InFlightReply> reply = network.sent(0).reply;
+    QVERIFY(reply);
+    if (fails) {
+        reply->finish({}, 404, QNetworkReply::ContentNotFoundError);
+    } else {
+        reply->finish({}, 200, QNetworkReply::NoError, png);
+    }
+    QTRY_VERIFY_WITH_TIMEOUT(reply.isNull(), 500);
+}
+
+void ShellTest::updateCheckerDeletesReplies_data()
+{
+    QTest::addColumn<bool>("fails");
+    QTest::newRow("success") << false;
+    QTest::newRow("network error") << true;
+}
+
+void ShellTest::updateCheckerDeletesReplies()
+{
+    QFETCH(bool, fails);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
+    FakeNetworkManager network;
+    UpdateChecker checker(settings, network);
+
+    checker.CheckForUpdates();
+    QCOMPARE(network.count(), 1);
+    QPointer<InFlightReply> reply = network.sent(0).reply;
+    QVERIFY(reply);
+    if (fails) {
+        reply->finish({}, 503, QNetworkReply::ServiceUnavailableError);
+    } else {
+        reply->finish({}, 200, QNetworkReply::NoError, "[]");
+    }
+    QTRY_VERIFY_WITH_TIMEOUT(reply.isNull(), 500);
 }
 
 QTEST_MAIN(ShellTest)
