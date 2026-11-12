@@ -172,8 +172,27 @@ void Shop::OnRefreshFinished(const RefreshOutcome &outcome)
     SubmitAutomaticShop();
 }
 
+bool Shop::BuyoutsReadyToPost(bool automatic)
+{
+    if (m_buyout_manager.BuyoutsLoaded()) {
+        return true;
+    }
+    spdlog::error("Shop: not submitting the shop because the buyouts did not load.");
+    if (!automatic || !m_warned_unloaded_buyouts) {
+        m_warned_unloaded_buyouts = true;
+        emit UserWarning("Acquisition could not load your prices, so your forum shop was not "
+                         "updated. Your shop threads have been left as they are."
+                         "\n\n"
+                         "Check the log file for details.");
+    }
+    return false;
+}
+
 void Shop::SubmitAutomaticShop()
 {
+    if (!BuyoutsReadyToPost(true)) {
+        return;
+    }
     if (m_threads.empty()) {
         spdlog::error("Shop: cannot submit shops because shop threads are not set.");
         emit UserWarning("No forum threads have been set."
@@ -222,6 +241,9 @@ QString Shop::SpoilerBuyout(const Buyout &bo)
 void Shop::SubmitShopToForum(bool force)
 {
     spdlog::debug("Shop: submitting shop(s) to forums with force = {}", force);
+    if (!BuyoutsReadyToPost(false)) {
+        return;
+    }
     if (m_active_job) {
         spdlog::warn("Shop: cannnot submit shops because the last update is not finished.");
         return;

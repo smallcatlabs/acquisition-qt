@@ -5,10 +5,12 @@
 
 #include <QBuffer>
 #include <QSettings>
+#include <QSqlQuery>
 #include <QStandardPaths>
 
 #include <memory>
 
+#include "datastore/userstore.h"
 #include "fakenetwork.h"
 #include "fakenetworkmanager.h"
 #include "itemsmanager.h"
@@ -97,6 +99,10 @@ private slots:
 
     // #253: pages beyond the configured threads.
     void morePagesThanThreadsWarnsAndKeepsHash();
+
+    // #250: the shop refuses to post while the buyouts did not load.
+    void unloadedBuyoutsBlockSubmission();
+    void healthyEmptyStoreStillPostsEmpty();
 };
 
 namespace {
@@ -167,6 +173,57 @@ namespace {
     {
         const auto *buffer = sent.reply ? sent.reply->findChild<QBuffer *>() : nullptr;
         return buffer ? QUrlQuery(QString::fromUtf8(buffer->data())) : QUrlQuery();
+    }
+
+    // A Shop over a real per-account UserStore instead of the in-memory
+    // buyout fixture, sharing the fixture's settings, network and datastore.
+    struct StoreBackedShop
+    {
+        StoreBackedShop(ShopFixture &fixture, const QDir &dir)
+            : store(dir, "TESTER#1234")
+            , buyouts(*fixture.buyoutFixture.data, store.buyouts())
+            , items(*fixture.settings, buyouts, *fixture.buyoutFixture.data)
+            , shop(*fixture.settings,
+                   *fixture.networkManager,
+                   *fixture.api,
+                   *fixture.buyoutFixture.data,
+                   items,
+                   buyouts)
+        {}
+
+        UserStore store;
+        BuyoutManager buyouts;
+        ItemsManager items;
+        Shop shop;
+    };
+
+    // A store at the current schema version whose item_buyouts table is
+    // gone: it opens and needs no migration, but every buyout read fails.
+    void createStoreWithoutItemBuyouts(const QDir &dir)
+    {
+        {
+            UserStore seed(dir, "TESTER#1234");
+            QVERIFY(seed.isUsable());
+        }
+        const QString connection = "drop-" + QUuid::createUuid().toString(QUuid::WithoutBraces);
+        {
+            QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connection);
+            db.setDatabaseName(dir.absoluteFilePath("userstore-TESTER#1234.db"));
+            QVERIFY(db.open());
+            QSqlQuery q(db);
+            QVERIFY(q.exec("DROP TABLE item_buyouts"));
+            db.close();
+        }
+        QSqlDatabase::removeDatabase(connection);
+    }
+
+    void armStoreBackedShop(ShopFixture &fixture, StoreBackedShop &backed)
+    {
+        backed.shop.SetThread({"123"});
+        fixture.settings->setValue("session_id", "fake-poesessid");
+        fixture.settings->setValue("account", "someone");
+        fixture.settings->setValue("realm", "pc");
+        fixture.settings->setValue("league", "Standard");
     }
 
 } // namespace
@@ -787,6 +844,77 @@ void ShopTest::morePagesThanThreadsWarnsAndKeepsHash()
     QCOMPARE(warnings.count(), 1);
     QVERIFY(warnings.first().first().toString().contains("1 more"));
     QCOMPARE(fixture.buyoutFixture.data->Get("shop_hash"), QString("previous-hash"));
+}
+
+// #250: when the buyout store could not be read, the manager holds no
+// prices, and a clean refresh with auto-update on would overwrite every
+// forum thread with "Empty". Neither path may post; the user is told —
+// once per session for the automatic path, every time for the manual one.
+void ShopTest::unloadedBuyoutsBlockSubmission()
+{
+    ShopFixture fixture;
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    createStoreWithoutItemBuyouts(QDir(dir.path()));
+
+    StoreBackedShop backed(fixture, QDir(dir.path()));
+    QVERIFY(backed.store.isUsable());
+    QVERIFY(!backed.buyouts.BuyoutsLoaded());
+
+    armStoreBackedShop(fixture, backed);
+    backed.shop.SetAutoUpdate(true);
+    fixture.buyoutFixture.data->Set("shop_hash", "previous-hash");
+    const auto item = std::make_shared<Item>(makeTestItem("item-250"));
+    backed.items.OnItemsRefreshed({item}, {item->location()}, false);
+
+    QSignalSpy warnings(&backed.shop, &Shop::UserWarning);
+    for (int i = 0; i < 2; ++i) {
+        backed.shop.OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+        drainEvents();
+        if (fixture.rateLimiter->futureCount() > size_t(i)) {
+            fixture.rateLimiter->resolve(i, kStashIndexJson);
+            drainEvents();
+        }
+    }
+    QCOMPARE(fixture.networkManager->count(), 0);
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(0));
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY(warnings.first().first().toString().contains("not updated"));
+
+    backed.shop.SubmitShopToForum(true);
+    backed.shop.SubmitShopToForum(true);
+    drainEvents();
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(0));
+    QCOMPARE(fixture.networkManager->count(), 0);
+    QCOMPARE(warnings.count(), 3);
+    QCOMPARE(fixture.buyoutFixture.data->Get("shop_hash"), QString("previous-hash"));
+}
+
+// A healthy store with no prices is loaded, and an empty shop still posts
+// "Empty": that is what the user asked for when they hold no priced items.
+void ShopTest::healthyEmptyStoreStillPostsEmpty()
+{
+    ShopFixture fixture;
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    StoreBackedShop backed(fixture, QDir(dir.path()));
+    QVERIFY(backed.store.isUsable());
+    QVERIFY(backed.buyouts.BuyoutsLoaded());
+
+    armStoreBackedShop(fixture, backed);
+    QSignalSpy warnings(&backed.shop, &Shop::UserWarning);
+    backed.shop.SubmitShopToForum();
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(1));
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+
+    QCOMPARE(fixture.networkManager->count(), 1);
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+    QCOMPARE(postedForm(fixture.networkManager->sent(1)).queryItemValue("content"),
+             QString("Empty"));
+    QCOMPARE(warnings.count(), 0);
 }
 
 QTEST_MAIN(ShopTest)
