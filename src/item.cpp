@@ -437,6 +437,7 @@ void Item::LoadModifiers(const poe::Item &item)
 
 void Item::LoadProperties(const std::vector<poe::ItemProperty> &properties)
 {
+    bool seen_plain_quality = false;
     for (const auto &prop : properties) {
         const QString name = prop.name;
         const auto &values = prop.values;
@@ -487,6 +488,15 @@ void Item::LoadProperties(const std::vector<poe::ItemProperty> &properties)
             const double number = numeric.toDouble(&ok);
             if (ok) {
                 m_numeric_properties[name] = number;
+                if (name.startsWith("Quality (")) {
+                    // Catalyst quality: "Quality (Attribute Modifiers)". It
+                    // counts as Quality unless the item has plain Quality.
+                    if (!seen_plain_quality) {
+                        m_numeric_properties["Quality"] = number;
+                    }
+                } else if (name == "Quality") {
+                    seen_plain_quality = true;
+                }
             }
         }
 
@@ -510,7 +520,18 @@ void Item::LoadRequirements(const std::vector<poe::ItemProperty> &requirements)
         }
         const auto &name = req.name;
         const auto &[str, type] = values[0];
-        m_requirements[name] = str.toInt();
+        // The game spells stat requirements both ways ("Int" and
+        // "Intelligence"); the numeric map uses the short form. The display
+        // list keeps the name as sent.
+        QString key = name;
+        if (name == "Strength") {
+            key = QStringLiteral("Str");
+        } else if (name == "Dexterity") {
+            key = QStringLiteral("Dex");
+        } else if (name == "Intelligence") {
+            key = QStringLiteral("Int");
+        }
+        m_requirements[key] = str.toInt();
         m_text_requirements.push_back({name, ItemPropertyValue{str, type}});
     }
 }

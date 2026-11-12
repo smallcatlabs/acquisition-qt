@@ -19,6 +19,7 @@ private slots:
     void minMaxFilter();
     void percentPropertyFilters();
     void defaultAndRequiredFilters();
+    void requirementSpellingsAndCatalystQuality();
     void socketColorFilters();
     void booleanFilter();
     void booleanPredicates();
@@ -299,6 +300,64 @@ void FiltersTest::defaultAndRequiredFilters()
     requiredState.min.reset();
     requiredState.max = 0.0;
     QVERIFY(MatchesFilter(*withoutRequirement, *required, requiredState));
+}
+
+// #263: requirements arrive as both "Int" and "Intelligence" (likewise Str
+// and Dex), and catalyst quality as "Quality (<kind>)".
+void FiltersTest::requirementSpellingsAndCatalystQuality()
+{
+    BuyoutManagerFixture buyoutFixture;
+    const FilterCatalog catalog = BuildFilterCatalog(*buyoutFixture.manager);
+
+    const auto longForm = makeFilterItem("long-form",
+                                         R"json(,
+        "requirements": [
+            {"displayMode": 0, "name": "Level", "values": [["68", 0]]},
+            {"displayMode": 1, "name": "Strength", "values": [["111", 0]]},
+            {"displayMode": 1, "name": "Dexterity", "values": [["98", 0]]},
+            {"displayMode": 1, "name": "Intelligence", "values": [["242", 0]]}
+        ])json");
+    const auto shortForm = makeFilterItem("short-form",
+                                          R"json(,
+        "requirements": [
+            {"displayMode": 0, "name": "Level", "values": [["68", 0]]},
+            {"displayMode": 1, "name": "Str", "values": [["111", 0]]},
+            {"displayMode": 1, "name": "Dex", "values": [["98", 0]]},
+            {"displayMode": 1, "name": "Int", "values": [["242", 0]]}
+        ])json");
+
+    struct Expected
+    {
+        const char *caption;
+        double value;
+    };
+    for (const auto &[caption, value] :
+         {Expected{"R. Str", 111.0}, Expected{"R. Dex", 98.0}, Expected{"R. Int", 242.0}}) {
+        const auto *spec = findMinMaxFilterSpec(catalog, caption);
+        QVERIFY2(spec, caption);
+        MinMaxState state;
+        state.min = value;
+        state.max = value;
+        QVERIFY2(MatchesFilter(*longForm, *spec, state), caption);
+        QVERIFY2(MatchesFilter(*shortForm, *spec, state), caption);
+        state.min = value + 1;
+        state.max.reset();
+        QVERIFY2(!MatchesFilter(*longForm, *spec, state), caption);
+    }
+
+    const auto catalyst = makeFilterItem("catalyst",
+                                         R"json(,
+        "properties": [
+            {"displayMode": 0, "name": "Stack Size", "values": [["3/10", 0]]},
+            {"displayMode": 0, "name": "Quality (Attribute Modifiers)", "values": [["+20%", 1]]}
+        ])json");
+    const auto *quality = findMinMaxFilterSpec(catalog, "Quality");
+    QVERIFY(quality);
+    MinMaxState qualityState;
+    qualityState.min = 15.0;
+    QVERIFY(MatchesFilter(*catalyst, *quality, qualityState));
+    qualityState.min = 21.0;
+    QVERIFY(!MatchesFilter(*catalyst, *quality, qualityState));
 }
 
 void FiltersTest::socketColorFilters()

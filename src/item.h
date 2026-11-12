@@ -114,6 +114,8 @@ public:
     const std::map<QString, QString> &properties() const { return m_properties; }
     // The properties whose value is a single number, parsed: a leading "+"
     // and a trailing "%" are dropped. Ranges and other non-numbers are absent.
+    // A catalyst's "Quality (<kind>)" also counts as "Quality" here unless the
+    // item carries a plain Quality property.
     const std::map<QString, double> &numeric_properties() const { return m_numeric_properties; }
     const std::vector<ItemProperty> &text_properties() const { return m_text_properties; }
     const std::vector<ItemRequirement> &text_requirements() const { return m_text_requirements; }
@@ -125,6 +127,8 @@ public:
     {
         return m_elemental_damage;
     }
+    // Requirement values by name, with "Strength", "Dexterity" and
+    // "Intelligence" stored under "Str", "Dex" and "Int".
     const std::map<QString, int> &requirements() const { return m_requirements; }
     double DPS() const;
     double pDPS() const;

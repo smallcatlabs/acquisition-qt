@@ -19,6 +19,8 @@ private slots:
     void numericPropertiesKeepDisplayStrings();
     void stackSizeCount();
     void matchModWritesOutputOnMismatch();
+    void requirementNamesAreCanonical();
+    void catalystQualityCountsAsQuality();
 };
 
 // The fixture shape of tst_filters.cpp's makeFilterItem: a minimal wire item
@@ -147,6 +149,58 @@ void ItemTest::matchModWritesOutputOnMismatch()
     value = 42.0;
     QVERIFY(!Util::MatchMod("+# to maximum Life", "+80 to maximum Life and Mana", &value));
     QCOMPARE(value, 0.0);
+}
+
+// #263: both spellings of a stat requirement land on the short key; the
+// display list keeps the name the game sent.
+void ItemTest::requirementNamesAreCanonical()
+{
+    const auto item = makeItem("requirements", R"json(,
+        "requirements": [
+            {"displayMode": 0, "name": "Level", "values": [["68", 0]]},
+            {"displayMode": 1, "name": "Strength", "values": [["111", 0]]},
+            {"displayMode": 1, "name": "Dex", "values": [["98", 0]]},
+            {"displayMode": 1, "name": "Intelligence", "values": [["242", 0]]}
+        ])json");
+
+    const auto &requirements = item->requirements();
+    QCOMPARE(requirements.size(), size_t(4));
+    QCOMPARE(requirements.at("Level"), 68);
+    QCOMPARE(requirements.at("Str"), 111);
+    QCOMPARE(requirements.at("Dex"), 98);
+    QCOMPARE(requirements.at("Int"), 242);
+
+    const auto &text = item->text_requirements();
+    QCOMPARE(text.size(), size_t(4));
+    QCOMPARE(text[1].name, QString("Strength"));
+    QCOMPARE(text[3].name, QString("Intelligence"));
+}
+
+// #263: catalyst quality is a "Quality (<kind>)" property. The numeric view
+// reports it as Quality; the display strings keep the game's name, and a
+// plain Quality property wins over it.
+void ItemTest::catalystQualityCountsAsQuality()
+{
+    const auto catalyst = makeItem("catalyst", R"json(,
+        "properties": [
+            {"displayMode": 0, "name": "Stack Size", "values": [["3/10", 0]]},
+            {"displayMode": 0, "name": "Quality (Attribute Modifiers)", "values": [["+20%", 1]]}
+        ])json");
+    QCOMPARE(catalyst->numeric_properties().at("Quality"), 20.0);
+    QCOMPARE(catalyst->numeric_properties().at("Quality (Attribute Modifiers)"), 20.0);
+    QVERIFY(!catalyst->properties().contains("Quality"));
+    QCOMPARE(catalyst->properties().at("Quality (Attribute Modifiers)"), QString("+20%"));
+
+    for (const bool plainFirst : {true, false}) {
+        const QString plain
+            = R"json({"displayMode": 0, "name": "Quality", "values": [["+5%", 1]]})json";
+        const QString typed
+            = R"json({"displayMode": 0, "name": "Quality (Attribute Modifiers)", "values": [["+20%", 1]]})json";
+        const auto both = makeItem("both",
+                                   QString(R"json(, "properties": [%1, %2])json")
+                                       .arg(plainFirst ? plain : typed, plainFirst ? typed : plain));
+        QCOMPARE(both->numeric_properties().at("Quality"), 5.0);
+    }
 }
 
 QTEST_GUILESS_MAIN(ItemTest)
