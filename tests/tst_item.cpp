@@ -306,13 +306,21 @@ void ItemTest::decimalModValueIgnoresProcessLocale()
     } guard;
 
     bool haveCommaLocale = false;
-    for (const char *candidate : {"de_DE.UTF-8", "de_DE.utf8", "fr_FR.UTF-8", "fr_FR.utf8"}) {
+    for (const char *candidate :
+         {"de_DE.UTF-8", "de_DE.utf8", "fr_FR.UTF-8", "fr_FR.utf8", "de-DE", "German_Germany.1252"}) {
         if (std::setlocale(LC_NUMERIC, candidate) != nullptr) {
             haveCommaLocale = true;
             break;
         }
     }
     if (!haveCommaLocale) {
+        // The pull-request workflow (.github/workflows/tests.yml) generates
+        // de_DE.UTF-8 and sets this variable; there a missing locale is a
+        // broken step, not a reason to skip. The release and sanitizer
+        // workflows also run under CI but do not generate the locale.
+        if (qEnvironmentVariableIsSet("ACQ_REQUIRE_COMMA_LOCALE")) {
+            QFAIL("ACQ_REQUIRE_COMMA_LOCALE is set but no comma-decimal locale is installed");
+        }
         QSKIP("No comma-decimal locale (de_DE or fr_FR) is installed on this machine");
     }
     QCOMPARE(std::localeconv()->decimal_point[0], ',');
