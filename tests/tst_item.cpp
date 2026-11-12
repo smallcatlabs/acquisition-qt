@@ -2,8 +2,10 @@
 
 #include <QtTest/QtTest>
 
+#include <clocale>
 #include <cmath>
 #include <memory>
+#include <string>
 
 #include "item.h"
 #include "modlist.h"
@@ -25,7 +27,31 @@ private slots:
     void catalystQualityCountsAsQuality();
     void resonatorAndAbyssSocketsHaveNoColour();
     void valuelessModStoresZero();
+    void decimalModValueIgnoresProcessLocale();
+    void ignoredFirstFormatStillSubstitutesTheRest();
+    void resonatorSocketsExportAsResonators();
+    void colourOnlySocketsUseTheColourAlphabet();
+    void vestigialAndDesecratedModsAreKept();
 };
+
+// Real RePoE stat translations, cut from the game data (see
+// tests/fixtures/repoe/README.md).
+static QByteArray readRepoeFixture(const char *name)
+{
+    const QString path = QFINDTESTDATA(QString("fixtures/repoe/%1").arg(name));
+    QFile file(path);
+    if (path.isEmpty() || !file.open(QIODevice::ReadOnly)) {
+        qFatal("missing RePoE fixture %s", name);
+    }
+    return file.readAll();
+}
+
+static void loadRealStatTranslations()
+{
+    InitStatTranslations();
+    AddStatTranslations(readRepoeFixture("stat_translations.json"));
+    InitModList();
+}
 
 // The fixture shape of tst_filters.cpp's makeFilterItem: a minimal wire item
 // with extra JSON appended.
@@ -268,6 +294,152 @@ void ItemTest::valuelessModStoresZero()
     double value = 42.0;
     QVERIFY(Util::MatchMod("Cannot be Frozen", "Cannot be Frozen", &value));
     QCOMPARE(value, 0.0);
+}
+
+// #132: QCoreApplication adopts the system locale on Unix, so a process
+// whose LC_NUMERIC uses a decimal comma must still read "0.26" as 0.26.
+void ItemTest::decimalModValueIgnoresProcessLocale()
+{
+    // Restores the process locale on every exit from this test.
+    struct NumericLocaleGuard
+    {
+        std::string saved = std::setlocale(LC_NUMERIC, nullptr);
+        ~NumericLocaleGuard() { std::setlocale(LC_NUMERIC, saved.c_str()); }
+    } guard;
+
+    bool haveCommaLocale = false;
+    for (const char *candidate :
+         {"de_DE.UTF-8", "de_DE.utf8", "fr_FR.UTF-8", "fr_FR.utf8", "de-DE", "German_Germany.1252"}) {
+        if (std::setlocale(LC_NUMERIC, candidate) != nullptr) {
+            haveCommaLocale = true;
+            break;
+        }
+    }
+    if (!haveCommaLocale) {
+        // The pull-request workflow (.github/workflows/tests.yml) generates
+        // de_DE.UTF-8 and sets this variable; there a missing locale is a
+        // broken step, not a reason to skip. The release and sanitizer
+        // workflows also run under CI but do not generate the locale.
+        if (qEnvironmentVariableIsSet("ACQ_REQUIRE_COMMA_LOCALE")) {
+            QFAIL("ACQ_REQUIRE_COMMA_LOCALE is set but no comma-decimal locale is installed");
+        }
+        QSKIP("No comma-decimal locale (de_DE or fr_FR) is installed on this machine");
+    }
+    QCOMPARE(std::localeconv()->decimal_point[0], ',');
+
+    loadRealStatTranslations();
+    // A line from a real ring.
+    double direct = 0.0;
+    QVERIFY(Util::MatchMod("#% of Physical Attack Damage Leeched as Life",
+                           "0.26% of Physical Attack Damage Leeched as Life",
+                           &direct));
+    QCOMPARE(direct, 0.26);
+
+    const auto item = makeItem("leech", R"json(,
+        "explicitMods": [{"description": "0.26% of Physical Attack Damage Leeched as Life"}]
+    )json");
+    QCOMPARE(item->mod_table().at("#% of Physical Attack Damage Leeched as Life"), 0.26);
+}
+
+// #265: a translation whose first stat is not displayed ("ignore") still
+// shows the others. Their placeholders become "#" like any other; they were
+// left as a literal "{1}", which no item line can match.
+void ItemTest::ignoredFirstFormatStillSubstitutesTheRest()
+{
+    loadRealStatTranslations();
+
+    const QStringList names = mod_list_model().stringList();
+    QVERIFY(names.contains("Projectiles have #% chance to Return to you"));
+    QVERIFY(!names.contains("Projectiles have {1}% chance to Return to you"));
+    QVERIFY(names.contains("Projectiles Return to you"));
+
+    const auto item = makeItem("return", R"json(,
+        "explicitMods": [{"description": "Projectiles have 30% chance to Return to you"}]
+    )json");
+    QCOMPARE(item->mod_table().at("Projectiles have #% chance to Return to you"), 30.0);
+}
+
+// #267: a Delve resonator socket ("DV") is exported to Path of Building as
+// itself, not as a green socket; abyss and coloured sockets keep their
+// letters.
+void ItemTest::resonatorSocketsExportAsResonators()
+{
+    const auto resonator = makeItem("resonator", R"json(,
+        "sockets": [
+            {"group": 0, "attr": "DV", "sColour": "DV"},
+            {"group": 0, "attr": "DV", "sColour": "DV"},
+            {"group": 1, "attr": "DV", "sColour": "DV"}
+        ])json");
+    QVERIFY2(resonator->POBformat().contains("\nSockets: DV-DV DV\n"),
+             qPrintable(resonator->POBformat()));
+
+    const auto gear = makeItem("gear", R"json(,
+        "sockets": [
+            {"group": 0, "attr": "S", "sColour": "R"},
+            {"group": 0, "attr": "D", "sColour": "G"},
+            {"group": 1, "attr": "I", "sColour": "B"},
+            {"group": 1, "attr": "G", "sColour": "W"},
+            {"group": 2, "attr": "A", "sColour": "A"}
+        ])json");
+    QVERIFY2(gear->POBformat().contains("\nSockets: R-G B-W A\n"), qPrintable(gear->POBformat()));
+}
+
+// #266: a mod flagged desecrated stays in the section of the array it
+// arrived in, and is searchable there. A mod flagged vestigial is kept in a
+// section of its own. Both were dropped.
+void ItemTest::vestigialAndDesecratedModsAreKept()
+{
+    loadRealStatTranslations();
+
+    const auto item = makeItem("flagged", R"json(,
+        "implicitMods": [
+            {"description": "+30 to maximum Life", "flags": {"vestigial": true}},
+            {"description": "+12 to maximum Life", "flags": {"desecrated": true}}
+        ],
+        "explicitMods": [
+            {"description": "+80 to maximum Life", "flags": {"desecrated": true}},
+            {"description": "+5 to maximum Life", "flags": {"vestigial": true}},
+            {"description": "0.26% of Physical Attack Damage Leeched as Life"}
+        ]
+    )json");
+
+    // Vestigial lines are kept and shown in a section of their own, but not
+    // counted: provisional until the maintainer rules on what the flag means.
+    const auto &text = item->text_mods();
+    QCOMPARE(text.at("implicitMods"), (std::vector<QString>{"+12 to maximum Life"}));
+    QCOMPARE(text.at("explicitMods"),
+             (std::vector<QString>{"+80 to maximum Life",
+                                   "0.26% of Physical Attack Damage Leeched as Life"}));
+    QCOMPARE(text.at("vestigialMods"),
+             (std::vector<QString>{"+30 to maximum Life", "+5 to maximum Life"}));
+    QCOMPARE(item->mod_table().at("+# to maximum Life"), 92.0);
+
+    const QString pob = item->POBformat();
+    QVERIFY2(pob.contains("\nImplicits: 1\n+12 to maximum Life\n"), qPrintable(pob));
+    QVERIFY2(pob.contains("\n+80 to maximum Life\n0.26% of Physical"), qPrintable(pob));
+    QVERIFY2(!pob.contains("+30 to maximum Life"), qPrintable(pob));
+    QVERIFY2(!pob.contains("+5 to maximum Life"), qPrintable(pob));
+}
+
+// A socket's attribute ("S", "D", "I", "G") and its colour ("R", "G", "B",
+// "W") name the same thing in two alphabets; the API reference, as recorded
+// in poe/types/itemsocket.h, documents both on every PoE1 socket. Where only
+// the colour is present it is read in the colour alphabet: "G" is green,
+// not the attribute "G" (white).
+void ItemTest::colourOnlySocketsUseTheColourAlphabet()
+{
+    const auto item = makeItem("colour-only", R"json(,
+        "sockets": [
+            {"group": 0, "sColour": "R"},
+            {"group": 0, "sColour": "G"},
+            {"group": 0, "sColour": "B"},
+            {"group": 0, "sColour": "W"}
+        ])json");
+    QCOMPARE(item->sockets().r, 1);
+    QCOMPARE(item->sockets().g, 1);
+    QCOMPARE(item->sockets().b, 1);
+    QCOMPARE(item->sockets().w, 1);
+    QVERIFY2(item->POBformat().contains("\nSockets: R-G-B-W\n"), qPrintable(item->POBformat()));
 }
 
 QTEST_GUILESS_MAIN(ItemTest)

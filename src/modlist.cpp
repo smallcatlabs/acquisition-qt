@@ -77,10 +77,12 @@ void AddStatTranslations(const QByteArray &statTranslations)
                 continue;
             }
             QString stat_string = stat.string;
-            if (stat.format[0].compare("ignore") != 0) {
-                for (size_t i = 0; i < stat.format.size(); i++) {
-                    QString searchString{QStringLiteral("{%1}").arg(i)};
-                    stat_string.replace(searchString, stat.format[i]);
+            // A stat whose format is "ignore" is not displayed and has no
+            // placeholder in the string; every other stat's placeholder is
+            // replaced, whichever stat comes first (#265).
+            for (size_t i = 0; i < stat.format.size(); i++) {
+                if (stat.format[i] != QLatin1String("ignore")) {
+                    stat_string.replace(QStringLiteral("{%1}").arg(i), stat.format[i]);
                 }
             }
             if (stat_string.length() > 0) {
