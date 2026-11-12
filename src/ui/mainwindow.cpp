@@ -1339,8 +1339,25 @@ void MainWindow::FinishDeltaApplication(bool processed,
         // for most replacements and was ~10 ms per reply (S7 record).
         ScheduleDeltaResizeTreeColumns();
     }
-    ReconcileSelectionIntent(&capture);
-    RestoreSelection(capture);
+    SettleSelection(&capture);
+}
+
+void MainWindow::SettleSelection(const SelectionCapture *capture)
+{
+    // The price editor is shown the selection once, after the current row
+    // and the selection are both settled — not the lapse, the re-adoption
+    // or the restore on the way — so a refresh that ends on the same rows
+    // leaves a price being typed alone. Every selection change emitted in
+    // between is deferred with it.
+    m_defer_price_editor = true;
+    const auto show_price_editor = qScopeGuard([this] {
+        m_defer_price_editor = false;
+        UpdateCurrentBuyout();
+    });
+    ReconcileSelectionIntent(capture);
+    if (capture) {
+        RestoreSelection(*capture);
+    }
 }
 
 LocationInventory::Key MainWindow::TouchedBucket(const ItemLocation &location) const
@@ -1475,14 +1492,6 @@ void MainWindow::ReconcileSelectionIntent(const SelectionCapture *capture)
     if (!m_current_search) {
         return;
     }
-    // The price editor is shown the selection once it is settled, not the
-    // lapse and re-adoption on the way: a refresh that ends on the same
-    // rows leaves a price being typed alone.
-    m_defer_price_editor = true;
-    const auto show_price_editor = qScopeGuard([this] {
-        m_defer_price_editor = false;
-        UpdateCurrentBuyout();
-    });
     if (m_current_item) {
         const QModelIndex index = m_current_search->index(m_current_item);
         if (index.isValid()) {
@@ -1755,7 +1764,7 @@ void MainWindow::ModelViewRefresh()
     // The intent pass runs on refilter paths too (S4 review round 1): an
     // id that reappeared only in a refilter's fresh result re-adopts
     // here — the contract covers the delta path and the refilter alike.
-    ReconcileSelectionIntent();
+    SettleSelection(nullptr);
 }
 
 void MainWindow::SaveViewScroll(Search &search)
@@ -2214,8 +2223,7 @@ void MainWindow::OnItemsRefreshed(bool initial_refresh)
     if (result.model_changed) {
         ScheduleResizeTreeColumns();
     }
-    ReconcileSelectionIntent(&capture);
-    RestoreSelection(capture);
+    SettleSelection(&capture);
     // The success-boundary intent closure (R1-3): the intent pass above
     // adopted an id that reappeared only in the final snapshot; one whose
     // id is absent is cleared so it cannot reselect in a later refresh.

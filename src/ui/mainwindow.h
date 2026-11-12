@@ -223,6 +223,10 @@ private:
     // rest of the selection, and selects the row only if it was selected
     // (as `capture` records for a delta) (#282).
     void ReconcileSelectionIntent(const SelectionCapture *capture = nullptr);
+    // Settles the current row (ReconcileSelectionIntent) and, after a
+    // delta or the final snapshot, the selection (RestoreSelection), then
+    // shows the price editor the result once. The only caller of both.
+    void SettleSelection(const SelectionCapture *capture);
     // Records whether the current row is selected, while it is present.
     void NoteCurrentRowSelection();
     // Makes `index` the current row, applying `flags` to the selection,
@@ -319,8 +323,8 @@ private:
     QMetaObject::Connection m_current_item_conn;
     QMetaObject::Connection m_selection_conn;
     QMetaObject::Connection m_model_reset_conn;
-    // Set while ReconcileSelectionIntent settles the selection; the price
-    // editor is updated once at its end.
+    // Set while SettleSelection settles the current row and the selection;
+    // the price editor is updated once at its end.
     bool m_defer_price_editor{false};
     RateLimitDialog *m_rate_limit_dialog;
     bool m_quitting;
