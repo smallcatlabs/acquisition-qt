@@ -17,8 +17,9 @@
 std::expected<QString, QString> ParseImgurUploadReply(const QByteArray &bytes);
 
 // The number typed into the price box, or nothing when the text is not a
-// number greater than zero. A single comma is a decimal separator ("2,5" is
-// 2.5), except that a comma followed by exactly three digits and no other
+// number greater than zero. A number is what every number field reads
+// (ParseFieldNumber): a single comma is a decimal separator ("2,5" is 2.5),
+// except that a comma followed by exactly three digits and no other
 // separator ("1,000") could be a thousands separator and is rejected rather
 // than guessed.
 std::optional<double> ParseBuyoutValue(const QString &text);

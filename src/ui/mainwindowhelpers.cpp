@@ -3,10 +3,9 @@
 
 #include "ui/mainwindowhelpers.h"
 
-#include <algorithm>
-#include <cmath>
 #include <string_view>
 
+#include "filters/fieldnumber.h"
 #include "util/glaze_qt.h" // IWYU pragma: keep
 
 // Not in an anonymous namespace: glaze's reflection needs a type with linkage.
@@ -48,25 +47,10 @@ std::expected<QString, QString> ParseImgurUploadReply(const QByteArray &bytes)
 
 std::optional<double> ParseBuyoutValue(const QString &text)
 {
-    QString number = text.trimmed();
-    const qsizetype comma = number.indexOf(',');
-    if (comma >= 0) {
-        if (number.count(',') > 1 || number.contains('.')) {
-            return std::nullopt;
-        }
-        const QString after = number.mid(comma + 1);
-        const bool three_digits = (after.size() == 3)
-                                  && std::all_of(after.cbegin(), after.cend(), [](QChar c) {
-                                         return c.isDigit();
-                                     });
-        if (three_digits) {
-            return std::nullopt; // "1,000": a thousands separator or a decimal?
-        }
-        number[comma] = '.';
-    }
-    bool ok = false;
-    const double value = number.toDouble(&ok);
-    if (!ok || !std::isfinite(value) || value <= 0.0) {
+    // A price is a number, as every number field reads one, greater than
+    // zero.
+    const std::optional<double> value = ParseFieldNumber(text);
+    if (!value || (*value <= 0.0)) {
         return std::nullopt;
     }
     return value;
