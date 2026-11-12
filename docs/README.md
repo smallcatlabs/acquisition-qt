@@ -16,7 +16,7 @@ when this map and a header disagree, the header wins.
 - `design/legacy-buyout-import.md` — deliberately minimal design for
   recovering pre-0.16 hash-keyed buyouts into the id-keyed store.
   Revised August 14, 2026 to a plan/apply split around an editable XLSX
-  plan file (QXlsx); tracer bullet implemented, revision not yet built.
+  plan file (QXlsx), and implemented the same day.
 - `design/legacy-buyout-import-investigation.md` — evidence record for
   that design (August 13, 2026): old/new formats, the validated
   hash-to-id join (100% match on a real 0.15.0 database), defects in the
@@ -32,11 +32,6 @@ when this map and a header disagree, the header wins.
   merged November 11, 2026 (pull request 235); not externally reviewed.
   Supersedes, for By-Tab searches only, M3's "a bucket is a top-level
   row".
-- `design/items-pipeline.md` — plan for the delta-native redesign of the
-  items refresh pipeline. Milestone 1 shipped July 2026; M2 merged and
-  M3 implemented July 30–31, 2026, each against its own frozen spec.
-  The M1-M2 status-widget burst measurement ran July 31, 2026 (gate
-  fired; coalesce built — `design/m1-m2-result.md`).
 - `design/items-pipeline-m2.md` — **frozen** spec (revision 9,
   July 29, 2026, amended post-freeze the same day) for Milestone 2,
   the streaming refresh signal: D-numbered decisions consuming the
@@ -107,6 +102,13 @@ when this map and a header disagree, the header wins.
 
 ## Historical
 
+- `design/items-pipeline.md` — plan for the delta-native redesign of the
+  items refresh pipeline; complete. Milestone 1 shipped July 2026, M2
+  July 30 and M3 July 31, 2026 (pull request 188), each against its own
+  frozen spec, which remains the authority. The M1-M2 status-widget
+  burst measurement ran July 31, 2026 (gate fired; coalesce built —
+  `design/m1-m2-result.md`). Its one open follow-up, the filter-loop
+  optimization, is recorded there and in the M3 spec's D7.
 - `adr/0001-qml-ui-migration-strategy.md` — superseded: incremental QML
   migration proposal (its implementation plan remains on the unmerged
   `prepare-qml` branch).
