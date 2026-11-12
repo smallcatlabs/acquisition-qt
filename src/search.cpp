@@ -138,34 +138,12 @@ void Search::setExpandedKeys(std::set<LocationInventory::Key> keys)
 
 const std::vector<Bucket> &Search::buckets() const
 {
-    switch (m_current_mode) {
-    case ViewMode::ByTab:
-        return m_bucket_by_tab;
-        break;
-    case ViewMode::ByItem:
-        return m_bucket_by_item;
-        break;
-    default:
-        spdlog::error("Invalid view mode: {}", m_current_mode);
-        return m_bucket_by_item;
-        break;
-    }
+    return (m_current_mode == ViewMode::ByItem) ? m_bucket_by_item : m_bucket_by_tab;
 }
 
 std::vector<Bucket> &Search::active_buckets()
 {
-    switch (m_current_mode) {
-    case ViewMode::ByTab:
-        return m_bucket_by_tab;
-        break;
-    case ViewMode::ByItem:
-        return m_bucket_by_item;
-        break;
-    default:
-        spdlog::error("Invalid view mode: {}", static_cast<int>(m_current_mode));
-        return m_bucket_by_item;
-        break;
-    }
+    return (m_current_mode == ViewMode::ByItem) ? m_bucket_by_item : m_bucket_by_tab;
 }
 
 bool Search::has_bucket(int row) const
@@ -449,19 +427,11 @@ void Search::FilterItems(const Items &items)
     // The "By Tab" buckets, in tree order (folder-tree D3) by their
     // rendered locations — the grouping map is keyed for identity, not
     // display order.
-    std::map<LocationInventory::Key, Bucket> bucketed_tabs = GroupByTab(
-        m_bucket_by_item.front().items());
-    m_bucket_by_tab.clear();
-    m_bucket_by_tab.reserve(bucketed_tabs.size());
-    for (auto &element : bucketed_tabs) {
-        m_bucket_by_tab.emplace_back(std::move(element.second));
-    }
-
+    InstallTabBuckets(GroupByTab(m_bucket_by_item.front().items()));
     // Fresh buckets get fresh identities (S4): the reset invalidates every
     // persistent index, so serial continuity across a refilter would buy
     // nothing.
-    AssignSerials();
-    ArrangeTabTree();
+    m_bucket_by_item.front().SetSerial(m_next_bucket_serial++);
     RebuildRowLookups();
     m_flat_bucket_stale = false;
     m_tab_buckets_stale = false;
@@ -529,16 +499,6 @@ int Search::bucketRowFor(const Item &item) const
         return m_bucket_by_item.empty() ? -1 : 0;
     }
     return FindBucketRow(LocationInventory::KeyFor(item.location()));
-}
-
-void Search::AssignSerials()
-{
-    for (auto &bucket : m_bucket_by_tab) {
-        bucket.SetSerial(m_next_bucket_serial++);
-    }
-    for (auto &bucket : m_bucket_by_item) {
-        bucket.SetSerial(m_next_bucket_serial++);
-    }
 }
 
 void Search::RebuildRowLookups()
@@ -790,6 +750,17 @@ std::map<LocationInventory::Key, Bucket> Search::GroupByTab(const Items &accepte
         }
     }
     return grouped;
+}
+
+void Search::InstallTabBuckets(std::map<LocationInventory::Key, Bucket> grouped)
+{
+    m_bucket_by_tab.clear();
+    m_bucket_by_tab.reserve(grouped.size());
+    for (auto &[key, bucket] : grouped) {
+        bucket.SetSerial(m_next_bucket_serial++);
+        m_bucket_by_tab.emplace_back(std::move(bucket));
+    }
+    ArrangeTabTree();
 }
 
 void Search::ArrangeTabTree()
@@ -1165,10 +1136,7 @@ int Search::ApplyBucketMetadata(int bucket_row,
 {
     Bucket &bucket = m_bucket_by_tab[static_cast<size_t>(bucket_row)];
     const ItemLocation old_location = bucket.location();
-    const bool rendered_changed = (old_location.GetHeader() != canonical.GetHeader())
-                                  || (old_location.getR() != canonical.getR())
-                                  || (old_location.getG() != canonical.getG())
-                                  || (old_location.getB() != canonical.getB());
+    const bool rendered_changed = !old_location.RendersSameAs(canonical);
     const std::uint64_t serial = bucket.serial();
     Q_ASSERT(old_location.IsFolder() == canonical.IsFolder()); // callers handle a kind change
     bucket.SetLocation(canonical);
@@ -1742,11 +1710,7 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
         }
         const ItemLocation &canonical = target.at(LocationInventory::KeyFor(bucket.location()))
                                             .location();
-        const ItemLocation old_location = bucket.location();
-        const bool rendered_changed = (old_location.GetHeader() != canonical.GetHeader())
-                                      || (old_location.getR() != canonical.getR())
-                                      || (old_location.getG() != canonical.getG())
-                                      || (old_location.getB() != canonical.getB());
+        const bool rendered_changed = !bucket.location().RendersSameAs(canonical);
         bucket.SetLocation(canonical);
         if (rendered_changed) {
             m_model.EmitBucketMetadataChanged(static_cast<int>(row));
@@ -1985,17 +1949,7 @@ void Search::RebuildTabBucketsFromFlat()
     // the canonical inventory — so metadata deltas that arrived while
     // By-Item was active land here.
     static const Items no_items;
-    std::map<LocationInventory::Key, Bucket> bucketed_tabs = GroupByTab(
-        m_bucket_by_item.empty() ? no_items : m_bucket_by_item.front().items());
-
-    m_bucket_by_tab.clear();
-    m_bucket_by_tab.reserve(bucketed_tabs.size());
-    for (auto &element : bucketed_tabs) {
-        m_bucket_by_tab.emplace_back(std::move(element.second));
-    }
-    for (auto &bucket : m_bucket_by_tab) {
-        bucket.SetSerial(m_next_bucket_serial++);
-    }
-    ArrangeTabTree();
+    InstallTabBuckets(
+        GroupByTab(m_bucket_by_item.empty() ? no_items : m_bucket_by_item.front().items()));
     m_tab_buckets_stale = false;
 }

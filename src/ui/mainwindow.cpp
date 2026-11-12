@@ -1513,11 +1513,7 @@ void MainWindow::ReconcileSelectionIntent()
         const int bucket_row = m_current_search->rowForKey(key);
         if (bucket_row >= 0) {
             const ItemLocation &fresh = m_current_search->bucket(bucket_row).location();
-            const bool rendered_changed = (fresh.GetHeader()
-                                           != m_current_bucket_location->GetHeader())
-                                          || (fresh.getR() != m_current_bucket_location->getR())
-                                          || (fresh.getG() != m_current_bucket_location->getG())
-                                          || (fresh.getB() != m_current_bucket_location->getB());
+            const bool rendered_changed = !fresh.RendersSameAs(*m_current_bucket_location);
             if (rendered_changed) {
                 m_current_bucket_location = fresh;
                 UpdateCurrentBucket();

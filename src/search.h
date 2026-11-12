@@ -329,7 +329,6 @@ private:
     // item count answering as if freshly refiltered, in O(1) per item.
     void IndexInsertVisible(const std::shared_ptr<Item> &item);
     void IndexRemoveVisible(const std::shared_ptr<Item> &item);
-    void AssignSerials();
     void RebuildRowLookups();
     int FindBucketRow(const LocationInventory::Key &key) const;
 
@@ -357,8 +356,11 @@ private:
     // not, when the search is unfiltered; and each known folder a present
     // member names.
     std::map<LocationInventory::Key, Bucket> GroupByTab(const Items &accepted) const;
+    // Makes `grouped` the By-Tab vector (refilter and mode-switch
+    // rebuilds): each bucket gets a fresh serial, then ArrangeTabTree.
+    void InstallTabBuckets(std::map<LocationInventory::Key, Bucket> grouped);
     // Sorts a freshly built By-Tab vector into tree order and records each
-    // bucket's parent (refilter and mode-switch rebuilds).
+    // bucket's parent.
     void ArrangeTabTree();
     // A bucket's position among `parent_row`'s children by
     // bucketDisplayLess, not counting `skip_row`.
