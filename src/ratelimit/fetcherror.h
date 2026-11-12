@@ -101,6 +101,14 @@ namespace RateLimit {
     {
         switch (error.kind) {
         case FetchError::Kind::Network:
+            // Every API request carries a transfer timeout, and Qt ends a
+            // reply that runs out of it with OperationCanceledError.
+            // Acquisition never aborts an API reply itself (D2), so here
+            // that code means the server did not answer.
+            if ((error.network_error == QNetworkReply::OperationCanceledError)
+                || (error.network_error == QNetworkReply::TimeoutError)) {
+                return "the server did not answer in time";
+            }
             return QString("network error (%1)")
                 .arg(QString::fromLatin1(
                     QMetaEnum::fromType<QNetworkReply::NetworkError>().valueToKey(
@@ -118,11 +126,9 @@ namespace RateLimit {
         case FetchError::Kind::Protocol:
             return "the server's rate-limit headers could not be read";
         case FetchError::Kind::RateLimited:
-            if (error.retry_after_acceptable) {
-                return QString("rate limited by the server, still after %1 attempts")
-                    .arg(error.attempts);
-            }
-            return "rate limited by the server, with no usable time to retry";
+            // Not every terminal 429 knows its attempts or Retry-After (a
+            // failed setup HEAD carries neither), so claim neither.
+            return "rate limited by the server";
         case FetchError::Kind::Internal:
             return "an internal error occurred; see the log";
         case FetchError::Kind::Canceled:
