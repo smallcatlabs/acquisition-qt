@@ -4,6 +4,7 @@
 #include <QtTest/QtTest>
 
 #include <QBuffer>
+#include <QFile>
 #include <QMap>
 #include <QSettings>
 #include <QSqlQuery>
@@ -118,6 +119,7 @@ private slots:
 
     // #258: every form value reaches the forum as the user wrote it.
     void formValuesArePercentEncoded();
+    void titleFromTheEditPageIsPostedDecoded();
 
     // #279: one admission gate. A manual request is always told why it
     // was refused; an automatic one hears each reason once per session.
@@ -175,12 +177,33 @@ namespace {
     // the shop keys on is the first 10 characters of the id.
     constexpr const char *kStashIndexJson = R"({"tabs":[{"n":"Test Tab","i":0,"id":"stash00001"}]})";
 
-    // A forum edit-thread page carrying exactly the CSRF hash input and the
-    // title input Shop::OnEditPageFinished parses.
-    const QByteArray kEditThreadPage
-        = "<input type=\"hidden\" name=\"hash\" value=\"fakecsrfhash\">\n"
-          "<input type=\"text\" name=\"title\" id=\"title\" "
-          "onkeypress=\"return&#x20;event.keyCode&#x21;&#x3D;13\" value=\"My Shop\">";
+    // Pages the forum sent, captured by the maintainer and trimmed to their
+    // content block (each file starts with a comment saying what was
+    // trimmed and scrubbed): the edit-thread page a submission GETs, and
+    // the thread view the forum answers a successful edit POST with.
+    QByteArray forumPage(const QString &name)
+    {
+        QFile file(QFINDTESTDATA("fixtures/forum/" + name));
+        if (!file.open(QIODevice::ReadOnly)) {
+            qFatal("tst_shop: cannot open the forum fixture %s", qPrintable(name));
+        }
+        return file.readAll();
+    }
+    QByteArray editThreadPage()
+    {
+        return forumPage("edit-thread.html");
+    }
+    QByteArray afterEditPage()
+    {
+        return forumPage("after-edit-thread.html");
+    }
+
+    // The scrubbed hash value in edit-thread.html, and its title as the
+    // page's value attribute carries it.
+    constexpr const char *kEditPageHash
+        = "0123456789abcdef0123456789abcdef-fedcba9876543210fedcba9876543210";
+    constexpr const char *kEditPageTitleAttribute
+        = "value=\"GERWARIC&#x27;s&#x20;Standard&#x20;Shop\"";
 
     // Walk the active job's forum flow to completion: finish the edit-page
     // GET at m_sent index `get_index`, wait out the 500ms CSRF delay for the
@@ -191,12 +214,12 @@ namespace {
         fixture.networkManager->sent(get_index).reply->finish({},
                                                               200,
                                                               QNetworkReply::NoError,
-                                                              kEditThreadPage);
+                                                              editThreadPage());
         QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), get_index + 2, 5000);
         QCOMPARE(fixture.networkManager->sent(get_index + 1).op,
                  QNetworkAccessManager::PostOperation);
         fixture.networkManager->sent(get_index + 1)
-            .reply->finish({}, 200, QNetworkReply::NoError, QByteArray("ok"));
+            .reply->finish({}, 200, QNetworkReply::NoError, afterEditPage());
         drainEvents();
     }
 
@@ -451,7 +474,7 @@ void ShopTest::shopPost403RejectsPoeSession()
     fixture.shop->SubmitShopToForum(true);
     fixture.rateLimiter->resolve(0, kStashIndexJson);
     drainEvents();
-    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
 
     fixture.networkManager->sent(1).reply->finish({},
@@ -924,13 +947,13 @@ void ShopTest::morePagesThanThreadsWarnsWithoutReposting()
 
     // The one thread receives page one. Read the POST body before its reply
     // finishes and is released.
-    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
     QCOMPARE(fixture.networkManager->sent(1).request.url().toString(),
              QString("https://www.pathofexile.com/forum/edit-thread/123"));
     QCOMPARE(postedForm(fixture.networkManager->sent(1)).value("content"),
              fixture.shop->shop_data().first());
-    fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, QByteArray("ok"));
+    fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, afterEditPage());
     drainEvents();
 
     // Nothing else was sent and the user was told. The hash is saved as for
@@ -961,9 +984,9 @@ void ShopTest::automaticShortfallWarnsOncePerSession()
     fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
     fixture.rateLimiter->resolve(0, kStashIndexJson);
     drainEvents();
-    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
-    fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, QByteArray("ok"));
+    fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, afterEditPage());
     drainEvents();
     QCOMPARE(warnings.count(), 1);
 
@@ -1042,7 +1065,7 @@ void ShopTest::healthyEmptyStoreStillPostsEmpty()
     drainEvents();
 
     QCOMPARE(fixture.networkManager->count(), 1);
-    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
     QCOMPARE(postedForm(fixture.networkManager->sent(1)).value("content"), QString("Empty"));
     QCOMPARE(warnings.count(), 0);
@@ -1086,7 +1109,7 @@ void ShopTest::forumErrorReplyIsNotLogged()
     fixture.shop->SubmitShopToForum(true);
     fixture.rateLimiter->resolve(0, kStashIndexJson);
     drainEvents();
-    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
     fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, reply);
     drainEvents();
@@ -1109,8 +1132,10 @@ void ShopTest::formValuesArePercentEncoded()
     fixture.shop->SubmitShopToForum(true);
     fixture.rateLimiter->resolve(0, kStashIndexJson);
     drainEvents();
-    QByteArray edit_page = kEditThreadPage;
-    edit_page.replace("value=\"My Shop\"", "value=\"WTS +1 gems &amp; 50% off\"");
+    QByteArray edit_page = editThreadPage();
+    QVERIFY(edit_page.contains(kEditPageTitleAttribute));
+    edit_page.replace(kEditPageTitleAttribute,
+                      "value=\"WTS&#x20;+1&#x20;gems&#x20;&amp;&#x20;50%&#x20;off\"");
     fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, edit_page);
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
 
@@ -1118,7 +1143,7 @@ void ShopTest::formValuesArePercentEncoded()
     QCOMPARE(form.value("content"), fixture.shop->shop_data().first());
     QVERIFY(form.value("content").endsWith("[/spoiler] +1 & 50% %41 é"));
     QCOMPARE(form.value("title"), QString("WTS +1 gems & 50% off"));
-    QCOMPARE(form.value("hash"), QString("fakecsrfhash"));
+    QCOMPARE(form.value("hash"), QString(kEditPageHash));
     QCOMPARE(form.value("notify_owner"), QString("0"));
     QCOMPARE(form.value("submit"), QString("Submit"));
 }
@@ -1407,6 +1432,24 @@ void ShopTest::renderLeavesOutGameAndUnindexedItems()
     QCOMPARE(pages,
              QStringList{R"([spoiler][spoiler=" ~b/o  1 chaos"])" + stashLink(1, 0)
                          + stashLink(4, 0) + "[/spoiler]"});
+}
+
+// The real edit page writes the title with hex character references, the
+// spaces included; the POST carries it back as plain text.
+void ShopTest::titleFromTheEditPageIsPostedDecoded()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    QVERIFY(editThreadPage().contains(kEditPageTitleAttribute));
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+
+    const auto form = postedForm(fixture.networkManager->sent(1));
+    QCOMPARE(form.value("title"), QString("GERWARIC's Standard Shop"));
+    QCOMPARE(form.value("hash"), QString(kEditPageHash));
 }
 
 // AGENTS.md: prices set in the game are never posted to the forum. The
