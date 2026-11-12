@@ -25,6 +25,7 @@
 #include "datastore/stashrepo.h"
 #include "datastore/userstore.h"
 #include "itemlocation.h"
+#include "itemsfromwire.h"
 #include "modlist.h"
 #include "poe/poe_utils.h"
 #include "poe/poeapiclient.h"
@@ -338,36 +339,21 @@ void ItemsManagerWorker::LoadItems(const poe::StashTab &stash,
                   stash.index.value_or(-1),
                   stash.id,
                   stash.name);
-    for (const auto &item : *items) {
-        result.items.push_back(std::make_shared<Item>(item, location));
-    }
+    AppendWireItems(stash, location, result.items);
 }
 
 void ItemsManagerWorker::LoadItems(const poe::Character &character,
                                    ItemLocation location,
                                    ParseResult &result) const
 {
-    const std::array collections{
-        std::make_pair("equipment", character.equipment),
-        std::make_pair("inventory", character.inventory),
-        std::make_pair("rucksack", character.rucksack),
-        std::make_pair("jewels", character.jewels),
-    };
-
-    for (const auto &[name, items] : collections) {
-        if (!items) {
-            continue;
-        }
-        result.items.reserve(result.items.size() + items->size());
+    AppendWireItems(character, location, result.items, [&](const char *name, size_t count) {
+        result.items.reserve(result.items.size() + count);
         spdlog::debug("ItemManagerWorker: loading {} items from character {} {} ({})",
-                      items->size(),
+                      count,
                       name,
                       character.id,
                       character.name);
-        for (const auto &item : *items) {
-            result.items.push_back(std::make_shared<Item>(item, location));
-        }
-    }
+    });
 }
 
 void ItemsManagerWorker::Update(TabSelection type, const std::vector<ItemLocation> &locations)
@@ -1039,7 +1025,7 @@ void ItemsManagerWorker::OnStashReceived(const Result<poe::StashPayload> &result
     } else if (stash.items) {
         const auto &items = *stash.items;
         if (items.size() > 0) {
-            ParseItems(items, location, delta);
+            AppendWireItems(stash, location, delta);
         } else {
             spdlog::debug("Stash 'items' does not contain any items: {}", location.GetHeader());
         }
@@ -1202,16 +1188,7 @@ void ItemsManagerWorker::OnCharacterReceived(const Result<poe::CharacterPayload>
     // Atomically replace this character's items: one bucket swap, as in
     // OnStashReceived.
     Items delta;
-    const auto collections = {character.equipment,
-                              character.inventory,
-                              character.rucksack,
-                              character.jewels};
-
-    for (const auto &items : collections) {
-        if (items) {
-            ParseItems(*items, location, delta);
-        }
-    }
+    AppendWireItems(character, location, delta);
     const size_t replaced = m_items.ReplaceSource(FetchSourceKey::ForLocation(location), delta);
     spdlog::debug("ItemsManagerWorker: replacing {} items fetched by '{}'",
                   replaced,
@@ -1344,19 +1321,6 @@ void ItemsManagerWorker::SendStatusUpdate()
         message = "Received nothing; needed nothing.";
     }
     emit StatusUpdate(ProgramState::Busy, message);
-}
-
-void ItemsManagerWorker::ParseItems(const std::vector<poe::Item> &items,
-                                    const ItemLocation &base_location,
-                                    Items &out) const
-{
-    for (auto &item : items) {
-        const ItemLocation location = base_location.getItemLocation(item);
-        out.push_back(std::make_shared<Item>(item, location));
-        if (item.socketedItems) {
-            ParseItems(*item.socketedItems, location, out);
-        }
-    }
 }
 
 void ItemsManagerWorker::CheckUpdateFinished()

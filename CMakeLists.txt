@@ -327,6 +327,8 @@ set(ACQ_CORE
     src/itemsmanager.h
     src/itemsmanagerworker.cpp
     src/itemsmanagerworker.h
+    src/itemsfromwire.cpp
+    src/itemsfromwire.h
     src/modlist.cpp
     src/modlist.h
     src/pseudomods.cpp

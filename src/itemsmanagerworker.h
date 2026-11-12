@@ -302,9 +302,6 @@ private:
     void SweepTasks();
 
     void SendStatusUpdate();
-    void ParseItems(const std::vector<poe::Item> &items,
-                    const ItemLocation &base_location,
-                    Items &out) const;
     void CheckUpdateFinished();
     void FinishUpdate();
 

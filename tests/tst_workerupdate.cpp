@@ -139,6 +139,9 @@ private slots:
     void folderReplyChildDisplaysUnderItsOwnTab();
     // Folder-tree A2 / R9: the checked selection's folder rule.
     void checkedSelectionIncludesFoldersOfCheckedMembers();
+
+    // #260: the cache load and a live refresh build the same items.
+    void cacheLoadAndLiveRefreshBuildTheSameItems();
 };
 
 namespace {
@@ -3812,6 +3815,174 @@ void WorkerUpdateTest::checkedSelectionIncludesFoldersOfCheckedMembers()
     // Neither folder's stored flag was written.
     QVERIFY(!buyouts.GetRefreshChecked(ItemLocation(*folder_f)));
     QVERIFY(buyouts.GetRefreshChecked(ItemLocation(*folder_g)));
+}
+
+namespace {
+
+    // A gem as the API nests it in an item's socketedItems: no x/y, a socket
+    // index and colour, and gem properties in the game's own formats.
+    QString socketedGemJson(const QString &id,
+                            const QString &name,
+                            bool support,
+                            unsigned socket,
+                            const QString &colour)
+    {
+        return QString(R"json({
+            "verified": false,
+            "w": 1,
+            "h": 1,
+            "icon": "https://web.poecdn.com/gen/image/gem.png",
+            "support": %3,
+            "id": "%1",
+            "name": "",
+            "typeLine": "%2",
+            "baseType": "%2",
+            "identified": true,
+            "ilvl": 0,
+            "properties": [
+                {"name": "Level", "values": [["20 (Max)", 0]], "displayMode": 0, "type": 5},
+                {"name": "Quality", "values": [["+20%", 1]], "displayMode": 0, "type": 6}
+            ],
+            "frameType": 4,
+            "socket": %4,
+            "colour": "%5"
+        })json")
+            .arg(id, name, support ? "true" : "false", QString::number(socket), colour);
+    }
+
+    // A two-socket item holding two gems.
+    QString socketedItemJson(const QString &id,
+                             const QString &base_type,
+                             const QString &inventory_id,
+                             unsigned x,
+                             unsigned y,
+                             const QString &gems_json)
+    {
+        return QString(R"({
+            "verified": false,
+            "w": 1,
+            "h": 3,
+            "icon": "https://web.poecdn.com/gen/image/weapon.png",
+            "id": "%1",
+            "name": "",
+            "typeLine": "%2",
+            "baseType": "%2",
+            "identified": true,
+            "ilvl": 75,
+            "sockets": [
+                {"group": 0, "attr": "I", "sColour": "B"},
+                {"group": 0, "attr": "S", "sColour": "R"}
+            ],
+            "frameType": 0,
+            "x": %4,
+            "y": %5,
+            "inventoryId": "%3",
+            "socketedItems": [%6]
+        })")
+            .arg(id, base_type, inventory_id, QString::number(x), QString::number(y), gems_json);
+    }
+
+    // Each item's id with where it is placed, sorted: two runs that build the
+    // same items in the same places give equal lists.
+    QStringList itemPlacements(const Items &items)
+    {
+        QStringList placements;
+        for (const auto &item : items) {
+            const ItemLocation &location = item->location();
+            const QRectF rect = location.GetRect();
+            placements.append(QString("%1 | %2 | %3 | %4,%5 %6x%7 | socketed=%8")
+                                  .arg(item->id(),
+                                       location.GetHeader(),
+                                       location.fetch_id(),
+                                       QString::number(rect.x()),
+                                       QString::number(rect.y()),
+                                       QString::number(rect.width()),
+                                       QString::number(rect.height()),
+                                       location.socketed() ? "yes" : "no"));
+        }
+        placements.sort();
+        return placements;
+    }
+
+} // namespace
+
+// #260: the startup cache load and a live refresh turn the same stash and
+// character payloads into the same items, socketed gems included, in the same
+// places. Before the fix the cache load built only top-level items, so after
+// a restart every gem was missing until its tab was fetched again.
+void WorkerUpdateTest::cacheLoadAndLiveRefreshBuildTheSameItems()
+{
+    const QString account = "worker-update-account-socketed";
+    WorkerFixture f(account);
+
+    const QString stash_items
+        = socketedItemJson("stash-sword",
+                           "Jewelled Foil",
+                           "Stash1",
+                           3,
+                           0,
+                           socketedGemJson("stash-gem-1", "Fireball", false, 0, "I") + ","
+                               + socketedGemJson("stash-gem-2",
+                                                 "Added Fire Damage Support",
+                                                 true,
+                                                 1,
+                                                 "S"))
+          + "," + itemJson("stash-plain");
+    const poe::StashTab stash = stashOf(stashJsonWithItems("stashaaaa1", "Gems", 0, stash_items));
+
+    const QString equipment = socketedItemJson("char-sword",
+                                               "Jewelled Foil",
+                                               "Weapon",
+                                               0,
+                                               0,
+                                               socketedGemJson("char-gem-1", "Arc", false, 0, "I")
+                                                   + ","
+                                                   + socketedGemJson("char-gem-2",
+                                                                     "Faster Casting Support",
+                                                                     true,
+                                                                     1,
+                                                                     "S"));
+    const QByteArray character_json
+        = QString(
+              R"({"id":"charid0001","name":"Gemmer","realm":"%1","class":"Witch","league":"%2","level":90,"experience":0,"equipment":[%3],"inventory":[%4]})")
+              .arg(kRealm, kLeague, equipment, itemJson("char-plain"))
+              .toUtf8();
+    const poe::Character character = characterOf(character_json);
+
+    {
+        UserStore store(QDir(f.dataDir()), account);
+        QVERIFY(store.stashes().saveStashList({stash}, kRealm, kLeague));
+        QVERIFY(saveStashFixture(store.stashes(), stash, kRealm, kLeague));
+        QVERIFY(store.characters().saveCharacterList({character}));
+        QVERIFY(saveCharacterFixture(store.characters(), character));
+    }
+
+    // The cache load.
+    f.start();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+    QVERIFY(f.last_initial);
+    const QStringList cached = itemPlacements(f.last_items);
+
+    // A live refresh of the same payloads.
+    f.worker->Update(TabSelection::All);
+    f.deliverStashList(stashList({stashJson("stashaaaa1", "Gems", 0)}));
+    f.deliverCharacterList(characterList({characterJson("charid0001", "Gemmer")}));
+    f.deliverStash("stashaaaa1", stash);
+    f.deliverCharacter("Gemmer", character);
+    QCOMPARE(f.refresh_count, 2);
+    QVERIFY(!f.last_initial);
+    const QStringList live = itemPlacements(f.last_items);
+
+    QCOMPARE(sortedItemIds(f.last_items),
+             QStringList({"char-gem-1",
+                          "char-gem-2",
+                          "char-plain",
+                          "char-sword",
+                          "stash-gem-1",
+                          "stash-gem-2",
+                          "stash-plain",
+                          "stash-sword"}));
+    QCOMPARE(cached, live);
 }
 
 QTEST_GUILESS_MAIN(WorkerUpdateTest)
