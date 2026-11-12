@@ -7,7 +7,7 @@
 #include <QApplication>
 #include <QDateTime>
 #include <QDir>
-#include <QFileDialog>
+#include <QFile>
 #include <QMessageBox>
 #include <QNetworkCookieJar>
 #include <QSettings>
@@ -60,21 +60,12 @@ void Application::InitCoreServices()
 
     // Connect signals from the login dialog.
     connect(&login(), &LoginDialog::ChangeTheme, this, &Application::SetTheme);
-    // Queued: SetUserDir destroys the login dialog, whose button is still
-    // emitting when this signal fires.
-    connect(&login(),
-            &LoginDialog::ChangeUserDir,
-            this,
-            &Application::SetUserDir,
-            Qt::QueuedConnection);
     connect(&login(), &LoginDialog::LoginComplete, this, &Application::OnLogin);
 
     if (settings().value("realm").toString().isEmpty()) {
         settings().setValue("realm", "pc");
     }
     spdlog::debug("Application: realm is {}", settings().value("realm"));
-
-    SaveDataOnNewVersion();
 
     spdlog::debug("Application: loading theme");
     SetTheme(settings().value("theme", "default").toString());
@@ -113,7 +104,7 @@ void Application::InitUserSession()
     auto item_mgr = &items_manager();
     auto worker = &items_worker();
 
-    connect(item_mgr, &ItemsManager::UpdateSignal, worker, &ItemsManagerWorker::Update);
+    ConnectRefreshRequests(*item_mgr, *worker);
     connect(worker, &ItemsManagerWorker::StatusUpdate, item_mgr, &ItemsManager::OnStatusUpdate);
     connect(worker, &ItemsManagerWorker::ItemsRefreshed, item_mgr, &ItemsManager::OnItemsRefreshed);
     // Presentation-lane deltas (items-pipeline M2, D3): the manager streams
@@ -187,11 +178,30 @@ Application::UserSession &Application::session() const
     FatalError("Application: user session not initialized");
 }
 
+std::unique_ptr<DataStore> OpenGlobalDataStore(const QDir &dataDir, QSettings &settings)
+{
+    const QDir user_dir(dataDir.filePath("data"));
+    const QString global_data_file = user_dir.filePath(SqliteDataStore::MakeFilename("", ""));
+    // Back up before the store is opened: opening creates the database, and a
+    // first run would otherwise back up its own new file. Versions before the
+    // version moved to settings.ini recorded it in the store; read it only then.
+    QString legacy_version = "UNKNOWN-VERSION";
+    if (!settings.contains("version") && QFile::exists(global_data_file)) {
+        legacy_version = SqliteDataStore(global_data_file).Get("version", legacy_version);
+    }
+    BackupDataOnNewVersion(dataDir, settings, legacy_version, APP_VERSION_STRING);
+    spdlog::trace("Application: opening global data file: {}", global_data_file);
+    return std::make_unique<SqliteDataStore>(global_data_file);
+}
+
 Application::CoreServices::CoreServices(const QDir &appDataDir)
     : dir(appDataDir)
 {
     spdlog::trace("Application: creating NetworkManager");
     network_manager = std::make_unique<NetworkManager>();
+    // The HTTP disk cache is gone; clear what earlier versions left in this
+    // data directory. Never touches any other directory.
+    NetworkManager::removeLegacyDiskCache(dir);
 
     spdlog::trace("Application: creating RePoE");
     repoe = std::make_unique<RePoE>(*network_manager);
@@ -200,10 +210,7 @@ Application::CoreServices::CoreServices(const QDir &appDataDir)
     spdlog::trace("Application: creating the settings object: {}", settings_path);
     settings = std::make_unique<QSettings>(settings_path, QSettings::IniFormat);
 
-    const QDir user_dir(dir.filePath("data"));
-    const QString global_data_file = user_dir.filePath(SqliteDataStore::MakeFilename("", ""));
-    spdlog::trace("Application: opening global data file: {}", global_data_file);
-    global_data = std::make_unique<SqliteDataStore>(global_data_file);
+    global_data = OpenGlobalDataStore(dir, *settings);
 
     const QString image_cache_dir = dir.absoluteFilePath("cache");
     image_cache = std::make_unique<ImageCache>(*network_manager, image_cache_dir);
@@ -215,11 +222,7 @@ Application::CoreServices::CoreServices(const QDir &appDataDir)
     oauth_manager = std::make_unique<OAuthManager>(*network_manager, *global_data);
 
     spdlog::trace("Application: creating login dialog");
-    login = std::make_unique<LoginDialog>(dir.absolutePath(),
-                                          *settings,
-                                          *network_manager,
-                                          *oauth_manager,
-                                          *global_data);
+    login = std::make_unique<LoginDialog>(*settings, *network_manager, *oauth_manager, *global_data);
 }
 
 Application::UserSession::UserSession(const Application::CoreServices &core)
@@ -392,25 +395,6 @@ void Application::SetTheme(const QString &theme)
     qApp->setStyleSheet(style_data);
 }
 
-void Application::SetUserDir(const QString &dir)
-{
-    // Same shutdown invariant as InitUserSession(): resetting m_session (and
-    // m_core beneath it) tears down the worker and hub, which is only safe once
-    // the event loop has stopped (network-redesign.md, "Shutdown and task
-    // ownership"). The data directory is chosen from the login dialog before any
-    // session exists; a change once a session is live would destroy owners
-    // mid-loop, so refuse it loudly rather than corrupt suspended frames.
-    if (m_session) {
-        FatalError("Application: refusing to change the data directory while a user "
-                   "session is live (network-redesign.md shutdown invariant)");
-    }
-
-    m_core.reset();
-    m_data_dir = QDir(dir);
-
-    InitCoreServices();
-}
-
 void Application::OnItemsRefreshed(bool initial_refresh)
 {
     spdlog::trace("Application::OnItemsRefreshed() entered");
@@ -423,13 +407,4 @@ void Application::OnItemsRefreshed(bool initial_refresh)
     // Automatic forum submission moved to the typed terminal event (M2
     // D8/R1-1): Shop::OnRefreshFinished gates it on a CLEAN CompletedRefresh,
     // which the initial cached load never emits (it is not an update).
-}
-
-void Application::SaveDataOnNewVersion()
-{
-    spdlog::trace("Application::SaveDataOnNewVersion() entered");
-    BackupDataOnNewVersion(m_data_dir,
-                           settings(),
-                           global_data().Get("version", "UNKNOWN-VERSION"),
-                           APP_VERSION_STRING);
 }

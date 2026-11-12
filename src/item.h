@@ -47,10 +47,14 @@ struct ItemRequirement
     ItemPropertyValue value;
 };
 
+// What a socket is, decided once from the game's socket attribute: "S",
+// "D", "I", "G", "A" or "DV" (or the colour "R", "G", "B", "W", "A", "DV").
+enum class SocketKind : unsigned char { Red, Green, Blue, White, Abyss, Resonator, Unknown };
+
 struct ItemSocket
 {
     unsigned char group;
-    char attr;
+    SocketKind kind;
 };
 
 typedef std::vector<QString> ItemMods;
@@ -148,6 +152,8 @@ public:
     const ModTable &mod_table() const { return m_mod_table; }
     int ilvl() const { return m_ilvl; }
     bool operator<(const Item &other) const;
+    // Whether Path of Building imports this item: decided by its item class
+    // (see IsPathOfBuildingItemClass).
     bool Wearable() const;
     QString POBformat() const;
 

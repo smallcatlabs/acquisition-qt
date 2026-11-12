@@ -4,11 +4,11 @@
 #include "util/networkmanager.h"
 
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QNetworkCookie>
 #include <QNetworkCookieJar>
-#include <QNetworkDiskCache>
 #include <QNetworkReply>
-#include <QStandardPaths>
 
 #include "ratelimit/ratelimit.h"
 #include "ratelimit/ratelimitpolicy.h"
@@ -22,11 +22,7 @@ constexpr const char *POE_COOKIE_NAME = "POESESSID";
 constexpr const char *POE_COOKIE_DOMAIN = ".pathofexile.com";
 constexpr const char *POE_COOKIE_PATH = "/";
 
-// Size of the network disk cache.
-constexpr const int CACHE_SIZE_MEGABYTES = 100;
-
 constexpr const char *POE_API_HOST = "api.pathofexile.com";
-constexpr const char *POE_CDN_HOST = "web.poecdn.com";
 
 // The OAuth token endpoint (TOKEN_URL in oauthmanager.cpp). Its requests are
 // issued internally by QOAuth2AuthorizationCodeFlow, so this is the only
@@ -73,13 +69,28 @@ constexpr std::array<std::pair<QNetworkRequest::Attribute, const char *>, 28> KN
 
 NetworkManager::NetworkManager(QObject *parent)
     : QNetworkAccessManager(parent)
+{}
+
+void NetworkManager::removeLegacyDiskCache(const QDir &dataDir)
 {
-    const auto data_dir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    const auto cache_dir = data_dir + QLatin1StringView("/network_cache/");
-    m_diskCache = new QNetworkDiskCache(this);
-    m_diskCache->setCacheDirectory(cache_dir);
-    m_diskCache->setMaximumCacheSize(CACHE_SIZE_MEGABYTES * 1024 * 1024);
-    setCache(m_diskCache);
+    const QString path = dataDir.filePath("network_cache");
+    const QFileInfo info(path);
+    if (info.isSymbolicLink() || info.isJunction()) {
+        // Never follow a link: removing its contents would delete whatever it
+        // points at. Remove the link itself, which leaves the target alone.
+        spdlog::info("NetworkManager: removing the link {}", path);
+        if (!QFile::remove(path) && !QDir().rmdir(path)) {
+            spdlog::warn("NetworkManager: could not remove the link {}", path);
+        }
+        return;
+    }
+    QDir cache_dir(path);
+    if (cache_dir.exists()) {
+        spdlog::info("NetworkManager: removing the old HTTP disk cache: {}", cache_dir.path());
+        if (!cache_dir.removeRecursively()) {
+            spdlog::warn("NetworkManager: could not remove all of {}", cache_dir.path());
+        }
+    }
 }
 
 void NetworkManager::clearPoeSessionId()
@@ -122,20 +133,15 @@ QNetworkReply *NetworkManager::createRequest(QNetworkAccessManager::Operation op
     const auto host = request.url().host();
 
     if (host == POE_API_HOST) {
-        // Add a bearer token for api calls.
-        if (m_bearerToken.isEmpty()) {
-            spdlog::error("API call may fail because the bearer token is empty: {}",
-                          request.url().toString());
-        } else {
+        // Add a bearer token for api calls. Without one (the league list at
+        // login needs none), a call that needs it fails with a 401 that its
+        // caller reports.
+        if (!m_bearerToken.isEmpty()) {
             QString masked{QString::fromUtf8(m_bearerToken)};
             masked.fill('*');
             spdlog::trace("NetworkManager: setting bearer token: {} (masked for security)", masked);
             request.setRawHeader("Authorization", m_bearerToken);
         }
-    } else if (host == POE_CDN_HOST) {
-        // Prefer the cache for cdn content.
-        request.setAttribute(QNetworkRequest::CacheLoadControlAttribute,
-                             QNetworkRequest::PreferCache);
     }
 
     spdlog::trace("Network: requesting {}", request.url().toDisplayString());

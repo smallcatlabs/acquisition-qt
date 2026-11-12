@@ -20,6 +20,7 @@
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 
 constexpr int UPDATE_INTERVAL_MSEC = 1000;
+constexpr int MIN_REPORTED_PAUSE_MSEC = 1000;
 
 // The setup-failure cooldown (D4, named, provisional): a caller
 // resubmitting from its completion handler cannot loop HEAD probes against
@@ -37,6 +38,7 @@ RateLimiter::RateLimiter(NetworkManager &network_manager, RateLimit::Scheduler *
     , m_scheduler(scheduler ? *scheduler : m_own_scheduler)
 {
     spdlog::trace("RateLimiter::RateLimiter() entered");
+    m_update_timer.setObjectName("statusTimer");
     m_update_timer.setSingleShot(false);
     m_update_timer.setInterval(UPDATE_INTERVAL_MSEC);
     connect(&m_update_timer, &QTimer::timeout, this, &RateLimiter::SendStatusUpdate);
@@ -364,9 +366,6 @@ void RateLimiter::EstablishEndpoint(const QString &endpoint,
         slot.prune.reset();
         manager.Enqueue(std::move(slot.entry));
     }
-
-    // Emit a status update for anyone listening.
-    SendStatusUpdate();
 }
 
 void RateLimiter::FailSetup(const QString &endpoint, SetupFailure failure)
@@ -482,13 +481,11 @@ void RateLimiter::OnQueueUpdated(const QString &policy_name, int queued_requests
     emit QueueUpdate(policy_name, queued_requests);
 }
 
-void RateLimiter::OnManagerPaused(const QString &policy_name, const QDateTime &until)
+void RateLimiter::OnManagerPaused()
 {
-    spdlog::trace("RateLimiter::OnManagerPaused() pausing until {} for {}",
-                  until.toString(),
-                  policy_name);
-    m_pauses[until] = policy_name;
-    m_update_timer.start();
+    if (!m_update_timer.isActive()) {
+        m_update_timer.start();
+    }
 }
 
 void RateLimiter::OnViolation(const QString &policy_name)
@@ -502,19 +499,33 @@ void RateLimiter::OnViolation(const QString &policy_name)
 
 void RateLimiter::SendStatusUpdate()
 {
-    // Get rid of any pauses that finished in the past.
-    const QDateTime now = QDateTime::currentDateTime();
-    while (!m_pauses.empty() && (m_pauses.begin()->first < now)) {
-        m_pauses.erase(m_pauses.begin());
+    // The pause is read from the pumps, never stored here: a pump's wait
+    // ends when its deadline passes or its caller gives up, and either way
+    // it stops reporting one (#284). Sub-second waits are ordinary pacing,
+    // not rate limiting, so they are not reported.
+    RateLimitManager *soonest = nullptr;
+    int soonest_msec = 0;
+    for (const auto &manager : m_managers) {
+        const int msec = manager->msecToNextSend();
+        if ((msec >= MIN_REPORTED_PAUSE_MSEC) && (!soonest || (msec < soonest_msec))) {
+            soonest = manager.get();
+            soonest_msec = msec;
+        }
     }
 
-    if (m_pauses.empty()) {
-        spdlog::trace("RateLimiter::SendStatusUpdate() stopping status updates");
-        m_update_timer.stop();
-    } else {
-        const auto &pause = *m_pauses.begin();
-        const QDateTime &pause_end = pause.first;
-        const QString policy_name = pause.second;
-        emit Paused(now.secsTo(pause_end), policy_name);
+    if (soonest) {
+        // Rounded up, so a live pause never reads as zero.
+        const int seconds = (soonest_msec + 999) / 1000;
+        m_reporting_pause = true;
+        emit Paused(seconds, soonest->policy().name());
+        return;
+    }
+
+    spdlog::trace("RateLimiter::SendStatusUpdate() stopping status updates");
+    m_update_timer.stop();
+    if (m_reporting_pause) {
+        // Reported once: nothing is paused any more.
+        m_reporting_pause = false;
+        emit Paused(0, QString());
     }
 }

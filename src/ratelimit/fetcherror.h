@@ -6,6 +6,7 @@
 #include <expected>
 
 #include <QByteArray>
+#include <QMetaEnum>
 #include <QNetworkReply>
 #include <QString>
 #include <QUrl>
@@ -90,6 +91,50 @@ namespace RateLimit {
             return "Canceled";
         }
         return "Unknown";
+    }
+
+    // What the user is told about a failure, for the status line. Built from
+    // the kind and the structured fields only, never from `message` or the
+    // request: a Qt error string or an endpoint label can carry a URL, and
+    // nothing from the request belongs on screen.
+    inline QString DescribeForUser(const FetchError &error)
+    {
+        switch (error.kind) {
+        case FetchError::Kind::Network:
+            // Every API request carries a transfer timeout, and Qt ends a
+            // reply that runs out of it with OperationCanceledError.
+            // Acquisition never aborts an API reply itself (D2), so here
+            // that code means the server did not answer.
+            if ((error.network_error == QNetworkReply::OperationCanceledError)
+                || (error.network_error == QNetworkReply::TimeoutError)) {
+                return "the server did not answer in time";
+            }
+            return QString("network error (%1)")
+                .arg(QString::fromLatin1(
+                    QMetaEnum::fromType<QNetworkReply::NetworkError>().valueToKey(
+                        error.network_error)));
+        case FetchError::Kind::Http:
+            if (error.http_status == 401) {
+                // Logging in again needs a restart today: a live session
+                // cannot be replaced.
+                return "Path of Exile rejected the login (HTTP 401). Restart Acquisition and "
+                       "log in again.";
+            }
+            return QString("the server answered HTTP %1").arg(error.http_status);
+        case FetchError::Kind::Parse:
+            return "the server's reply could not be read";
+        case FetchError::Kind::Protocol:
+            return "the server's rate-limit headers could not be read";
+        case FetchError::Kind::RateLimited:
+            // Not every terminal 429 knows its attempts or Retry-After (a
+            // failed setup HEAD carries neither), so claim neither.
+            return "rate limited by the server";
+        case FetchError::Kind::Internal:
+            return "an internal error occurred; see the log";
+        case FetchError::Kind::Canceled:
+            return "the update was canceled";
+        }
+        return "an unknown error occurred";
     }
 
     // What the rate limiter delivers: the response body on success (D1). The

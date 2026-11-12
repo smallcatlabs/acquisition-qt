@@ -1,0 +1,6 @@
+# Commits that only reformat; `git blame` skips them when configured with
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# (GitHub applies this file automatically).
+
+# style: format the C++ tree with clang-format 23.1.5
+696131fb55c77f32a5fb13e64bafcb945b855a7e

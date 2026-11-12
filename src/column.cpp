@@ -200,90 +200,16 @@ QVariant InfluncedColumn::sortValue(const Item &item) const
 
 QVariant InfluncedColumn::icon(const Item &item) const
 {
-    QIcon leftIcon, rightIcon;
-
-    Item::INFLUENCE_TYPES leftInf = item.influenceLeft();
-    Item::INFLUENCE_TYPES rightInf = item.influenceRight();
-
-    int numInfluences = rightInf != Item::NONE && rightInf != leftInf ? 2
-                        : item.influenceLeft() != Item::NONE          ? 1
-                                                                      : 0;
-
-    if (numInfluences > 0) {
-        switch (item.influenceLeft()) {
-        case Item::ELDER:
-            leftIcon.addFile(elder_symbol_Link);
-            break;
-        case Item::SHAPER:
-            leftIcon.addFile(shaper_symbol_Link);
-            break;
-        case Item::CRUSADER:
-            leftIcon.addFile(crusader_symbol_Link);
-            break;
-        case Item::HUNTER:
-            leftIcon.addFile(hunter_symbol_Link);
-            break;
-        case Item::REDEEMER:
-            leftIcon.addFile(redeemer_symbol_Link);
-            break;
-        case Item::WARLORD:
-            leftIcon.addFile(warlord_symbol_Link);
-            break;
-        case Item::SYNTHESISED:
-            leftIcon.addFile(synthesised_symbol_Link);
-            break;
-        case Item::FRACTURED:
-            leftIcon.addFile(fractured_symbol_Link);
-            break;
-        case Item::SEARING_EXARCH:
-            leftIcon.addFile(searing_exarch_symbol_Link);
-            break;
-        case Item::EATER_OF_WORLDS:
-            leftIcon.addFile(eater_of_worlds_symbol_Link);
-            break;
-        case Item::NONE:
-            break;
-        }
-        if (numInfluences == 2) {
-            switch (item.influenceRight()) {
-            case Item::ELDER:
-                rightIcon.addFile(elder_symbol_Link);
-                break;
-            case Item::SHAPER:
-                rightIcon.addFile(shaper_symbol_Link);
-                break;
-            case Item::CRUSADER:
-                rightIcon.addFile(crusader_symbol_Link);
-                break;
-            case Item::HUNTER:
-                rightIcon.addFile(hunter_symbol_Link);
-                break;
-            case Item::REDEEMER:
-                rightIcon.addFile(redeemer_symbol_Link);
-                break;
-            case Item::WARLORD:
-                rightIcon.addFile(warlord_symbol_Link);
-                break;
-            case Item::SYNTHESISED:
-                rightIcon.addFile(synthesised_symbol_Link);
-                break;
-            case Item::FRACTURED:
-                rightIcon.addFile(fractured_symbol_Link);
-                break;
-            case Item::SEARING_EXARCH:
-                rightIcon.addFile(searing_exarch_symbol_Link);
-                break;
-            case Item::EATER_OF_WORLDS:
-                rightIcon.addFile(eater_of_worlds_symbol_Link);
-                break;
-            case Item::NONE:
-                break;
-            }
-            return combineInflunceIcons(leftIcon, rightIcon);
-        }
-        return leftIcon;
+    const Item::INFLUENCE_TYPES leftInf = item.influenceLeft();
+    const Item::INFLUENCE_TYPES rightInf = item.influenceRight();
+    if (leftInf == Item::NONE) {
+        return QVariant::fromValue(NULL);
     }
-    return QVariant::fromValue(NULL);
+    const QIcon leftIcon(InfluenceSymbolPath(leftInf));
+    if (rightInf != Item::NONE && rightInf != leftInf) {
+        return combineInflunceIcons(leftIcon, QIcon(InfluenceSymbolPath(rightInf)));
+    }
+    return leftIcon;
 }
 
 PropertyColumn::PropertyColumn(const QString &name)
