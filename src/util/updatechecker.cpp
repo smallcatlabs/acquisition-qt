@@ -232,10 +232,16 @@ void UpdateChecker::AskUserToUpdate() {
 
     // Save the latest releases into the settings file oinly if the
     // user asked to skip them in the future.
+    // The in-memory copies are updated too, so the choice holds for the
+    // periodic checks of this run and not only from the next start.
     if (clicked == ignore_button) {
+        m_previous_release = m_latest_release;
+        m_previous_prerelease = m_latest_prerelease;
         m_settings.setValue("skip_release", QString::fromStdString(m_latest_release.str()));
         m_settings.setValue("skip_prerelease", QString::fromStdString(m_latest_prerelease.str()));
     } else {
+        m_previous_release = semver::version();
+        m_previous_prerelease = semver::version();
         m_settings.setValue("skip_release", "");
         m_settings.setValue("skip_prerelease", "");
     }

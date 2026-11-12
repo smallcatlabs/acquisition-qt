@@ -48,10 +48,12 @@ DEBUG, reproduce it, and attach `log.txt`. You can also start with
 
 ## Updates
 
-Acquisition checks the GitHub releases at startup. When a newer version exists,
-an **Update available** button appears in the status bar; clicking it opens the
-download page. Pre-releases are offered separately from stable releases, and a
-version you dismiss is not offered again.
+Acquisition checks the GitHub releases at startup and once a day after that.
+When a newer version exists, an **Update available** button appears in the
+status bar. Clicking it names the new version and offers **Go to Github** (the
+download page), **Ignore**, or **Ignore, and don't ask again**. Pre-releases are
+offered separately from stable releases, and a version you choose not to be
+asked about again is not offered again.
 
 ## Crash reports
 

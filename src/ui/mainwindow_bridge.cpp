@@ -58,10 +58,7 @@ void ConnectMainWindow(Application &application,
                      &application,
                      &Application::SetSessionId);
     QObject::connect(&main_window, &MainWindow::SetTheme, &application, &Application::SetTheme);
-    QObject::connect(&main_window,
-                     &MainWindow::UpdateCheckRequested,
-                     &update_checker,
-                     &UpdateChecker::CheckForUpdates);
+    ConnectUpdateChecker(main_window, update_checker);
 
     QObject::connect(&items_manager,
                      &ItemsManager::ItemsRefreshed,
@@ -105,6 +102,17 @@ void ConnectMainWindow(Application &application,
                      &main_window,
                      &MainWindow::OnShopWarning,
                      Qt::QueuedConnection);
+}
+
+void ConnectUpdateChecker(MainWindow &main_window, UpdateChecker &update_checker)
+{
+    // The "Update available" button is shown only once a check has found a
+    // newer version, so a click asks the user what to do about it. The
+    // periodic check runs on the UpdateChecker's own timer.
+    QObject::connect(&main_window,
+                     &MainWindow::UpdateCheckRequested,
+                     &update_checker,
+                     &UpdateChecker::AskUserToUpdate);
     QObject::connect(&update_checker,
                      &UpdateChecker::UpdateAvailable,
                      &main_window,
