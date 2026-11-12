@@ -208,8 +208,9 @@ void ItemTooltipTextTest::talismanRequirements()
     QCOMPARE(GenerateItemInfo(item, "Rare", true), expected);
 }
 
-// #266: flagged mods are shown in the section they arrived in, with no
-// styling of their own.
+// #266: a desecrated mod is shown in the section it arrived in; a vestigial
+// mod in a section of its own after the implicits. Neither has styling of
+// its own.
 void ItemTooltipTextTest::vestigialAndDesecratedModsAreShown()
 {
     const Item item = makeTestItem(R"json({
@@ -225,7 +226,10 @@ void ItemTooltipTextTest::vestigialAndDesecratedModsAreShown()
         "id": "flagged",
         "identified": true,
         "ilvl": 83,
-        "implicitMods": [{"description": "+30 to maximum Life", "flags": {"vestigial": true}}],
+        "implicitMods": [
+            {"description": "Has 1 Abyssal Socket"},
+            {"description": "+30 to maximum Life", "flags": {"vestigial": true}}
+        ],
         "inventoryId": "Belt",
         "name": "Kraken Shackle",
         "typeLine": "Leather Belt",
@@ -237,6 +241,8 @@ void ItemTooltipTextTest::vestigialAndDesecratedModsAreShown()
                                    makeTestStashLocation());
 
     const QString expected = "<center>"
+                             "<font color='#88f'>Has 1 Abyssal Socket</font>"
+                             "<br><img src=':/separators/SeparatorRare.png'><br>"
                              "<font color='#88f'>+30 to maximum Life</font>"
                              "<br><img src=':/separators/SeparatorRare.png'><br>"
                              "<font color='#88f'>+80 to maximum Life<br>"
