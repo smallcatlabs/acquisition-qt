@@ -22,6 +22,12 @@ public:
     static void logRequest(const QNetworkRequest &request);
     static void logReply(const QNetworkReply *reply);
 
+    // Observation-only rate-limit logging for the OAuth token endpoint
+    // (ground truth N33): the endpoint carries its own IP-scoped policy but
+    // stays outside the rate-limiter hub (network-redesign D5 scope
+    // rationale). Public and static so tests can drive it with a fake reply.
+    static void logOAuthTokenRateLimits(QNetworkReply *reply);
+
 protected:
     QNetworkReply *createRequest(QNetworkAccessManager::Operation op,
                                  const QNetworkRequest &originalRequest,

@@ -1086,7 +1086,9 @@ All with a 10s transfer timeout and a versioned `User-Agent`.
 
 **Bypassing the rate limiter entirely:** league list (login), OAuth
 authorize/token (but see N33 — the token endpoint does carry a
-rate-limit policy), forum-shop GET/POST (`edit-thread`, 300s timeout,
+rate-limit policy; since August 2026 `NetworkManager` observes
+token-endpoint replies and logs a maxed budget or a 429, without
+gating), forum-shop GET/POST (`edit-thread`, 300s timeout,
 rate limiting detected by scraping "You must wait (\d+) seconds." from
 HTML), RePoE static files, GitHub release check, poecdn images, imgur
 upload, Sentry.

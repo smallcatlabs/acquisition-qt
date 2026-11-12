@@ -9,7 +9,7 @@ cmake_minimum_required(VERSION 3.24)
 # tags on github are prefixed with a 'v'.
 
 project(acquisition
-    VERSION 0.18.9
+    VERSION 0.18.10
     DESCRIPTION "Stash and forum shop management for Path of Exile (TM)"
     HOMEPAGE_URL "https://github.com/smallcatlabs/acquisition-qt"
     LANGUAGES CXX
@@ -18,8 +18,11 @@ project(acquisition
 include(CTest)
 include(GNUInstallDirs)
 
-# Use this to define pre-releases
-set(app_version_suffix "")
+# The pre-release suffix. Between releases master carries "-dev", so a build
+# from master never claims to be a release. A tagged pre-release replaces it
+# with "-beta.1" (and so on), and a final release clears it. The first change
+# of the next train sets the next version with "-dev" again.
+set(app_version_suffix "-dev")
 
 # Variables used in version_defines.h and platforn-specific files and properties.
 set(app_name            "${CMAKE_PROJECT_NAME}")

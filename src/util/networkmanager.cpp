@@ -7,8 +7,11 @@
 #include <QNetworkCookie>
 #include <QNetworkCookieJar>
 #include <QNetworkDiskCache>
+#include <QNetworkReply>
 #include <QStandardPaths>
 
+#include "ratelimit/ratelimit.h"
+#include "ratelimit/ratelimitpolicy.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "version_defines.h"
 
@@ -24,6 +27,12 @@ constexpr const int CACHE_SIZE_MEGABYTES = 100;
 
 constexpr const char *POE_API_HOST = "api.pathofexile.com";
 constexpr const char *POE_CDN_HOST = "web.poecdn.com";
+
+// The OAuth token endpoint (TOKEN_URL in oauthmanager.cpp). Its requests are
+// issued internally by QOAuth2AuthorizationCodeFlow, so this is the only
+// place the client sees them.
+constexpr const char *POE_WWW_HOST = "www.pathofexile.com";
+constexpr const char *POE_OAUTH_TOKEN_PATH = "/oauth/token";
 
 // This list is current as of Qt 6.10.0:
 // https://doc.qt.io/qt-6/qnetworkrequest.html#Attribute-enum
@@ -133,7 +142,45 @@ QNetworkReply *NetworkManager::createRequest(QNetworkAccessManager::Operation op
     spdlog::trace("Network: requesting {}", request.url().toDisplayString());
 
     // Let the base class handle the rest.
-    return QNetworkAccessManager::createRequest(op, request, outgoingData);
+    QNetworkReply *reply = QNetworkAccessManager::createRequest(op, request, outgoingData);
+
+    // Watch token-endpoint replies for rate-limit trouble (N33).
+    if ((host == POE_WWW_HOST) && (request.url().path() == POE_OAUTH_TOKEN_PATH)) {
+        connect(reply, &QNetworkReply::finished, reply, [reply]() {
+            logOAuthTokenRateLimits(reply);
+        });
+    }
+    return reply;
+}
+
+void NetworkManager::logOAuthTokenRateLimits(QNetworkReply *reply)
+{
+    const int status = RateLimit::ParseStatus(reply);
+    if (status == 429) {
+        const auto retry_after = RateLimit::ParseRetryAfter(reply);
+        const QString wait = retry_after ? QString("%1s").arg(*retry_after)
+                                         : QString("absent or invalid");
+        spdlog::error("OAuth token endpoint returned 429 (policy '{}'): Retry-After {}",
+                      RateLimit::ParseRateLimitPolicy(reply),
+                      wait);
+        return;
+    }
+    const auto policy = RateLimitPolicy::Parse(reply);
+    if (!policy) {
+        // No usable rate-limit headers — e.g. a Cloudflare-mitigated reply
+        // (N28) or a non-HTTP transport failure.
+        spdlog::debug("OAuth token endpoint reply (HTTP status {}) had no parseable rate-limit "
+                      "policy: {}",
+                      status,
+                      policy.error());
+        return;
+    }
+    if (policy->status() >= RateLimit::Status::BORDERLINE) {
+        spdlog::warn("OAuth token endpoint rate limit '{}' is {}:\n{}",
+                     policy->name(),
+                     policy->status(),
+                     policy->GetPolicyReport());
+    }
 }
 
 void NetworkManager::logRequest(const QNetworkRequest &request)
