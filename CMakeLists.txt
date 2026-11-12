@@ -309,6 +309,8 @@ set(ACQ_CORE
     src/buyout.h
     src/buyoutmanager.cpp
     src/buyoutmanager.h
+    src/cacheload.cpp
+    src/cacheload.h
     src/column.cpp
     src/column.h
     src/sortkey.h

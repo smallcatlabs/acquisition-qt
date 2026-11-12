@@ -5,18 +5,13 @@
 
 #include <QCoroFuture>
 
-#include <QDir>
 #include <QSettings>
-#include <QThread>
 
 #include <algorithm>
 #include <unordered_map>
 #include <utility>
 
 #include "buyoutmanager.h"
-#include "datastore/characterrepo.h"
-#include "datastore/stashrepo.h"
-#include "datastore/userstore.h"
 #include "itemlocation.h"
 #include "itemsfromwire.h"
 #include "modlist.h"
@@ -25,7 +20,6 @@
 #include "poe/types/character.h"
 #include "poe/types/item.h"
 #include "poe/types/stashtab.h"
-#include "repoe/repoe.h"
 #include "util/json_readers.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "util/util.h"
@@ -61,23 +55,6 @@ namespace {
         }
     }
 
-    // Folder-tree D12 (R8, A4): a Folder-type stash holds tabs, never items.
-    // Items one carries — in a live reply or a cached row — are discarded
-    // here, so they never enter the item store and the two view modes
-    // cannot disagree about them. One warning per tab, naming the count.
-    bool DiscardFolderItems(const poe::StashTab &stash)
-    {
-        if ((stash.type != "Folder") || !stash.items || stash.items->empty()) {
-            return false;
-        }
-        spdlog::warn("Discarding {} items carried by folder '{}' ({}): folders hold tabs, "
-                     "not items",
-                     stash.items->size(),
-                     stash.name,
-                     stash.id);
-        return true;
-    }
-
     // Folder-tree D12: a tab listed under a folder's `children` should name
     // that folder as its own `folder`. A mismatch is logged, as an API-change
     // tripwire; no fallback is applied.
@@ -109,7 +86,6 @@ namespace {
 
 ItemsManagerWorker::ItemsManagerWorker(QSettings &settings,
                                        const SessionIdentity &identity,
-                                       const QDir &data_dir,
                                        BuyoutManager &buyout_manager,
                                        PoeApiClient &api,
                                        QObject *parent)
@@ -118,7 +94,6 @@ ItemsManagerWorker::ItemsManagerWorker(QSettings &settings,
     , m_buyout_manager(buyout_manager)
     , m_api(api)
     , m_identity(identity)
-    , m_data_dir(data_dir)
     , m_type(TabSelection::Checked)
     , m_update_all(false)
     , m_need_stash_list(false)
@@ -132,13 +107,7 @@ ItemsManagerWorker::ItemsManagerWorker(QSettings &settings,
     spdlog::trace("ItemsManagerWorker: account = {}", m_identity.account());
 }
 
-ItemsManagerWorker::~ItemsManagerWorker()
-{
-    m_shutdown.store(true);
-    if (m_parser_thread && m_parser_thread->isRunning()) {
-        m_parser_thread->wait();
-    }
-}
+ItemsManagerWorker::~ItemsManagerWorker() = default;
 
 void ItemsManagerWorker::UpdateRequest(TabSelection type, const std::vector<ItemLocation> &locations)
 {
@@ -148,205 +117,30 @@ void ItemsManagerWorker::UpdateRequest(TabSelection type, const std::vector<Item
     m_locations = locations;
 }
 
-void ItemsManagerWorker::OnRePoEReady()
+void ItemsManagerWorker::Seed(CachedItems cached)
 {
-    spdlog::trace("ItemsManagerWorker::OnRePoEReady() entered");
-    StartParseThread();
-}
-
-void ItemsManagerWorker::StartParseThread()
-{
-    // Create a separate thread to load the items, which allows the UI to
-    // update the status bar while items are being parsed. This operation
-    // can take tens of seconds or longer depending on the nubmer of tabs
-    // and items.
-    const QString dataDir = m_data_dir.absolutePath();
-    m_shutdown.store(false);
-    m_parser_thread = QThread::create([this, dataDir]() {
-        auto result = ParseCachedItems(dataDir);
-        if (m_shutdown.load()) {
-            return;
-        }
-        QMetaObject::invokeMethod(
-            this,
-            [this, result = std::move(result)]() mutable { OnParseCompleted(std::move(result)); },
-            Qt::QueuedConnection);
-    });
-    connect(m_parser_thread, &QThread::finished, m_parser_thread, &QThread::deleteLater);
-    m_parser_thread->start();
-}
-
-ParseResult ItemsManagerWorker::ParseCachedItems(const QString &dataDir) const
-{
-    spdlog::trace("ItemsManagerWorker::ParseItemMods() entered");
-    ParseResult result;
-    auto sendStatusUpdate = [this](ProgramState state, const QString &status) {
-        emit const_cast<ItemsManagerWorker *>(this)->StatusUpdate(state, status);
-    };
-
-    // Manual-testing aid: delay each cached tab so that mid-parse GUI actions
-    // (quit, refresh-while-initializing) can be exercised by hand. Unset or
-    // zero in normal use.
-    const int parse_delay_ms = qEnvironmentVariableIntValue("ACQ_PARSE_DELAY_MS");
-    if (parse_delay_ms > 0) {
-        spdlog::warn("ACQ_PARSE_DELAY_MS is set: delaying {}ms per cached tab", parse_delay_ms);
+    if (m_state != WorkerState::Initializing) {
+        spdlog::error("ItemsManagerWorker: ignoring a second cache load");
+        return;
     }
-
-    // Create a datastore to get a connection to the database.
-    // NOTE: we only need read access, but this isn't enforced or checked.
-    QDir data_dir{dataDir};
-    UserStore userstore{data_dir, m_identity.account()};
-
-    // Get cached characters and stash tabs.
-    const auto stashes = userstore.stashes().getStashList(m_identity.realm(), m_identity.league());
-    const auto characters = userstore.characters().getCharacterList(m_identity.realm(),
-                                                                    m_identity.league());
-
-    // Do not process children from unique and map stashers.
-    auto special = [](const poe::StashTab &stash) {
-        return stash.parent && ((stash.type == "UniqueStash") || (stash.type == "MapStash"));
-    };
-
-    result.tabs.reserve(stashes.size() + characters.size());
-    for (const auto &stash : stashes) {
-        if (!special(stash)) {
-            result.tabs.push_back(ItemLocation(stash));
-        }
-    }
-    for (const auto &character : characters) {
-        result.tabs.push_back(ItemLocation(character, int(result.tabs.size())));
-    }
-    result.tabs.shrink_to_fit();
-
-    // Save location ids.
-    spdlog::trace("ItemsManagerWorker::ParseItemMods() saving location ids");
-    for (const auto &tab : result.tabs) {
-        result.tab_id_index.emplace(tab.id());
-    }
-
-    // Get cached items
-    spdlog::trace("ItemsManagerWorker::ParseItemMods() getting cached items");
-
-    // Get stash items.
-    for (size_t i = 0; i < stashes.size(); ++i) {
-        if (m_shutdown.load()) {
-            return result;
-        }
-        if (parse_delay_ms > 0) {
-            QThread::msleep(parse_delay_ms);
-        }
-        const auto id = stashes[i].id;
-        const auto stash = userstore.stashes().getStash(id, m_identity.realm(), m_identity.league());
-        if (!stash) {
-            // The row was listed but its contents were never fetched, so
-            // there is nothing cached to load for it here.
-            continue;
-        }
-        sendStatusUpdate(ProgramState::Initializing,
-                         QString("Parsing items from stash %1/%2: %3 '%4'")
-                             .arg(QString::number(i),
-                                  QString::number(stashes.size()),
-                                  stash->id,
-                                  stash->name));
-        ItemLocation location;
-        if (!special(*stash)) {
-            location = ItemLocation{*stash};
-        } else {
-            // Items in special tabs should use their parent's ItemLocation.
-            for (const auto &tab : result.tabs) {
-                if (tab.id() == stash->parent) {
-                    location = tab;
-                    break;
-                }
-            }
-            if (!location.IsValid()) {
-                spdlog::error("ItemsManagerWorker: could not find stash parent");
-                continue;
-            }
-            // The items display under the parent, but they were fetched from
-            // (and are keyed for replacement by) this child stash.
-            location.setFetchId(stash->id);
-        }
-        LoadItems(*stash, location, result);
-    }
-
-    // Get character items.
-    for (size_t i = 0; i < characters.size(); ++i) {
-        if (m_shutdown.load()) {
-            return result;
-        }
-        if (parse_delay_ms > 0) {
-            QThread::msleep(parse_delay_ms);
-        }
-        const auto name = characters[i].name;
-        const auto character = userstore.characters().getCharacter(name, m_identity.realm());
-        if (!character) {
-            // Listed but never fetched: nothing cached to load here.
-            continue;
-        }
-        sendStatusUpdate(ProgramState::Initializing,
-                         QString("Parsing items from character %1/%2: %3")
-                             .arg(i)
-                             .arg(characters.size())
-                             .arg(name));
-        ItemLocation tab{*character, int(stashes.size() + i)};
-        LoadItems(*character, tab, result);
-    }
-
-    sendStatusUpdate(ProgramState::Ready,
-                     QString("Parsed %1 items from %2 tabs")
-                         .arg(result.items.size())
-                         .arg(result.tabs.size()));
-
-    return result;
-}
-
-void ItemsManagerWorker::OnParseCompleted(ParseResult result)
-{
-    m_tabs = std::move(result.tabs);
-    m_items.ResetTo(std::move(result.items));
-    m_tab_id_index = std::move(result.tab_id_index);
+    m_tabs = std::move(cached.tabs);
+    m_items.ResetTo(std::move(cached.items));
+    m_tab_id_index = std::move(cached.tab_id_index);
     m_state = WorkerState::Idle;
+    emit StatusUpdate(ProgramState::Ready,
+                      (cached.status == CachedItems::Status::Complete)
+                          ? QString("Parsed %1 items from %2 tabs")
+                                .arg(QString::number(m_items.size()), QString::number(m_tabs.size()))
+                          : QString("Could not read the cached items; see the log"));
     // let ItemManager know that the retrieval of cached items/tabs has been completed (calls ItemsManager::OnItemsRefreshed method)
-    spdlog::trace("ItemsManagerWorker::ParseItemMods() emitting ItemsRefreshed signal");
+    spdlog::trace("ItemsManagerWorker::Seed() emitting ItemsRefreshed signal");
     emit ItemsRefreshed(m_items.Flat(), m_tabs, true);
 
     if (m_updateRequest) {
-        spdlog::trace("ItemsManagerWorker::ParseItemMods() triggering requested update");
+        spdlog::trace("ItemsManagerWorker::Seed() triggering requested update");
         m_updateRequest = false;
         Update(m_type, m_locations);
     }
-}
-
-void ItemsManagerWorker::LoadItems(const poe::StashTab &stash,
-                                   ItemLocation location,
-                                   ParseResult &result) const
-{
-    const auto items = stash.items;
-    if (!items || DiscardFolderItems(stash)) {
-        return;
-    }
-    result.items.reserve(result.items.size() + items->size());
-    spdlog::debug("ItemManagerWorker: loading {} items from stash # {}: {} ({})",
-                  items->size(),
-                  stash.index.value_or(-1),
-                  stash.id,
-                  stash.name);
-    AppendWireItems(stash, location, result.items);
-}
-
-void ItemsManagerWorker::LoadItems(const poe::Character &character,
-                                   ItemLocation location,
-                                   ParseResult &result) const
-{
-    AppendWireItems(character, location, result.items, [&](const char *name, size_t count) {
-        result.items.reserve(result.items.size() + count);
-        spdlog::debug("ItemManagerWorker: loading {} items from character {} {} ({})",
-                      count,
-                      name,
-                      character.id,
-                      character.name);
-    });
 }
 
 void ItemsManagerWorker::AutoUpdate()
@@ -939,7 +733,7 @@ void ItemsManagerWorker::OnCharacterListReceived(const Result<poe::CharacterList
                           m_identity.league());
             continue;
         }
-        ItemLocation location(character, int(m_tabs.size()));
+        ItemLocation location(character);
         if (m_tab_id_index.count(location.id()) > 0) {
             spdlog::trace("Skipping {} because it appears twice in the character list.", name);
             continue;

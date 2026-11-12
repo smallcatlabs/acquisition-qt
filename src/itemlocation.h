@@ -24,7 +24,9 @@ public:
     Q_ENUM(ItemLocationType)
 
     ItemLocation();
-    ItemLocation(const poe::Character &character, int tab_id);
+    // A character has no tab index: nothing reads one for a character (its
+    // header and sort order use its name), so it stays at the default (#294).
+    explicit ItemLocation(const poe::Character &character);
     ItemLocation(const poe::StashTab &stash);
 
     ItemLocation getItemLocation(const poe::Item &item) const;
