@@ -79,6 +79,13 @@ qt_add_executable(m1m2_benchmark EXCLUDE_FROM_ALL m1m2_benchmark.cpp)
 target_include_directories(m1m2_benchmark PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(m1m2_benchmark PRIVATE acquisition_core)
 
+# The mod-match census (#265, #296): runs the mod matching over real RePoE
+# stat translation files named on the command line. Not a test; build
+# explicitly with --target modmatch_census.
+qt_add_executable(modmatch_census EXCLUDE_FROM_ALL modmatch_census.cpp)
+target_include_directories(modmatch_census PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(modmatch_census PRIVATE acquisition_core)
+
 # The filter core must stay free of the UI (Phase 5, D5). A STATIC archive has
 # no link step, so this cannot be left to target_link_libraries.
 add_test(NAME filters_boundary
