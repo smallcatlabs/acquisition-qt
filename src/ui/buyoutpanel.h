@@ -35,6 +35,8 @@ signals:
     void committed(const Buyout &buyout);
 
 private:
+    // Marks the value box when its text is not a price.
+    void showValueValidity();
     void setPricedControlsEnabled(bool enabled);
 
     QComboBox *m_type;

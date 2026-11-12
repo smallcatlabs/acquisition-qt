@@ -7,6 +7,7 @@
 #include <QDateTime>
 #include <QHBoxLayout>
 #include <QLineEdit>
+#include <QValidator>
 
 #include <optional>
 
@@ -15,6 +16,23 @@
 #include "ui/mainwindowhelpers.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "util/util.h"
+
+namespace {
+
+    // A price is a number greater than zero (ParseBuyoutValue). Anything
+    // else may still be on its way to one, so it can be typed; the box then
+    // holds no acceptable input, and Qt does not finish editing on it.
+    class PriceValidator : public QValidator
+    {
+    public:
+        using QValidator::QValidator;
+        State validate(QString &input, int & /*pos*/) const override
+        {
+            return ParseBuyoutValue(input) ? Acceptable : Intermediate;
+        }
+    };
+
+} // namespace
 
 BuyoutPanel::BuyoutPanel(QWidget *parent)
     : QWidget(parent)
@@ -38,7 +56,17 @@ BuyoutPanel::BuyoutPanel(QWidget *parent)
 
     connect(m_type, &QComboBox::activated, this, &BuyoutPanel::commit);
     connect(m_currency, &QComboBox::activated, this, &BuyoutPanel::commit);
-    connect(m_value, &QLineEdit::textEdited, this, &BuyoutPanel::commit);
+    // The value commits when editing finishes (Return, or the box losing
+    // focus), never on each keystroke (#252), and only when the user edited
+    // it: a price setBuyout() showed is not the user's.
+    m_value->setValidator(new PriceValidator(m_value));
+    connect(m_value, &QLineEdit::editingFinished, this, [this] {
+        if (m_value->isModified()) {
+            m_value->setModified(false);
+            commit();
+        }
+    });
+    connect(m_value, &QLineEdit::textChanged, this, &BuyoutPanel::showValueValidity);
 
     m_type->setEnabled(false);
     setPricedControlsEnabled(false);
@@ -90,6 +118,15 @@ void BuyoutPanel::commit()
         return;
     }
     emit committed(bo);
+}
+
+void BuyoutPanel::showValueValidity()
+{
+    const bool invalid = !m_value->text().isEmpty() && !m_value->hasAcceptableInput();
+    m_value->setToolTip(invalid ? tr("Not a price: type a number greater than zero, such as "
+                                     "5 or 2.5.")
+                                : QString());
+    m_value->setStyleSheet(invalid ? QStringLiteral("QLineEdit { color: #e05050; }") : QString());
 }
 
 void BuyoutPanel::setPricedControlsEnabled(bool enabled)

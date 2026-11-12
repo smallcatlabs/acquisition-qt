@@ -15,15 +15,18 @@ selected, the controls are cleared and disabled until a row is selected again. T
 2. **Currency**
 3. **Value**
 
-Changes apply immediately to the selection. The *Price* and *Last Update* columns
-in the item table show the result.
+A choice of buyout type or currency applies to the selection at once. A value
+applies when you finish typing it: press Enter, or move on (click another row
+or control). Everything that was selected while you typed takes the price, so
+you can select several rows, type one value and press Enter to price them all.
+The *Price* and *Last Update* columns in the item table show the result.
 
 The value must be a number greater than zero. Use a point or a comma as the
 decimal separator (`2.5` or `2,5`). Text that is not such a number, for example
-`79/20`, `abc` or `0`, is not saved: the selection keeps its previous price
-until the box holds a number. A comma followed by exactly three digits, such as
-`1,000`, is not saved either, because it could mean one thousand or one; type
-`1000` or `1.0` instead.
+`79/20`, `abc` or `0`, is shown in red and is not saved: the selection keeps its
+previous price. A comma followed by exactly three digits, such as `1,000`, is
+not saved either, because it could mean one thousand or one; type `1000` or
+`1.0` instead.
 
 ### When prices cannot be saved
 
