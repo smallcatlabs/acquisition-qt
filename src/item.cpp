@@ -4,13 +4,17 @@
 #include "item.h"
 
 #include <QMutex>
+#include <QRegularExpression>
+#include <QRegularExpressionMatch>
 #include <QString>
 
-#include "utility"
+#include <array>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include "itemcategories.h"
 #include "itemlocation.h"
@@ -155,6 +159,16 @@ Item::Item(const poe::Item &item, const ItemLocation &base_location)
         LoadProperties(*item.properties);
     }
 
+    if (!m_numeric_properties.contains(QStringLiteral("Map Tier"))) {
+        // Maps carry their tier in the base type, "Map (Tier 16)", and no
+        // "Map Tier" property (#229). Any other shape gives no tier.
+        static const QRegularExpression map_tier(R"(^Map \(Tier ([1-9][0-9]?)\)$)");
+        const QRegularExpressionMatch match = map_tier.match(m_baseType);
+        if (match.hasMatch()) {
+            m_numeric_properties[QStringLiteral("Map Tier")] = match.captured(1).toInt();
+        }
+    }
+
     if (item.requirements) {
         LoadRequirements(*item.requirements);
     }
@@ -213,208 +227,147 @@ void Item::LoadInfluences(const poe::Item &item)
     }
 }
 
+namespace {
+
+    // The sections an item's mod lines are shown and searched in.
+    enum class ModSection { Enchant, Implicit, Fractured, Explicit, Crafted, Mutated, Vestigial };
+
+    constexpr std::array kModSections = {ModSection::Enchant,
+                                         ModSection::Implicit,
+                                         ModSection::Fractured,
+                                         ModSection::Explicit,
+                                         ModSection::Crafted,
+                                         ModSection::Mutated,
+                                         ModSection::Vestigial};
+
+    QString section_key(ModSection section)
+    {
+        switch (section) {
+        case ModSection::Enchant:
+            return QStringLiteral("enchantMods");
+        case ModSection::Implicit:
+            return QStringLiteral("implicitMods");
+        case ModSection::Fractured:
+            return QStringLiteral("fracturedMods");
+        case ModSection::Explicit:
+            return QStringLiteral("explicitMods");
+        case ModSection::Crafted:
+            return QStringLiteral("craftedMods");
+        case ModSection::Mutated:
+            return QStringLiteral("mutatedMods");
+        case ModSection::Vestigial:
+            return QStringLiteral("vestigialMods");
+        }
+        return {};
+    }
+
+    // The section a mod line goes to. Fractured, mutated, crafted and
+    // vestigial mods have sections of their own; every other mod, flagged or
+    // not, stays in the section of the array it arrived in, so no line the
+    // game sends is dropped (#266). rareonly says where a mod can roll, not
+    // what it is.
+    ModSection route_mod(ModSection arrived_in, const poe::ItemMod::Flags &flags)
+    {
+        if (flags.fractured.value_or(false)) {
+            return ModSection::Fractured;
+        }
+        if (flags.mutated.value_or(false)) {
+            return ModSection::Mutated;
+        }
+        if (flags.crafted.value_or(false)) {
+            return ModSection::Crafted;
+        }
+        if (flags.vestigial.value_or(false)) {
+            return ModSection::Vestigial;
+        }
+        return arrived_in;
+    }
+
+    // Reports flags the code assumes the game does not send: more than one
+    // kind on a line, an implicit that is fractured, mutated, crafted or
+    // desecrated, and an explicit that is vestigial. The line is kept either
+    // way.
+    void probe_flags(const poe::Item &item,
+                     const poe::ItemMod &mod,
+                     const poe::ItemMod::Flags &flags,
+                     ModSection arrived_in)
+    {
+        const std::array<std::pair<const char *, bool>, 5> set{{
+            {"fractured", flags.fractured.value_or(false)},
+            {"mutated", flags.mutated.value_or(false)},
+            {"crafted", flags.crafted.value_or(false)},
+            {"desecrated", flags.desecrated.value_or(false)},
+            {"vestigial", flags.vestigial.value_or(false)},
+        }};
+        std::string names;
+        int count = 0;
+        for (const auto &[name, on] : set) {
+            if (on) {
+                names += (count++ > 0) ? "+" : "";
+                names += name;
+            }
+        }
+        const bool implicit = (arrived_in == ModSection::Implicit);
+        const bool unexpected = (count > 1)
+                                || (implicit && (count > 0) && !flags.vestigial.value_or(false))
+                                || (!implicit && flags.vestigial.value_or(false));
+        if (!unexpected) {
+            return;
+        }
+        const std::string message = (implicit ? "implicit " : "explicit ") + names;
+        if (first_report_of(message)) {
+            spdlog::warn("Modifier on {} is {}: {} (further occurrences at debug)",
+                         item.name,
+                         message,
+                         mod.description);
+        } else {
+            spdlog::debug("Modifier on {} is {}: {}", item.name, message, mod.description);
+        }
+    }
+
+} // namespace
+
 void Item::LoadModifiers(const poe::Item &item)
 {
-    std::vector<QString> enchantMods;
-    std::vector<QString> implicitMods;
-    std::vector<QString> vestigialMods; // from implicitMods
-    std::vector<QString> fracturedMods; // from explicitMods
-    std::vector<QString> explicitMods;
-    std::vector<QString> craftedMods; // from explicitMods
-    std::vector<QString> mutatedMods; // from explicitMods
+    std::array<ItemMods, kModSections.size()> sections;
+    const auto add = [&sections](ModSection section, const QString &line) {
+        sections[static_cast<size_t>(section)].push_back(line);
+    };
 
     if (item.enchantMods) {
-        enchantMods.reserve(item.enchantMods->size());
         for (const auto &mod : *item.enchantMods) {
-            enchantMods.push_back(mod);
+            add(ModSection::Enchant, mod);
         }
     }
 
-    if (item.implicitMods) {
-        for (const auto &mod : *item.implicitMods) {
-            if (!mod.flags || !mod.flags->any()) {
-                implicitMods.push_back(mod.description);
-                continue;
-            }
-
-            const bool fractured = mod.flags->fractured.value_or(false);
-            const bool mutated = mod.flags->mutated.value_or(false);
-            const bool crafted = mod.flags->crafted.value_or(false);
-            const bool desecrated = mod.flags->desecrated.value_or(false);
-            const bool vestigial = mod.flags->vestigial.value_or(false);
-
-            auto warn = [&item, &mod](std::string_view msg) {
-                if (first_report_of(msg)) {
-                    spdlog::warn("Implicit modifier on {} is {}: {}"
-                                 " (further occurrences at debug)",
-                                 item.name,
-                                 msg,
-                                 mod.description);
-                } else {
-                    spdlog::debug("Implicit modifier on {} is {}: {}",
-                                  item.name,
-                                  msg,
-                                  mod.description);
-                }
-            };
-
-            if (fractured) {
-                // Assumes implicit mods cannot be fractured.
-                warn("fractured");
-                if (mutated) {
-                    warn("both fractured and mutated");
-                }
-                if (crafted) {
-                    warn("both fractured and crafted");
-                }
-                if (desecrated) {
-                    warn("both fractured and desecrated");
-                }
-                if (vestigial) {
-                    warn("both fractured and vestigial");
-                }
-                fracturedMods.push_back(mod.description);
-
-            } else if (mutated) {
-                // Assumes implicit mods cannot be mutated.
-                warn("mutated");
-                if (crafted) {
-                    warn("mutated and crafted");
-                }
-                if (desecrated) {
-                    warn("mutated and desecrated");
-                }
-                if (vestigial) {
-                    warn("mutated and vestigial");
-                }
-                mutatedMods.push_back(mod.description);
-
-            } else if (crafted) {
-                // Assumes implicit mods cannot be crafted.
-                warn("crafted");
-                if (desecrated) {
-                    warn("crafted and desecrated");
-                }
-                if (vestigial) {
-                    warn("crafted and vestigial");
-                }
-                craftedMods.push_back(mod.description);
-
-            } else if (desecrated) {
-                // Assumes implicit mods cannot be desecrated.
-                warn("desecrated");
-                if (vestigial) {
-                    warn("desecrated and vestigial");
-                }
-
-            } else if (vestigial) {
-                // Implicit mods are allowed to be vestigial.
-                vestigialMods.push_back(mod.description);
-
-            } else {
-                // Unreachable while every flag in Flags::any() has a branch
-                // above. Kept so a flag added to the struct without a branch
-                // here announces itself instead of passing as unflagged.
-                warn("flagged with no recognized flag");
-                implicitMods.push_back(mod.description);
-            }
+    const auto addArray = [&item, &add](const std::optional<std::vector<poe::ItemMod>> &mods,
+                                        ModSection arrived_in) {
+        if (!mods) {
+            return;
         }
-    }
-
-    if (item.explicitMods) {
-        for (const auto &mod : *item.explicitMods) {
-            if (!mod.flags || !mod.flags->any()) {
-                explicitMods.push_back(mod.description);
-                continue;
-            }
-
-            const bool fractured = mod.flags->fractured.value_or(false);
-            const bool mutated = mod.flags->mutated.value_or(false);
-            const bool crafted = mod.flags->crafted.value_or(false);
-            const bool desecrated = mod.flags->desecrated.value_or(false);
-            const bool vestigial = mod.flags->vestigial.value_or(false);
-
-            auto warn = [&item, &mod](std::string_view msg) {
-                if (first_report_of(msg)) {
-                    spdlog::warn("Explicit modifier on {} is {}: {}"
-                                 " (further occurrences at debug)",
-                                 item.name,
-                                 msg,
-                                 mod.description);
-                } else {
-                    spdlog::debug("Explicit modifier on {} is {}: {}",
-                                  item.name,
-                                  msg,
-                                  mod.description);
-                }
-            };
-
-            if (fractured) {
-                if (mutated) {
-                    warn("both fractured and mutated");
-                }
-                if (crafted) {
-                    warn("both fractured and crafted");
-                }
-                if (desecrated) {
-                    warn("both fractured and desecrated");
-                }
-                if (vestigial) {
-                    warn("both fractured and vestigial");
-                }
-                fracturedMods.push_back(mod.description);
-
-            } else if (mutated) {
-                if (crafted) {
-                    warn("mutated and crafted");
-                }
-                if (desecrated) {
-                    warn("mutated and desecrated");
-                }
-                if (vestigial) {
-                    warn("mutated and vestigial");
-                }
-                mutatedMods.push_back(mod.description);
-
-            } else if (crafted) {
-                if (desecrated) {
-                    warn("crafted and desecrated");
-                }
-                if (vestigial) {
-                    warn("crafted and vestigial");
-                }
-                craftedMods.push_back(mod.description);
-
-            } else if (desecrated) {
-                if (vestigial) {
-                    warn("desecrated and vestigial");
-                }
-
-            } else if (vestigial) {
-                // Assumes explicit mods cannot be vestigial.
-                warn("vestigial");
-
-            } else {
-                // Unreachable while every flag in Flags::any() has a branch
-                // above. Kept so a flag added to the struct without a branch
-                // here announces itself instead of passing as unflagged.
-                warn("flagged with no recognized flag");
-                explicitMods.push_back(mod.description);
-            }
+        for (const auto &mod : *mods) {
+            const poe::ItemMod::Flags flags = mod.flags.value_or(poe::ItemMod::Flags{});
+            probe_flags(item, mod, flags, arrived_in);
+            add(route_mod(arrived_in, flags), mod.description);
         }
-    }
+    };
+    addArray(item.implicitMods, ModSection::Implicit);
+    addArray(item.explicitMods, ModSection::Explicit);
 
     m_enchanted = (item.enchantMods && !item.enchantMods->empty());
-    m_crafted = !craftedMods.empty();
+    m_crafted = !sections[static_cast<size_t>(ModSection::Crafted)].empty();
 
-    m_text_mods["enchantMods"] = enchantMods;
-    m_text_mods["implicitMods"] = implicitMods;
-    m_text_mods["fracturedMods"] = fracturedMods;
-    m_text_mods["explicitMods"] = explicitMods;
-    m_text_mods["craftedMods"] = craftedMods;
-    m_text_mods["mutatedMods"] = mutatedMods;
+    for (const ModSection section : kModSections) {
+        m_text_mods[section_key(section)] = std::move(sections[static_cast<size_t>(section)]);
+    }
 
     for (const auto &[name, mods] : m_text_mods) {
+        // Vestigial lines are shown but not counted. Provisional: what the
+        // game means by the flag is not known, and this keeps every number
+        // as it was before such lines were kept (#266).
+        if (name == section_key(ModSection::Vestigial)) {
+            continue;
+        }
         for (const auto &mod : mods) {
             AddModToTable(mod, m_mod_table);
         }
@@ -522,6 +475,47 @@ void Item::LoadRequirements(const std::vector<poe::ItemProperty> &requirements)
     }
 }
 
+static std::optional<SocketKind> socket_kind(const poe::ItemSocket &socket)
+{
+    // The attribute and the colour name the same thing in two alphabets; PoE2
+    // sockets carry neither.
+    if (socket.attr) {
+        const QString &attr = *socket.attr;
+        if (attr == "S") {
+            return SocketKind::Red;
+        } else if (attr == "D") {
+            return SocketKind::Green;
+        } else if (attr == "I") {
+            return SocketKind::Blue;
+        } else if (attr == "G") {
+            return SocketKind::White;
+        } else if (attr == "A") {
+            return SocketKind::Abyss;
+        } else if (attr == "DV") {
+            return SocketKind::Resonator;
+        }
+        return SocketKind::Unknown;
+    }
+    if (socket.sColour) {
+        const QString &colour = *socket.sColour;
+        if (colour == "R") {
+            return SocketKind::Red;
+        } else if (colour == "G") {
+            return SocketKind::Green;
+        } else if (colour == "B") {
+            return SocketKind::Blue;
+        } else if (colour == "W") {
+            return SocketKind::White;
+        } else if (colour == "A") {
+            return SocketKind::Abyss;
+        } else if (colour == "DV") {
+            return SocketKind::Resonator;
+        }
+        return SocketKind::Unknown;
+    }
+    return std::nullopt;
+}
+
 void Item::LoadSockets(const std::vector<poe::ItemSocket> &sockets)
 {
     ItemSocketGroup current_group = {0, 0, 0, 0};
@@ -529,21 +523,12 @@ void Item::LoadSockets(const std::vector<poe::ItemSocket> &sockets)
     int counter = 0;
     int prev_group = -1;
     for (const auto &socket : sockets) {
-        QString code;
-        if (socket.attr) {
-            code = *socket.attr;
-        } else if (socket.sColour) {
-            code = *socket.sColour;
-        }
-
-        if (code.isEmpty()) {
+        const auto kind = socket_kind(socket);
+        if (!kind) {
             continue;
         }
-        // The tooltip and the POB export still read the first letter.
-        const char attr = code[0].toLatin1();
 
-        const int group = socket.group;
-        ItemSocket current_socket = {static_cast<unsigned char>(group), attr};
+        const ItemSocket current_socket = {static_cast<unsigned char>(socket.group), *kind};
         m_text_sockets.push_back(current_socket);
         if (prev_group != current_socket.group) {
             counter = 0;
@@ -553,20 +538,29 @@ void Item::LoadSockets(const std::vector<poe::ItemSocket> &sockets)
         prev_group = current_socket.group;
         ++counter;
         m_links_cnt = std::max(m_links_cnt, counter);
-        // Decided on the whole code: "DV" (Delve resonator) is not "D", and
-        // "DV" and "A" (abyss) sockets have no colour.
-        if (code == "S") {
+        // Abyss and resonator sockets count as sockets and links, with no
+        // colour.
+        switch (*kind) {
+        case SocketKind::Red:
             m_sockets.r++;
             current_group.r++;
-        } else if (code == "D") {
+            break;
+        case SocketKind::Green:
             m_sockets.g++;
             current_group.g++;
-        } else if (code == "I") {
+            break;
+        case SocketKind::Blue:
             m_sockets.b++;
             current_group.b++;
-        } else if (code == "G") {
+            break;
+        case SocketKind::White:
             m_sockets.w++;
             current_group.w++;
+            break;
+        case SocketKind::Abyss:
+        case SocketKind::Resonator:
+        case SocketKind::Unknown:
+            break;
         }
     }
     m_socket_groups.push_back(current_group);
@@ -692,9 +686,7 @@ bool Item::operator<(const Item &rhs) const
 
 bool Item::Wearable() const
 {
-    return (m_category == "flasks" || m_category == "amulet" || m_category == "ring"
-            || m_category == "belt" || m_category.contains("armour")
-            || m_category.contains("weapons") || m_category.contains("jewels"));
+    return IsPathOfBuildingBaseType(m_baseType);
 }
 
 QString Item::POBformat() const
@@ -737,28 +729,34 @@ QString Item::POBformat() const
     const auto &sockets = text_sockets();
     if (sockets.size() > 0) {
         pob << "\nSockets: ";
-        ItemSocket prev = {255, '-'};
+        ItemSocket prev = {255, SocketKind::Unknown};
         size_t i = 0;
         for (const auto &socket : sockets) {
             bool link = socket.group == prev.group;
             if (i > 0) {
                 pob << (link ? "-" : " ");
             }
-            switch (socket.attr) {
-            case 'S':
+            switch (socket.kind) {
+            case SocketKind::Red:
                 pob << "R";
                 break;
-            case 'D':
+            case SocketKind::Green:
                 pob << "G";
                 break;
-            case 'I':
+            case SocketKind::Blue:
                 pob << "B";
                 break;
-            case 'G':
+            case SocketKind::White:
                 pob << "W";
                 break;
-            default:
-                pob << socket.attr;
+            case SocketKind::Abyss:
+                pob << "A";
+                break;
+            case SocketKind::Resonator:
+                pob << "DV";
+                break;
+            case SocketKind::Unknown:
+                pob << "?";
                 break;
             }
             prev = socket;

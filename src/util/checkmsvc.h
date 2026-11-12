@@ -3,4 +3,10 @@
 
 #pragma once
 
-void checkMicrosoftRuntime();
+#include <QStringList>
+
+class QDir;
+
+// Each returns false when the user chose to quit.
+bool checkMicrosoftRuntime();
+bool checkApplicationDirectory(const QDir &dir, const QStringList &libraries);

@@ -95,6 +95,23 @@ whole suite on every pull request and every push to `master`. Run the suite
 locally before opening a pull request; a change to behaviour comes with a test
 that fails without it.
 
+## Formatting
+
+The C++ files under `src/` and `tests/` follow `.clang-format`, and the test
+workflow fails a pull request whose files differ from the output of
+clang-format **23.1.5**. Other versions format some constructs differently, so
+use that one; `pipx install clang-format==23.1.5` provides it. To format the
+tree:
+
+```sh
+git ls-files -z 'src/*.cpp' 'src/*.h' 'tests/*.cpp' 'tests/*.h' | xargs -0 clang-format -i
+```
+
+`// clang-format off/on` blocks are left alone. Commits that only reformat are
+listed in `.git-blame-ignore-revs`; run
+`git config blame.ignoreRevsFile .git-blame-ignore-revs` once so `git blame`
+skips them.
+
 ## Sanitizer Builds (test/CI only)
 
 The `ACQ_SANITIZE` CMake option builds the checked-in test suite with a runtime

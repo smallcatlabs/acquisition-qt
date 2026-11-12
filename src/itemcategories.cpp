@@ -7,6 +7,7 @@
 #include <QString>
 
 #include <map>
+#include <set>
 #include <unordered_map>
 
 #include "repoe/baseitem.h"
@@ -28,6 +29,8 @@ public:
     std::map<QString, QString> m_itemClassKeyToValue;
     std::map<QString, QString> m_itemClassValueToKey;
     std::map<QString, QString> m_itemBaseTypeToClass;
+    // Class ids that carry influence_tags: the gear classes.
+    std::set<QString> m_gearClassIds;
     QStringList categories;
 };
 
@@ -55,9 +58,13 @@ void InitItemClasses(const QByteArray &classes)
     auto &data = CATEGORY_DATA::instance();
     data.m_itemClassKeyToValue.clear();
     data.m_itemClassValueToKey.clear();
+    data.m_gearClassIds.clear();
 
     QSet<QString> cats;
     for (const auto &[class_key, class_info] : item_classes) {
+        if (class_info.influence_tags) {
+            data.m_gearClassIds.insert(class_key);
+        }
         if (class_info.name.isEmpty()) {
             continue;
         }
@@ -146,4 +153,29 @@ const QStringList &GetItemCategories()
         spdlog::error("Item categories have not been initialized");
     }
     return data.categories;
+}
+
+const QStringList &PathOfBuildingNonGearClassIds()
+{
+    // Tinctures, heist gear, relics and the rest are left out (#264).
+    static const QStringList ids{"LifeFlask",
+                                 "ManaFlask",
+                                 "HybridFlask",
+                                 "UtilityFlask",
+                                 "Jewel",
+                                 "AbyssJewel"};
+    return ids;
+}
+
+bool IsPathOfBuildingItemClass(const QString &classId)
+{
+    return CATEGORY_DATA::instance().m_gearClassIds.contains(classId)
+           || PathOfBuildingNonGearClassIds().contains(classId);
+}
+
+bool IsPathOfBuildingBaseType(const QString &baseType)
+{
+    const auto &bases = CATEGORY_DATA::instance().m_itemBaseTypeToClass;
+    const auto found = bases.find(baseType);
+    return found != bases.end() && IsPathOfBuildingItemClass(found->second);
 }

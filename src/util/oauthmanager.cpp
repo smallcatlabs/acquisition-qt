@@ -6,6 +6,7 @@
 #include <QAbstractOAuth>
 #include <QByteArray>
 #include <QDesktopServices>
+#include <QHostAddress>
 #include <QOAuth2AuthorizationCodeFlow>
 #include <QOAuthHttpServerReplyHandler>
 #include <QSet>
@@ -167,11 +168,20 @@ void OAuthManager::receiveGrant()
     emit grantAccess(m_token);
 }
 
-void OAuthManager::initLogin()
+bool OAuthManager::initLogin()
 {
-    if (!m_handler->isListening()) {
-        m_handler->listen();
+    // Every login binds its own listener on IPv4 loopback: the redirect goes
+    // to CALLBACK_HOST (127.0.0.1), so a listener anywhere else could never
+    // receive it. Whatever the handler was doing before (its constructor
+    // listens on loopback and may fall back to ::1) is closed first. The
+    // redirect uri, port included, is built by grant() below.
+    m_handler->close();
+    if (!m_handler->listen(QHostAddress::LocalHost)) {
+        spdlog::error("OAuth: cannot listen for the login callback on {}: not starting the login",
+                      CALLBACK_HOST);
+        return false;
     }
     spdlog::info("OAuth: starting authentication.");
     m_oauth->grant();
+    return true;
 }
