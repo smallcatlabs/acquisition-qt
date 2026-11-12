@@ -79,8 +79,6 @@ public:
     // and nothing may post them to the forum.
     bool BuyoutsLoaded() const { return m_loaded; }
 
-    void MigrateItem(const QString &old_hash, const QString &new_hash);
-
 signals:
     void SetItemBuyout(const Buyout &buyout, const Item &item);
     void SetLocationBuyout(const Buyout &buyout, const ItemLocation &location);
@@ -93,7 +91,7 @@ signals:
 private:
     // The single M3 choke point (D1 rule 4, R1-6): every mutation of the
     // buyout lookup state (m_buyouts / m_tab_buyouts) reports here — item
-    // and tab set-and-clear, migration, and the compress/clear
+    // and tab set-and-clear, and the compress/clear
     // housekeeping the pricing passes run. Refresh-check state is not
     // buyout lookup state and does not report.
     enum class ChangeScope { Item, Tab, Everything };

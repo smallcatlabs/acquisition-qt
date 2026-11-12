@@ -667,8 +667,6 @@ double Item::cDPS() const
 void Item::CalculateHash(const poe::Item &json)
 {
     QString unique_new = m_name + "~" + m_typeLine + "~";
-    // GGG removed the <<set>> things in patch 3.4.3e but our hashes all include them, oops
-    QString unique_old = "<<set:MS>><<set:M>><<set:S>>" + unique_new;
 
     QString unique_common;
 
@@ -699,10 +697,8 @@ void Item::CalculateHash(const poe::Item &json)
 
     unique_common += "~" + m_location.GetLegacyHash();
 
-    unique_old += unique_common;
     unique_new += unique_common;
 
-    m_old_hash = Util::Md5(unique_old);
     m_hash = Util::Md5(unique_new);
 }
 

@@ -282,7 +282,7 @@ Application::UserSession::UserSession(const Application::CoreServices &core)
     buyout_manager = std::make_unique<BuyoutManager>(*data, userstore->buyouts());
 
     spdlog::trace("Application::InitLogin() creating items manager");
-    items_manager = std::make_unique<ItemsManager>(settings, *buyout_manager, *data);
+    items_manager = std::make_unique<ItemsManager>(settings, *buyout_manager);
 
     spdlog::trace("Application::InitLogin() creating items worker");
     items_worker = std::make_unique<ItemsManagerWorker>(settings, *buyout_manager, *api);

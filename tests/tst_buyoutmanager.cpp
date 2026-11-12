@@ -25,7 +25,6 @@ private slots:
     // Items-pipeline M3 S2, review round 1: choke-point self-consistency
     // for mutations outside any caller batch — one boundary per operation,
     // emitted only after the mutation completes.
-    void unbatchedMigrationEmitsOneBatch();
     void unbatchedTabCompressionEmitsOnceAfterErase();
     void unbatchedItemCompressionEmitsOnceAfterErase();
 
@@ -37,6 +36,10 @@ private slots:
     void unknownCurrencyClearsGamePrice();
     void manualPriceWithEmptyNoteIsUntouched();
     void inheritedGameTabPriceIsNotRewritten();
+
+    // #290: a snapshot no longer stamps db_version into the per-league
+    // file, which the legacy importer reads.
+    void snapshotWritesNoDbVersion();
 };
 
 namespace {
@@ -47,7 +50,7 @@ namespace {
     {
         PricingFixture()
             : settings(buyouts.tempDir.filePath("settings.ini"), QSettings::IniFormat)
-            , items(settings, *buyouts.manager, *buyouts.data)
+            , items(settings, *buyouts.manager)
         {}
 
         BuyoutManagerFixture buyouts;
@@ -293,26 +296,6 @@ void BuyoutManagerTest::failedDeleteKeepsEntryForRetry()
     QVERIFY(!fixture.repo->getItemBuyouts().contains(item.id()));
 }
 
-// MigrateItem changes the lookup result for two keys but is ONE mutation:
-// outside any caller batch it must emit a single boundary carrying both.
-void BuyoutManagerTest::unbatchedMigrationEmitsOneBatch()
-{
-    BuyoutManagerFixture fixture;
-    const Item item = makeTestItem("s2-migrated-item");
-    fixture.manager->Set(item, makeChaosBuyout(7.0));
-
-    std::vector<BuyoutChangeSet> emissions;
-    QObject::connect(fixture.manager.get(),
-                     &BuyoutManager::BuyoutsChanged,
-                     [&emissions](const BuyoutChangeSet &changes) { emissions.push_back(changes); });
-    fixture.manager->MigrateItem(item.id(), "s2-new-hash");
-
-    QCOMPARE(static_cast<int>(emissions.size()), 1);
-    const std::set<QString> expected{"s2-migrated-item", "s2-new-hash"};
-    QCOMPARE(emissions.front().item_ids, expected);
-    QVERIFY(emissions.front().tab_ids.empty());
-}
-
 // An unbatched compression coalesces its erasures into one boundary, and a
 // consumer reached by that boundary must observe post-erase lookup state —
 // never the entries the compression is about to remove.
@@ -503,6 +486,25 @@ void BuyoutManagerTest::inheritedGameTabPriceIsNotRewritten()
     QCOMPARE(writes, 0);
     QCOMPARE(changes, 0);
     QVERIFY(fixture.buyouts.manager->Get(*item).IsActive());
+}
+
+// The per-league data file is the one the legacy importer reads, and the
+// importer accepts only db_version 4 or 5. Pricing a snapshot must leave
+// that key alone (#290).
+void BuyoutManagerTest::snapshotWritesNoDbVersion()
+{
+    PricingFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-290", "Dump", 0);
+    const auto item
+        = makeNotedItem("4d3a9f0c2b8e7d6a5f4e3d2c1b0a99887766554433221100ffeeddccbbaa9988",
+                        tab,
+                        "~b/o 5 chaos");
+    QVERIFY(fixture.buyouts.data->Get("db_version").isEmpty());
+
+    fixture.items.OnItemsRefreshed({item}, {tab}, false);
+
+    QCOMPARE(fixture.buyouts.manager->Get(*item).value, 5.0);
+    QCOMPARE(fixture.buyouts.data->Get("db_version"), QString());
 }
 
 QTEST_GUILESS_MAIN(BuyoutManagerTest)

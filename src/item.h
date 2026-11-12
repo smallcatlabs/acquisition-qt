@@ -122,7 +122,6 @@ public:
     const std::map<QString, ItemMods> &text_mods() const { return m_text_mods; }
     const std::vector<ItemSocket> &text_sockets() const { return m_text_sockets; }
     const QString &hash_v4() const { return m_hash; }
-    const QString &old_hash() const { return m_old_hash; }
     const std::vector<std::pair<QString, int>> &elemental_damage() const
     {
         return m_elemental_damage;
@@ -141,8 +140,9 @@ public:
     const ItemLocation &location() const { return m_location; }
     // Rebase the embedded location onto fresh tab metadata after a tab-list
     // reconciliation. hash_v4() is deliberately not recomputed: it folds the
-    // tab label, but it is only consumed by the one-time startup buyout
-    // migration, which runs before any refresh can rebase a location.
+    // tab label, and its only use is the last sort tie-break between items
+    // with no id (operator<, Column::suffix), which needs a stable value per
+    // item, not a current one.
     void RebaseLocation(const ItemLocation &fresh_tab) { m_location.rebaseTabMetadata(fresh_tab); }
     const QString &note() const { return m_note; }
     const QString &category() const { return m_category; }
@@ -185,7 +185,6 @@ private:
     QString m_icon;
     std::map<QString, QString> m_properties;
     std::map<QString, double> m_numeric_properties;
-    QString m_old_hash;
     QString m_hash;
     // vector of pairs [damage, type]
     std::vector<std::pair<QString, int>> m_elemental_damage;

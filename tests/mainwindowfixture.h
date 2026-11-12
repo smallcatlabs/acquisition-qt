@@ -58,9 +58,7 @@ public:
         networkManager = std::make_unique<NetworkManager>();
         rateLimiter = std::make_unique<RateLimiter>(*networkManager);
         api = std::make_unique<PoeApiClient>(*rateLimiter);
-        itemsManager = std::make_unique<ItemsManager>(*settings,
-                                                      *buyoutFixture.manager,
-                                                      *buyoutFixture.data);
+        itemsManager = std::make_unique<ItemsManager>(*settings, *buyoutFixture.manager);
         currencyManager = std::make_unique<CurrencyManager>(*settings,
                                                             *buyoutFixture.data,
                                                             *itemsManager);

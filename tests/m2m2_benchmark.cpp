@@ -243,7 +243,7 @@ int main(int argc, char *argv[])
     NetworkManager network;
     RateLimiter limiter(network);
     FakePoeApiClient api(limiter);
-    ItemsManager manager(settings, *bm.manager, *bm.data);
+    ItemsManager manager(settings, *bm.manager);
     CurrencyManager currency(settings, *bm.data, manager);
     Shop shop(settings, network, api, *bm.data, manager, *bm.manager);
     ImageCache image_cache(network, bm.tempDir.filePath("cache"));
