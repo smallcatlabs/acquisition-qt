@@ -1306,6 +1306,8 @@ void MainWindow::OnTabRefreshed(const ItemLocation &location, const Items &items
     if (!m_current_search) {
         return;
     }
+    // The first delta opens the selection-intent window (R1-3).
+    m_refresh_active = true;
     const SelectionCapture capture = CaptureSelection(TouchedBucket(location));
     // The active search applies the delta now: bucket-scoped row
     // operations in By-Tab (D3), the flat sorted merge in By-Item (D4,
@@ -1333,6 +1335,7 @@ void MainWindow::OnChildrenReconciled(const ItemLocation &parent,
     if (!m_current_search) {
         return;
     }
+    m_refresh_active = true; // the intent window covers every delta form
     const SelectionCapture capture = CaptureSelection(TouchedBucket(parent));
     m_applying_delta = true;
     const auto result = m_current_search->ApplyChildReconciliation(parent, expected);
@@ -1387,10 +1390,6 @@ MainWindow::SelectionCapture MainWindow::CaptureSelection(
     }
     const ItemsModel &model = m_current_search->model();
     const QItemSelectionModel &selection = *ui->treeView->selectionModel();
-    if (m_current_item) {
-        capture.current_id = m_current_item->id();
-        capture.current_tab = LocationInventory::KeyFor(m_current_item->location());
-    }
     capture.current_selected = selection.isSelected(selection.currentIndex());
     QModelIndex only_parent;
     if (bucket) {
@@ -1495,20 +1494,7 @@ void MainWindow::ReconcileSelectionIntent(const SelectionCapture *capture)
         return;
     }
     if (m_current_item) {
-        QModelIndex index = m_current_search->index(m_current_item);
-        if (!index.isValid() && capture && !capture->current_id.isEmpty()) {
-            // The delta replaced the current item's row. The same item,
-            // still in the same tab, stays current: it has not left (the
-            // M3 R1-3 amendment). Its selection is RestoreSelection's.
-            const auto replacement = m_current_search->visibleItemById(capture->current_id);
-            if (replacement
-                && (LocationInventory::KeyFor(replacement->location()) == capture->current_tab)) {
-                index = m_current_search->index(replacement);
-                if (index.isValid()) {
-                    SelectWithoutExpanding(index, QItemSelectionModel::NoUpdate);
-                }
-            }
-        }
+        const QModelIndex index = m_current_search->index(m_current_item);
         if (index.isValid()) {
             // The row survived (possibly moved). Qt's selection model can
             // drop a child row's visual selection through a top-level
@@ -1530,12 +1516,21 @@ void MainWindow::ReconcileSelectionIntent(const SelectionCapture *capture)
                                            .Canonical(m_current_item->location())
                                            .GetHeader());
         } else {
-            // The current item left its tab: it is no longer current or
-            // selected, and the other selected rows keep their selection.
-            // The current row stays where Qt put it when the row was
-            // removed (a neighbour, not selected).
+            // The selected row left mid-refresh: the intent stays alive,
+            // the visual selection lapses (R1-3). The view may have moved
+            // current to a neighbor when the row was removed — clear that
+            // under the guard so it cannot overwrite the intent. The other
+            // selected rows keep their selection (#282); whether this row
+            // was selected is kept for its re-adoption.
+            if (capture) {
+                m_selection_intent_selected = capture->current_selected;
+            }
             m_current_item = nullptr;
             m_current_bucket_location.reset();
+            m_applying_delta = true;
+            ui->treeView->selectionModel()->setCurrentIndex(QModelIndex(),
+                                                            QItemSelectionModel::NoUpdate);
+            m_applying_delta = false;
             ClearCurrentItem();
             ResetBuyoutWidgets();
         }
@@ -1545,7 +1540,7 @@ void MainWindow::ReconcileSelectionIntent(const SelectionCapture *capture)
         // round 1): a metadata delta renames/moves/recolors it in place,
         // so the stored location and the details pane refresh here — the
         // reset-reselect cycle used to do this implicitly. A bucket the
-        // filtered-empty convergence removed is dropped as current.
+        // filtered-empty convergence removed is no longer current.
         const auto key = LocationInventory::KeyFor(*m_current_bucket_location);
         const int bucket_row = m_current_search->rowForKey(key);
         if (bucket_row >= 0) {
@@ -1558,17 +1553,51 @@ void MainWindow::ReconcileSelectionIntent(const SelectionCapture *capture)
             }
         } else {
             m_current_bucket_location.reset();
+            m_applying_delta = true;
+            ui->treeView->selectionModel()->setCurrentIndex(QModelIndex(),
+                                                            QItemSelectionModel::NoUpdate);
+            m_applying_delta = false;
             ClearCurrentItem();
             ResetBuyoutWidgets();
+        }
+    }
+    if (!m_current_item && m_refresh_active && !m_selection_intent_id.isEmpty()) {
+        // Re-adoption through the global identity index: any delta
+        // inserting an item with the intent's id — any bucket — restores
+        // the current row via the normal selection path. It leaves the
+        // rest of the selection alone (#282), and selects the row only if
+        // it was selected when it left.
+        if (const auto adopted = m_current_search->visibleItemById(m_selection_intent_id)) {
+            const QModelIndex index = m_current_search->index(adopted);
+            if (index.isValid()) {
+                SelectWithoutExpanding(index,
+                                       m_selection_intent_selected ? (QItemSelectionModel::Select
+                                                                      | QItemSelectionModel::Rows)
+                                                                   : QItemSelectionModel::NoUpdate);
+            }
         }
     }
 }
 
 void MainWindow::OnRefreshFinished(const RefreshOutcome &outcome)
 {
-    // Nothing of the selection outlives a delta (the M3 R1-3 amendment),
-    // so a refresh's terminal outcome has nothing to close.
     Q_UNUSED(outcome);
+    // R2-1: every terminal outcome closes the intent window. On success
+    // the final snapshot's row reconciliation has already reselected or
+    // cleared (R1-2, S6); on failure —
+    // which emits no final snapshot — the absence check runs here, so a
+    // stale intent can never survive one refresh and reselect an item in
+    // a later one. The immediate delta path keeps the current search's
+    // indexes fresh (S5: no fallback can leave them stale), so the check
+    // adjudicates honestly at the terminal event itself — the S4-era
+    // deferral machinery died with the seam.
+    m_refresh_active = false;
+    if (m_selection_intent_id.isEmpty() || !m_current_search) {
+        return;
+    }
+    if (!m_current_search->visibleItemById(m_selection_intent_id)) {
+        m_selection_intent_id.clear();
+    }
 }
 
 void MainWindow::OnSearchFormChange()
@@ -1722,7 +1751,9 @@ void MainWindow::ModelViewRefresh()
     ReselectCurrentItem();
     RestoreViewScroll(*m_current_search);
 
-    // The current-row pass runs on refilter paths too (S4 review round 1).
+    // The intent pass runs on refilter paths too (S4 review round 1): an
+    // id that reappeared only in a refilter's fresh result re-adopts
+    // here — the contract covers the delta path and the refilter alike.
     ReconcileSelectionIntent();
 }
 
@@ -1790,8 +1821,8 @@ void MainWindow::OnCurrentItemChanged(const QModelIndex &current, const QModelIn
     spdlog::trace("MainWindow::OnCurrentItemChange() entered");
     // Row operations make the view shuffle its current index (removing
     // the current row moves current to a neighbor); those shifts are not
-    // the user's selections — the application's own reconcile pass
-    // settles the current row afterward.
+    // selections and must not overwrite the intent (R1-3) — the
+    // application's own reconcile pass settles selection afterward.
     if (m_applying_delta) {
         return;
     }
@@ -1813,6 +1844,9 @@ void MainWindow::OnCurrentItemChanged(const QModelIndex &current, const QModelIn
             if (bucket.has_item(item_row)) {
                 m_current_item = bucket.item(item_row);
                 m_current_bucket_location.reset();
+                // A selection wins at any time (R1-3): the intent follows
+                // the selected item's stable id.
+                m_selection_intent_id = m_current_item->id();
                 m_delayed_update_current_item.start();
             } else {
                 spdlog::warn("OnCurrentItemChanged(): parent bucket {} does not have {} rows",
@@ -1831,6 +1865,7 @@ void MainWindow::OnCurrentItemChanged(const QModelIndex &current, const QModelIn
     } else {
         // Clicked on a bucket
         m_current_item = nullptr;
+        m_selection_intent_id.clear();
         m_current_bucket_location = m_current_search->bucket(ref.bucket_row).location();
         UpdateCurrentBucket();
     }
@@ -1952,6 +1987,9 @@ void MainWindow::OnTabChange(int index)
         m_current_search = m_searches[index].get();
         m_current_item = m_current_search->currentItem();
         m_current_bucket_location = m_current_search->currentBucket();
+        // The intent follows the window's visible selection: it re-anchors
+        // to the incoming search's saved selection (R1-3).
+        m_selection_intent_id = m_current_item ? m_current_item->id() : QString();
         m_current_search->SetRefreshReason(RefreshReason::TabChanged);
         m_search_form->loadFrom(*m_current_search);
         ModelViewRefresh();
@@ -1997,6 +2035,7 @@ void MainWindow::NewSearch()
     m_current_search = search.get();
     m_current_item = m_current_search->currentItem();
     m_current_bucket_location = m_current_search->currentBucket();
+    m_selection_intent_id.clear();
     m_current_search->SetRefreshReason(RefreshReason::TabCreated);
 
     // this can't be done in ctor because it'll call OnSearchFormChange slot
@@ -2163,6 +2202,7 @@ void MainWindow::OnItemsRefreshed(bool initial_refresh)
         }
     }
     if (!m_current_search) {
+        m_refresh_active = false;
         return;
     }
     if (initial_refresh) {
@@ -2170,6 +2210,7 @@ void MainWindow::OnItemsRefreshed(bool initial_refresh)
         // refresh boundary where the reset path stays legitimate.
         m_current_search->SetRefreshReason(RefreshReason::ItemsChanged);
         ModelViewRefresh();
+        m_refresh_active = false;
         return;
     }
 
@@ -2194,6 +2235,14 @@ void MainWindow::OnItemsRefreshed(bool initial_refresh)
     }
     ReconcileSelectionIntent(&capture);
     RestoreSelection(capture);
+    // The success-boundary intent closure (R1-3): the intent pass above
+    // adopted an id that reappeared only in the final snapshot; one whose
+    // id is absent is cleared so it cannot reselect in a later refresh.
+    if (!m_selection_intent_id.isEmpty()
+        && !m_current_search->visibleItemById(m_selection_intent_id)) {
+        m_selection_intent_id.clear();
+    }
+    m_refresh_active = false;
 }
 
 void MainWindow::OnSetShopThreads()
