@@ -172,7 +172,8 @@ namespace {
         QString reason;
     };
 
-    std::variant<Posted, RetryAfter, Shop::Failure> ClassifyPostReply(const ForumReply &reply)
+    std::variant<Posted, RetryAfter, Shop::Failure> ClassifyPostReply(const ForumReply &reply,
+                                                                      const QString &thread)
     {
         if (reply.status == 401 || reply.status == 403) {
             return SessionRejected("the forum rejected the POST");
@@ -223,6 +224,19 @@ namespace {
         if (reply.body.contains("class=\"errors\"")
             || reply.body.contains("class=\"input-error\"")) {
             return Error("The forum reported an error the shop does not recognise.");
+        }
+        // No known error is not enough: a saved edit answers with the
+        // thread's own page, which links to view-thread/<id> (written
+        // "&#x2F;" in the breadcrumb). The edit form coming back, an empty
+        // reply, or any other page means the post was not seen to save.
+        const QRegularExpression thread_link(
+            QString(R"regex(view-thread(?:/|&#x2F;)%1(?![0-9]))regex")
+                .arg(QRegularExpression::escape(thread)));
+        if (reply.body.contains("name=\"hash\"")
+            || !thread_link.match(QString::fromUtf8(reply.body)).hasMatch()) {
+            return Error(QString("The forum sent a page Acquisition did not expect, so the post "
+                                 "for thread %1 may not have been saved.")
+                             .arg(thread));
         }
         return Posted{};
     }
@@ -707,7 +721,7 @@ void Shop::OnShopSubmitted(QNetworkReply *reply)
         return;
     }
     ShopJob &job = *m_active_job;
-    const auto outcome = ClassifyPostReply(ReadReply(*reply));
+    const auto outcome = ClassifyPostReply(ReadReply(*reply), job.threads[job.requests_completed]);
 
     if (const auto *failure = std::get_if<Failure>(&outcome)) {
         FailActiveJob(*failure);

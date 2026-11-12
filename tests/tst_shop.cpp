@@ -1619,6 +1619,15 @@ void ShopTest::everyFailureEndsInAStatusAndANotice_data()
     QTest::newRow("post input error")
         << FailAt::Post << 200 << ok
         << editPageWithError("<div class=\"input-error\">Something went wrong.</div>");
+
+    // Replies with no known error that are not this thread's page either:
+    // nothing shows the post was saved.
+    QTest::newRow("post answered with nothing") << FailAt::Post << 200 << ok << QByteArray();
+    QByteArray other_thread = afterEditPage();
+    other_thread.replace(kThread, "1111111");
+    QTest::newRow("post answered with another thread") << FailAt::Post << 200 << ok << other_thread;
+    QTest::newRow("post answered with the edit form again")
+        << FailAt::Post << 200 << ok << editThreadPage();
 }
 
 void ShopTest::everyFailureEndsInAStatusAndANotice()
@@ -1636,6 +1645,8 @@ void ShopTest::everyFailureEndsInAStatusAndANotice()
     QVERIFY2(!lastStatus(statuses).isEmpty(), "no status after the failure");
     QVERIFY2(!lastStatus(statuses).startsWith("Sending"), qPrintable(lastStatus(statuses)));
     QCOMPARE(warnings.count(), 1);
+    // Nothing was posted, so the next update posts again.
+    QCOMPARE(fixture.buyoutFixture.data->Get("shop_hash"), QString());
 
     // The job is released: a new request starts a new stash index fetch.
     const size_t before = fixture.rateLimiter->futureCount();
