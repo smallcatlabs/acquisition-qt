@@ -13,6 +13,10 @@
 #include <QTimer>
 #include <QUrl>
 
+#include <chrono>
+#include <optional>
+#include <variant>
+
 #include "buyoutmanager.h"
 #include "datastore/datastore.h"
 #include "item.h"
@@ -31,40 +35,227 @@ namespace {
 
     constexpr const char *kPoeEditThread = "https://www.pathofexile.com/forum/edit-thread/";
 
-    bool IsPoeSessionRejected(const QNetworkReply *reply)
+    // POSTs per thread before the submission fails. Each one follows a
+    // freshly fetched edit page.
+    constexpr int kMaxAttemptsPerThread = 3;
+
+    // The longest wait the forum may ask for that a submission holds out
+    // for; a longer one fails the submission and tells the user.
+    constexpr int kMaxRateLimitWaitSeconds = 60;
+
+    // A POST sent too soon after its edit page was served comes back with an
+    // expired security token.
+    constexpr std::chrono::milliseconds kEditToPostDelay{500};
+
+    // The forum's error messages: the items of a <ul class="errors">
+    // list. Only text inside such a list is ever used as a message: an
+    // element that merely carries an error class (an input can, the hash
+    // input among them) is followed by arbitrary page text, and the next
+    // list item after it may be navigation or another user's post (#315).
+    const QRegularExpression kErrorListRegex(R"regex(<ul\s+class="errors"[^>]*>(.*?)</ul>)regex",
+                                             QRegularExpression::CaseInsensitiveOption
+                                                 | QRegularExpression::DotMatchesEverythingOption);
+    const QRegularExpression kListItemRegex(R"regex(<li[^>]*>(.*?)</li>)regex",
+                                            QRegularExpression::CaseInsensitiveOption
+                                                | QRegularExpression::DotMatchesEverythingOption);
+
+    QStringList ErrorMessages(const QString &page)
     {
-        const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-        return status == 401 || status == 403;
+        QStringList messages;
+        QRegularExpressionMatchIterator lists = kErrorListRegex.globalMatch(page);
+        while (lists.hasNext()) {
+            const QString list = lists.next().captured(1);
+            QRegularExpressionMatchIterator items = kListItemRegex.globalMatch(list);
+            while (items.hasNext()) {
+                messages.append(QTextDocumentFragment::fromHtml(items.next().captured(1))
+                                    .toPlainText()
+                                    .trimmed());
+            }
+        }
+        return messages;
     }
 
-    bool IsPoeSessionRejected(const QByteArray &body)
+    const QRegularExpression kRateLimitRegex(R"regex(You must wait (\d+) seconds?\b)regex",
+                                             QRegularExpression::CaseInsensitiveOption);
+
+    // What a forum reply carried, read once.
+    struct ForumReply
     {
-        return body.contains("Login Required") || body.contains("Permission Denied")
-               || body.contains("Content Denied");
+        int status{0};
+        QNetworkReply::NetworkError error{QNetworkReply::NoError};
+        QString error_string;
+        QByteArray body;
+    };
+
+    ForumReply ReadReply(QNetworkReply &reply)
+    {
+        return {reply.attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(),
+                reply.error(),
+                reply.errorString(),
+                reply.readAll()};
+    }
+
+    // The website may redirect an unauthenticated request to an error page
+    // whose final response is 200, so the status alone is not enough. The
+    // phrases count only as the page's own heading (the layoutBoxTitle
+    // <h1>) or the start of its <title>: the edit page carries the user's
+    // post and the thread view everyone's, and either may contain them.
+    // No logged-out page has been captured; this shape is derived from the
+    // headings and titles of the captured pages.
+    const QRegularExpression kSessionRejectedHeading(
+        R"regex(<h1[^>]*\blayoutBoxTitle\b[^>]*>\s*(?:Login Required|Permission Denied|Content Denied)\s*</h1>)regex"
+        R"regex(|<title>\s*(?:Login Required|Permission Denied|Content Denied))regex");
+
+    bool IsPoeSessionRejected(const ForumReply &reply)
+    {
+        return reply.status == 401 || reply.status == 403
+               || kSessionRejectedHeading.match(QString::fromUtf8(reply.body)).hasMatch();
+    }
+
+    using Cause = Shop::Failure::Cause;
+
+    Shop::Failure Error(Cause cause, const QString &message)
+    {
+        return {Shop::Failure::Kind::Error, cause, message};
+    }
+
+    Shop::Failure SessionRejected(const QString &reason)
+    {
+        return {Shop::Failure::Kind::SessionRejected, Cause::Session, reason};
+    }
+
+    // The edit form a POST needs: the title (HTML-escaped, as the page
+    // carries it) and the CSRF token.
+    struct EditForm
+    {
+        QString title;
+        QString hash;
+    };
+
+    std::variant<EditForm, Shop::Failure> ParseEditPage(const ForumReply &reply,
+                                                        const QString &thread)
+    {
+        if (IsPoeSessionRejected(reply)) {
+            return SessionRejected("the forum edit page rejected the POESESSID");
+        }
+        if (reply.error != QNetworkReply::NoError) {
+            if (reply.status == 0) {
+                // No HTTP response at all: nothing is known about the thread.
+                return Error(Cause::Unreachable,
+                             QString("pathofexile.com did not answer (%1).").arg(reply.error_string));
+            }
+            if (reply.status >= 500) {
+                return Error(Cause::SiteError,
+                             QString("pathofexile.com answered with an error (HTTP %1). Try again "
+                                     "later.")
+                                 .arg(reply.status));
+            }
+            return Error(Cause::ThreadNotEditable,
+                         QString("The forum would not open thread %1 for editing (HTTP %2). "
+                                 "Check the thread number.")
+                             .arg(thread)
+                             .arg(reply.status));
+        }
+        EditForm form;
+        form.hash = Util::GetCsrfToken(reply.body, "hash");
+        form.title = Util::FindTextBetween(QString::fromUtf8(reply.body),
+                                           "<input type=\"text\" name=\"title\" id=\"title\" "
+                                           "onkeypress=\"return&#x20;event.keyCode&#x21;&#x3D;13\" "
+                                           "value=\"",
+                                           "\">");
+        if (form.hash.isEmpty() || form.title.isEmpty()) {
+            return Error(Cause::ThreadNotEditable,
+                         QString("The forum's page for thread %1 had no edit form. Check the "
+                                 "thread number, that the thread was started by the account the "
+                                 "POESESSID belongs to, and that the POESESSID is still logged in.")
+                             .arg(thread));
+        }
+        return form;
+    }
+
+    struct Posted
+    {};
+
+    // The forum asked for the POST to be made again: after `seconds`, or,
+    // when it is zero, after the shop's retry delay.
+    struct RetryAfter
+    {
+        int seconds{0};
+        QString reason;
+    };
+
+    std::variant<Posted, RetryAfter, Shop::Failure> ClassifyPostReply(const ForumReply &reply,
+                                                                      const QString &thread)
+    {
+        if (reply.status == 401 || reply.status == 403) {
+            return SessionRejected("the forum rejected the POST");
+        }
+        if (reply.error != QNetworkReply::NoError) {
+            if (reply.status == 0) {
+                return Error(Cause::Unreachable,
+                             QString("The forum did not answer (%1).").arg(reply.error_string));
+            }
+            return Error(Cause::PostRefused,
+                         QString("The forum refused the post (HTTP %1).").arg(reply.status));
+        }
+        if (IsPoeSessionRejected(reply)) {
+            return SessionRejected("the forum answered the POST with an authentication page");
+        }
+
+        // The forum lists its errors in a <ul class="errors">. One or more
+        // may be present; any that is not a request to retry fails the post.
+        // An error class anywhere else fails it without a message.
+        std::optional<RetryAfter> retry;
+        for (const QString &message : ErrorMessages(QString::fromUtf8(reply.body))) {
+            if (message.startsWith("Security token has expired.")) {
+                if (!retry) {
+                    retry = RetryAfter{0, message};
+                }
+            } else if (message.startsWith("Rate limiting", Qt::CaseInsensitive)) {
+                const int seconds = kRateLimitRegex.match(message).captured(1).toInt();
+                if (seconds == 0) {
+                    return Error(Cause::RateLimited,
+                                 "The forum is limiting posts but did not say for how long. Try "
+                                 "again in a few minutes.");
+                }
+                if (!retry || retry->seconds < seconds) {
+                    retry = RetryAfter{seconds, message};
+                }
+            } else if (message.startsWith("Failed to find item.", Qt::CaseInsensitive)) {
+                return Error(Cause::ItemNotFound,
+                             "The forum could not find one of your items; your stash has "
+                             "probably changed since the last refresh. Refresh your tabs and "
+                             "update the shop again.");
+            } else {
+                return Error(Cause::ForumError, "The forum reported an error: " + message);
+            }
+        }
+        if (retry) {
+            return *retry;
+        }
+        if (reply.body.contains("class=\"errors\"")
+            || reply.body.contains("class=\"input-error\"")) {
+            return Error(Cause::ForumError,
+                         "The forum reported an error the shop does not recognise.");
+        }
+        // No known error is not enough: a saved edit answers with the
+        // thread's own page, which links to view-thread/<id> (written
+        // "&#x2F;" in the breadcrumb). The edit form coming back, an empty
+        // reply, or any other page means the post was not seen to save.
+        const QRegularExpression thread_link(
+            QString(R"regex(view-thread(?:/|&#x2F;)%1(?![0-9]))regex")
+                .arg(QRegularExpression::escape(thread)));
+        if (reply.body.contains("name=\"hash\"")
+            || !thread_link.match(QString::fromUtf8(reply.body)).hasMatch()) {
+            return Error(Cause::UnexpectedPage,
+                         QString("The forum sent a page Acquisition did not expect, so the post "
+                                 "for thread %1 may not have been saved.")
+                             .arg(thread));
+        }
+        return Posted{};
     }
 
 } // namespace
-
-// Use a regular expression to look for html errors.
-const QRegularExpression Shop::error_regex(
-    R"regex(
-		# Start the match looking for any class attribute that indicates an error
-		class="(?:input-error|errors)"
-
-		# Skip over as much as possible while looking for an <li> start tag that
-		# should be the start of the error message.
-		.*?
-
-		# Match the list item element and capture it's contents, because this is
-		# expected to be the error message.
-		<li>(.*?)</li>
-	)regex",
-    QRegularExpression::CaseInsensitiveOption | QRegularExpression::MultilineOption
-        | QRegularExpression::DotMatchesEverythingOption
-        | QRegularExpression::ExtendedPatternSyntaxOption);
-
-const QRegularExpression Shop::ratelimit_regex(R"regex(You must wait (\d+) seconds.)regex",
-                                               QRegularExpression::CaseInsensitiveOption);
 
 Shop::Shop(QSettings &settings,
            NetworkManager &network_manager,
@@ -158,10 +349,11 @@ void Shop::OnRefreshFinished(const RefreshOutcome &outcome)
     SubmitAutomaticShop();
 }
 
-void Shop::Warn(Notice notice, bool automatic, const QString &message)
+void Shop::Warn(Notice notice, bool automatic, const QString &message, int detail)
 {
-    const bool first_time = m_warned.insert(notice).second;
-    if (!automatic || first_time) {
+    // A manual request is always told and never uses up an automatic
+    // notice; an automatic one is told the first time only.
+    if (!automatic || m_warned.insert({notice, detail}).second) {
         emit UserWarning(message);
     }
 }
@@ -292,23 +484,25 @@ void Shop::OnStashIndexReceived(
     if (!result) {
         const auto &error = result.error();
         if (error.kind == RateLimit::FetchError::Kind::Canceled) {
-            spdlog::debug("Shop: the stash index request was canceled");
+            FailActiveJob({Failure::Kind::Canceled,
+                           Failure::Cause::Canceled,
+                           "the stash index request was canceled"});
         } else if (error.kind == RateLimit::FetchError::Kind::Http
                    && (error.http_status == 401 || error.http_status == 403)) {
-            RejectPoeSession("legacy stash index returned HTTP 401/403");
+            FailActiveJob(SessionRejected("the legacy stash index returned HTTP 401/403"));
         } else {
-            spdlog::error("Shop: could not index stashes ({}): {}",
-                          RateLimit::ToString(error.kind),
-                          error.message);
+            FailActiveJob(Error(Cause::StashIndex,
+                                QString("Acquisition could not read your stash tab list from "
+                                        "pathofexile.com (%1: %2).")
+                                    .arg(RateLimit::ToString(error.kind), error.message)));
         }
-        FailActiveJob();
         return;
     }
     const poe::WebStashListWrapper *tabs_wrapper = &result.value();
 
     if (!tabs_wrapper->tabs) {
-        spdlog::error("Shop: stash list result does not contains tabs list.");
-        FailActiveJob();
+        FailActiveJob(
+            Error(Cause::StashIndex, "The stash tab list from pathofexile.com had no tabs in it."));
         return;
     }
 
@@ -321,19 +515,6 @@ void Shop::OnStashIndexReceived(
     }
 
     OnStashIndexUpdated();
-}
-
-void Shop::RejectPoeSession(const QString &reason)
-{
-    spdlog::warn("Shop: rejecting POESESSID: {}", reason);
-
-    m_waiting_capture.reset();
-    SetAutoUpdate(false);
-
-    emit PoeSessionRejected();
-    emit UserWarning("Path of Exile rejected the saved POESESSID. Acquisition has "
-                     "cleared it and disabled automatic forum updates as a precaution.\n\n"
-                     "Normal stash and character updates are unaffected.");
 }
 
 void Shop::ExpireShopData()
@@ -375,17 +556,45 @@ void Shop::CompleteActiveJob()
     }
 }
 
-void Shop::FailActiveJob()
+void Shop::FailActiveJob(const Failure &failure)
 {
     // The failure terminal exit (M2 D8/R4-3, no kind discrimination):
     // drain nothing and discard the waiting capture, leaving the input
     // revision dirty — the next clean automatic request or manual request
     // recaptures the latest published state instead of retrying a possibly
     // stale snapshot or hammering an auth/network failure.
+    const bool automatic = m_active_job && m_active_job->automatic;
     m_active_job.reset();
     if (m_waiting_capture) {
         spdlog::debug("Shop: discarding the waiting automatic capture after a failed submission");
         m_waiting_capture.reset();
+    }
+
+    switch (failure.kind) {
+    case Failure::Kind::Canceled:
+        spdlog::debug("Shop: the submission was canceled: {}", failure.message);
+        emit StatusUpdate(ProgramState::Ready, "Forum shop update canceled");
+        break;
+    case Failure::Kind::SessionRejected:
+        spdlog::warn("Shop: rejecting POESESSID: {}", failure.message);
+        SetAutoUpdate(false);
+        emit PoeSessionRejected();
+        emit StatusUpdate(ProgramState::Ready,
+                          "Forum shop not updated: Path of Exile rejected the POESESSID");
+        Warn(Notice::SessionRejected,
+             false,
+             "Path of Exile rejected the saved POESESSID. Acquisition has "
+             "cleared it and disabled automatic forum updates as a precaution.\n\n"
+             "Normal stash and character updates are unaffected.");
+        break;
+    case Failure::Kind::Error:
+        spdlog::error("Shop: the forum shop was not updated: {}", failure.message);
+        emit StatusUpdate(ProgramState::Ready, "Forum shop not updated: " + failure.message);
+        Warn(Notice::SubmissionFailed,
+             automatic,
+             "Your forum shop was not updated.\n\n" + failure.message,
+             static_cast<int>(failure.cause));
+        break;
     }
 }
 
@@ -433,6 +642,7 @@ void Shop::OnStashIndexUpdated()
     }
 
     job.requests_completed = 0;
+    job.attempts = 0;
     SubmitSingleShop();
 }
 
@@ -449,44 +659,13 @@ void Shop::PublishPreviewCache(const ShopJob &job)
     m_cache_revision = job.input_revision;
 }
 
-QString Shop::ShopEditUrl(qsizetype idx)
-{
-    if (idx >= m_active_job->threads.size()) {
-        spdlog::error("Shop: cannot create edit url for thread # {}", idx);
-        return "";
-    }
-    const QString url = kPoeEditThread + m_active_job->threads[idx];
-    spdlog::debug("Shop: shop edit url # {} is {}", idx, url);
-    return url;
-}
-
 void Shop::SubmitSingleShop()
 {
-    spdlog::debug("Shop: submitting a single shop.");
     ShopJob &job = *m_active_job;
-
-    // Submet the next thread.
-    if (job.requests_completed < job.threads.size()) {
-        spdlog::debug("Shop: updating shop thread # {}: {}",
-                      (job.requests_completed + 1),
-                      job.threads[job.requests_completed]);
-        emit StatusUpdate(ProgramState::Ready,
-                          QString("Sending your shops to the forum, %1/%2")
-                              .arg(job.requests_completed)
-                              .arg(job.threads.size()));
-
-        // first, get to the edit-thread page to grab CSRF token
-        QNetworkRequest request = QNetworkRequest(QUrl(ShopEditUrl(job.requests_completed)));
-        request.setRawHeader("Cache-Control", "max-age=0");
-        request.setTransferTimeout(kEditThreadTimeout);
-        QNetworkReply *fetched = m_network_manager.get(request);
-        connect(fetched, &QNetworkReply::finished, this, &Shop::OnEditPageFinished);
-        return;
-    }
 
     // Finish when all threads have been updated. The persisted hash is the
     // job's own rendered hash — the successful-completion terminal exit.
-    if (job.requests_completed == job.threads.size()) {
+    if (job.requests_completed >= job.threads.size()) {
         spdlog::debug("Shop: updated {} threads", job.threads.size());
         emit StatusUpdate(ProgramState::Ready, "Shop threads updated");
         m_datastore.Set("shop_hash", job.rendered.hash);
@@ -494,234 +673,114 @@ void Shop::SubmitSingleShop()
         return;
     }
 
-    // This error should never happen.
-    spdlog::error("Shop: shop thread # {} does not exist", job.requests_completed);
-    emit StatusUpdate(ProgramState::Ready, "Shop threads not updated due to an error.");
-    FailActiveJob();
+    const QString &thread = job.threads[job.requests_completed];
+    spdlog::debug("Shop: updating shop thread # {}: {}", job.requests_completed + 1, thread);
+    emit StatusUpdate(ProgramState::Ready,
+                      QString("Sending your shops to the forum, %1/%2")
+                          .arg(job.requests_completed)
+                          .arg(job.threads.size()));
+
+    // First get the edit-thread page, for its CSRF token and title.
+    QNetworkRequest request(QUrl(kPoeEditThread + thread));
+    request.setRawHeader("Cache-Control", "max-age=0");
+    request.setTransferTimeout(kEditThreadTimeout);
+    QNetworkReply *reply = m_network_manager.get(request);
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() { OnEditPageFinished(reply); });
 }
 
-void Shop::OnEditPageFinished()
+void Shop::OnEditPageFinished(QNetworkReply *reply)
 {
-    spdlog::trace("Shop: edit page finished");
+    reply->deleteLater();
     if (!m_active_job) {
         spdlog::warn("Shop: ignoring an edit page reply because no submission job is active");
         return;
     }
-    QNetworkReply *reply = qobject_cast<QNetworkReply *>(QObject::sender());
-
-    if (IsPoeSessionRejected(reply)) {
-        RejectPoeSession("forum edit page returned HTTP 401/403");
-        reply->deleteLater();
-        FailActiveJob();
+    const ShopJob &job = *m_active_job;
+    auto page = ParseEditPage(ReadReply(*reply), job.threads[job.requests_completed]);
+    if (const auto *failure = std::get_if<Failure>(&page)) {
+        FailActiveJob(*failure);
         return;
     }
-
-    const QByteArray bytes = reply->readAll();
-    if (IsPoeSessionRejected(bytes)) {
-        // The website may redirect an unauthenticated request to an error
-        // page whose final response is 200, so status alone is insufficient.
-        RejectPoeSession("forum edit page returned an authentication error page");
-        reply->deleteLater();
-        FailActiveJob();
-        return;
-    }
-
-    const QString hash = Util::GetCsrfToken(bytes, "hash");
-    if (hash.isEmpty()) {
-        spdlog::error("Cannot update shop: unable to extract CSRF token from the page. The "
-                      "thread ID may be invalid.");
-        emit StatusUpdate(ProgramState::Ready, "Shop threads not updated due to an error.");
-        FailActiveJob();
-        reply->deleteLater();
-        return;
-    }
-    spdlog::trace("CSRF token found.");
-
-    // now submit our edit
-    // holy shit give me some html parser library please
-    const QString page(bytes);
-    QString title
-        = Util::FindTextBetween(page,
-                                "<input type=\"text\" name=\"title\" id=\"title\" "
-                                "onkeypress=\"return&#x20;event.keyCode&#x21;&#x3D;13\" value=\"",
-                                "\">");
-    if (title.isEmpty()) {
-        spdlog::error("Cannot update shop: title is empty. Check if thread ID is valid.");
-        FailActiveJob();
-        reply->deleteLater();
-        return;
-    }
-
-    QTimer::singleShot(500, this, [=, this]() { SubmitNextShop(title, hash); });
-    reply->deleteLater();
+    const EditForm form = std::get<EditForm>(std::move(page));
+    const ShopJob *posting = m_active_job.get();
+    QTimer::singleShot(kEditToPostDelay, this, [this, posting, form]() {
+        if (m_active_job.get() == posting) {
+            SubmitNextShop(form.title, form.hash);
+        }
+    });
 }
 
 void Shop::SubmitNextShop(const QString &title, const QString &hash)
 {
-    spdlog::debug("Shop: submitting the next shop.");
-    if (!m_active_job) {
-        spdlog::warn("Shop: ignoring a deferred submission because no job is active");
-        return;
-    }
-    const ShopJob &job = *m_active_job;
+    ShopJob &job = *m_active_job;
+    ++job.attempts;
+    spdlog::debug("Shop: posting thread # {}, attempt {}", job.requests_completed + 1, job.attempts);
 
     const QString content = job.requests_completed < job.rendered.pages.size()
                                 ? job.rendered.pages[job.requests_completed]
                                 : "Empty";
-
     const QByteArray data = Util::EncodeForm({{"title", Util::Decode(title)},
                                               {"content", content},
                                               {"notify_owner", "0"},
                                               {"hash", hash},
                                               {"submit", "Submit"}});
-    QNetworkRequest request((QUrl(ShopEditUrl(job.requests_completed))));
+    QNetworkRequest request(QUrl(kPoeEditThread + job.threads[job.requests_completed]));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
     request.setRawHeader("Cache-Control", "max-age=0");
     request.setTransferTimeout(kEditThreadTimeout);
 
     QNetworkReply *reply = m_network_manager.post(request, data);
-    connect(reply, &QNetworkReply::finished, this, [=, this]() { OnShopSubmitted(title, reply); });
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() { OnShopSubmitted(reply); });
 }
 
-void Shop::OnShopSubmitted(const QString &title, QNetworkReply *reply)
+void Shop::OnShopSubmitted(QNetworkReply *reply)
 {
-    spdlog::debug("Shop: shop submission reply received.");
-
-    // Make sure the reply is deleted.
     reply->deleteLater();
-
     if (!m_active_job) {
         spdlog::warn("Shop: ignoring a submission reply because no job is active");
         return;
     }
+    ShopJob &job = *m_active_job;
+    const auto outcome = ClassifyPostReply(ReadReply(*reply), job.threads[job.requests_completed]);
 
-    const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-    if (IsPoeSessionRejected(reply)) {
-        RejectPoeSession("forum submission returned HTTP 401/403");
-        FailActiveJob();
+    if (const auto *failure = std::get_if<Failure>(&outcome)) {
+        FailActiveJob(*failure);
         return;
     }
 
-    // Check for transport errors. reply->error() is a Qt NetworkError enum,
-    // not an HTTP status; the response status lives in the request attribute.
-    if (reply->error() != QNetworkReply::NoError) {
-        spdlog::error("Shop: network error submitting shop: HTTP {}, Qt error {}: {}",
-                      status,
-                      reply->error(),
-                      reply->errorString());
-        FailActiveJob();
-        return;
-    }
-
-    const QByteArray bytes = reply->readAll();
-    if (IsPoeSessionRejected(bytes)) {
-        RejectPoeSession("forum submission returned an authentication error page");
-        FailActiveJob();
-        return;
-    }
-
-    // Errors can show up in a couple different places. So far, the easiest way to identify
-    // them seems to be to look for an html tag with the "class" attribute set to
-    // "input-error" or "errors".
-    //
-    // After this class attribute, there seems to always be an error message enclosed in
-    // an list item tag, with varying differents between the class attribute and that tag.
-    QRegularExpressionMatchIterator i = error_regex.globalMatch(bytes);
-    if (i.hasNext()) {
-        // Process one or more errors (I've never seen more than one in practice).
-        int seconds = 0;
-        while (i.hasNext()) {
-            // We only know the error message if the list item element was found.
-            const QRegularExpressionMatch error_match = i.next();
-            const QString error_message
-                = (error_match.lastCapturedIndex() > 0)
-                      ? QTextDocumentFragment::fromHtml(error_match.captured(1)).toPlainText()
-                      : "(Failed to parse the error message)";
-            spdlog::error("Shop: error submitting shop thread: {}", error_message);
-            if (error_message.startsWith("Failed to find item.", Qt::CaseInsensitive)) {
-                spdlog::error("Shop: the stash index may be out of date. Try submitting again.");
-                FailActiveJob();
-                return;
-            } else if (error_message.startsWith("Security token has expired.")) {
-                // This error would occur somewhat randomly before a delay was added in OnEditPageFinished.
-                // With that delay, this error doesn't seem to happen any more, but we should probably
-                // keep checking for it.
-                if (seconds < 5) {
-                    seconds = 5;
-                    spdlog::trace("Shop: setting {} second delay.", seconds);
-                }
-            } else if (error_message.startsWith("Rate limiting", Qt::CaseInsensitive)) {
-                // Look for a rate limiting error here, because there are no headers to check for
-                // like the other API calls.
-                const QRegularExpressionMatch ratelimit_match = ratelimit_regex.match(error_message);
-                int ratelimit_delay = ratelimit_match.captured(1).toInt();
-                if (ratelimit_delay == 0) {
-                    spdlog::error("Shop: error parsing wait time from error message.");
-                    FailActiveJob();
-                    return;
-                }
-                if (seconds < ratelimit_delay) {
-                    seconds = ratelimit_delay + 1;
-                    spdlog::trace("Shop: setting {} second delay.", seconds);
-                }
-            } else {
-                // Only the list item's text, logged above: the whole match
-                // can start at the hash input and span the CSRF token (#315).
-                spdlog::error("Shop: the forum reported an error the shop does not handle");
-                spdlog::debug("Shop: the query was: {}", reply->request().url().toDisplayString());
-                FailActiveJob();
-                return;
+    if (const auto *retry = std::get_if<RetryAfter>(&outcome)) {
+        spdlog::warn("Shop: the forum asked for a retry: {}", retry->reason);
+        if (retry->seconds > kMaxRateLimitWaitSeconds) {
+            FailActiveJob(Error(Cause::RateLimited,
+                                QString("The forum asks you to wait %1 seconds before posting "
+                                        "again. Update the shop after that.")
+                                    .arg(retry->seconds)));
+            return;
+        }
+        if (job.attempts >= kMaxAttemptsPerThread) {
+            FailActiveJob(Error(Cause::RetriesExhausted,
+                                QString("The forum did not accept the post for thread %1 after %2 "
+                                        "attempts. Its last answer was: %3")
+                                    .arg(job.threads[job.requests_completed])
+                                    .arg(job.attempts)
+                                    .arg(retry->reason)));
+            return;
+        }
+        // The rate-limit wait is the forum's own, plus a second of margin.
+        const std::chrono::milliseconds delay = retry->seconds > 0
+                                                    ? std::chrono::seconds(retry->seconds + 1)
+                                                    : m_retry_delay;
+        const ShopJob *retrying = &job;
+        QTimer::singleShot(delay, this, [this, retrying]() {
+            if (m_active_job.get() == retrying) {
+                SubmitSingleShop();
             }
-        }
-        if (seconds > 0) {
-            // Resubmit if the errors indicate we only have to try again later.
-            const int ms = seconds * 1000;
-            const QString hash = Util::GetCsrfToken(bytes, "hash");
-            spdlog::warn("Shop: resubmitting shop after {} seconds.", seconds);
-            QTimer::singleShot(ms, this, [=, this]() { SubmitNextShop(title, hash); });
-            return;
-        } else {
-            // Quit the update for any other error.
-            FailActiveJob();
-            return;
-        }
-    }
-
-    // Keep legacy error-checking in place for now.
-    QString page(bytes);
-    QString error = Util::FindTextBetween(page, "<ul class=\"errors\"><li>", "</li></ul>");
-    if (!error.isEmpty()) {
-        spdlog::error("Shop: (DEPRECATED) Error while submitting shop to forums: {}", error);
-        FailActiveJob();
+        });
         return;
     }
 
-    // This slightly different error was encountered while debugging an issue with v0.9.9-beta.1.
-    // It's possible GGG has updated the forums so the previous error checking is no longer
-    // relavent, but that's not certain or documented anywhere, so let's do both.
-    QString input_error = Util::FindTextBetween(page, "class=\"input-error\">", "</div>");
-    if (!input_error.isEmpty()) {
-        spdlog::error("Shop: (DEPRECATED) Input error while submitting shop to forums ({} "
-                      "characters of markup not logged)",
-                      input_error.size());
-        FailActiveJob();
-        return;
-    }
-
-    // Let's err on the side of being cautious and look for an error the above code might
-    // have missed. Otherwise errors might just silently fall through the cracks.
-    for (auto &substr : {"class=\"errors\"", "class=\"input-error\""}) {
-        if (page.contains(substr)) {
-            spdlog::error("Shop: (DEPRECATED) An error was detected but not handled while "
-                          "submitting shop to forums: {} (the {}-byte reply is not logged)",
-                          substr,
-                          bytes.size());
-            FailActiveJob();
-            return;
-        }
-    }
-
-    ++m_active_job->requests_completed;
+    ++job.requests_completed;
+    job.attempts = 0;
     SubmitSingleShop();
 }
 

@@ -4,6 +4,7 @@
 #include <QtTest/QtTest>
 
 #include <QBuffer>
+#include <QFile>
 #include <QMap>
 #include <QSettings>
 #include <QSqlQuery>
@@ -118,6 +119,7 @@ private slots:
 
     // #258: every form value reaches the forum as the user wrote it.
     void formValuesArePercentEncoded();
+    void titleFromTheEditPageIsPostedDecoded();
 
     // #279: one admission gate. A manual request is always told why it
     // was refused; an automatic one hears each reason once per session.
@@ -136,15 +138,37 @@ private slots:
     void renderCharacterItem();
     void renderLeavesOutGameAndUnindexedItems();
     void renderShopNeverPostsAGamePrice();
+
+    // #258: one failure exit, and a bounded conversation with the forum.
+    void everyFailureEndsInAStatusAndANotice_data();
+    void everyFailureEndsInAStatusAndANotice();
+    void editPageTransportFailureDoesNotBlameTheThread();
+    void expiredTokenRetriesAreBounded();
+    void rateLimitedPostRefetchesTheEditPage_data();
+    void rateLimitedPostRefetchesTheEditPage();
+    void longRateLimitFailsWithTheWait();
+    void automaticFailureWarnsOncePerSession();
+
+    // Review of #258: a rejected session is the status or the page's own
+    // heading, never a phrase somewhere in the page's text.
+    void phraseInPostTextIsNotARejectedSession_data();
+    void phraseInPostTextIsNotARejectedSession();
+    void loggedOutHeadingIsARejectedSession();
+    void automaticFailuresWarnOncePerKind();
+    void unrecognisedErrorShowsNoPageText();
 };
 
 namespace {
+
+    // The thread the captured forum pages belong to (tests/fixtures/forum/):
+    // the page a successful edit returns links to it.
+    constexpr const char *kThread = "3445874";
 
     // A Shop ready to submit: threads set and a POESESSID present, the two
     // preconditions SubmitShopToForum checks before it indexes anything.
     void armForSubmission(ShopFixture &fixture)
     {
-        fixture.shop->SetThread({"123"});
+        fixture.shop->SetThread({kThread});
         fixture.settings->setValue("session_id", "fake-poesessid");
         fixture.settings->setValue("account", "someone");
         fixture.settings->setValue("realm", "pc");
@@ -175,12 +199,33 @@ namespace {
     // the shop keys on is the first 10 characters of the id.
     constexpr const char *kStashIndexJson = R"({"tabs":[{"n":"Test Tab","i":0,"id":"stash00001"}]})";
 
-    // A forum edit-thread page carrying exactly the CSRF hash input and the
-    // title input Shop::OnEditPageFinished parses.
-    const QByteArray kEditThreadPage
-        = "<input type=\"hidden\" name=\"hash\" value=\"fakecsrfhash\">\n"
-          "<input type=\"text\" name=\"title\" id=\"title\" "
-          "onkeypress=\"return&#x20;event.keyCode&#x21;&#x3D;13\" value=\"My Shop\">";
+    // Pages the forum sent, captured by the maintainer and trimmed to their
+    // content block (each file starts with a comment saying what was
+    // trimmed and scrubbed): the edit-thread page a submission GETs, and
+    // the thread view the forum answers a successful edit POST with.
+    QByteArray forumPage(const QString &name)
+    {
+        QFile file(QFINDTESTDATA("fixtures/forum/" + name));
+        if (!file.open(QIODevice::ReadOnly)) {
+            qFatal("tst_shop: cannot open the forum fixture %s", qPrintable(name));
+        }
+        return file.readAll();
+    }
+    QByteArray editThreadPage()
+    {
+        return forumPage("edit-thread.html");
+    }
+    QByteArray afterEditPage()
+    {
+        return forumPage("after-edit-thread.html");
+    }
+
+    // The scrubbed hash value in edit-thread.html, and its title as the
+    // page's value attribute carries it.
+    constexpr const char *kEditPageHash
+        = "0123456789abcdef0123456789abcdef-fedcba9876543210fedcba9876543210";
+    constexpr const char *kEditPageTitleAttribute
+        = "value=\"GERWARIC&#x27;s&#x20;Standard&#x20;Shop\"";
 
     // Walk the active job's forum flow to completion: finish the edit-page
     // GET at m_sent index `get_index`, wait out the 500ms CSRF delay for the
@@ -191,12 +236,12 @@ namespace {
         fixture.networkManager->sent(get_index).reply->finish({},
                                                               200,
                                                               QNetworkReply::NoError,
-                                                              kEditThreadPage);
+                                                              editThreadPage());
         QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), get_index + 2, 5000);
         QCOMPARE(fixture.networkManager->sent(get_index + 1).op,
                  QNetworkAccessManager::PostOperation);
         fixture.networkManager->sent(get_index + 1)
-            .reply->finish({}, 200, QNetworkReply::NoError, QByteArray("ok"));
+            .reply->finish({}, 200, QNetworkReply::NoError, afterEditPage());
         drainEvents();
     }
 
@@ -272,7 +317,7 @@ namespace {
 
     void armStoreBackedShop(ShopFixture &fixture, StoreBackedShop &backed)
     {
-        backed.shop.SetThread({"123"});
+        backed.shop.SetThread({kThread});
         fixture.settings->setValue("session_id", "fake-poesessid");
         fixture.settings->setValue("account", "someone");
         fixture.settings->setValue("realm", "pc");
@@ -411,7 +456,7 @@ void ShopTest::stashIndexSuccessProceedsToShopSubmission()
     QCOMPARE(fixture.networkManager->count(), 1);
     QCOMPARE(fixture.networkManager->sent(0).op, QNetworkAccessManager::GetOperation);
     QCOMPARE(fixture.networkManager->sent(0).request.url().toString(),
-             QString("https://www.pathofexile.com/forum/edit-thread/123"));
+             QString("https://www.pathofexile.com/forum/edit-thread/") + kThread);
 
     // And the lock is still held while that submission is in flight.
     fixture.shop->SubmitShopToForum(true);
@@ -451,7 +496,7 @@ void ShopTest::shopPost403RejectsPoeSession()
     fixture.shop->SubmitShopToForum(true);
     fixture.rateLimiter->resolve(0, kStashIndexJson);
     drainEvents();
-    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
 
     fixture.networkManager->sent(1).reply->finish({},
@@ -924,13 +969,13 @@ void ShopTest::morePagesThanThreadsWarnsWithoutReposting()
 
     // The one thread receives page one. Read the POST body before its reply
     // finishes and is released.
-    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
     QCOMPARE(fixture.networkManager->sent(1).request.url().toString(),
-             QString("https://www.pathofexile.com/forum/edit-thread/123"));
+             QString("https://www.pathofexile.com/forum/edit-thread/") + kThread);
     QCOMPARE(postedForm(fixture.networkManager->sent(1)).value("content"),
              fixture.shop->shop_data().first());
-    fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, QByteArray("ok"));
+    fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, afterEditPage());
     drainEvents();
 
     // Nothing else was sent and the user was told. The hash is saved as for
@@ -961,9 +1006,9 @@ void ShopTest::automaticShortfallWarnsOncePerSession()
     fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
     fixture.rateLimiter->resolve(0, kStashIndexJson);
     drainEvents();
-    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
-    fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, QByteArray("ok"));
+    fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, afterEditPage());
     drainEvents();
     QCOMPARE(warnings.count(), 1);
 
@@ -1042,17 +1087,18 @@ void ShopTest::healthyEmptyStoreStillPostsEmpty()
     drainEvents();
 
     QCOMPARE(fixture.networkManager->count(), 1);
-    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
     QCOMPARE(postedForm(fixture.networkManager->sent(1)).value("content"), QString("Empty"));
     QCOMPARE(warnings.count(), 0);
 }
 
-// The two replies below are NOT captures of forum pages: none is in the
-// repository. Each is built from the shapes the parsing code documents —
-// Shop::error_regex (an element whose class is "errors" or "input-error",
-// then an <li> holding the message) and Util::GetCsrfToken's comment (the
-// hash input may itself carry class="input-error").
+// The two replies below are NOT captures: no forum error page has been
+// captured (tests/fixtures/forum/ holds only the edit page and the page a
+// successful edit returns). Each is built from the shapes the parsing code
+// documents — an error list (<ul class="errors"> holding the message in an
+// <li>), a bare error class, and Util::GetCsrfToken's comment that the
+// hash input may itself carry class="input-error".
 void ShopTest::forumErrorReplyIsNotLogged_data()
 {
     QTest::addColumn<QByteArray>("reply");
@@ -1086,7 +1132,7 @@ void ShopTest::forumErrorReplyIsNotLogged()
     fixture.shop->SubmitShopToForum(true);
     fixture.rateLimiter->resolve(0, kStashIndexJson);
     drainEvents();
-    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
     fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, reply);
     drainEvents();
@@ -1109,8 +1155,10 @@ void ShopTest::formValuesArePercentEncoded()
     fixture.shop->SubmitShopToForum(true);
     fixture.rateLimiter->resolve(0, kStashIndexJson);
     drainEvents();
-    QByteArray edit_page = kEditThreadPage;
-    edit_page.replace("value=\"My Shop\"", "value=\"WTS +1 gems &amp; 50% off\"");
+    QByteArray edit_page = editThreadPage();
+    QVERIFY(edit_page.contains(kEditPageTitleAttribute));
+    edit_page.replace(kEditPageTitleAttribute,
+                      "value=\"WTS&#x20;+1&#x20;gems&#x20;&amp;&#x20;50%&#x20;off\"");
     fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, edit_page);
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
 
@@ -1118,7 +1166,7 @@ void ShopTest::formValuesArePercentEncoded()
     QCOMPARE(form.value("content"), fixture.shop->shop_data().first());
     QVERIFY(form.value("content").endsWith("[/spoiler] +1 & 50% %41 é"));
     QCOMPARE(form.value("title"), QString("WTS +1 gems & 50% off"));
-    QCOMPARE(form.value("hash"), QString("fakecsrfhash"));
+    QCOMPARE(form.value("hash"), QString(kEditPageHash));
     QCOMPARE(form.value("notify_owner"), QString("0"));
     QCOMPARE(form.value("submit"), QString("Submit"));
 }
@@ -1142,7 +1190,7 @@ void ShopTest::automaticRefusalWarnsOncePerReason()
     QVERIFY(warnings.last().first().toString().contains("No forum threads"));
 
     // Threads, but no POESESSID: a different reason, reported once.
-    fixture.shop->SetThread({"123"});
+    fixture.shop->SetThread({kThread});
     fixture.settings->remove("session_id");
     for (int i = 0; i < 2; ++i) {
         fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
@@ -1409,6 +1457,24 @@ void ShopTest::renderLeavesOutGameAndUnindexedItems()
                          + stashLink(4, 0) + "[/spoiler]"});
 }
 
+// The real edit page writes the title with hex character references, the
+// spaces included; the POST carries it back as plain text.
+void ShopTest::titleFromTheEditPageIsPostedDecoded()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    QVERIFY(editThreadPage().contains(kEditPageTitleAttribute));
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+
+    const auto form = postedForm(fixture.networkManager->sent(1));
+    QCOMPARE(form.value("title"), QString("GERWARIC's Standard Shop"));
+    QCOMPARE(form.value("hash"), QString(kEditPageHash));
+}
+
 // AGENTS.md: prices set in the game are never posted to the forum. The
 // renderer filters by itself, so a caller that hands it a game-sourced
 // price still cannot get it posted; an item whose tab the stash index does
@@ -1446,6 +1512,437 @@ void ShopTest::renderShopNeverPostsAGamePrice()
     // A game price alone renders nothing at all.
     input.items.erase(input.items.begin() + 1, input.items.end());
     QVERIFY(RenderShop(input).pages.isEmpty());
+}
+
+namespace {
+
+    // Error replies to the edit POST. The maintainer has no capture of any
+    // forum error page. Each of these is the captured edit page with one
+    // element inserted after the form's opening <fieldset>: an error list
+    // in the shape Shop's parsing documents (an element whose class is
+    // "errors", holding the message in an <li>), with the message texts
+    // its checks look for. The inserted element, its position, and the
+    // message wording are derived from that code, not captured; everything
+    // around them is what the forum sent.
+    QByteArray editPageWithError(const QByteArray &error_element)
+    {
+        QByteArray page = editThreadPage();
+        const QByteArray anchor
+            = "<form method=\"POST\" class=\"t1&#x20;formForumThread\"><fieldset>";
+        const qsizetype at = page.indexOf(anchor);
+        if (at < 0) {
+            qFatal("tst_shop: the edit page fixture has no form to insert an error into");
+        }
+        page.insert(at + anchor.size(), "\n" + error_element);
+        return page;
+    }
+    QByteArray errorListPage(const QByteArray &message)
+    {
+        return editPageWithError("<ul class=\"errors\"><li>" + message + "</li></ul>");
+    }
+
+    // Where in the conversation a failure arrives, and what arrives.
+    enum class FailAt { StashIndex, StashIndexBody, EditPage, Post };
+
+    // Run a manual submission up to `at` and answer it with the failure.
+    void failSubmissionAt(ShopFixture &fixture,
+                          FailAt at,
+                          int status,
+                          QNetworkReply::NetworkError error,
+                          const QByteArray &body)
+    {
+        armForSubmission(fixture);
+        fixture.shop->SubmitShopToForum(true);
+        if (at == FailAt::StashIndex) {
+            fixture.rateLimiter->reject(0, RateLimit::FetchError::Kind::Network, "network error");
+            drainEvents();
+            return;
+        }
+        fixture.rateLimiter->resolve(0,
+                                     at == FailAt::StashIndexBody ? QByteArray("{}")
+                                                                  : QByteArray(kStashIndexJson));
+        drainEvents();
+        if (at == FailAt::StashIndexBody) {
+            return;
+        }
+        if (at == FailAt::EditPage) {
+            fixture.networkManager->sent(0).reply->finish({}, status, error, body);
+            drainEvents();
+            return;
+        }
+        fixture.networkManager->sent(0).reply->finish({},
+                                                      200,
+                                                      QNetworkReply::NoError,
+                                                      editThreadPage());
+        QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+        fixture.networkManager->sent(1).reply->finish({}, status, error, body);
+        drainEvents();
+    }
+
+    QString lastStatus(const QSignalSpy &statuses)
+    {
+        return statuses.isEmpty() ? QString() : statuses.last().at(1).toString();
+    }
+
+} // namespace
+
+Q_DECLARE_METATYPE(FailAt)
+
+// Every way a submission can fail now ends in the one failure exit: the
+// status line stops saying "Sending…", the user of a manual request is
+// told why, and the job is released.
+void ShopTest::everyFailureEndsInAStatusAndANotice_data()
+{
+    QTest::addColumn<FailAt>("at");
+    QTest::addColumn<int>("status");
+    QTest::addColumn<QNetworkReply::NetworkError>("error");
+    QTest::addColumn<QByteArray>("body");
+
+    const auto ok = QNetworkReply::NoError;
+    QTest::newRow("stash index error") << FailAt::StashIndex << 0 << ok << QByteArray();
+    QTest::newRow("stash index without tabs") << FailAt::StashIndexBody << 0 << ok << QByteArray();
+    QTest::newRow("edit page timed out")
+        << FailAt::EditPage << 0 << QNetworkReply::OperationCanceledError << QByteArray();
+    QTest::newRow("edit page not found")
+        << FailAt::EditPage << 404 << QNetworkReply::ContentNotFoundError
+        << QByteArray("Not Found");
+    QByteArray no_title = editThreadPage();
+    no_title.replace("name=\"title\"", "name=\"subject\"");
+    QTest::newRow("edit page without a title") << FailAt::EditPage << 200 << ok << no_title;
+    QTest::newRow("post connection lost")
+        << FailAt::Post << 0 << QNetworkReply::RemoteHostClosedError << QByteArray();
+    QTest::newRow("post failed to find item")
+        << FailAt::Post << 200 << ok << errorListPage("Failed to find item.");
+    QTest::newRow("post unknown error")
+        << FailAt::Post << 200 << ok << errorListPage("Something the shop does not know.");
+    QTest::newRow("post rate limit without a wait")
+        << FailAt::Post << 200 << ok << errorListPage("Rate limiting is in effect.");
+    QTest::newRow("post error marker without a message")
+        << FailAt::Post << 200 << ok
+        << editPageWithError("<div class=\"errors\">Something went wrong.</div>");
+    QTest::newRow("post input error")
+        << FailAt::Post << 200 << ok
+        << editPageWithError("<div class=\"input-error\">Something went wrong.</div>");
+
+    // Replies with no known error that are not this thread's page either:
+    // nothing shows the post was saved.
+    QTest::newRow("post answered with nothing") << FailAt::Post << 200 << ok << QByteArray();
+    QByteArray other_thread = afterEditPage();
+    other_thread.replace(kThread, "1111111");
+    QTest::newRow("post answered with another thread") << FailAt::Post << 200 << ok << other_thread;
+    QTest::newRow("post answered with the edit form again")
+        << FailAt::Post << 200 << ok << editThreadPage();
+}
+
+void ShopTest::everyFailureEndsInAStatusAndANotice()
+{
+    QFETCH(FailAt, at);
+    QFETCH(int, status);
+    QFETCH(QNetworkReply::NetworkError, error);
+    QFETCH(QByteArray, body);
+
+    ShopFixture fixture;
+    QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    failSubmissionAt(fixture, at, status, error, body);
+
+    QVERIFY2(!lastStatus(statuses).isEmpty(), "no status after the failure");
+    QVERIFY2(!lastStatus(statuses).startsWith("Sending"), qPrintable(lastStatus(statuses)));
+    QCOMPARE(warnings.count(), 1);
+    // Nothing was posted, so the next update posts again.
+    QCOMPARE(fixture.buyoutFixture.data->Get("shop_hash"), QString());
+
+    // The job is released: a new request starts a new stash index fetch.
+    const size_t before = fixture.rateLimiter->futureCount();
+    fixture.shop->SubmitShopToForum(true);
+    QCOMPARE(fixture.rateLimiter->futureCount(), before + 1);
+}
+
+// A timeout says nothing about the thread number: the notice must not send
+// the user to check it.
+void ShopTest::editPageTransportFailureDoesNotBlameTheThread()
+{
+    ShopFixture fixture;
+    QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    failSubmissionAt(fixture,
+                     FailAt::EditPage,
+                     0,
+                     QNetworkReply::OperationCanceledError,
+                     QByteArray());
+
+    QCOMPARE(warnings.count(), 1);
+    const QString notice = warnings.first().first().toString() + lastStatus(statuses);
+    QVERIFY2(!notice.contains(kThread), qPrintable(notice));
+    QVERIFY2(!notice.contains("thread number", Qt::CaseInsensitive), qPrintable(notice));
+    QVERIFY2(!notice.contains("thread ID", Qt::CaseInsensitive), qPrintable(notice));
+
+    // Nor does a server error: the site failed, not the thread number.
+    ShopFixture server_error;
+    QSignalSpy server_warnings(server_error.shop.get(), &Shop::UserWarning);
+    failSubmissionAt(server_error,
+                     FailAt::EditPage,
+                     503,
+                     QNetworkReply::ServiceUnavailableError,
+                     QByteArray("Service Unavailable"));
+    QCOMPARE(server_warnings.count(), 1);
+    const QString server_notice = server_warnings.first().first().toString();
+    QVERIFY2(!server_notice.contains("thread number", Qt::CaseInsensitive),
+             qPrintable(server_notice));
+    QVERIFY2(server_notice.contains("503"), qPrintable(server_notice));
+}
+
+// The forum answering every POST with an expired token: each retry fetches
+// the edit page again for a fresh token, and after three attempts the job
+// fails. At most two requests per attempt.
+void ShopTest::expiredTokenRetriesAreBounded()
+{
+    ShopFixture fixture;
+    fixture.shop->SetRetryDelay(std::chrono::milliseconds(0));
+    QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    armForSubmission(fixture);
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+
+    const QByteArray expired = errorListPage("Security token has expired.");
+    // Answer whatever the shop sends until it stops sending.
+    for (int answered = 0; answered < 20; ++answered) {
+        if (answered == fixture.networkManager->count()) {
+            QTest::qWait(1500);
+            if (answered == fixture.networkManager->count()) {
+                break;
+            }
+        }
+        const auto &sent = fixture.networkManager->sent(answered);
+        sent.reply->finish({},
+                           200,
+                           QNetworkReply::NoError,
+                           sent.op == QNetworkAccessManager::GetOperation ? editThreadPage()
+                                                                          : expired);
+        drainEvents();
+    }
+
+    QCOMPARE(fixture.networkManager->count(), 6);
+    for (int i = 0; i < 6; ++i) {
+        QCOMPARE(fixture.networkManager->sent(i).op,
+                 i % 2 == 0 ? QNetworkAccessManager::GetOperation
+                            : QNetworkAccessManager::PostOperation);
+    }
+    QVERIFY2(!lastStatus(statuses).startsWith("Sending"), qPrintable(lastStatus(statuses)));
+    QCOMPARE(warnings.count(), 1);
+}
+
+// A short wait the forum asks for is honoured, then the post starts over
+// from the edit page and goes through.
+void ShopTest::rateLimitedPostRefetchesTheEditPage_data()
+{
+    QTest::addColumn<QByteArray>("message");
+    QTest::newRow("seconds") << QByteArray("Rate limiting is in effect. You must wait 1 seconds.");
+    QTest::newRow("second") << QByteArray("Rate limiting is in effect. You must wait 1 second.");
+}
+
+void ShopTest::rateLimitedPostRefetchesTheEditPage()
+{
+    QFETCH(QByteArray, message);
+    ShopFixture fixture;
+    QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
+    armForSubmission(fixture);
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+    fixture.networkManager->sent(1).reply->finish({},
+                                                  200,
+                                                  QNetworkReply::NoError,
+                                                  errorListPage(message));
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 3, 5000);
+    QCOMPARE(fixture.networkManager->sent(2).op, QNetworkAccessManager::GetOperation);
+
+    fixture.networkManager->sent(2).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 4, 5000);
+    fixture.networkManager->sent(3).reply->finish({}, 200, QNetworkReply::NoError, afterEditPage());
+    drainEvents();
+    QCOMPARE(lastStatus(statuses), QString("Shop threads updated"));
+}
+
+// A wait longer than a minute is not held inside the job: it fails, and the
+// notice says how long to wait.
+void ShopTest::longRateLimitFailsWithTheWait()
+{
+    ShopFixture fixture;
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    failSubmissionAt(fixture,
+                     FailAt::Post,
+                     200,
+                     QNetworkReply::NoError,
+                     errorListPage("Rate limiting is in effect. You must wait 120 seconds."));
+
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY2(warnings.first().first().toString().contains("120 seconds"),
+             qPrintable(warnings.first().first().toString()));
+    QTest::qWait(200);
+    QCOMPARE(fixture.networkManager->count(), 2);
+}
+
+// An automatic submission that fails tells the user once per session; the
+// status line reports every failure.
+void ShopTest::automaticFailureWarnsOncePerSession()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    fixture.shop->SetAutoUpdate(true);
+    QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+
+    for (size_t i = 0; i < 2; ++i) {
+        fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+        QCOMPARE(fixture.rateLimiter->futureCount(), i + 1);
+        fixture.rateLimiter->reject(i, RateLimit::FetchError::Kind::Network, "network error");
+        drainEvents();
+    }
+    QCOMPARE(warnings.count(), 1);
+    QCOMPARE(statuses.count(), 2);
+    QVERIFY(fixture.shop->auto_update());
+}
+
+void ShopTest::phraseInPostTextIsNotARejectedSession_data()
+{
+    QTest::addColumn<QByteArray>("phrase");
+    QTest::addColumn<bool>("in_post_reply");
+    for (const char *phrase : {"Login Required", "Permission Denied", "Content Denied"}) {
+        QTest::addRow("%s in the edit page's textarea", phrase) << QByteArray(phrase) << false;
+        QTest::addRow("%s in a post on the thread", phrase) << QByteArray(phrase) << true;
+    }
+}
+
+// The edit page carries the user's own post in its textarea, and the page
+// a successful edit returns shows everyone's posts in the thread. Either
+// may contain the phrases a logged-out page uses; that is not a rejected
+// session.
+void ShopTest::phraseInPostTextIsNotARejectedSession()
+{
+    QFETCH(QByteArray, phrase);
+    QFETCH(bool, in_post_reply);
+
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    fixture.shop->SetAutoUpdate(true);
+    QSignalSpy rejected(fixture.shop.get(), &Shop::PoeSessionRejected);
+    QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+
+    QByteArray edit_page = editThreadPage();
+    const QByteArray textarea_end = "</textarea>";
+    QVERIFY(edit_page.contains(textarea_end));
+    if (!in_post_reply) {
+        edit_page.replace(textarea_end, " " + phrase + textarea_end);
+    }
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, edit_page);
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+
+    QByteArray after_edit = afterEditPage();
+    const QByteArray post_body = "<div class=\"content\">";
+    const qsizetype at = after_edit.lastIndexOf(post_body);
+    QVERIFY(at > 0);
+    if (in_post_reply) {
+        after_edit.insert(at + post_body.size(), phrase);
+    }
+    fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, after_edit);
+    drainEvents();
+
+    QCOMPARE(rejected.count(), 0);
+    QVERIFY(fixture.shop->auto_update());
+    QCOMPARE(lastStatus(statuses), QString("Shop threads updated"));
+}
+
+// No logged-out page has been captured. This one is the captured edit
+// page with its heading and title replaced by the phrase, the shape the
+// session check looks for; the heading's shape is derived, not captured.
+void ShopTest::loggedOutHeadingIsARejectedSession()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    fixture.shop->SetAutoUpdate(true);
+    QSignalSpy rejected(fixture.shop.get(), &Shop::PoeSessionRejected);
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+
+    QByteArray page = editThreadPage();
+    const QByteArray heading = "<h1 class=\"topBar last layoutBoxTitle\">Edit Thread</h1>";
+    QVERIFY(page.contains(heading));
+    page.replace(heading, "<h1 class=\"topBar last layoutBoxTitle\">Login Required</h1>");
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, page);
+    drainEvents();
+
+    QCOMPARE(rejected.count(), 1);
+    QVERIFY(!fixture.shop->auto_update());
+    QCOMPARE(fixture.networkManager->count(), 1);
+}
+
+// A manual request's notice never uses up an automatic one, and automatic
+// failures are remembered per kind: a different failure still warns once.
+void ShopTest::automaticFailuresWarnOncePerKind()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    size_t requests = 0;
+
+    // The user asks, and the stash index cannot be read: told.
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->reject(requests++, RateLimit::FetchError::Kind::Network, "network error");
+    drainEvents();
+    QCOMPARE(warnings.count(), 1);
+
+    // The same failure on two automatic submissions: told once.
+    fixture.shop->SetAutoUpdate(true);
+    for (int i = 0; i < 2; ++i) {
+        fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+        fixture.rateLimiter->reject(requests++,
+                                    RateLimit::FetchError::Kind::Network,
+                                    "network error");
+        drainEvents();
+    }
+    QCOMPARE(warnings.count(), 2);
+
+    // A different failure on two automatic submissions: told once more.
+    for (int i = 0; i < 2; ++i) {
+        fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+        fixture.rateLimiter->resolve(requests++, kStashIndexJson);
+        drainEvents();
+        fixture.networkManager->sent(fixture.networkManager->count() - 1)
+            .reply->finish({}, 0, QNetworkReply::OperationCanceledError, QByteArray());
+        drainEvents();
+    }
+    QCOMPARE(warnings.count(), 3);
+}
+
+// An error marker that is not an error list: the message must not be the
+// next list item somewhere later in the page (a real page has navigation
+// and footer lists; the captures have them trimmed away). The marker and
+// the later list are inserted into the captured edit page; derived.
+void ShopTest::unrecognisedErrorShowsNoPageText()
+{
+    ShopFixture fixture;
+    QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    QByteArray reply = editPageWithError("<div class=\"input-error\">Check this field.</div>");
+    const QByteArray form_end = "</form>";
+    QVERIFY(reply.contains(form_end));
+    reply.replace(form_end,
+                  form_end + "\n<ul class=\"footerLinks\"><li>Unrelated footer link</li></ul>");
+    failSubmissionAt(fixture, FailAt::Post, 200, QNetworkReply::NoError, reply);
+
+    QCOMPARE(warnings.count(), 1);
+    const QString notice = warnings.first().first().toString() + lastStatus(statuses);
+    QVERIFY2(!notice.contains("Unrelated"), qPrintable(notice));
+    QVERIFY2(notice.contains("does not recognise"), qPrintable(notice));
 }
 
 QTEST_MAIN(ShopTest)
