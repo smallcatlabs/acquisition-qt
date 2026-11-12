@@ -193,6 +193,7 @@ private slots:
     void priceEditSkipsGamePricedRows();
     void typedPriceCommitsOnceToMultiSelection();
     void clickOnAnotherRowCommitsToTheRowsTypedFor();
+    void gamePricedRowsLeftAloneAreNamedInStatusLine();
     void headerSelectionSurvivesItemDetailsTimer();
 
 private:
@@ -4427,6 +4428,36 @@ void MainWindowTest::clickOnAnotherRowCommitsToTheRowsTypedFor()
     QCOMPARE(tree->selectionModel()->selectedRows(), QModelIndexList({clickedRow}));
     QCOMPARE(manager.Get(*typed).value, 150.0);
     QVERIFY(manager.Get(*clicked).IsNull());
+}
+
+// A price edit over a selection that holds a row priced in the game says
+// in the status line that the row was left alone, instead of failing
+// silently on it.
+void MainWindowTest::gamePricedRowsLeftAloneAreNamedInStatusLine()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tree);
+    const ItemLocation tab = makeTestStashLocation("stash-mixed", "Mixed", 0);
+    const auto noted = makeMainWindowItemWithNote("m-noted", "Noted", "Sword", tab, "~b/o 5 chaos");
+    const auto plain = makeMainWindowItem("m-plain", "Plain", "Sword", tab);
+    fixture.itemsManager->OnItemsRefreshed({noted, plain}, {tab}, false);
+    auto *model = tree->model();
+    const QModelIndex bucket = findBucket(*model, tab.GetHeader());
+    tree->expand(bucket);
+    tree->selectionModel()->setCurrentIndex(findItemRow(*model, bucket, "Plain Sword"),
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    tree->selectionModel()->select(findItemRow(*model, bucket, "Noted Sword"),
+                                   QItemSelectionModel::Select | QItemSelectionModel::Rows);
+
+    applyBuyoutCommand(fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "7");
+
+    QCOMPARE(fixture.buyoutFixture.manager->Get(*plain).value, 7.0);
+    QCOMPARE(fixture.buyoutFixture.manager->Get(*noted).value, 5.0);
+    const QString status = statusText(fixture);
+    QVERIFY2(status.contains("in the game"), qPrintable(status));
+    QVERIFY2(!status.contains("Price not saved"), qPrintable(status));
 }
 
 // #282: selecting a tab header after an item stops the item's pending

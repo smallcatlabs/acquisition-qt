@@ -52,7 +52,14 @@ ApplyBuyoutResult ApplyBuyout(BuyoutManager &buyouts,
 QString ApplyBuyoutNotice(const ApplyBuyoutResult &result, bool buyouts_loaded)
 {
     if (result.not_saved == 0) {
-        return QString();
+        // Only part of a multi-selection can be priced in the game: a row
+        // the game priced cannot be edited on its own.
+        return (result.locked == 0)
+                   ? QString()
+                   : QCoreApplication::translate("ApplyBuyout",
+                                                 "Some selected rows are priced in the game and "
+                                                 "were not changed. Change their price in the "
+                                                 "game.");
     }
     // Only a rejection by the database is logged per edit (as an error), so
     // only then does the notice point at the log; a session whose buyouts

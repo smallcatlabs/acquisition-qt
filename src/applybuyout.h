@@ -44,7 +44,8 @@ ApplyBuyoutResult ApplyBuyout(BuyoutManager &buyouts,
                               const BuyoutTargets &targets,
                               const Buyout &buyout);
 
-// What the status line says after an edit, or an empty string when the
-// edit was saved and any earlier notice should go. `buyouts_loaded` is
-// BuyoutManager::BuyoutsLoaded().
+// What the status line says after an edit: why some targets kept their
+// price, or an empty string when every target took it and any earlier
+// notice should go. A price that was not saved takes precedence.
+// `buyouts_loaded` is BuyoutManager::BuyoutsLoaded().
 QString ApplyBuyoutNotice(const ApplyBuyoutResult &result, bool buyouts_loaded);

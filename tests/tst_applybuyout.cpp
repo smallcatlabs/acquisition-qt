@@ -160,8 +160,12 @@ void ApplyBuyoutTest::isOneBatch()
 
 void ApplyBuyoutTest::noticeNamesTheCause()
 {
-    QVERIFY(ApplyBuyoutNotice(ApplyBuyoutResult{.applied = 2, .locked = 1, .not_saved = 0}, true)
+    QVERIFY(ApplyBuyoutNotice(ApplyBuyoutResult{.applied = 2, .locked = 0, .not_saved = 0}, true)
                 .isEmpty());
+    // Rows priced in the game are left alone, and the user is told why.
+    const QString locked
+        = ApplyBuyoutNotice(ApplyBuyoutResult{.applied = 2, .locked = 1, .not_saved = 0}, true);
+    QVERIFY2(locked.contains("in the game"), qPrintable(locked));
     const QString rejected
         = ApplyBuyoutNotice(ApplyBuyoutResult{.applied = 0, .locked = 0, .not_saved = 1}, true);
     QVERIFY(rejected.contains("log file"));

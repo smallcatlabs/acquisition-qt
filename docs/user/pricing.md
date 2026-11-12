@@ -28,6 +28,9 @@ previous price. A comma followed by exactly three digits, such as `1,000`, is
 not saved either, because it could mean one thousand or one; type `1000` or
 `1.0` instead.
 
+Rows priced in the game (see below) keep their price when you price a selection
+that includes them; the status line says so.
+
 ### When prices cannot be saved
 
 If Acquisition cannot fully use its price database when you log in (for
