@@ -37,8 +37,6 @@
 constexpr const char *POE_LEAGUE_LIST_URL
     = "https://api.pathofexile.com/leagues?type=main&compact=1";
 
-constexpr int CLOUDFLARE_RATE_LIMITED = 1015;
-
 LoginDialog::LoginDialog(const QDir &app_data_dir,
                          QSettings &settings,
                          NetworkManager &network_manager,
