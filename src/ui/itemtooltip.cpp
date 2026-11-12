@@ -6,10 +6,12 @@
 #include <QImage>
 #include <QPainter>
 
+#include <map>
 #include <vector>
 
 #include "ui_mainwindow.h"
 
+#include "influence.h"
 #include "item.h"
 #include "itemconstants.h"
 #include "ui/itemtooltiptext.h"
@@ -67,33 +69,8 @@ public:
 
     const QImage getSymbol(Item::INFLUENCE_TYPES influence) const
     {
-        switch (influence) {
-        case Item::ELDER:
-            return elder_icon;
-        case Item::SHAPER:
-            return shaper_icon;
-        case Item::HUNTER:
-            return hunter_icon;
-        case Item::WARLORD:
-            return warlord_icon;
-        case Item::CRUSADER:
-            return crusader_icon;
-        case Item::REDEEMER:
-            return redeemer_icon;
-        case Item::SYNTHESISED:
-            return synthesised_icon;
-        case Item::FRACTURED:
-            return fractured_icon;
-        case Item::SEARING_EXARCH:
-            return searing_exarch_icon;
-        case Item::EATER_OF_WORLDS:
-            return eater_of_worlds_icon;
-        case Item::NONE:
-            return {};
-        default:
-            spdlog::error("ItemTooltip: invalid influence type: {}", int(influence));
-            return {};
-        }
+        const auto found = symbols.find(influence);
+        return found == symbols.end() ? QImage() : found->second;
     }
 
     const QImage socket_a{":/sockets/Socket_A.png"};
@@ -103,16 +80,22 @@ public:
     const QImage socket_s{":/sockets/Socket_S.png"};
     const QImage link_h{":/sockets/Socket_Link_Horizontal.png"};
     const QImage link_v{":/sockets/Socket_Link_Vertical.png"};
-    const QImage shaper_icon{":/symbols/ShaperSymbol.png"};
-    const QImage elder_icon{":/symbols/ElderSymbol.png"};
-    const QImage crusader_icon{":/symbols/CrusaderSymbol.png"};
-    const QImage hunter_icon{":/symbols/HunterSymbol.png"};
-    const QImage redeemer_icon{":/symbols/RedeemerSymbol.png"};
-    const QImage warlord_icon{":/symbols/WarlordSymbol.png"};
-    const QImage synthesised_icon{":/symbols/SynthesisedSymbol.png"};
-    const QImage fractured_icon{":/symbols/FracturedSymbol.png"};
-    const QImage searing_exarch_icon{":/symbols/SearingExarchSymbol.png"};
-    const QImage eater_of_worlds_icon{":/symbols/EaterOfWorldsSymbol.png"};
+    const std::map<Item::INFLUENCE_TYPES, QImage> symbols = [] {
+        std::map<Item::INFLUENCE_TYPES, QImage> images;
+        for (const auto influence : {Item::SHAPER,
+                                     Item::ELDER,
+                                     Item::CRUSADER,
+                                     Item::REDEEMER,
+                                     Item::HUNTER,
+                                     Item::WARLORD,
+                                     Item::SYNTHESISED,
+                                     Item::FRACTURED,
+                                     Item::SEARING_EXARCH,
+                                     Item::EATER_OF_WORLDS}) {
+            images.emplace(influence, QImage(InfluenceSymbolPath(influence)));
+        }
+        return images;
+    }();
 };
 
 ItemFrameStyle ItemFrameStyleFor(int frame_type, bool singleline)

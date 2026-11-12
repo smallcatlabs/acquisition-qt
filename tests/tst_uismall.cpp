@@ -3,6 +3,7 @@
 
 #include <QtTest/QtTest>
 
+#include "influence.h"
 #include "itemconstants.h"
 #include "testfixtures.h"
 #include "ui/itemtooltip.h"
@@ -32,6 +33,9 @@ private slots:
 
     // #267
     void resonatorSocketIsNotDrawnGreen();
+
+    // #319
+    void influenceSymbolsExist();
 };
 
 void UiSmallTest::imgurSuccessReplyYieldsLink()
@@ -266,6 +270,25 @@ void UiSmallTest::resonatorSocketIsNotDrawnGreen()
 
     const QImage resonator = GenerateItemIcon(makeSocketedItem("DV", "DV"), blank).toImage();
     QVERIFY(fullyTransparent(resonator));
+}
+
+// #319: the Inf column and the tooltip draw these symbols.
+void UiSmallTest::influenceSymbolsExist()
+{
+    for (const auto influence : {Item::SHAPER,
+                                 Item::ELDER,
+                                 Item::CRUSADER,
+                                 Item::REDEEMER,
+                                 Item::HUNTER,
+                                 Item::WARLORD,
+                                 Item::SYNTHESISED,
+                                 Item::FRACTURED,
+                                 Item::SEARING_EXARCH,
+                                 Item::EATER_OF_WORLDS}) {
+        const QString path = InfluenceSymbolPath(influence);
+        QVERIFY2(QFile::exists(path), qPrintable(path));
+    }
+    QVERIFY(InfluenceSymbolPath(Item::NONE).isEmpty());
 }
 
 // GenerateItemIcon paints on a QPixmap, which needs a GUI application.
