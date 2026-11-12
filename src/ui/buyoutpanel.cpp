@@ -13,6 +13,7 @@
 
 #include "buyout.h"
 #include "currency.h"
+#include "ui/fieldvalidity.h"
 #include "ui/mainwindowhelpers.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "util/util.h"
@@ -172,11 +173,9 @@ bool BuyoutPanel::commit(Trigger trigger)
 void BuyoutPanel::showValueValidity()
 {
     const QString text = m_value->text();
-    const bool invalid = !text.isEmpty() && !ParseBuyoutValue(text);
-    m_value->setToolTip(invalid ? tr("Not a price: type a number greater than zero, such as "
-                                     "5 or 2.5.")
-                                : QString());
-    m_value->setStyleSheet(invalid ? QStringLiteral("QLineEdit { color: #e05050; }") : QString());
+    ShowFieldValidity(*m_value,
+                      !text.isEmpty() && !ParseBuyoutValue(text),
+                      tr("Not a price: type a number greater than zero, such as 5 or 2.5."));
 }
 
 void BuyoutPanel::setPricedControlsEnabled(bool enabled)
