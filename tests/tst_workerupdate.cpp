@@ -1,5 +1,7 @@
 #include <QtTest/QtTest>
 
+#include <QDateTime>
+#include <QDir>
 #include <QEventLoop>
 #include <QSettings>
 
@@ -15,8 +17,13 @@
 #include "datastore/stashrepo.h"
 #include "datastore/userstore.h"
 #include "fakeapiclient.h"
+#include "fakenetworkmanager.h"
+#include "fakescheduler.h"
 #include "itemsmanager.h"
 #include "itemsmanagerworker.h"
+#include "poe/poeapiclient.h"
+#include "ratelimit/gate.h"
+#include "ratelimit/ratelimiter.h"
 #include "testfixtures.h"
 #include "util/json_readers.h"
 #include "util/networkmanager.h"
@@ -142,6 +149,10 @@ private slots:
 
     // #260: the cache load and a live refresh build the same items.
     void cacheLoadAndLiveRefreshBuildTheSameItems();
+
+    // #259: a failed update's status line names what went wrong, through the
+    // real facade and hub.
+    void failedUpdateStatusNamesTheError();
 };
 
 namespace {
@@ -3982,6 +3993,171 @@ void WorkerUpdateTest::cacheLoadAndLiveRefreshBuildTheSameItems()
                           "stash-plain",
                           "stash-sword"}));
     QCOMPARE(cached, live);
+}
+
+namespace {
+
+    // The rate-limit headers a HEAD probe needs to establish a single-rule
+    // policy (the shape tst_ratelimiter and tst_workerintegration use).
+    QList<QNetworkReply::RawHeaderPair> failurePolicyHeaders(const QByteArray &state = "0:60:0")
+    {
+        return {
+            {"X-Rate-Limit-Policy", "test-request-limit"},
+            {"X-Rate-Limit-Rules", "Ip"},
+            {"X-Rate-Limit-Ip", "10:60:60"},
+            {"X-Rate-Limit-Ip-State", state},
+            {"Date", QDateTime::currentDateTimeUtc().toString(Qt::RFC2822Date).toUtf8()},
+        };
+    }
+
+    // How the stash-list request of a Selected update fails: on the HEAD
+    // probe that sets up its endpoint, or on the GET itself.
+    struct FailureCase
+    {
+        const char *name;
+        bool fail_head;
+        QList<QNetworkReply::RawHeaderPair> headers;
+        int status;
+        QNetworkReply::NetworkError error;
+        QByteArray body;
+    };
+
+    // Run one Selected update of a seeded stash tab through the real facade
+    // and hub to its failure, and return the Ready status messages it
+    // produced.
+    QStringList readyMessagesForFailure(const FailureCase &failure)
+    {
+        using namespace std::chrono_literals;
+        BuyoutManagerFixture bm;
+        QSettings settings(bm.tempDir.filePath("settings.ini"), QSettings::IniFormat);
+        settings.setValue("realm", kRealm);
+        settings.setValue("league", kLeague);
+        settings.setValue("account", "status-text");
+        settings.sync();
+
+        poe::StashTab stash;
+        stash.id = "stash00001";
+        stash.name = "Status Tab";
+        stash.type = "PremiumStash";
+        stash.index = 0;
+        {
+            UserStore store(QDir(bm.tempDir.filePath("data")), "status-text");
+            if (!store.stashes().saveStashList({stash}, kRealm, kLeague)
+                || !saveStashFixture(store.stashes(), stash, kRealm, kLeague)) {
+                qFatal("readyMessagesForFailure: could not seed the stash tab");
+            }
+        }
+
+        FakeScheduler scheduler;
+        FakeNetworkManager network;
+        RateLimiter limiter(network, &scheduler);
+        PoeApiClient api(limiter);
+        ItemsManagerWorker worker(settings, *bm.manager, api);
+
+        int initial = 0;
+        QStringList ready;
+        QObject::connect(&worker,
+                         &ItemsManagerWorker::ItemsRefreshed,
+                         &worker,
+                         [&](const Items &, const std::vector<ItemLocation> &, bool first) {
+                             initial += first ? 1 : 0;
+                         });
+        QObject::connect(&worker,
+                         &ItemsManagerWorker::StatusUpdate,
+                         &worker,
+                         [&](ProgramState state, const QString &message) {
+                             if (state == ProgramState::Ready) {
+                                 ready.append(message);
+                             }
+                         });
+        worker.OnRePoEReady();
+        if (!QTest::qWaitFor([&] { return initial == 1; }, 10000)) {
+            qFatal("readyMessagesForFailure: the cache load never finished");
+        }
+        ready.clear();
+
+        const auto settle = [&] {
+            for (int i = 0; i < 10; ++i) {
+                QCoreApplication::processEvents();
+                QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+                scheduler.AdvanceBy(0ms);
+            }
+        };
+
+        worker.Update(TabSelection::Selected, {ItemLocation(stash)});
+        settle();
+        if (failure.fail_head) {
+            network.sent(0).reply->finish(failure.headers, failure.status, failure.error);
+        } else {
+            network.sent(0).reply->finish(failurePolicyHeaders(), 200);
+            settle();
+            // Past the pacing deadline and the gate's spacing floor: the GET
+            // is sent.
+            scheduler.AdvanceBy(100ms);
+            settle();
+            scheduler.AdvanceBy(RateLimit::Gate::MIN_SEND_SPACING);
+            settle();
+            if (network.count() != 2) {
+                qFatal("readyMessagesForFailure: the list GET was not sent");
+            }
+            network.sent(1).reply->finish(failure.headers,
+                                          failure.status,
+                                          failure.error,
+                                          failure.body);
+        }
+        settle();
+        return ready;
+    }
+
+} // namespace
+
+void WorkerUpdateTest::failedUpdateStatusNamesTheError()
+{
+    const QList<FailureCase> cases{
+        {"expired login",
+         false,
+         failurePolicyHeaders("1:60:0"),
+         401,
+         QNetworkReply::AuthenticationRequiredError,
+         {}},
+        {"tab gone",
+         false,
+         failurePolicyHeaders("1:60:0"),
+         404,
+         QNetworkReply::ContentNotFoundError,
+         {}},
+        {"no network", false, {}, 0, QNetworkReply::ConnectionRefusedError, {}},
+        {"rate limited",
+         false,
+         failurePolicyHeaders("1:60:0"),
+         429,
+         QNetworkReply::UnknownContentError,
+         {}},
+        {"unreadable list",
+         false,
+         failurePolicyHeaders("1:60:0"),
+         200,
+         QNetworkReply::NoError,
+         "this is not json"},
+        {"unusable setup headers", true, {}, 200, QNetworkReply::NoError, {}},
+    };
+
+    QStringList seen;
+    for (const auto &failure : cases) {
+        const QStringList ready = readyMessagesForFailure(failure);
+        // P-FAILURE: one terminal Ready transition per failed update.
+        QVERIFY2(ready.size() == 1, failure.name);
+        const QString &message = ready.front();
+        QVERIFY2(message.startsWith("Update failed: "), qPrintable(message));
+        // Nothing from the request itself reaches the status line.
+        QVERIFY2(!message.contains("://"), qPrintable(message));
+        QVERIFY2(!message.contains("fake network error"), qPrintable(message));
+        QVERIFY2(!seen.contains(message),
+                 qPrintable(QString("'%1' repeats an earlier case: %2").arg(failure.name, message)));
+        seen.append(message);
+    }
+    // An expired or revoked login points the user at logging in again.
+    QVERIFY2(seen.front().contains("log in again"), qPrintable(seen.front()));
 }
 
 QTEST_GUILESS_MAIN(WorkerUpdateTest)

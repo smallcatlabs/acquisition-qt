@@ -6,6 +6,7 @@
 #include <expected>
 
 #include <QByteArray>
+#include <QMetaEnum>
 #include <QNetworkReply>
 #include <QString>
 #include <QUrl>
@@ -90,6 +91,44 @@ namespace RateLimit {
             return "Canceled";
         }
         return "Unknown";
+    }
+
+    // What the user is told about a failure, for the status line. Built from
+    // the kind and the structured fields only, never from `message` or the
+    // request: a Qt error string or an endpoint label can carry a URL, and
+    // nothing from the request belongs on screen.
+    inline QString DescribeForUser(const FetchError &error)
+    {
+        switch (error.kind) {
+        case FetchError::Kind::Network:
+            return QString("network error (%1)")
+                .arg(QString::fromLatin1(
+                    QMetaEnum::fromType<QNetworkReply::NetworkError>().valueToKey(
+                        error.network_error)));
+        case FetchError::Kind::Http:
+            if (error.http_status == 401) {
+                // Logging in again needs a restart today: a live session
+                // cannot be replaced.
+                return "Path of Exile rejected the login (HTTP 401). Restart Acquisition and "
+                       "log in again.";
+            }
+            return QString("the server answered HTTP %1").arg(error.http_status);
+        case FetchError::Kind::Parse:
+            return "the server's reply could not be read";
+        case FetchError::Kind::Protocol:
+            return "the server's rate-limit headers could not be read";
+        case FetchError::Kind::RateLimited:
+            if (error.retry_after_acceptable) {
+                return QString("rate limited by the server, still after %1 attempts")
+                    .arg(error.attempts);
+            }
+            return "rate limited by the server, with no usable time to retry";
+        case FetchError::Kind::Internal:
+            return "an internal error occurred; see the log";
+        case FetchError::Kind::Canceled:
+            return "the update was canceled";
+        }
+        return "an unknown error occurred";
     }
 
     // What the rate limiter delivers: the response body on success (D1). The
