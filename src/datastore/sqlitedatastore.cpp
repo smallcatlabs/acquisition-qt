@@ -74,6 +74,17 @@ QSqlDatabase SqliteDataStore::getThreadLocalDatabase()
         if (!db.open()) {
             spdlog::error("Failed to open database {}: {}", m_filename, db.lastError().text());
         } else {
+            // Overwrite deleted and replaced content instead of leaving it in
+            // free space: the global file holds the OAuth token, and a
+            // cleared or rotated token must not stay recoverable from the
+            // file or its backups. It costs extra writes on each delete,
+            // which this small key-value store does rarely.
+            QSqlQuery pragma(db);
+            if (!pragma.exec("PRAGMA secure_delete=ON")) {
+                spdlog::error("Failed to enable secure_delete on {}: {}",
+                              m_filename,
+                              pragma.lastError().text());
+            }
             // Add the connection to the list so we can close it later.
             QMutexLocker locker(&m_mutex);
             m_connection_names.insert(connection);
