@@ -37,7 +37,6 @@
 #include <QVersionNumber>
 
 #include <algorithm>
-#include <map>
 #include <set>
 #include <utility>
 #include <vector>
@@ -1309,14 +1308,17 @@ void MainWindow::OnTabRefreshed(const ItemLocation &location, const Items &items
     }
     // The first delta opens the selection-intent window (R1-3).
     m_refresh_active = true;
-    CaptureSelectedRows();
+    const SelectionCapture capture = CaptureSelection(TouchedBucket(location));
     // The active search applies the delta now: bucket-scoped row
     // operations in By-Tab (D3), the flat sorted merge in By-Item (D4,
     // S5 — the D9 throttled fallback is gone).
     m_applying_delta = true;
     const auto result = m_current_search->ApplyTabDelta(location, items);
     m_applying_delta = false;
-    FinishDeltaApplication(result.processed, result.model_changed, result.inserted_bucket_rows);
+    FinishDeltaApplication(result.processed,
+                           result.model_changed,
+                           result.inserted_bucket_rows,
+                           capture);
 }
 
 void MainWindow::OnChildrenReconciled(const ItemLocation &parent,
@@ -1334,16 +1336,20 @@ void MainWindow::OnChildrenReconciled(const ItemLocation &parent,
         return;
     }
     m_refresh_active = true; // the intent window covers every delta form
-    CaptureSelectedRows();
+    const SelectionCapture capture = CaptureSelection(TouchedBucket(parent));
     m_applying_delta = true;
     const auto result = m_current_search->ApplyChildReconciliation(parent, expected);
     m_applying_delta = false;
-    FinishDeltaApplication(result.processed, result.model_changed, result.inserted_bucket_rows);
+    FinishDeltaApplication(result.processed,
+                           result.model_changed,
+                           result.inserted_bucket_rows,
+                           capture);
 }
 
 void MainWindow::FinishDeltaApplication(bool processed,
                                         bool model_changed,
-                                        const std::vector<int> &inserted_bucket_rows)
+                                        const std::vector<int> &inserted_bucket_rows,
+                                        const SelectionCapture &capture)
 {
     if (!processed) {
         // Fail-safe direction (R1-7): a skipped application leaves the
@@ -1364,85 +1370,117 @@ void MainWindow::FinishDeltaApplication(bool processed,
         // for most replacements and was ~10 ms per reply (S7 record).
         ScheduleDeltaResizeTreeColumns();
     }
-    ReconcileSelectionIntent();
-    ReselectCapturedRows();
+    ReconcileSelectionIntent(&capture);
+    RestoreSelection(capture);
 }
 
-void MainWindow::CaptureSelectedRows()
+LocationInventory::Key MainWindow::TouchedBucket(const ItemLocation &location) const
 {
+    return LocationInventory::KeyFor(
+        (m_current_search->GetViewMode() == Search::ViewMode::ByItem) ? ItemLocation() : location);
+}
+
+MainWindow::SelectionCapture MainWindow::CaptureSelection(
+    std::optional<LocationInventory::Key> bucket) const
+{
+    SelectionCapture capture;
+    capture.bucket = bucket;
     if (!m_current_search || (ui->treeView->model() != &m_current_search->model())) {
-        return;
+        return capture;
     }
-    // Entries whose rows are not visible stay: an earlier delta of this
-    // refresh removed them, and a later one may bring them back (R1-3).
-    // Visible entries follow the selection as it is now, so a row the
-    // user deselected is dropped.
-    std::erase_if(m_selected_item_ids, [this](const QString &id) {
-        return m_current_search->visibleItemById(id) != nullptr;
-    });
-    std::erase_if(m_selected_bucket_keys, [this](const LocationInventory::Key &key) {
-        return m_current_search->rowForKey(key) >= 0;
-    });
     const ItemsModel &model = m_current_search->model();
-    for (const QModelIndex &index : ui->treeView->selectionModel()->selectedRows()) {
-        const ItemsModel::RowRef ref = model.Locate(index);
-        if (ref.isItem()) {
-            const Bucket &bucket = m_current_search->bucket(ref.bucket_row);
-            if (bucket.has_item(ref.item_row) && !bucket.item(ref.item_row)->id().isEmpty()) {
-                m_selected_item_ids.insert(bucket.item(ref.item_row)->id());
+    const QItemSelectionModel &selection = *ui->treeView->selectionModel();
+    capture.current_selected = selection.isSelected(selection.currentIndex());
+    QModelIndex only_parent;
+    if (bucket) {
+        const int bucket_row = m_current_search->rowForKey(*bucket);
+        if (bucket_row < 0) {
+            return capture; // the bucket is not shown, so nothing in it is selected
+        }
+        only_parent = model.BucketIndex(bucket_row);
+    }
+    // The selection's ranges, read only for the delta's bucket: rows
+    // selected in other buckets are not examined (M3 D3).
+    auto &probes = ModelProbes::instance();
+    for (const QItemSelectionRange &range : selection.selection()) {
+        if (bucket && (range.parent() != only_parent)) {
+            continue;
+        }
+        const ItemsModel::RowRef ref = model.Locate(range.parent());
+        if (!ref.isBucket()) {
+            continue; // header rows
+        }
+        const Bucket &parent = m_current_search->bucket(ref.bucket_row);
+        for (int row = range.top(); row <= range.bottom(); ++row) {
+            if (probes.enabled) {
+                ++probes.selection_restore_steps;
             }
-        } else if (ref.isBucket()) {
-            m_selected_bucket_keys.insert(
-                LocationInventory::KeyFor(m_current_search->bucket(ref.bucket_row).location()));
+            if (parent.has_item(row) && !parent.item(row)->id().isEmpty()) {
+                capture.item_ids.insert(parent.item(row)->id());
+            }
         }
     }
+    return capture;
 }
 
-void MainWindow::ReselectCapturedRows()
+void MainWindow::RestoreSelection(const SelectionCapture &capture)
 {
-    if (!m_current_search || (ui->treeView->model() != &m_current_search->model())) {
+    if ((capture.item_ids.empty() && m_carried_ids.empty()) || !m_current_search
+        || (ui->treeView->model() != &m_current_search->model())) {
         return;
     }
+    std::vector<int> bucket_rows;
+    if (capture.bucket) {
+        if (const int row = m_current_search->rowForKey(*capture.bucket); row >= 0) {
+            bucket_rows.push_back(row);
+        }
+    } else {
+        for (int row = 0; row < static_cast<int>(m_current_search->buckets().size()); ++row) {
+            bucket_rows.push_back(row);
+        }
+    }
+    // One walk of the delta's bucket. A carried item can only come back
+    // through a delta that inserts it, so this bucket is where it lands.
     const ItemsModel &model = m_current_search->model();
     QItemSelectionModel &selection = *ui->treeView->selectionModel();
     QItemSelection rows;
-    const auto add = [&selection, &rows](const QModelIndex &index) {
-        if (!selection.isSelected(index)) {
-            rows.select(index, index);
-        }
-    };
-    for (const LocationInventory::Key &key : m_selected_bucket_keys) {
-        const int bucket_row = m_current_search->rowForKey(key);
-        if (bucket_row >= 0) {
-            add(model.BucketIndex(bucket_row));
-        }
-    }
-    // The intended items by the bucket that holds them, so each bucket is
-    // walked once whatever the number of selected items in it.
-    std::map<int, std::set<const Item *>> wanted;
-    for (const QString &id : m_selected_item_ids) {
-        if (const auto item = m_current_search->visibleItemById(id)) {
-            const int bucket_row = m_current_search->bucketRowFor(*item);
-            if (bucket_row >= 0) {
-                wanted[bucket_row].insert(item.get());
-            }
-        }
-    }
-    for (const auto &[bucket_row, items] : wanted) {
+    std::set<QString> found;
+    auto &probes = ModelProbes::instance();
+    for (const int bucket_row : bucket_rows) {
         const QModelIndex parent = model.BucketIndex(bucket_row);
-        const Items &bucket_items = m_current_search->bucket(bucket_row).items();
-        for (size_t row = 0; row < bucket_items.size(); ++row) {
-            if (items.count(bucket_items[row].get()) > 0) {
-                add(model.index(static_cast<int>(row), 0, parent));
+        const Items &items = m_current_search->bucket(bucket_row).items();
+        for (size_t row = 0; row < items.size(); ++row) {
+            if (probes.enabled) {
+                ++probes.selection_restore_steps;
+            }
+            const QString id = items[row]->id();
+            if ((capture.item_ids.count(id) == 0) && (m_carried_ids.count(id) == 0)) {
+                continue;
+            }
+            found.insert(id);
+            const QModelIndex index = model.index(static_cast<int>(row), 0, parent);
+            if (!selection.isSelected(index)) {
+                rows.select(index, index);
             }
         }
     }
     if (!rows.isEmpty()) {
+        m_reselecting = true;
         selection.select(rows, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+        m_reselecting = false;
+    }
+    for (const QString &id : found) {
+        m_carried_ids.erase(id);
+    }
+    for (const QString &id : capture.item_ids) {
+        if ((found.count(id) == 0) && !m_current_search->visibleItemById(id)) {
+            m_carried_ids.insert(id);
+        }
     }
 }
 
-void MainWindow::SelectWithoutExpanding(const QModelIndex &index)
+void MainWindow::SelectWithoutExpanding(const QModelIndex &index,
+                                        QItemSelectionModel::SelectionFlags flags)
 {
     // Making a row current has the view scroll to it, and QTreeView's
     // scrollTo first expands every collapsed ancestor of the row. A
@@ -1457,14 +1495,12 @@ void MainWindow::SelectWithoutExpanding(const QModelIndex &index)
     const bool expandable = ui->treeView->itemsExpandable();
     ui->treeView->setItemsExpandable(false);
     m_reselecting = true;
-    ui->treeView->selectionModel()->setCurrentIndex(index,
-                                                    QItemSelectionModel::ClearAndSelect
-                                                        | QItemSelectionModel::Rows);
+    ui->treeView->selectionModel()->setCurrentIndex(index, flags);
     m_reselecting = false;
     ui->treeView->setItemsExpandable(expandable);
 }
 
-void MainWindow::ReconcileSelectionIntent()
+void MainWindow::ReconcileSelectionIntent(const SelectionCapture *capture)
 {
     if (!m_current_search) {
         return;
@@ -1475,9 +1511,13 @@ void MainWindow::ReconcileSelectionIntent()
             // The row survived (possibly moved). Qt's selection model can
             // drop a child row's visual selection through a top-level
             // move even though its persistent index stays valid —
-            // re-assert the selection at the surviving index.
-            if (!ui->treeView->selectionModel()->isSelected(index)) {
-                SelectWithoutExpanding(index);
+            // re-assert the selection at the surviving index, when the
+            // row was selected before the delta (the user may have
+            // deselected the current row).
+            if (!ui->treeView->selectionModel()->isSelected(index)
+                && (!capture || capture->current_selected)) {
+                SelectWithoutExpanding(index,
+                                       QItemSelectionModel::Select | QItemSelectionModel::Rows);
             }
             // The details pane's location line renders canonical
             // metadata (S4 review round 1): a metadata delta can rename
@@ -1488,14 +1528,14 @@ void MainWindow::ReconcileSelectionIntent()
                                            .Canonical(m_current_item->location())
                                            .GetHeader());
         } else {
-            // The selected row left mid-refresh: the intent stays alive,
-            // the visual selection lapses (R1-3). The view may have moved
-            // current to a neighbor when the row was removed — clear that
-            // under the guard so it cannot overwrite the intent.
+            // The current row left mid-refresh: the intent stays alive,
+            // the row's selection lapses (R1-3); the other selected rows
+            // keep theirs. The view moved current to a neighbor, without
+            // selecting it, when the row was removed — clear that under
+            // the guard so it cannot overwrite the intent.
             m_current_item = nullptr;
             m_current_bucket_location.reset();
             m_applying_delta = true;
-            ui->treeView->selectionModel()->clearSelection();
             ui->treeView->selectionModel()->setCurrentIndex(QModelIndex(),
                                                             QItemSelectionModel::NoUpdate);
             m_applying_delta = false;
@@ -1526,7 +1566,6 @@ void MainWindow::ReconcileSelectionIntent()
         } else {
             m_current_bucket_location.reset();
             m_applying_delta = true;
-            ui->treeView->selectionModel()->clearSelection();
             ui->treeView->selectionModel()->setCurrentIndex(QModelIndex(),
                                                             QItemSelectionModel::NoUpdate);
             m_applying_delta = false;
@@ -1536,12 +1575,17 @@ void MainWindow::ReconcileSelectionIntent()
     }
     if (!m_current_item && m_refresh_active && !m_selection_intent_id.isEmpty()) {
         // Re-adoption through the global identity index: any delta
-        // inserting an item with the intent's id — any bucket — restores
-        // the selection via the normal selection path.
+        // inserting an item with the intent's id — any bucket — makes it
+        // current again via the normal selection path. On the delta path
+        // its selection is RestoreSelection's: selected again only if it
+        // was selected when it left.
         if (const auto adopted = m_current_search->visibleItemById(m_selection_intent_id)) {
             const QModelIndex index = m_current_search->index(adopted);
             if (index.isValid()) {
-                SelectWithoutExpanding(index);
+                SelectWithoutExpanding(index,
+                                       capture ? QItemSelectionModel::NoUpdate
+                                               : (QItemSelectionModel::Select
+                                                  | QItemSelectionModel::Rows));
             }
         }
     }
@@ -1560,8 +1604,7 @@ void MainWindow::OnRefreshFinished(const RefreshOutcome &outcome)
     // adjudicates honestly at the terminal event itself — the S4-era
     // deferral machinery died with the seam.
     m_refresh_active = false;
-    m_selected_item_ids.clear();
-    m_selected_bucket_keys.clear();
+    m_carried_ids.clear();
     if (m_selection_intent_id.isEmpty() || !m_current_search) {
         return;
     }
@@ -1661,6 +1704,8 @@ void MainWindow::ModelViewRefresh()
 {
     spdlog::trace("MainWindow::ModelViewRefresh() entered");
     disconnect(m_current_item_conn);
+    disconnect(m_selection_changed_conn);
+    disconnect(m_tree_pressed_conn);
 
     m_buyout_manager.Save();
 
@@ -1705,6 +1750,21 @@ void MainWindow::ModelViewRefresh()
                                   &QItemSelectionModel::currentChanged,
                                   this,
                                   &MainWindow::OnCurrentItemChanged);
+    // Any change of the selection the refresh did not make is the user's,
+    // and so is a click on a row even when it changes nothing visible (a
+    // click on the only selected row, which was current): a user's
+    // selection wins (R1-3), so the rows a delta removed are no longer
+    // carried.
+    const auto user_selected = [this] {
+        if (!m_applying_delta && !m_reselecting) {
+            m_carried_ids.clear();
+        }
+    };
+    m_selection_changed_conn = connect(ui->treeView->selectionModel(),
+                                       &QItemSelectionModel::selectionChanged,
+                                       this,
+                                       user_selected);
+    m_tree_pressed_conn = connect(ui->treeView, &QAbstractItemView::pressed, this, user_selected);
 
     ui->viewComboBox->setCurrentIndex(static_cast<int>(m_current_search->GetViewMode()));
 
@@ -1795,12 +1855,6 @@ void MainWindow::OnCurrentItemChanged(const QModelIndex &current, const QModelIn
     // application's own reconcile pass settles selection afterward.
     if (m_applying_delta) {
         return;
-    }
-    if (!m_reselecting) {
-        // A user's selection wins (R1-3): rows an earlier delta removed are
-        // no longer part of the intent.
-        m_selected_item_ids.clear();
-        m_selected_bucket_keys.clear();
     }
     m_buyout_manager.Save();
 
@@ -1966,8 +2020,7 @@ void MainWindow::OnTabChange(int index)
         // The intent follows the window's visible selection: it re-anchors
         // to the incoming search's saved selection (R1-3).
         m_selection_intent_id = m_current_item ? m_current_item->id() : QString();
-        m_selected_item_ids.clear();
-        m_selected_bucket_keys.clear();
+        m_carried_ids.clear();
         m_current_search->SetRefreshReason(RefreshReason::TabChanged);
         m_search_form->loadFrom(*m_current_search);
         ModelViewRefresh();
@@ -2014,8 +2067,7 @@ void MainWindow::NewSearch()
     m_current_item = m_current_search->currentItem();
     m_current_bucket_location = m_current_search->currentBucket();
     m_selection_intent_id.clear();
-    m_selected_item_ids.clear();
-    m_selected_bucket_keys.clear();
+    m_carried_ids.clear();
     m_current_search->SetRefreshReason(RefreshReason::TabCreated);
 
     // this can't be done in ctor because it'll call OnSearchFormChange slot
@@ -2197,7 +2249,7 @@ void MainWindow::OnItemsRefreshed(bool initial_refresh)
     // R1-2 (S6): the active search performs one authoritative row
     // reconciliation against the post-snapshot published state — row
     // operations only, never a reset (noModelResetDuringRefresh).
-    CaptureSelectedRows();
+    const SelectionCapture capture = CaptureSelection(std::nullopt);
     m_applying_delta = true;
     const auto result = m_current_search->ReconcileFinalSnapshot(m_items_manager.items());
     m_applying_delta = false;
@@ -2213,10 +2265,9 @@ void MainWindow::OnItemsRefreshed(bool initial_refresh)
     if (result.model_changed) {
         ScheduleResizeTreeColumns();
     }
-    ReconcileSelectionIntent();
-    ReselectCapturedRows();
-    m_selected_item_ids.clear();
-    m_selected_bucket_keys.clear();
+    ReconcileSelectionIntent(&capture);
+    RestoreSelection(capture);
+    m_carried_ids.clear();
     // The success-boundary intent closure (R1-3): the intent pass above
     // adopted an id that reappeared only in the final snapshot; one whose
     // id is absent is cleared so it cannot reselect in a later refresh.
