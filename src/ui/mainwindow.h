@@ -91,8 +91,8 @@ public slots:
     void OnTabRefreshed(const ItemLocation &location, const Items &items);
     void OnChildrenReconciled(const ItemLocation &parent,
                               const std::vector<FetchSourceKey> &expected);
-    // The typed terminal event (M2 D4): closes the selection-intent
-    // window on every outcome, terminal failure included (R1-3/R2-1).
+    // The typed terminal event (M2 D4). Nothing of the selection outlives
+    // a delta (the M3 R1-3 amendment), so it has nothing to close.
     void OnRefreshFinished(const RefreshOutcome &outcome);
 
     void OnCurrentItemChanged(const QModelIndex &current, const QModelIndex &previous);
@@ -174,7 +174,7 @@ private slots:
 private:
     // S4 delta-application tail: dirty-flag adjudication (R1-7), view-side
     // default-expansion of an inserted bucket, caption refresh, and the
-    // selection-intent pass. `model_changed` (any model operation, not
+    // current-row and selection passes. `model_changed` (any model operation, not
     // just item rows — S6 review round 1) gates the column resize, so a
     // metadata-only delta or a new empty bucket resizes too.
     // The view's expanded/collapsed signals (folder-tree D9): the
@@ -184,34 +184,41 @@ private:
     // The view-side tail for buckets a delta or the snapshot inserted:
     // folders by the user-collapsed set, tabs by the default-expanded rule.
     void ExpandInsertedBuckets(const std::vector<int> &bucket_rows);
-    // The selection as one delta sees it (R1-3 as amended, #282): the
-    // stable ids of the items selected in the bucket the delta touches
-    // (every bucket for the final snapshot), read just before it runs,
-    // and whether the current row was selected.
+    // One delta's view of the selection (M3 R1-3 as amended, #282). The
+    // rule: a selected row stays selected across a refresh while its item
+    // stays in its tab; an item that leaves its tab loses its selection.
+    // Nothing is kept from one delta to the next.
     struct SelectionCapture
     {
+        // The bucket the delta touches, walked to restore the selection;
+        // nullopt (the final snapshot) for every bucket.
         std::optional<LocationInventory::Key> bucket;
-        std::set<QString> item_ids;
+        // Each selected item in that bucket, by stable id and the tab it
+        // came from.
+        std::set<std::pair<QString, LocationInventory::Key>> items;
+        // The current item, by stable id and tab, and whether its row was
+        // selected.
+        QString current_id;
+        LocationInventory::Key current_tab;
         bool current_selected{false};
     };
     SelectionCapture CaptureSelection(std::optional<LocationInventory::Key> bucket) const;
     // The bucket a delta for `location` touches: its tab's in By-Tab, the
     // flat bucket in By-Item.
     LocationInventory::Key TouchedBucket(const ItemLocation &location) const;
-    // Selects again the captured items, and the carried ones, that the
-    // delta's bucket now holds — one walk of that bucket — and carries
-    // the captured items it removed.
+    // Selects again, by one walk of the captured bucket, the captured
+    // items it still holds from the same tab.
     void RestoreSelection(const SelectionCapture &capture);
     void FinishDeltaApplication(bool processed,
                                 bool model_changed,
                                 const std::vector<int> &inserted_bucket_rows,
                                 const SelectionCapture &capture);
-    // R1-3: reconciles the view's current row with the stable-id intent
-    // after row operations — a removed current row lapses visually but
-    // keeps the intent; a visible item with the intent's id re-adopts the
-    // current row through the global identity index. With a delta's
-    // `capture`, the selection itself is left to RestoreSelection; without
-    // one (a refilter), the current row is selected as well.
+    // Reconciles the current row after row operations. With a delta's
+    // `capture`: a current item the delta replaced by the same item in
+    // the same tab stays current, selected only if it was; a current item
+    // that left its tab is dropped and the current row stays where Qt
+    // put it, unselected. Without one (a refilter), a surviving current
+    // row is selected as well.
     void ReconcileSelectionIntent(const SelectionCapture *capture = nullptr);
     // Makes `index` the current row, applying `flags` to the selection,
     // without the view expanding its collapsed ancestors: a reselection
@@ -269,26 +276,9 @@ private:
 
     std::shared_ptr<Item> m_current_item;
     std::optional<ItemLocation> m_current_bucket_location;
-    // The selection intent (M3 R1-3): the selected item's stable id, held
-    // independently of row existence. During an active refresh (first
-    // delta to the terminal outcome) a removal keeps it alive and a later
-    // insertion re-adopts it; every RefreshFinished outcome closes the
-    // window (R2-1). A user selection overwrites it at any time.
-    QString m_selection_intent_id;
-    // The selected items a delta of this refresh removed and no later
-    // delta has brought back (an item moving between tabs, R1-3 as
-    // amended). Any change of the selection the refresh did not make
-    // discards them, and so does the end of the refresh.
-    std::set<QString> m_carried_ids;
-    // Set while the refresh changes the selection on the user's behalf,
-    // so that the selection-changed handler can tell it from the user's.
-    bool m_reselecting{false};
-    QMetaObject::Connection m_selection_changed_conn;
-    QMetaObject::Connection m_tree_pressed_conn;
-    bool m_refresh_active{false};
     // Row operations make the view shuffle its current index (Qt moves
     // current off a removed row); while set, OnCurrentItemChanged ignores
-    // those shifts so they cannot overwrite the intent.
+    // those shifts, which are not the user's selections.
     bool m_applying_delta{false};
     std::vector<std::unique_ptr<Search>> m_searches;
     Search *m_current_search;
