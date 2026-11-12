@@ -1897,6 +1897,16 @@ void MainWindow::UpdateCurrentBucket()
     ui->pobTooltipButton->setEnabled(false);
 }
 
+// The url an item's image is fetched from: a relative icon is served by the CDN.
+static QString itemImageUrl(const Item &item)
+{
+    const QString icon = item.icon();
+    if (icon.startsWith('/')) {
+        return POE_WEBCDN + icon;
+    }
+    return icon;
+}
+
 void MainWindow::UpdateCurrentItem()
 {
     spdlog::trace("MainWindow::UpdateCurrentItem() entered");
@@ -1927,18 +1937,13 @@ void MainWindow::UpdateCurrentItem()
         m_items_manager.locationInventory().Canonical(m_current_item->location()).GetHeader());
     ui->pobTooltipButton->setEnabled(m_current_item->Wearable());
 
-    QString icon = m_current_item->icon();
-    if ((icon.size() >= 1) && (icon[0] == '/')) {
-        icon = POE_WEBCDN + icon;
-    }
-    emit GetImage(icon);
+    emit GetImage(itemImageUrl(*m_current_item));
 }
 
 void MainWindow::OnImageFetched(const QString &url)
 {
     if (m_current_item) {
-        const QString icon = m_current_item->icon();
-        if (url == icon) {
+        if (url == itemImageUrl(*m_current_item)) {
             const QImage image = m_image_cache.load(url);
             if (image.isNull()) {
                 ui->imageLabel->setText("No image");
