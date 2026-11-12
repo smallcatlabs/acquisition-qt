@@ -23,6 +23,7 @@ private slots:
     void clearingAbsentBuyoutSkipsRepo();
     void clearingAbsentTabBuyoutSkipsRepo();
     void failedDeleteKeepsEntryForRetry();
+    void failedSaveLeavesEntryUnchanged();
 
     // Items-pipeline M3 S2, review round 1: choke-point self-consistency
     // for mutations outside any caller batch — one boundary per operation,
@@ -41,6 +42,10 @@ private slots:
     // #290: a snapshot no longer stamps db_version into the per-league
     // file, which the legacy importer reads.
     void snapshotWritesNoDbVersion();
+
+    // #257: when the buyouts did not load, the manager writes nothing —
+    // a refresh must not overwrite a price it could not read.
+    void failedItemReadKeepsManualRowThroughRefresh();
 };
 
 namespace {
@@ -217,11 +222,11 @@ void BuyoutManagerTest::clearingItemBuyoutRemovesRepoRow()
     const Item item = makeTestItem("f52-item");
 
     fixture.manager->Set(item, makeChaosBuyout(52.0));
-    QVERIFY(fixture.repo->getItemBuyouts().contains(item.id()));
+    QVERIFY(fixture.repo->loadItemBuyouts().value().contains(item.id()));
 
     fixture.manager->Set(item, Buyout());
 
-    QVERIFY(!fixture.repo->getItemBuyouts().contains(item.id()));
+    QVERIFY(!fixture.repo->loadItemBuyouts().value().contains(item.id()));
 }
 
 void BuyoutManagerTest::clearingTabBuyoutRemovesRepoRow()
@@ -230,11 +235,11 @@ void BuyoutManagerTest::clearingTabBuyoutRemovesRepoRow()
     const ItemLocation location = makeTestStashLocation("f52-tab");
 
     fixture.manager->SetTab(location, makeChaosBuyout(52.0));
-    QVERIFY(fixture.repo->getLocationBuyouts().contains(location.id()));
+    QVERIFY(fixture.repo->loadLocationBuyouts().value().contains(location.id()));
 
     fixture.manager->SetTab(location, Buyout());
 
-    QVERIFY(!fixture.repo->getLocationBuyouts().contains(location.id()));
+    QVERIFY(!fixture.repo->loadLocationBuyouts().value().contains(location.id()));
 }
 
 // Clearing a buyout the manager does not hold must not touch the repo (F52:
@@ -253,7 +258,7 @@ void BuyoutManagerTest::clearingAbsentBuyoutSkipsRepo()
 
     fixture.manager->Set(item, Buyout());
 
-    QVERIFY(fixture.repo->getItemBuyouts().contains(item.id()));
+    QVERIFY(fixture.repo->loadItemBuyouts().value().contains(item.id()));
 }
 
 // SetTab carries the same F52 guard as Set; pin the tab side too.
@@ -267,7 +272,7 @@ void BuyoutManagerTest::clearingAbsentTabBuyoutSkipsRepo()
 
     fixture.manager->SetTab(location, Buyout());
 
-    QVERIFY(fixture.repo->getLocationBuyouts().contains(location.id()));
+    QVERIFY(fixture.repo->loadLocationBuyouts().value().contains(location.id()));
 }
 
 // The map entry must survive a failed repo delete so a later clear retries
@@ -288,13 +293,41 @@ void BuyoutManagerTest::failedDeleteKeepsEntryForRetry()
 
     fixture.manager->Set(item, Buyout());
     QVERIFY(fixture.manager->Get(item).IsActive());
-    QVERIFY(fixture.repo->getItemBuyouts().contains(item.id()));
+    QVERIFY(fixture.repo->loadItemBuyouts().value().contains(item.id()));
 
     QVERIFY(q.exec("DROP TRIGGER f52_block_delete"));
 
     fixture.manager->Set(item, Buyout());
     QVERIFY(fixture.manager->Get(item).IsNull());
-    QVERIFY(!fixture.repo->getItemBuyouts().contains(item.id()));
+    QVERIFY(!fixture.repo->loadItemBuyouts().value().contains(item.id()));
+}
+
+// #257: the map follows the database. A save the repo rejects leaves the
+// previous price in place and reports no change to the model.
+void BuyoutManagerTest::failedSaveLeavesEntryUnchanged()
+{
+    BuyoutManagerFixture fixture;
+    const Item item = makeTestItem("failed-save-item");
+    const ItemLocation location = makeTestStashLocation("failed-save-tab");
+    fixture.manager->Set(item, makeChaosBuyout(1.0));
+    fixture.manager->SetTab(location, makeChaosBuyout(2.0));
+
+    QSqlQuery q(*fixture.db);
+    QVERIFY(q.exec("CREATE TRIGGER block_item_update BEFORE UPDATE ON item_buyouts "
+                   "BEGIN SELECT RAISE(FAIL, 'test: update blocked'); END"));
+    QVERIFY(q.exec("CREATE TRIGGER block_location_update BEFORE UPDATE ON location_buyouts "
+                   "BEGIN SELECT RAISE(FAIL, 'test: update blocked'); END"));
+
+    int changes = 0;
+    QObject::connect(fixture.manager.get(),
+                     &BuyoutManager::BuyoutsChanged,
+                     [&changes](const BuyoutChangeSet &) { ++changes; });
+    fixture.manager->Set(item, makeChaosBuyout(5.0));
+    fixture.manager->SetTab(location, makeChaosBuyout(6.0));
+
+    QCOMPARE(fixture.manager->Get(item).value, 1.0);
+    QCOMPARE(fixture.manager->GetTab(location).value, 2.0);
+    QCOMPARE(changes, 0);
 }
 
 // An unbatched compression coalesces its erasures into one boundary, and a
@@ -347,7 +380,7 @@ void BuyoutManagerTest::removedNoteClearsGamePriceOnSnapshot()
     fixture.items.OnItemsRefreshed({unnoted}, {tab}, false);
 
     QVERIFY(fixture.buyouts.manager->Get(*unnoted).IsNull());
-    QVERIFY(!fixture.buyouts.repo->getItemBuyouts().contains("item-251a"));
+    QVERIFY(!fixture.buyouts.repo->loadItemBuyouts().value().contains("item-251a"));
 }
 
 // #251: the per-tab delta path applies the same rule as the snapshot.
@@ -364,7 +397,7 @@ void BuyoutManagerTest::removedNoteClearsGamePriceOnDelta()
     fixture.items.OnTabRefreshed(tab, {unnoted});
 
     QVERIFY(fixture.buyouts.manager->Get(*unnoted).IsNull());
-    QVERIFY(!fixture.buyouts.repo->getItemBuyouts().contains("item-251b"));
+    QVERIFY(!fixture.buyouts.repo->loadItemBuyouts().value().contains("item-251b"));
 }
 
 // #251: renaming a tab away from a price clears the tab's game-set price,
@@ -384,8 +417,8 @@ void BuyoutManagerTest::renamedTabClearsGameTabPrice()
 
     QVERIFY(fixture.buyouts.manager->GetTab(renamed_tab).IsNull());
     QVERIFY(fixture.buyouts.manager->Get(*moved).IsNull());
-    QVERIFY(!fixture.buyouts.repo->getLocationBuyouts().contains("stash-251c"));
-    QVERIFY(!fixture.buyouts.repo->getItemBuyouts().contains("item-251c"));
+    QVERIFY(!fixture.buyouts.repo->loadLocationBuyouts().value().contains("stash-251c"));
+    QVERIFY(!fixture.buyouts.repo->loadItemBuyouts().value().contains("item-251c"));
 }
 
 // #251/#273: a note that names a currency the parser does not know yields
@@ -413,7 +446,7 @@ void BuyoutManagerTest::unknownCurrencyClearsGamePrice()
     // Then the snapshot path for the second.
     fixture.items.OnItemsRefreshed({first_unknown, second_unknown}, {tab}, false);
     QVERIFY(fixture.buyouts.manager->Get(*second_unknown).IsNull());
-    QVERIFY(fixture.buyouts.repo->getItemBuyouts().empty());
+    QVERIFY(fixture.buyouts.repo->loadItemBuyouts().value().empty());
 }
 
 // The rule never touches a price the user set by hand.
@@ -435,7 +468,7 @@ void BuyoutManagerTest::manualPriceWithEmptyNoteIsUntouched()
 
     QCOMPARE(fixture.buyouts.manager->Get(*moved), manual);
     QCOMPARE(fixture.buyouts.manager->Get(*moved).source, Buyout::BUYOUT_SOURCE_MANUAL);
-    QVERIFY(fixture.buyouts.repo->getItemBuyouts().contains("item-251f"));
+    QVERIFY(fixture.buyouts.repo->loadItemBuyouts().value().contains("item-251f"));
 }
 
 // An item inheriting a game-set tab price carries the game source too. The
@@ -449,18 +482,20 @@ void BuyoutManagerTest::inheritedGameTabPriceIsNotRewritten()
     fixture.items.OnItemsRefreshed({item}, {tab}, false);
     QVERIFY(fixture.buyouts.manager->Get(*item).inherited);
 
-    int writes = 0;
+    // Rows written through the fixture's connection, counted by SQLite.
+    const auto total_changes = [&fixture] {
+        QSqlQuery q(*fixture.buyouts.db);
+        return q.exec("SELECT total_changes()") && q.next() ? q.value(0).toLongLong() : -1;
+    };
+    const qint64 changes_before = total_changes();
     int changes = 0;
-    QObject::connect(fixture.buyouts.manager.get(),
-                     &BuyoutManager::SetItemBuyout,
-                     [&writes](const Buyout &, const Item &) { ++writes; });
     QObject::connect(fixture.buyouts.manager.get(),
                      &BuyoutManager::BuyoutsChanged,
                      [&changes](const BuyoutChangeSet &) { ++changes; });
     fixture.items.OnItemsRefreshed({item}, {tab}, false);
     fixture.items.OnTabRefreshed(tab, {item});
 
-    QCOMPARE(writes, 0);
+    QCOMPARE(total_changes(), changes_before);
     QCOMPARE(changes, 0);
     QVERIFY(fixture.buyouts.manager->Get(*item).IsActive());
 }
@@ -482,6 +517,44 @@ void BuyoutManagerTest::snapshotWritesNoDbVersion()
 
     QCOMPARE(fixture.buyouts.manager->Get(*item).value, 5.0);
     QCOMPARE(fixture.buyouts.data->Get("db_version"), QString());
+}
+
+// #257: a failed item read leaves the manager without the user's item
+// prices, so every item looks like "inherit". A refresh must not then
+// propagate the tab's price over the manual row it could not see. The
+// rows are seeded behind the manager's back and the reload runs with the
+// item table hidden, which is the state a failed read at start-up leaves.
+// No note on the item and no price in the tab's name, so only the
+// propagation pass could touch the row.
+void BuyoutManagerTest::failedItemReadKeepsManualRowThroughRefresh()
+{
+    PricingFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-257", "Dump", 0);
+    const auto item = makeNotedItem("item-257", tab);
+
+    const Buyout manual = makeChaosBuyout(9.0);
+    QCOMPARE(fixture.buyouts.repo->saveItemBuyout(manual, item->id(), tab.id(), tab.type(), true),
+             BuyoutSaveResult::Saved);
+    QCOMPARE(fixture.buyouts.repo->saveLocationBuyout(makeChaosBuyout(4.0),
+                                                      tab.id(),
+                                                      tab.type(),
+                                                      true),
+             BuyoutSaveResult::Saved);
+
+    QSqlQuery q(*fixture.buyouts.db);
+    QVERIFY(q.exec("ALTER TABLE item_buyouts RENAME TO item_buyouts_hidden"));
+    fixture.buyouts.manager->ReloadBuyouts();
+    QVERIFY(q.exec("ALTER TABLE item_buyouts_hidden RENAME TO item_buyouts"));
+    QVERIFY(!fixture.buyouts.manager->BuyoutsLoaded());
+    QVERIFY(fixture.buyouts.manager->GetTab(tab).IsActive());
+
+    fixture.items.OnItemsRefreshed({item}, {tab}, false);
+
+    const auto rows = fixture.buyouts.repo->loadItemBuyouts();
+    QVERIFY(rows);
+    QVERIFY(rows->contains("item-257"));
+    QCOMPARE(rows->at("item-257").value, 9.0);
+    QVERIFY(!rows->at("item-257").inherited);
 }
 
 QTEST_GUILESS_MAIN(BuyoutManagerTest)
