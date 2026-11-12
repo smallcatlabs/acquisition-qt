@@ -16,6 +16,26 @@ class ItemsModel : public QAbstractItemModel
     Q_OBJECT
 public:
     explicit ItemsModel(BuyoutManager &bo_manager, Search &search);
+
+    // A model index resolved to the search's bucket handle (folder-tree
+    // D4): a bucket header is (bucket row, -1), an item is (owning bucket
+    // row, item row), anything else — invalid, foreign, or stale — is
+    // (-1, -1). The item row is not range-checked; callers test
+    // Bucket::has_item as before.
+    struct RowRef
+    {
+        int bucket_row{-1};
+        int item_row{-1};
+        bool isBucket() const { return (bucket_row >= 0) && (item_row < 0); }
+        bool isItem() const { return (bucket_row >= 0) && (item_row >= 0); }
+    };
+    // The two conversions every "bucket or item" decision goes through
+    // (D4): never `index(bucket_row, 0)`, `index.row()` or
+    // `index.parent().row()` directly. BucketIndex is invalid for an
+    // out-of-range bucket row or column.
+    QModelIndex BucketIndex(int bucket_row, int column = 0) const;
+    RowRef Locate(const QModelIndex &index) const;
+
     int rowCount(const QModelIndex &parent = QModelIndex()) const;
     int columnCount(const QModelIndex &parent = QModelIndex()) const;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const;
@@ -42,11 +62,13 @@ public:
     // signals, persistent-index walk, sort — to that bucket instead of
     // paying the view-wide dance.
     void ResortBucket(int row);
-    // The view's expand/collapse signals, per top-level row (D2 rules
+    // The view's expand/collapse signals, per bucket row (D2 rules
     // 2-3): expanding marks the bucket materialized and sorts it under
     // the layout-change protocol iff its flag is invalid; collapsing
     // unmarks it and evicts its keys (By-Item's flat bucket ignores
     // collapse — it is materialized by definition). Both are idempotent.
+    // A folder bucket holds no items and materializes nothing either way
+    // (folder-tree D9).
     void OnBucketExpanded(int row);
     void OnBucketCollapsed(int row);
     // Batching rule 5 (M3 R1-6): repaint the affected visible Price/Date
@@ -62,15 +84,21 @@ public:
     void EndRemoveItemRows() { endRemoveRows(); }
     void BeginInsertItemRows(int bucket_row, int first, int last);
     void EndInsertItemRows() { endInsertRows(); }
-    void BeginInsertBucketRow(int row);
+    // Bucket header rows (folder-tree D7): `parent_bucket_row` is the
+    // folder bucket the header sits under, -1 for the top level; `row` is
+    // the header's row within that parent.
+    void BeginInsertBucketRow(int parent_bucket_row, int row);
     void EndInsertBucketRow() { endInsertRows(); }
     // Filtered searches hide empty buckets (S4 review round 1): a bucket
-    // a delta emptied leaves as a top-level row removal.
-    void BeginRemoveBucketRow(int row);
+    // a delta emptied leaves as a row removal under its parent.
+    void BeginRemoveBucketRow(int parent_bucket_row, int row);
     void EndRemoveBucketRow() { endRemoveRows(); }
-    // Repositions a top-level bucket row; returns false when Qt rejects
-    // the move (no-op moves included) — the caller must then not mutate.
-    bool BeginMoveBucketRow(int from, int to);
+    // Moves one bucket header — with its subtree — within its parent or
+    // across parents (D8, S0: beginMoveRows between parents). `to` is the
+    // header's row within the destination AFTER the move. Returns false
+    // when Qt rejects the move (no-op moves included) — the caller must
+    // then not mutate.
+    bool BeginMoveBucketRow(int from_parent_bucket_row, int from, int to_parent_bucket_row, int to);
     void EndMoveBucketRow() { endMoveRows(); }
     // A metadata delta's header repaint: text, color, and the checkbox
     // column all live on the bucket row (R1-4).
@@ -90,6 +118,11 @@ public:
     void refreshCheckStates();
 
 private:
+    // Folder check state (folder-tree D10): derived from the present
+    // members; a write cascades to them.
+    QVariant FolderCheckState(int folder_row) const;
+    bool SetFolderChecked(int folder_row, bool checked);
+
     // The layout-preserving sort machinery shared by sort(), Resort(),
     // and the expand path: snapshots persistent indexes, sorts the
     // search's buckets, remaps. `only_bucket` scopes the whole dance to

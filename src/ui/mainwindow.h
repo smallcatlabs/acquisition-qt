@@ -176,12 +176,25 @@ private:
     // selection-intent pass. `model_changed` (any model operation, not
     // just item rows — S6 review round 1) gates the column resize, so a
     // metadata-only delta or a new empty bucket resizes too.
-    void FinishDeltaApplication(bool processed, bool model_changed, int inserted_bucket_row);
+    // The view's expanded/collapsed signals (folder-tree D9): the
+    // materialization hooks for bucket headers, and the user-collapsed
+    // folder set of the current search.
+    void OnTreeExpansionChanged(const QModelIndex &index, bool expanded);
+    // The view-side tail for buckets a delta or the snapshot inserted:
+    // folders by the user-collapsed set, tabs by the default-expanded rule.
+    void ExpandInsertedBuckets(const std::vector<int> &bucket_rows);
+    void FinishDeltaApplication(bool processed,
+                                bool model_changed,
+                                const std::vector<int> &inserted_bucket_rows);
     // R1-3: reconciles the view's selection with the stable-id intent
     // after row operations — a removed selected row lapses visually but
     // keeps the intent; a visible item with the intent's id re-adopts the
     // selection through the global identity index.
     void ReconcileSelectionIntent();
+    // Makes `index` the current, selected row without the view expanding
+    // its collapsed ancestors: a reselection made for the user never undoes
+    // the user's collapse (folder-tree D9).
+    void SelectWithoutExpanding(const QModelIndex &index);
 
     void ModelViewRefresh();
     void ReselectCurrentItem();

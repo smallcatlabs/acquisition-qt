@@ -5,6 +5,9 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-linux-appimage:
     runs-on: ubuntu-latest
@@ -19,10 +22,10 @@ jobs:
     - name: Setup Qt
       uses: jurplel/install-qt-action@v4
       with:
-        version: '6.11.1'
+        version: '6.12.0'
         modules: 'qtnetworkauth'
         cache: true
-        cache-key-prefix: 'qt-6.11.1-linux'
+        cache-key-prefix: 'qt-6.12.0-linux'
 
     - name: Install dependencies
       run: |
@@ -57,7 +60,29 @@ jobs:
       run: |
         version=$(grep APP_VERSION_STRING build/version_defines.h | cut -d'"' -f2)
         echo "version=$version"
+
+        # The update checker parses APP_VERSION_STRING as the running version and
+        # compares it against github release tags (src/util/updatechecker.cpp),
+        # so a tag that disagrees with the build would tell every user to update
+        # to the version they are already running, on every check.
+        if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
+          echo "::error::Tag $GITHUB_REF_NAME does not match APP_VERSION_STRING $version"
+          echo "::error::Update app_version / app_version_suffix in CMakeLists.txt"
+          exit 1
+        fi
+
         echo "version=$version" >> "$GITHUB_OUTPUT"
+
+    # build/acquisition is stripped by a POST_BUILD step in CMakeLists.txt and
+    # carries the GNU build ID plus .eh_frame unwind data; acquisition.debug
+    # carries the DWARF. Sentry needs both, matched by build ID.
+    - name: Upload debug symbols to Sentry
+      uses: ./.github/actions/sentry-symbols
+      with:
+        paths: build/acquisition.debug build/acquisition
+        org: ${{ vars.SENTRY_ORG }}
+        project: acquisition
+        auth-token: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
     - name: Package AppImage
       env:
@@ -87,6 +112,37 @@ jobs:
         name: acquisition-${{ steps.version.outputs.version }}-x86_64.debug
         path: build/acquisition.debug
         retention-days: 30
+
+    # Only this workflow creates the Sentry release; the Windows and macOS
+    # workflows upload symbols for the same release and would otherwise race
+    # to create it three times over.
+    - name: Create Sentry release
+      if: startsWith(github.ref, 'refs/tags/v') && vars.SENTRY_ORG != ''
+      env:
+        SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+        SENTRY_PROJECT: acquisition
+        SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      run: |
+        set -euo pipefail
+        if [ -z "${SENTRY_AUTH_TOKEN}" ]; then
+          echo "SENTRY_AUTH_TOKEN is not set; skipping Sentry release."
+          exit 0
+        fi
+
+        # Must match SENTRY_RELEASE in src/main.cpp: APP_NAME "@" APP_VERSION_STRING.
+        release="acquisition@${{ steps.version.outputs.version }}"
+
+        cli="${RUNNER_TEMP}/sentry-cli-Linux-x86_64"
+        curl -sSfL --retry 3 -o "${cli}" \
+          "https://downloads.sentry-cdn.com/sentry-cli/3.6.2/sentry-cli-Linux-x86_64"
+        chmod +x "${cli}"
+
+        "${cli}" releases new "${release}"
+        # Suspect commits need the Sentry GitHub integration; don't fail the
+        # release build if it isn't configured.
+        "${cli}" releases set-commits "${release}" --auto \
+          || echo "::warning::Could not associate commits (is the Sentry GitHub integration set up?)"
+        "${cli}" releases finalize "${release}"
 
     - name: Create draft release
       if: startsWith(github.ref, 'refs/tags/v')

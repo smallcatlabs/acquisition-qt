@@ -185,6 +185,90 @@ only by `LoginDialog`. Fix shape: surface refresh failure to the UI
 and add an `oauth_rejected` de-arming path symmetric with the
 POESESSID one.
 
+### F78. `_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR` was defined for only one target — Resolved; build and installer fixes verified on Windows
+
+Found August 22, 2026, from a Sentry crash on 0.18.3
+(`acquisition.sentry.io/issues/7687078638`, two events, one Windows 10
+19044 machine). `EXCEPTION_ACCESS_VIOLATION_READ / 0x0` inside
+`mtx_do_lock` (MSVCP140.dll), reached from `main` ->
+`logging::init` (`src/util/logging.cpp:78`) ->
+`spdlog::set_default_logger` -> `registry::set_default_logger`
+(`registry-inl.h`) -> `std::lock_guard`. The process died on its very
+first `std::mutex` lock, before `logging::init` returned.
+
+Mechanism: MSVC 14.38 (VS 2022 17.8) made `std::mutex`'s constructor
+`constexpr`, so the mutex's storage is constant-initialized to zero
+instead of being set up by `_Mtx_init_in_situ`. An older
+`msvcp140.dll` does not understand that representation and its
+`mtx_do_lock` dereferences a null handle. The crash event's debug
+images confirm it: `acquisition.exe` built 2026-08-20 against a
+`C:\Windows\SYSTEM32\MSVCP140.dll` built 2021-02-11 (~14.28, the
+VS 2019 redistributable). The bundled `vc_redist.x64.exe` had never
+run or had failed; `installer.iss` makes it an optional Task.
+
+`_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR` was already in the build, but
+as a `PRIVATE` `target_compile_options` entry on `acquisition_core`
+alone. `src/main.cpp` (the `acquisition` target), `acquisition_filters`,
+every test target, and all fetched dependencies compiled without it.
+`std::mutex`'s constructor is inline, so a mutex inside an inline
+function or a header-only library — spdlog's `registry` singleton is
+exactly that — is emitted as a COMDAT by every translation unit that
+uses it. Mixing macro and non-macro TUs makes those definitions
+disagree and the linker keeps one arbitrarily: an ODR violation whose
+observable symptom is this crash. Partial coverage was therefore worse
+than none, because it read as protection.
+
+Fix: the macro is now a global `add_compile_definitions()` in
+`CMakeLists.txt`, placed ahead of the `FetchContent` block so the
+fetched dependencies get it too, and removed from the per-target list.
+
+Verified on Windows (August 22, 2026, MSVC 14.51 / Qt 6.11.1, fresh
+Release tree): every one of the 55 compiled targets — app, core,
+filters, all tests, spdlog, QCoro, QXlsx, sentry, crashpad — carries
+the macro in its generated project, and none is without it;
+`dumpbin /imports acquisition.exe` shows `_Mtx_init_in_situ` imported
+from MSVCP140.dll, i.e. the runtime-initialized constructor that an old
+CRT understands rather than the constexpr zero-init; `ctest` 39/39; the
+app launches and runs past `logging::init`. Not reproduced against an
+actual 14.28 `msvcp140.dll` — the workstation has a current CRT — so
+the closing evidence is the import, not a crash-then-no-crash.
+
+The remaining installer gap was closed August 27, 2026. `installer.iss`
+now runs the `windeployqt`-supplied redistributable as a mandatory
+prerequisite before modifying Acquisition, validates its exit code,
+propagates restart-required results, and preserves its diagnostic log
+under the user's local application data. Packaging fails if
+`windeployqt` omits the redistributable or supplies one without a valid
+Microsoft signature; the workflow does not download a fallback. The installer
+skips the prerequisite when an equal or newer registered runtime is already
+installed, preserving an unelevated per-user installation in that case. When
+the runtime is missing or older, its machine-wide update requires administrator
+approval, after which Acquisition can still be installed per-user. Every install
+also deletes stale app-local `msvcp140*`, `vcruntime140*`, and `concrt140` DLLs
+before copying application files. Redistributable logs are intentionally retained
+under `%LOCALAPPDATA%\acquisition\installer-logs` for diagnosis after setup or
+uninstallation. The existing stray-DLL runtime
+check remains because users historically copied CRT DLLs into the
+Acquisition directory themselves.
+
+Verified on the Windows workstation in two isolated installs: a host test
+with a newer runtime accepted redistributable result 1638, and a disposable
+Windows Sandbox started without a registered x64 runtime, installed
+v14.44.35211.00, launched Acquisition with an isolated data directory, and
+uninstalled cleanly. Both removed seeded stale app-local CRT files and left
+neither CRT DLLs nor `vc_redist.x64.exe` beside the application. The
+checked-in Sandbox harness also covers synthetic restart-required and
+prerequisite-failure exit paths.
+
+Known diagnostic limitation retained by design:
+
+- `checkMicrosoftRuntime()` runs at `src/main.cpp:164`, *after*
+  `logging::init` at `:134`, so it can never fire for a crash in the
+  CRT's first lock. It also only looks for stray DLLs beside the exe
+  (`src/util/checkmsvc.cpp`) and never checks the system CRT's
+  version. The global compatibility macro protects startup against an
+  old system runtime, while the mandatory prerequisite upgrades it.
+
 ## Standing constraints and lessons
 
 Rules distilled from resolved findings that remain binding on future work.

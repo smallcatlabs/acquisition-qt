@@ -5,6 +5,9 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-macos-dmg:
     runs-on: macos-latest
@@ -19,10 +22,10 @@ jobs:
     - name: Setup Qt
       uses: jurplel/install-qt-action@v4
       with:
-        version: '6.11.1'
+        version: '6.12.0'
         modules: 'qtnetworkauth'
         cache: true
-        cache-key-prefix: 'qt-6.11.1-macos'
+        cache-key-prefix: 'qt-6.12.0-macos'
 
     - name: Configure CMake
       run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
@@ -38,7 +41,31 @@ jobs:
       run: |
         version=$(grep APP_VERSION_STRING build/version_defines.h | cut -d'"' -f2)
         echo "version=$version"
+
+        # The update checker parses APP_VERSION_STRING as the running version and
+        # compares it against github release tags (src/util/updatechecker.cpp),
+        # so a tag that disagrees with the build would tell every user to update
+        # to the version they are already running, on every check.
+        if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
+          echo "::error::Tag $GITHUB_REF_NAME does not match APP_VERSION_STRING $version"
+          echo "::error::Update app_version / app_version_suffix in CMakeLists.txt"
+          exit 1
+        fi
+
         echo "version=$version" >> "$GITHUB_OUTPUT"
+
+    # The dSYM is produced by dsymutil in a POST_BUILD step in CMakeLists.txt.
+    # Uploading before macdeployqt is fine: install_name_tool rewrites load
+    # commands but leaves LC_UUID, which is what Sentry matches on.
+    - name: Upload debug symbols to Sentry
+      uses: ./.github/actions/sentry-symbols
+      with:
+        paths: >-
+          build/acquisition_${{ steps.version.outputs.version }}.dSYM
+          build/acquisition.app/Contents/MacOS/acquisition
+        org: ${{ vars.SENTRY_ORG }}
+        project: acquisition
+        auth-token: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
     - name: Package DMG
       run: |

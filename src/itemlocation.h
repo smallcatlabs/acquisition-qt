@@ -61,9 +61,18 @@ public:
     QString fetch_id() const { return m_fetch_id; }
     void setFetchId(const QString &id) { m_fetch_id = id; }
 
+    // Folder membership (folder-tree D1): the stash id of the folder this
+    // tab sits in, empty when it is in none. Tab metadata like the label,
+    // so a tab moved between folders in game is a metadata change; like
+    // the fetch id it takes no part in operator==, operator<,
+    // GetLegacyHash or GetHeader.
+    QString folder_id() const { return m_folder_id; }
+    // True for a stash of the game's "Folder" tab type.
+    bool IsFolder() const { return m_is_folder; }
+
     // Refresh the tab-level metadata (label, colours, position, type,
-    // character name) from a freshly listed location for the same tab,
-    // keeping the per-item fields (slot position, size, sockets,
+    // character name, folder) from a freshly listed location for the same
+    // tab, keeping the per-item fields (slot position, size, sockets,
     // inventory) and the fetch id.
     void rebaseTabMetadata(const ItemLocation &fresh);
 
@@ -89,6 +98,11 @@ private:
     QString m_inventory_id;
 
     QString m_character_sortname;
+
+    // The containing folder's stash id; empty outside a folder.
+    QString m_folder_id;
+    // m_tab_type == "Folder", cached: the items model asks per data() call.
+    bool m_is_folder{false};
 };
 
 using ItemLocationType = ItemLocation::ItemLocationType;

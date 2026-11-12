@@ -69,6 +69,7 @@ namespace poe {
         std::optional<std::vector<poe::Item>> rucksack;   // ?array of Item
         std::optional<std::vector<poe::Item>> jewels;     // ?array of Item
         std::optional<std::vector<poe::Item>> guardian;   // ?array of Item; PoE1 only
+        std::optional<int> active_mercenary_index;        // ?int; PoE1 only
         std::optional<poe::Character::Passives> passives; // ?object
         std::optional<poe::Character::Metadata> metadata; // ?object
 

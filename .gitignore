@@ -1,5 +1,9 @@
 .qtcreator/
 
+# Claude Code writes per-developer permission state here; the rest of
+# .claude/ is shared project config and should stay tracked.
+.claude/settings.local.json
+
 # Visual Studio and Qt Creator 13.0 puts builds here.
 /build/
 /out/

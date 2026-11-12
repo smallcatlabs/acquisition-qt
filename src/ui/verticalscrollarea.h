@@ -15,4 +15,9 @@ class VerticalScrollArea : public QScrollArea
 public:
     explicit VerticalScrollArea(QWidget *parent = 0);
     virtual bool eventFilter(QObject *o, QEvent *e);
+
+private:
+    // Guards against eventFilter() re-entering itself through the relayout its
+    // own setMinimumWidth() triggers. See the comment in eventFilter().
+    bool m_adjusting_width = false;
 };

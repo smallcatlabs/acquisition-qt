@@ -7,6 +7,9 @@
 
 #include <QString>
 
+#include "poe/types/item.h"
+#include "poe/types/mercenaryskill.h"
+
 namespace poe {
 
     // https://www.pathofexile.com/developer/docs/reference#type-LeagueAccount
@@ -19,7 +22,18 @@ namespace poe {
             std::vector<unsigned> hashes; // array of uint
         };
 
+        struct Mercenaries
+        {
+            QString name;
+            unsigned level;
+            QString build;
+            unsigned build_hash;
+            std::vector<poe::MercenarySkill> skills; // array of MercenarySkill
+            std::vector<poe::Item> items;            // array of Item
+        };
+
         std::vector<poe::LeagueAccount::AtlasPassiveTree> atlas_passive_trees; // array of object
+        std::vector<poe::LeagueAccount::Mercenaries> mercenaries;              // array of object
     };
 
 } // namespace poe

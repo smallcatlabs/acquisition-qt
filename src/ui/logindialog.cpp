@@ -311,6 +311,17 @@ void LoginDialog::OnLoginButtonClicked()
 
     const QString realm = ui->realmComboBox->currentText();
     const QString league = ui->leagueComboBox->currentText();
+
+    // Refuse the login here rather than letting it reach UserSession, whose
+    // constructor treats an unset league as fatal. That check has to stay
+    // upstream of Application::InitUserSession(): once a session exists it
+    // cannot be replaced (the shutdown invariant in network-redesign.md), so a
+    // failure after construction leaves no way back to this dialog.
+    if (league.isEmpty()) {
+        DisplayError("Please select a league before logging in.");
+        return;
+    }
+
     m_settings.setValue("realm", realm);
     m_settings.setValue("league", league);
 
@@ -474,7 +485,13 @@ void LoginDialog::DisplayError(const QString &error)
     spdlog::error("LoginDialog: {}", error);
     ui->errorLabel->setText(error);
     ui->errorLabel->show();
+
+    // OnLoginButtonClicked() disables the button while a login is in flight.
+    // Restoring the label without re-enabling it left the dialog looking ready
+    // but inert after any failed attempt. Callers that want it to stay
+    // disabled (the league request errors) disable it again after this call.
     ui->loginButton->setText("Login");
+    ui->loginButton->setEnabled(true);
 }
 
 bool LoginDialog::event(QEvent *e)

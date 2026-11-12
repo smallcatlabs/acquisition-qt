@@ -86,8 +86,8 @@ void LegacyBuyoutValidator::notifyUser()
         " or use this Github discussion:"
         "<br/>"
         "<a "
-        "href=\"https://github.com/gerwaric/acquisition/discussions/88\">https://github.com/"
-        "gerwaric/acquisition/discussions/88</a>.");
+        "href=\"https://github.com/smallcatlabs/acquisition-qt/discussions/88\">https://github.com/"
+        "smallcatlabs/acquisition-qt/discussions/88</a>.");
     help_label->setOpenExternalLinks(true);
     help_label->setWordWrap(true);
     help_label->setMargin(10);

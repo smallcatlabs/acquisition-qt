@@ -1,0 +1,12 @@
+#!/bin/sh
+# Rewrite Claude's "Co-Authored-By:" trailer to "Assisted-by:".
+# Human co-author trailers are left alone.
+# Enable with: git config core.hooksPath .githooks
+
+msg_file="$1"
+tmp="$msg_file.tmp.$$"
+
+sed \
+  -e 's/^[Cc]o-[Aa]uthored-[Bb]y:[[:space:]]*\(Claude.*\)$/Assisted-by: \1/' \
+  -e 's/^[Cc]o-[Aa]uthored-[Bb]y:[[:space:]]*\(.*@anthropic\.com>.*\)$/Assisted-by: \1/' \
+  "$msg_file" > "$tmp" && mv "$tmp" "$msg_file"

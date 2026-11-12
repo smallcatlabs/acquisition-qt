@@ -151,6 +151,49 @@ sudo apt-get install -y \
 Other distributions may need equivalent packages. If Qt cannot find OpenSSL, set
 `OPENSSL_ROOT_DIR` or adjust your library path for your local installation.
 
+### Desktop Integration and LD_LIBRARY_PATH
+
+When Acquisition is run with `LD_LIBRARY_PATH` pointing at an official Qt
+installation, anything that opens an external URL or file can fail silently.
+This affects OAuth login, the Help menu links, the update download, and the
+crash-report links. The window appears and the rest of the application works,
+so the only sign is a message on stderr such as:
+
+```
+version `Qt_6.11_PRIVATE_API' not found (required by /lib64/libKF6WindowSystem.so.6)
+```
+
+Those paths depend on the distribution and desktop environment; the shape of
+the message is the part that matters.
+
+The cause is environment inheritance, not a bug in the application.
+`QDesktopServices::openUrl` hands the URL to `xdg-open`, which delegates to a
+desktop-specific helper, and that helper is a distribution binary linked
+against the distribution's Qt. The helper inherits `LD_LIBRARY_PATH` from
+Acquisition, so it loads the official kit's Qt libraries instead of the system
+ones. Distributions and the official Qt installers do not always tag private
+symbols the same way, so the helper's own dependencies then fail to resolve.
+Most helpers still exit successfully after this failure, which is why the
+application reports nothing and the browser simply never opens.
+
+Do not export `LD_LIBRARY_PATH` when running a local build. The binary's
+`RUNPATH` already points at the Qt kit, and the Qt libraries locate each other
+through `$ORIGIN`, so the application resolves its dependencies without it.
+Confirm this for a given build before changing anything else; the following
+should print nothing:
+
+```sh
+env -u LD_LIBRARY_PATH ldd ./build/acquisition | grep "not found"
+```
+
+In Qt Creator, both sources of the variable are in Projects -> Run:
+
+- Clear any `LD_LIBRARY_PATH` entry under Environment.
+- Uncheck "Add build library search path to LD_LIBRARY_PATH".
+
+Qt Creator rewrites `CMakeLists.txt.user` when it exits, so edit that file only
+while Qt Creator is closed, or make the change through the user interface.
+
 ## Release Packaging
 
 Release artifacts are built by GitHub Actions:
@@ -161,7 +204,7 @@ Release artifacts are built by GitHub Actions:
 
 The workflows run on `workflow_dispatch` and on tags matching `v*`. Tag builds
 create draft GitHub releases and attach the platform artifacts. They currently
-install Qt 6.11.1 with the `qtnetworkauth` module.
+install Qt 6.12.0 with the `qtnetworkauth` module.
 
 ## Platform Notes
 

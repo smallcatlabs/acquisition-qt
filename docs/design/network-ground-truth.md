@@ -595,6 +595,318 @@ endpoint is unlimited. A design that owns token traffic should track
 `token-request-limit` like any other policy — the headers parse
 identically.
 
+### Live-testing claims (August 24, 2026)
+
+Observed while soaking the Rust daemon against the live API on branch
+`spikes/rust-playground`; the run is recorded as rung 8 in that branch's
+`LIVE-TESTING.md`. Journal and daemon log retained in that branch's
+`runs/2026-08-23-r8/`.
+
+**N34. A 401 from an expired access token carries no rate-limit headers
+at all — not the policy, not the rules, not the state.** [OBSERVED —
+Confirmed August 23, 2026]
+Three GET `/character` requests with an expired bearer token, ten
+minutes apart, each returned `401 Unauthorized` with body
+`{"error":"invalid_token","error_description":"The access token provided
+is invalid or has expired"}` and an empty header set — the send journal
+recorded `rate: {}` for all three. The next request after a refresh
+returned the usual `character-list-request-limit` headers, so the route
+itself was unaffected.
+
+Two consequences. A limiter that maintains its window state from
+response headers learns nothing from a 401 and must carry its own
+accounting forward across one, rather than treating the absent headers
+as a cleared window. And by N27 the invalid-request budget includes
+every 4xx, so a 401 spends that budget against an undocumented
+threshold while returning nothing that would let a client detect the
+cost — which is what makes a timed stream of 401s (a daemon that
+believes an expired token is still valid) more dangerous than its
+request count suggests. Whether GGG also counts a 401 against the
+route's own policy counter is Q11.
+
+### Live-testing claims — rung 10 (August 25, 2026)
+
+Observed while the Rust daemon on branch `spikes/rust-playground` pulled
+the full Standard stash (322 tabs, 18 072 items) against the live API;
+the runs are recorded as rung 10 in that branch's `LIVE-TESTING.md`.
+Journals, daemon logs, and the 503 body are retained in that branch's
+`runs/2026-08-24-r10/`, `runs/2026-08-24-r10b/`, and
+`runs/2026-08-25-r10c/` (gitignored, on disk).
+
+**N35. The origin can answer a compliant request with an HTTP 503 that
+carries no rate-limit headers and is not Cloudflare-shaped.** [OBSERVED
+— High; one occurrence, August 25, 2026]
+At 2026-08-25T02:54:04Z, GET `/stash/Standard/7b05e6f78d` returned
+`503 Service Unavailable` with no `X-Rate-Limit-*` headers at all (the
+send journal recorded `rate: {}`) and an HTML body `503 Service
+Temporarily Unavailable` signed `openresty` — no `cloudflare` string,
+no Ray ID, no error 1015 (`runs/2026-08-24-r10/job-243-503.json` holds
+the body). The account was at 0 hits in both `stash-request-limit`
+windows: it was the first send after a 343 s hold, and the previous
+response had read `15:10:0,30:300:0`. The same tab, in the same
+position (first send after a hold), answered 200 on the two later runs
+of the same pull, so the 503 was transient, not tab-specific.
+
+This extends the recognition surface of N3 and N28: a 5xx exists that
+is neither a Cloudflare block nor a policy 429, so a client cannot treat
+"5xx without rate-limit headers" as layer-1 evidence. As with N34, a
+limiter fed from response headers learns nothing from it and must carry
+its own accounting forward. Whether the rate-limit middleware counted
+the request is unknown — there were no headers to say — so the
+conservative reading is that it did (the spike counts it). Whether a
+503 spends the invalid-request budget of N27 is unknown; that budget is
+documented as 4xx-only.
+
+**N36. `veiledMods` is volatile: its placeholder ids are re-randomized
+per fetch, so the field differs between two pulls of an unchanged
+stash.** [OBSERVED — High; one pair of samples, August 25, 2026]
+Two full pulls of the same 322-tab Standard stash, at
+2026-08-25T04:37Z and 2026-08-25T12:20Z with nothing touched in between,
+differed in exactly one item field across the 18 072 items in each:
+`veiledMods` on 10 items, with values such as `["Prefix04","Suffix06"]`
+→ `["Prefix03","Suffix03"]` and `["Prefix06"]` → `["Prefix01"]`. No
+other field on any item changed, and no tab or item was added, removed,
+or moved. Snapshots: the branch's `runs/2026-08-24-r10b/` and
+`runs/2026-08-25-r10c/` (the snapshot JSON files themselves live under
+`~/.local/share/acquisition-playground/snapshots/ggg/Standard/`).
+
+Consequence: a consumer that diffs two snapshots to detect stash changes
+must ignore `veiledMods`, or it reports phantom changes on every pull;
+the spike's pull diff now does so. More generally, "the payload differs"
+is not evidence that the stash changed, and any future change-detection
+or conditional-fetch design should assume other fields may prove
+volatile until a wider sample says otherwise.
+
+**N37. `Account`-scoped rules count per account: two accounts on one
+machine and one IP do not share policy counters.** [OBSERVED — High;
+one run of two accounts, August 30, 2026]
+Two daemons, each logged into a different account, on one machine
+(spike rung 11; `spikes/rust-playground/LIVE-TESTING.md` run ledger,
+`runs/2026-08-30-r11/`). Account A's counted GET on
+`character-list-request-limit` read `1:10:0,1:300:0`; account B's HEAD
+probe on the same policy **4.1 s later** reported `0:10:0,0:300:0`, and
+B's GET was answered `1:10:0,1:300:0`. Then both daemons sent a GET
+**28 ms apart**; each was answered `1:10:0,2:300:0` — its own account's
+second hit in the long window, nothing from the other account. The
+same run's two code exchanges were 31 s apart, so `token-request-limit`
+(Ip-scoped, N33) was not sampled across accounts.
+
+Consequence: the rate-limit layer (layer 2) gives multiple accounts on
+one machine nothing to contend over; what they share is layer 1
+(Cloudflare, per IP) and the Ip-scoped token policy. A client that
+holds several accounts therefore needs its limiter keyed by
+`(account, policy)` for `Account` rules and by policy alone for `Ip`
+rules — and, because one account's response overwrites nothing of
+another's, a limiter keyed by policy alone would pace the second
+account from the first's counters (a flood path when both are live).
+The spike's daemon is one process with many sessions for the layer-1
+reason: two processes each bounding their own concurrency are four
+sends in flight to Cloudflare.
+
+**N38. `GET /profile` answers 200 with no `X-Rate-Limit-*` headers at
+all; `HEAD /profile` is answered 403.** [OBSERVED — High; three GET
+samples and one HEAD, August 30, 2026]
+Fresh daemons with a valid bearer (scope `account:profile` granted):
+`HEAD /profile` → 403 (the first sample; response headers were not yet
+logged, so the shape is unrecorded). `GET /profile` → 200 in 136 ms
+with the account JSON (`uuid`, `name`, `realm`, …) and **no rate-limit
+header of any kind** (send journal `rate: {}`), three times on three
+daemons. Every other API endpoint sampled answers HEAD 204 or 200 with
+the full policy set.
+
+**GGG's answer (Q12, 2026-08-30): `/profile` is not rate limited at
+present.** [GGG-EMAIL — Confirmed; GGG's web developer to the owner,
+2026-08-30] There is no hidden policy; the missing headers reflect the
+truth. "At present"
+is load-bearing: this can change without notice, and strict observation
+already covers that arm — a policy that ever appears in headers is
+learned and enforced.
+
+Consequence: a limiter that treats "2xx without a policy header" as a
+protocol failure (the strict reading N33 justified) cannot use this
+endpoint. The spike declares `/profile` policyless per route — now
+confirmed rather than merely accepted: paced by the send gate alone
+(layer 1 applies regardless of GGG's answer), called at most once per
+login for the `uuid`. The declaration stays until GGG adds headers, at
+which point strict observation takes over and the declaration is
+deleted.
+
+**N39. `GET /account/leagues` is `league-request-limit`, `Account`,
+`5:10:60, 10:60:300` — and its HEAD is counted.** [OBSERVED — High;
+one sample, August 30, 2026]
+`HEAD /account/leagues` was answered **200** (the free HEADs of N24
+answer 204) with the full policy set and state `1:10:0,1:60:0` — the
+HEAD itself was the hit; the GET 48 ms later read `2:10:0,2:60:0`.
+`GET /league` (the public league list) requires `service:leagues`
+(`WWW-Authenticate: Bearer … error="insufficient_scope"`); the
+account's leagues are `/account/leagues[/{realm}]` under
+`account:leagues`.
+
+**GGG's answer (Q12, 2026-08-30): the counted HEAD is a defect; GGG
+will correct it in a future release.** [GGG-EMAIL — Confirmed; GGG's
+web developer to the owner, 2026-08-30] No release or date named. Until the fix is
+*observed* live (a HEAD answered 204 and uncounted, the N24 pattern),
+the current behavior stands and clients must treat the HEAD as
+counted — the correction is a promise, not an observation, and this
+document ranks observation first.
+
+Consequence: N24's uncounted HEAD is a property of particular
+endpoints, not of the API; a client must not assume a probe is free on
+an endpoint it has not sampled. Pacing is unaffected — the state
+headers are post-increment and include the HEAD's hit — but a probe
+there is a wasted hit, so the spike does not probe this route and lets
+the first GET teach the policy; when GGG's fix is observed, the
+no-probe declaration can be deleted and the probe restored (regaining
+learn-before-first-counted-send on this route). One sample; the
+200-vs-204 status is a candidate tell for "counted HEAD" until more
+endpoints say otherwise.
+
+**N40. `GET /character/{name}` is `character-request-limit`,
+`Account`, `5:10:60, 30:300:300`, with a free HEAD.** [OBSERVED —
+High; one sample, August 30, 2026]
+Confirms the C++ capture's shape exactly: HEAD 204 with
+`0:10:0,0:300:0`, GET 200 with `1:10:0,1:300:0`, 180 ms end to end.
+Recorded as the ordinary pattern against which N38 and N39 are the
+exceptions.
+
+### Characters and PoE2 claims (September 2, 2026)
+
+Source for all five: the Rust spike's characters rung
+(`spikes/rust-playground/LIVE-TESTING.md`, run ledger rows dated
+2026-09-02; journals and bodies under `runs/2026-09-02-characters/`,
+`runs/2026-09-02-tracer-150553/`, `-154145/`, `-160139/`, `-161419/`).
+One account (`GERWARIC#7694`), one machine, rails on, every probe at 0
+hits, zero non-2xx across the day.
+
+**N41. The PoE2 character endpoints carry their own policies —
+`character-list-request-limit-poe2` and `character-request-limit-poe2`
+— with pc's windows, `Account` rules, and a free HEAD.** [OBSERVED —
+Confirmed; four fresh daemons, September 2, 2026]
+`HEAD /character/poe2` → 204, uncounted (`0:10:0,0:300:0` after it),
+policy `character-list-request-limit-poe2`, `Account`,
+`2:10:60, 5:300:300`; `GET /character/poe2` → 200, `1:10:0,1:300:0`.
+`HEAD /character/poe2/{name}` → 204, uncounted, policy
+`character-request-limit-poe2`, `Account`, `5:10:60, 30:300:300`; the
+GETs that followed read `1:10:0` … `5:10:0`. The names differ from
+the pc policies of N23 by the `-poe2` suffix only; the windows are
+identical. By N6 (same name shares state, different name does not)
+the pc and PoE2 counters are separate: a client can list or fetch on
+both realms without one realm's hits pacing the other's. The realm
+segment sits in the path (`/character/poe2`, `/character/poe2/{name}`);
+the pc routes are the unsuffixed ones, and the two are distinct routes
+for probing (one HEAD each per daemon lifetime).
+
+Consequence: a limiter that keys policy state by the reported name
+(N6, the spike's `ratelimit.rs`) needs nothing new; one that assumed
+"character-list-request-limit" for every realm would under-count
+nothing but would pace PoE2 sends against pc's counters, wasting
+capacity. N24's free-HEAD pattern holds on both PoE2 routes (against
+N39's counted HEAD on `/account/leagues`).
+
+**N42. The character list is per realm and reports `realm` as
+`"poe2"` for PoE2 characters; the pc list omits them.** [OBSERVED —
+High; two pc listings and two PoE2 listings, September 2, 2026]
+`GET /character` returned 59 entries, every one `realm: "pc"`;
+`GET /character/poe2` returned 6, every one `realm: "poe2"`; no id or
+name appeared in both. The documented `Character.realm` enumeration
+(`pc | xbox | sony`) is incomplete — PoE2 characters report `poe2`,
+matching the path segment. Each entry carries exactly
+`class current experience id league level name realm` on both realms:
+`id` is the 64-hex form and equals the fetched body's `id`; one entry
+is `current: true`; **no `deleted` or `expired` flag appeared on any
+entry**, including characters in ended leagues (Ancestors, Phrecia
+2.0, an SSF gauntlet event, `Runes of Aldur`), so the documented
+optional flags are not how ended-league characters are marked — the
+league name is.
+
+Consequence: a client keyed by name across realms will collide (PoE1
+and PoE2 share league names and could share character names); the
+spike keys characters by `id` and stores the *request's* realm beside
+the body's. A "which characters are gone" question cannot be answered
+from flags — only a listing that no longer names the id says so.
+
+**N43. PoE2 items carry `realm: "poe2"`; pc items carry no `realm`
+field. A PoE2 character body has `equipment`, `jewels`, and `skills`
+(no `inventory`), and its skill-panel gems have ids and slot-named
+`inventoryId`s.** [OBSERVED — High; five PoE2 bodies and 42 pc bodies,
+September 2, 2026]
+All items in the five PoE2 bodies carry `realm: "poe2"`; none of the
+1,962 items lifted from pc bodies carry `realm` at all. Every item on
+both realms carries `frameTypeId` (a string: `Gem`, `Currency`,
+`Magic`, …) beside the deprecated numeric `frameType`. PoE2 bodies
+report `metadata.version` `4.5.4f` (pc: `3.29.3`). `skills` entries
+that are real gems have ids and `inventoryId` `DefaultAttackSkills`
+(the weapon's default attack, e.g. `Bow Shot`) or `SkillSlots`;
+supports socketed into them have ids and no `inventoryId`. PoE1's
+animate-guardian gear arrives as its own `guardian` array whose
+entries carry the character's own slot names as `inventoryId`
+(`Helm`, `BodyArmour`, `Gloves`, `Boots`, `Weapon`, `x`/`y` 0) — an
+item's json cannot say which array it came from. Ten of 41 pc
+Standard characters (levels 86–100) answered with empty `equipment`,
+`inventory`, and `jewels` — stripped characters are an ordinary body,
+not an error.
+
+**N44. An item-granted skill has no `id` — the documented-optional
+`Item.id`, observed. A PoE2 weapon or shield that grants a skill
+carries it as an id-less gem in its own `socketedItems`, the identical
+object is repeated as `skills[0]`, and a support socketed into the
+granted skill is id-less too.** [OBSERVED — Confirmed; four bodies
+twice, September 2, 2026]
+Rattling Sceptre → `Skeletal Warrior` (with a player-socketed `Meat
+Shield I` support, also id-less, under it), Attuned Wand → `Mana
+Drain`, Withered Wand → `Chaos Bolt`, Splintered Tower Shield → `Raise
+Shield`. In each body the host item's `sockets` is `[]` and its
+`socketedItems` holds the granted skill (`frameTypeId: "Gem"`,
+`frameType: 4`, `support: false`, its own `sockets` and
+`socketedItems`); `skills[0]` is deep-equal to that object and has no
+`inventoryId`. Nothing else in any body lacked an id: a `Desert Rune`
+socketed in a focus (`frameTypeId: "Currency"`, `sockets[].type`
+`rune`) has one; a Crude Bow grants nothing and its character's body
+was fully id-bearing. The four bodies were refused by the spike's
+store on first contact for exactly this and are kept verbatim
+(`refused` rows 1–4).
+
+Consequence: an ingest that requires an id on every item cannot land a
+PoE2 character wielding a granting weapon. The spike's ruling
+(2026-09-02): a granted skill is a property of its host, never an item
+fact — its subtree stays in the host's json and, under `skills`, in
+the envelope, counted and never lifted; every other id-less shape is
+still refused. Whether GGG ever assigns ids to granted skills is
+unknown; if it does, the shape simply stops matching and the entries
+become ordinary socketed gems.
+
+**N45. Two policies on one account pace independently, and a hold
+ends when the window expires, not at a fixed length.** [OBSERVED —
+High; one 112-request cycle, September 2, 2026]
+A cycle of 69 `stash-request-limit` GETs and 41
+`character-request-limit` GETs ran side by side from one daemon: the
+stash facet held ~15 s after 15 and ~343 s after 30 and 60; the
+character facet held ~15 s after every 5 (its short window is 5 per
+10 s) and **280 s** after its 30th — its 300 s window had opened at
+its first GET, about a minute before the 30th, so the wait was the
+remainder. The cycle lasted as long as the longer facet (~13 min), not
+the sum. Extends N26 (pacing arithmetic exact) to two concurrent
+policies and bounds the "~343 s" figure of the spike's estimates as
+the worst case (a window filled at once), not a constant.
+
+### Token claims (September 9, 2026)
+
+**N46. A refresh token can be invalidated between two client sessions
+by events on GGG's side; `invalid_grant` ("Refresh token doesn't exist
+or has expired") is a state a client must expect, remedied only by a
+new login.** [OWNER + RUN — Confirmed; September 9, 2026]
+The spike's run ledger (`LIVE-TESTING.md`, 2026-09-09): the refresh
+token rotated and saved at 17:34 UTC on September 8 was rejected at
+01:53 UTC on September 9 with HTTP 400 `invalid_grant`, with no use of
+it in between and no keyring warning at the save. The owner, verbatim:
+"the game servers were rebooted recently, which is one of the events
+that can invalidate tokens (there are others. we don't need to catalog
+them, but it can happen)". Consequence for a client: one rejected
+refresh grant is the signal to stop refreshing and ask for a login
+(the spike's rail 2), not a transient to retry; a headless refresh
+loop cannot recover from it on its own. The 400 counted against
+`token-request-limit` (`1:30:0`) and the invalid-request budget (N27).
+
 ## Open questions
 
 - **Q1. HEAD sanction verbatim. RESOLVED July 18, 2026** — Tom
@@ -684,7 +996,26 @@ identically.
   forum traffic with API traffic (they share the IP, hence layer 1)
   or merely tolerates them as-is.
 
+- **Q11. Does a 401 count against the route's policy counter?** —
+  N34 establishes that a 401 returns no rate-limit headers, so the
+  question cannot be answered from the failing response itself. The
+  August 23 observation is inconclusive: the first successful request
+  after the three 401s came 600 s later, outside the 300 s window, and
+  reported `1:300:0` — consistent with either answer. Resolvable
+  cheaply the next time a 401 occurs by issuing one valid request
+  inside the shorter window and reading its state, but not worth
+  provoking deliberately; N27's invalid-request budget makes 401s
+  costly independently of the answer.
+
 ---
+- **Q12. Is `/profile` rate-limited, and is the counted HEAD on
+  `/account/leagues` intended? ANSWERED 2026-08-30** (same day, GGG's
+  web developer): `/profile` is **not rate limited at present** (N38 —
+  the policyless declaration is confirmed, kept until headers ever
+  appear), and the counted HEAD on `/account/leagues` **will be
+  corrected in a future release** (N39 — treat as counted until the
+  free HEAD is observed; then delete the no-probe declaration and
+  restore the probe). Neither answer changes any code today.
 
 ## Instrumentation
 

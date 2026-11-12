@@ -17,6 +17,12 @@ private slots:
     void characterFetchIdDefaultsToOwnId();
     void childFetchIdLeavesDisplayLocationAlone();
     void fetchIdDoesNotAffectIdentity();
+
+    // Folder-tree D1: folder membership and the folder test.
+    void folderIdComesFromStash();
+    void folderTestFollowsTabType();
+    void rebaseCopiesFolderId();
+    void folderIdDoesNotAffectIdentity();
 };
 
 static poe::StashTab makeStash(const QString &id, const QString &name, unsigned index = 0)
@@ -71,6 +77,75 @@ void ItemLocationTest::fetchIdDoesNotAffectIdentity()
     QVERIFY(!(a < b));
     QVERIFY(!(b < a));
     QCOMPARE(a.GetLegacyHash(), b.GetLegacyHash());
+}
+
+void ItemLocationTest::folderIdComesFromStash()
+{
+    poe::StashTab stash = makeStash("stash00001", "Test Tab");
+    QVERIFY(ItemLocation(stash).folder_id().isEmpty());
+    stash.folder = "folder0001";
+    QCOMPARE(ItemLocation(stash).folder_id(), QString("folder0001"));
+
+    // A Map/Unique child's parent is not a folder membership.
+    poe::StashTab child = makeStash("child00001", "Child");
+    child.parent = "parent0001";
+    QVERIFY(ItemLocation(child).folder_id().isEmpty());
+
+    poe::Character character;
+    character.id = "abcdef0123456789";
+    character.name = "TestCharacter";
+    QVERIFY(ItemLocation(character, 0).folder_id().isEmpty());
+}
+
+void ItemLocationTest::folderTestFollowsTabType()
+{
+    poe::StashTab folder = makeStash("folder0001", "Folder");
+    folder.type = "Folder";
+    QVERIFY(ItemLocation(folder).IsFolder());
+    QVERIFY(!ItemLocation(makeStash("stash00001", "Test Tab")).IsFolder());
+
+    poe::Character character;
+    character.id = "abcdef0123456789";
+    character.name = "Folder";
+    QVERIFY(!ItemLocation(character, 0).IsFolder());
+    QVERIFY(!ItemLocation().IsFolder());
+}
+
+void ItemLocationTest::rebaseCopiesFolderId()
+{
+    poe::StashTab before = makeStash("stash00001", "Test Tab", 2);
+    before.folder = "folder0001";
+    poe::StashTab after = before;
+    after.folder = "folder0002";
+
+    ItemLocation location(before);
+    location.rebaseTabMetadata(ItemLocation(after));
+    QCOMPARE(location.folder_id(), QString("folder0002"));
+
+    after.folder.reset();
+    location.rebaseTabMetadata(ItemLocation(after));
+    QVERIFY(location.folder_id().isEmpty());
+
+    // The folder test is tab metadata too.
+    poe::StashTab folder = makeStash("stash00001", "Test Tab", 2);
+    folder.type = "Folder";
+    location.rebaseTabMetadata(ItemLocation(folder));
+    QVERIFY(location.IsFolder());
+}
+
+void ItemLocationTest::folderIdDoesNotAffectIdentity()
+{
+    poe::StashTab in_folder = makeStash("stash00001", "Test Tab", 4);
+    in_folder.folder = "folder0001";
+    const ItemLocation a(makeStash("stash00001", "Test Tab", 4));
+    const ItemLocation b(in_folder);
+    QCOMPARE(b.folder_id(), QString("folder0001"));
+
+    QVERIFY(a == b);
+    QVERIFY(!(a < b));
+    QVERIFY(!(b < a));
+    QCOMPARE(a.GetLegacyHash(), b.GetLegacyHash());
+    QCOMPARE(a.GetHeader(), b.GetHeader());
 }
 
 QTEST_GUILESS_MAIN(ItemLocationTest)

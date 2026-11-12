@@ -4,6 +4,13 @@ One line per document, plus the traceability rules that connect them.
 Each document also states its own status and provenance in its header;
 when this map and a header disagree, the header wins.
 
+## User-facing
+
+- `user/README.md` — index of the end-user guide (`user/*.md`): login,
+  searching, mods and pseudomods, pricing, forum shop, currency, settings.
+  Written from source in August 2026; linked from the top-level README and
+  the application's Help menu.
+
 ## Active
 
 - `design/legacy-buyout-import.md` — deliberately minimal design for
@@ -18,6 +25,13 @@ when this map and a header disagree, the header wins.
 - `design/legacy-buyout-import-reviews.md` — review history for that
   design's implementation: round-scoped findings (`R1-*`) with status,
   cleanup notes, and conventions follow-ups.
+- `design/folder-tree.md` — spec for the collapsible folder level in the
+  By-Tab items tree (issue #234): owner rulings R1–R9, assumptions A1–A4
+  (approved), decisions D1–D12, stages S0–S6 and acceptance criteria,
+  with dated amendments (S0's Qt results among them). Implemented and
+  merged November 11, 2026 (pull request 235); not externally reviewed.
+  Supersedes, for By-Tab searches only, M3's "a bucket is a top-level
+  row".
 - `design/items-pipeline.md` — plan for the delta-native redesign of the
   items refresh pipeline. Milestone 1 shipped July 2026; M2 merged and
   M3 implemented July 30–31, 2026, each against its own frozen spec.
@@ -71,11 +85,20 @@ when this map and a header disagree, the header wins.
 - `design/network-ground-truth.md` — living ledger of numbered claims
   (N1, N2, …) about how the Path of Exile API actually limits requests,
   each with cited evidence. Designs are derived from these claims.
-- `adr/0003-rewrite-vs-evolve.md` — **proposed** (August 2026): should
-  the core and UI be evolved in place or rewritten on a new stack?
-  Exploration lives on the `redesign` branch in `docs/redesign/`;
-  until the ADR is accepted, the frozen specs above remain full
-  authority and `master` work continues normally.
+- `design/trade-ground-truth.md` — its companion for listing items for
+  sale (T1, T2, …): the trade site's channels and bulk-ratio grammar,
+  the forum link code, the in-game price dialog's vocabulary and note
+  shapes, and what the API reports of it. The Rust spike's pricing
+  rulings cite these.
+- `adr/0003-rewrite-vs-evolve.md` — **accepted** (October 2026): the Rust
+  implementation ships as Acquisition's agent surface by PoE2 1.0, the
+  GUI to follow. This repository is the Qt application, maintained; the
+  frozen specs above remain full authority for work here.
+- <https://github.com/smallcatlabs/acquisition> — the Rust implementation,
+  once the `spikes/rust-playground` branch here; its history continues
+  there from the tag `playground-end`, and its `CONTEXT.md` is its decision
+  registry. Ground-truth claims are authored there now and copied here:
+  the two ledgers above are the copies.
 - `cleanup/findings.md` — project-wide register of design/correctness
   findings (F1, F2, …): open findings, standing constraints, and a
   resolved ledger. The `cleanup/` path is historical — the register
@@ -94,9 +117,10 @@ when this map and a header disagree, the header wins.
 
 - Problems get F-numbers in `cleanup/findings.md`, are never renumbered,
   and are cited by number everywhere else.
-- Ground-truth claims get N-numbers in `network-ground-truth.md` and are
-  never renumbered; designs cite claims rather than restating evidence.
-  When a claim falls, every design that cites it falls with it.
+- Ground-truth claims get N-numbers in `network-ground-truth.md` and
+  T-numbers in `trade-ground-truth.md`, and are never renumbered;
+  designs cite claims rather than restating evidence. When a claim
+  falls, every design that cites it falls with it.
 - Spec review findings get round-scoped IDs (ER, IR, R4-\*, …) recorded
   in the review-history file; specs cite the IDs inline and record only
   current decisions.

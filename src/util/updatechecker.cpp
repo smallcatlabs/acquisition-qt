@@ -20,8 +20,8 @@
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "version_defines.h"
 
-constexpr const char* GITHUB_RELEASES_URL = "https://api.github.com/repos/gerwaric/acquisition/releases";
-constexpr const char* GITHUB_DOWNLOADS_URL = "https://github.com/gerwaric/acquisition/releases";
+constexpr const char* GITHUB_RELEASES_URL = "https://api.github.com/repos/smallcatlabs/acquisition-qt/releases";
+constexpr const char* GITHUB_DOWNLOADS_URL = "https://github.com/smallcatlabs/acquisition-qt/releases";
 
 // This are just the fields used by acquisition. See https://docs.github.com/en/rest/releases/releases
 struct GitHubReleaseTag

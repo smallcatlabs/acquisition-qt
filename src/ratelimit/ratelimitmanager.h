@@ -25,6 +25,10 @@ class QNetworkReply;
 
 class NetworkCapture;
 class RateLimitPolicy;
+// The generated moc file registers signals/slots that take a RateLimitPolicy,
+// so it needs the full type, not the forward declaration (GCC 16
+// -Wsfinae-incomplete, issue #217).
+Q_MOC_INCLUDE("ratelimit/ratelimitpolicy.h")
 
 namespace RateLimit {
     class Gate;

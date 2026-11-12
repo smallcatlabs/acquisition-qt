@@ -98,6 +98,13 @@ public:
     std::uint64_t serial() const { return m_serial; }
     void SetSerial(std::uint64_t serial) { m_serial = serial; }
 
+    // The serial of the folder bucket this bucket is currently rendered
+    // under (folder-tree D2/D4), 0 at the top level. The model's current
+    // structure, maintained by Search's structural operations — not the
+    // target nesting, which Search derives from folder membership.
+    std::uint64_t parentSerial() const { return m_parent_serial; }
+    void SetParentSerial(std::uint64_t serial) { m_parent_serial = serial; }
+
     // Row-level content operations for the S4 delta path (D3). Both keep
     // the resident key vector index-aligned with the items and the
     // live-key-bytes gauge balanced. InsertRows takes the arrivals' keys
@@ -183,6 +190,7 @@ private:
     ResidentKeyStore m_keys;
     const ReplaceWindow *m_replace_window{nullptr};
     std::uint64_t m_serial{0};
+    std::uint64_t m_parent_serial{0};
     bool m_sorted{false};
     bool m_expanded{false};
 };

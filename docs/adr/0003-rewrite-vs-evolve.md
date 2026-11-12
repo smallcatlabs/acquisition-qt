@@ -2,26 +2,20 @@
 
 ## Status
 
-Proposed (August 2026). Under active exploration on the `redesign`
-branch, in `docs/redesign/`; that directory holds the living option
-analysis, spike register, and spike results, and is deliberately kept
-off `master` while it churns. This document records only the question,
-the option space, and what remains authoritative in the meantime. When
-a decision is reached, this file will be rewritten with the decision
-and its rationale, and the surviving analysis will land with it.
-
-Until this ADR is accepted, nothing changes: the items-pipeline and
-network-redesign specs in `docs/design/` remain full authority for all
-work on `master`, and maintenance and releases of the current
-application continue normally.
+Accepted (October 2026). The question this ADR posed in August is
+decided; the decision and its consequences are below. The living
+exploration that fed it (`docs/redesign/` on the `redesign` branch, the
+Rust spike on `spikes/rust-playground`) is closed: the Rust spike became
+its own repository, and the `redesign` branch is kept as history, never
+merged.
 
 ## Context
 
 ADR 0002 deferred the QML migration and chose an interior design
 cleanup instead. That cleanup and the milestone work that followed
 (items pipeline M1–M3, network redesign phases 1–5) had a side effect
-that changes the option space: most of Acquisition's hard-won knowledge
-now lives outside the code, in citable documents —
+that changed the option space: most of Acquisition's hard-won knowledge
+came to live outside the code, in citable documents —
 
 - `docs/design/network-ground-truth.md`: numbered, evidence-cited
   claims about how the Path of Exile API actually limits requests;
@@ -33,63 +27,91 @@ now lives outside the code, in citable documents —
 The classic argument against rewrites — that the old code encodes
 years of invisible fixes a new implementation would rediscover the
 hard way (ADR 0001 made exactly this argument against a scratch QML
-rebuild) — is therefore weaker here than it usually is. A new
+rebuild) — was therefore weaker here than it usually is. A new
 implementation in any language inherits every ground-truth claim and
 finding unchanged.
 
-Two further inputs prompted reopening the question ADR 0002 deferred:
+Two further inputs reopened the question ADR 0002 deferred: PR #192
+(August 2026), which proposed `acquisitionctl`, a versioned local
+control plane that treats agent access as a first-class surface; and
+the maintainer's agreement with its author that evolving the C++/Qt
+codebase and replacing it outright were both acceptable outcomes,
+provided the externalized knowledge carried forward.
 
-- PR #192 (August 2026) proposes `acquisitionctl`, a versioned local
-  control plane over the current core, making Acquisition drivable by
-  scripts and coding agents. Whatever happens to its C++
-  implementation, its contract — a normalized item projection,
-  revision-safe pagination, and an idempotent refresh-operation
-  lifecycle — is a draft of what any future core's interface could
-  look like, and treats agent access as a first-class surface.
-- The maintainer and the PR author agreed (call, August 2026) that
-  both evolving the current C++/Qt codebase and replacing it outright
-  are acceptable outcomes, provided the externalized knowledge carries
-  forward.
+The question, as posed: what architecture, and consequently what
+stack, should carry Acquisition forward — the existing C++23/Qt
+Widgets application evolved in place, or a new implementation that
+inherits the documented knowledge but not the code? Three options were
+explored: evolve in place; a ground-up rewrite of core and UI on a new
+stack; or a new core exposing an agent-shaped contract, with the UI
+decision made separately against it.
 
-## Question
+What decided it was the Rust spike cut from this question in August
+(`spikes/rust-playground`): by October it was a daemon, a CLI and an
+MCP server running live against the Path of Exile API under the
+existing OAuth registration, with its own decision registry, its
+network, refresh, pricing, daemon-split and item-search slices closed,
+and a test suite of several hundred tests. The rate-limit-core spike on
+the `redesign` branch (PR #199) had already shown the header-driven
+limiter could be rebuilt from the ground-truth claims alone.
 
-What architecture, and consequently what stack, should carry
-Acquisition forward: the existing C++23/Qt Widgets application evolved
-in place, or a new implementation that inherits the documented
-knowledge but not the code?
+## Decision
 
-Options under exploration (details and current standings live in
-`docs/redesign/` on the `redesign` branch):
+The maintainer's ruling, 2026-10-11, verbatim:
 
-1. Evolve in place — keep the C++/Qt codebase and continue
-   incremental redesign under the existing spec process.
-2. Ground-up rewrite — new core and UI on a new stack (for example a
-   Rust core with a webview UI; illustrative, not a commitment).
-3. Hybrid — a new core exposing a contract shaped like PR #192's,
-   with the UI decision made separately against that contract.
+> The Rust build ships as Acquisition's agent surface by PoE2 1.0: the
+> CLI, the MCP server and the daemon on Windows, macOS and Linux; GUI
+> and other features follow.
 
-Decision drivers include: single-gate rate limiting per the
-ground-truth claims; UI performance at 100k–1M items; OAuth and
-POESESSID custody; migration of existing users' data; multi-platform
-packaging and updates; the cost of a dual-track period in which the
-current application still needs maintenance while a replacement
-gestates; and agent accessibility as a first-class requirement rather
-than an afterthought.
+Two companion rulings from the same conversation, verbatim:
+
+- On coexistence: "Rust sits beside c++ now and replaces later". The
+  replacement is a later ruling, not dated here.
+- On repositories: two, not one. The C++ application is this
+  repository, renamed `acquisition-qt` ("I like acquisition-qt for the
+  legacy"); the Rust implementation is `smallcatlabs/acquisition`,
+  carrying the spike branch's whole history ("i'm with you on clone").
+
+In the terms of the question: the third option, a new core first with
+the UI decision made separately against it. The GUI is the slice after
+the agent release, and whether it is native or webview is that
+slice's first question, not this ADR's.
 
 ## Consequences
 
-Deferred until a decision is recorded. The immediate consequences of
-proposing this ADR are procedural: exploration happens on the
-`redesign` branch; spikes are cut from it on `spike/*` branches and
-are never merged, with only distilled result documents landing back
-in `docs/redesign/`; and `master` is unaffected apart from this
-document and its index entries. Branch and spike conventions are
-recorded in `docs/redesign/README.md` on the `redesign` branch.
+- **This repository is the Qt application, maintained.** Releases of
+  the C++ app continue on their own trains. The frozen specs in
+  `docs/design/` remain full authority for all work here. Nothing in
+  the Rust repository binds work on `master`.
+- **The Rust implementation lives at
+  <https://github.com/smallcatlabs/acquisition>**, branch `main`,
+  licensed MIT OR Apache-2.0 (its C110). Its history before the root
+  swap is this repository's `spikes/rust-playground` branch, which is
+  deleted here and tagged `playground-end` there; the citations in
+  its documents that point at this repository's commits are spelled
+  `acquisition-qt@<hash>`.
+- **Facts about GGG are authored there now.** The two ground-truth
+  ledgers (`docs/design/network-ground-truth.md`,
+  `docs/design/trade-ground-truth.md`) have copies in both
+  repositories; new claims are written in the Rust repository and this
+  repository takes copies, the reverse of the spike-era flow.
+- **The `redesign` branch is history.** Its topic documents and the
+  rate-limit-core spike result stay on the branch, cited as
+  `redesign@<hash>` where a finding here still needs them (F74 cites
+  the credential-custody topic). Nothing is squash-merged to `master`:
+  the analysis was superseded by the implementation, and every finding
+  that outlived it already graduated to an F-number.
+- **The dual-track cost named in August is now the operating state.**
+  The Rust repository's `brainstorming-notes/36-the-road-to-the-agent-release.md`
+  holds the sequence to the agent release and the parks it fires;
+  this repository holds none of that.
 
 ## Follow-Up
 
-- Living exploration: `docs/redesign/` on the `redesign` branch.
-- Control-plane contract input: PR #192 and
-  `docs/design/local-control.md` on its branch.
+- The Rust repository: <https://github.com/smallcatlabs/acquisition>
+  (`README.md` is the charter and crate index, `CONTEXT.md` the
+  decision registry).
+- Control-plane contract input: PR #192, whose contract the Rust
+  daemon's protocol answers in its own terms.
 - Predecessor decisions: ADR 0001 (superseded), ADR 0002 (accepted;
-  its cleanup outputs are what make this ADR's option space viable).
+  its cleanup outputs are what made this ADR's option space viable).

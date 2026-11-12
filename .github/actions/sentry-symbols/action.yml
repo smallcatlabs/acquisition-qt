@@ -1,0 +1,80 @@
+name: 'Upload debug symbols to Sentry'
+description: >
+  Installs a pinned sentry-cli and uploads native debug information files so
+  crash reports from released builds are symbolicated.
+
+inputs:
+  paths:
+    description: >
+      Whitespace-separated files or directories to upload. Always pass the
+      shipped binary alongside its debug file: Sentry matches the two by debug
+      ID (PDB GUID on Windows, GNU build ID on Linux, LC_UUID on macOS), and
+      the binary is what carries the unwind information.
+    required: true
+  org:
+    description: 'Sentry organization slug.'
+    required: true
+  project:
+    description: 'Sentry project slug.'
+    required: true
+  auth-token:
+    description: >
+      Sentry organization auth token. When empty the upload is skipped rather
+      than failed, so builds from forks (which cannot see repository secrets)
+      still succeed.
+    required: false
+    default: ''
+  include-sources:
+    description: >
+      Upload source bundles so stack traces show source context. This sends
+      the project source to Sentry; acquisition is GPL, so there is nothing to
+      protect, but set this to 'false' to opt out.
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: Upload debug information files
+      shell: bash
+      env:
+        SENTRY_ORG: ${{ inputs.org }}
+        SENTRY_PROJECT: ${{ inputs.project }}
+        SENTRY_AUTH_TOKEN: ${{ inputs.auth-token }}
+        DIF_PATHS: ${{ inputs.paths }}
+        INCLUDE_SOURCES: ${{ inputs.include-sources }}
+      run: |
+        set -euo pipefail
+
+        if [ -z "${SENTRY_AUTH_TOKEN}" ]; then
+          echo "SENTRY_AUTH_TOKEN is not set (fork build?); skipping symbol upload."
+          exit 0
+        fi
+        if [ -z "${SENTRY_ORG}" ]; then
+          echo "SENTRY_ORG is not set; skipping symbol upload."
+          exit 0
+        fi
+
+        # Pinned for the same reason innosetup is pinned in build-windows.yml:
+        # an unpinned download URL has silently served the wrong payload before.
+        SENTRY_CLI_VERSION=3.6.2
+        case "${RUNNER_OS}" in
+          Linux)   asset=sentry-cli-Linux-x86_64 ;;
+          macOS)   asset=sentry-cli-Darwin-universal ;;
+          Windows) asset=sentry-cli-Windows-x86_64.exe ;;
+          *) echo "Unsupported runner OS: ${RUNNER_OS}" >&2; exit 1 ;;
+        esac
+
+        cli="${RUNNER_TEMP}/${asset}"
+        curl -sSfL --retry 3 -o "${cli}" \
+          "https://downloads.sentry-cdn.com/sentry-cli/${SENTRY_CLI_VERSION}/${asset}"
+        chmod +x "${cli}"
+
+        args=(debug-files upload --wait)
+        if [ "${INCLUDE_SOURCES}" = "true" ]; then
+          args+=(--include-sources)
+        fi
+
+        # DIF_PATHS is deliberately unquoted: it is a whitespace-separated list.
+        # shellcheck disable=SC2086
+        "${cli}" "${args[@]}" ${DIF_PATHS}

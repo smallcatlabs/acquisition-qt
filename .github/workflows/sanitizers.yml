@@ -44,12 +44,16 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Qt
+        # Normally 30 to 75 seconds. Without a limit, a runner that cannot
+        # resolve the Ubuntu package hosts retries for about 47 minutes
+        # (November 2026, PR 235: an upstream DNS failure for ubuntu.com).
+        timeout-minutes: 5
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.11.1'
+          version: '6.12.0'
           modules: 'qtnetworkauth'
           cache: true
-          cache-key-prefix: 'qt-6.11.1-linux-sanitizers'
+          cache-key-prefix: 'qt-6.12.0-linux-sanitizers'
 
       - name: Install dependencies
         run: |

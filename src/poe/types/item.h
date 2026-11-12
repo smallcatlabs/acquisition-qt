@@ -16,6 +16,7 @@
 #include "poe/types/itemmod.h"
 #include "poe/types/itemproperty.h"
 #include "poe/types/itemsocket.h"
+#include "poe/types/mercenaryskill.h"
 
 namespace poe {
 
@@ -59,22 +60,6 @@ namespace poe {
         {
             QString type;  // string text used to display ultimatum icons
             unsigned tier; // uint
-        };
-
-        struct MercenarySkills
-        {
-            struct Supports
-            {
-                unsigned hash; // uint
-                QString name;  // string
-                unsigned tier; // uint
-            };
-
-            unsigned hash; // uint
-            QString icon;  // string
-            QString name;  // string
-            std::optional<std::vector<poe::Item::MercenarySkills::Supports>>
-                supports; // ?array of object
         };
 
         struct IncubatingInfo
@@ -202,7 +187,7 @@ namespace poe {
         std::optional<std::vector<poe::Item::UltimatumMods>> ultimatumMods; // ? array of object
         std::optional<std::vector<poe::ItemMod>> explicitMods;              // ? array of ItemMod
         std::optional<std::vector<QString>> bondedMods;    // ? array of string; PoE2 only
-        std::optional<std::vector<poe::Item::MercenarySkills>> mercenarySkills; // ? array of object
+        std::optional<std::vector<poe::MercenarySkill>> mercenarySkills; // ? array of object
         std::optional<std::vector<QString>>
             crucibleMods; // ? array of string only allocated mods are included
         std::optional<std::vector<QString>> cosmeticMods; // ? array of string

@@ -30,6 +30,10 @@ class NetworkCapture;
 class NetworkManager;
 class RateLimitManager;
 class RateLimitPolicy;
+// The generated moc file registers signals/slots that take a RateLimitPolicy,
+// so it needs the full type, not the forward declaration (GCC 16
+// -Wsfinae-incomplete, issue #217).
+Q_MOC_INCLUDE("ratelimit/ratelimitpolicy.h")
 
 // The hub (network-redesign spec, D4/D5): endpoint-to-policy topology, HEAD
 // setup, the gate, and capture. Every endpoint the hub knows is in exactly

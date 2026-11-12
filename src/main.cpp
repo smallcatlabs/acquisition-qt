@@ -11,6 +11,7 @@
 #include <QTimer>
 
 #include <clocale>
+#include <string_view>
 
 #include <sentry.h>
 
@@ -33,6 +34,21 @@ constexpr const char *SENTRY_RELEASE = APP_NAME "@" APP_VERSION_STRING;
 constexpr const char *SENTRY_DSN
     = "https://89d30fa945c751603c0dfdde2c574497@o4509396161855488.ingest.us.sentry.io/"
       "4510597980618752";
+
+// Keep pre-release and local crashes out of the stable release's numbers in
+// sentry, which otherwise reports every build in one bucket and makes the
+// crash-free rate of a release meaningless.
+//
+// A version string is a pre-release exactly when it carries a suffix, and
+// CMakeLists.txt rejects any 'app_version_suffix' that does not start with a
+// hyphen, so a hyphen here is a reliable marker.
+#ifdef QT_DEBUG
+constexpr const char *SENTRY_ENVIRONMENT = "development";
+#else
+constexpr const char *SENTRY_ENVIRONMENT = std::string_view(APP_VERSION_STRING).contains('-')
+                                               ? "pre-release"
+                                               : "production";
+#endif
 
 #ifdef QT_DEBUG
 constexpr const char *DEFAULT_LOGGING_LEVEL = "debug";
@@ -96,11 +112,21 @@ int main(int argc, char *argv[])
     sentry_options_set_handler_path(options, handlerPath.constData());
     sentry_options_set_database_path(options, sentryPath.constData());
     sentry_options_set_release(options, SENTRY_RELEASE);
-    sentry_options_set_enable_logs(options, 1);
+    sentry_options_set_environment(options, SENTRY_ENVIRONMENT);
     sentry_init(options);
 
     // Make sure sentry closes when the program terminates.
     auto sentryClose = qScopeGuard([] { sentry_close(); });
+
+    // Tag the Qt version acquisition was built against and the one it actually
+    // loaded. A mismatch between the two - and the related MSVC runtime problem
+    // that checkMicrosoftRuntime() looks for below - is a recurring source of
+    // crashes, so tagging makes that whole family filterable in sentry instead
+    // of needing a read of every stack trace. These go on the global scope
+    // immediately after sentry_init() so that crashpad picks them up for native
+    // crashes as well as for events.
+    sentry_set_tag("qt.build", QT_VERSION_STR);
+    sentry_set_tag("qt.runtime", qVersion());
 
     // Setup logging.
     const QString logPath(appDataDir.filePath("log.txt"));

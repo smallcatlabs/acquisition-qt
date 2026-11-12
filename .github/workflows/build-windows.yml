@@ -5,6 +5,9 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-windows-installer:
     runs-on: windows-latest
@@ -19,14 +22,14 @@ jobs:
     - name: Setup Qt
       uses: jurplel/install-qt-action@v4
       with:
-        version: '6.11.1'
+        version: '6.12.0'
         host: 'windows'
         target: 'desktop'
         arch: 'win64_msvc2022_64'
         modules: 'qtnetworkauth'
         aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@8d961e61720b3c06583517fbc68d57ec0a4e9f95'
         cache: true
-        cache-key-prefix: 'qt-6.11.1-win64-aqt-master'
+        cache-key-prefix: 'qt-6.12.0-win64-aqt-master'
 
     - name: Setup MSVC
       uses: ilammy/msvc-dev-cmd@v1
@@ -46,6 +49,34 @@ jobs:
     - name: Test
       run: ctest --test-dir build --output-on-failure
 
+    - name: Get version
+      id: version
+      run: |
+        $header = Get-Content "build\version_defines.h" -Raw
+        if ($header -notmatch '#define APP_VERSION_STRING\s+"([^"]+)"') {
+          throw "Could not read APP_VERSION_STRING from build\version_defines.h"
+        }
+        $version = $matches[1]
+
+        # The update checker parses APP_VERSION_STRING as the running version and
+        # compares it against github release tags (src/util/updatechecker.cpp),
+        # so a tag that disagrees with the build would tell every user to update
+        # to the version they are already running, on every check.
+        if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") {
+          Write-Host "::error::Tag $env:GITHUB_REF_NAME does not match APP_VERSION_STRING $version"
+          Write-Host "::error::Update app_version / app_version_suffix in CMakeLists.txt"
+          exit 1
+        }
+        echo "version=$version" >> $env:GITHUB_OUTPUT
+
+    - name: Upload debug symbols to Sentry
+      uses: ./.github/actions/sentry-symbols
+      with:
+        paths: build/acquisition.pdb build/acquisition.exe
+        org: ${{ vars.SENTRY_ORG }}
+        project: acquisition
+        auth-token: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
     - name: Prepare deployment
       run: |
         $deploy = "build\deploy"
@@ -63,12 +94,19 @@ jobs:
           --dir $deploy `
           "$deploy\acquisition.exe"
 
-        # Ensure vc_redist is present (windeployqt --compiler-runtime should copy it,
-        # but fall back to downloading if it doesn't)
-        if (-not (Test-Path "$deploy\vc_redist.x64.exe")) {
-          Write-Host "Downloading Visual C++ Redistributable..."
-          Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vc_redist.x64.exe" `
-            -OutFile "$deploy\vc_redist.x64.exe"
+        # windeployqt --compiler-runtime is the authority for this prerequisite.
+        # Fail packaging if it did not provide a valid Microsoft-signed installer.
+        $redist = "$deploy\vc_redist.x64.exe"
+        if (-not (Test-Path -LiteralPath $redist)) {
+          throw "windeployqt did not package vc_redist.x64.exe"
+        }
+
+        $signature = Get-AuthenticodeSignature -LiteralPath $redist
+        if ($signature.Status -ne 'Valid' -or
+            $null -eq $signature.SignerCertificate -or
+            $signature.SignerCertificate.Subject -notmatch
+              '(^|,\s*)O=Microsoft Corporation(,|$)') {
+          throw "vc_redist.x64.exe does not have a valid Microsoft signature"
         }
 
     - name: Install Inno Setup
@@ -83,15 +121,14 @@ jobs:
       run: |
         & ISCC.exe /DBUILD_DIR="build" /DDEPLOY_DIR="build\deploy" "installer.iss"
 
-    - name: Get version
-      id: version
+    - name: Name the pdb for distribution
       run: |
-        if ($env:GITHUB_REF -match '^refs/tags/v(.+)$') {
-          $version = $matches[1]
-        } else {
-          $version = "dev-$(git rev-parse --short HEAD)"
-        }
-        echo "version=$version" >> $env:GITHUB_OUTPUT
+        # Every release shipped its symbols as a plain 'acquisition.pdb', so two
+        # of them collide in a download folder and a stray copy cannot be traced
+        # back to a build. Copy rather than rename: the linker's own name is what
+        # the PE records, and local debuggers look the pdb up by that name.
+        Copy-Item "build\acquisition.pdb" `
+          "build\acquisition-${{ steps.version.outputs.version }}.pdb"
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v7
@@ -99,7 +136,7 @@ jobs:
         name: acquisition-installer-${{ steps.version.outputs.version }}
         path: |
           Output/*.exe
-          build/acquisition.pdb
+          build/acquisition-${{ steps.version.outputs.version }}.pdb
         retention-days: 30
 
     - name: Create draft release
@@ -108,7 +145,7 @@ jobs:
       with:
         files: |
           Output/Acquisition_setup_*.exe
-          build/acquisition.pdb
+          build/acquisition-${{ steps.version.outputs.version }}.pdb
         generate_release_notes: true
         draft: true
         prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}

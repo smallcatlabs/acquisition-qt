@@ -9,16 +9,17 @@ cmake_minimum_required(VERSION 3.24)
 # tags on github are prefixed with a 'v'.
 
 project(acquisition
-    VERSION 0.18.3
+    VERSION 0.18.9
     DESCRIPTION "Stash and forum shop management for Path of Exile (TM)"
-    HOMEPAGE_URL "https://github.com/gerwaric/acquisition"
+    HOMEPAGE_URL "https://github.com/smallcatlabs/acquisition-qt"
     LANGUAGES CXX
 )
 
 include(CTest)
+include(GNUInstallDirs)
 
 # Use this to define pre-releases
-set(app_version_suffix "-beta.1")
+set(app_version_suffix "")
 
 # Variables used in version_defines.h and platforn-specific files and properties.
 set(app_name            "${CMAKE_PROJECT_NAME}")
@@ -123,6 +124,36 @@ else()
 endif()
 
 #------------------------------------------------------
+# MSVC runtime compatibility
+#------------------------------------------------------
+
+# MSVC 14.38 (VS 2022 17.8) made std::mutex's constructor constexpr, which
+# leaves the mutex's storage zero-initialized instead of set up by
+# _Mtx_init_in_situ. An older msvcp140.dll on the user's machine does not
+# understand that representation, and its mtx_do_lock dereferences a null
+# handle: an access violation reading 0x0 on the process's very first lock.
+# Acquisition hit this in the wild on 0.18.3 (a Windows 10 box whose system
+# CRT dated from February 2021), crashing inside spdlog's registry mutex
+# before logging::init() had returned.
+#
+# _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR restores the old non-constexpr
+# constructor, so the binary works against any 14.x runtime rather than
+# requiring users to have a current redistributable.
+#
+# This MUST be global, and MUST stay ahead of the FetchContent block below.
+# std::mutex's constructor is inline, so a mutex inside an inline function or
+# a header-only library (spdlog's registry singleton, for one) is emitted as a
+# COMDAT by every translation unit that uses it. Defining the macro for only
+# some targets makes those definitions disagree and the linker keeps whichever
+# one it likes - an ODR violation that reintroduces exactly this crash. The
+# fetched dependencies are compiled into the same binaries, so they need it
+# too; add_compile_definitions() applies to C as well as C++, which is what
+# sentry-native and crashpad want.
+add_compile_definitions(
+    $<$<OR:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>:_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR>
+)
+
+#------------------------------------------------------
 # Sanitizers (test/CI only)
 #------------------------------------------------------
 
@@ -171,7 +202,7 @@ if(NOT TARGET sentry-native)
     FetchContent_Declare(
         sentry-native
         GIT_REPOSITORY https://github.com/getsentry/sentry-native
-        GIT_TAG        0.16.1
+        GIT_TAG        0.17.4
         GIT_SHALLOW    TRUE
     )
     FetchContent_MakeAvailable(sentry-native)
@@ -193,7 +224,7 @@ if(NOT TARGET glaze)
     FetchContent_Declare(
         glaze
         GIT_REPOSITORY https://github.com/stephenberry/glaze.git
-        GIT_TAG        v7.9.1
+        GIT_TAG        v8.4.0
         GIT_SHALLOW    TRUE
     )
     FetchContent_MakeAvailable(glaze)
@@ -408,6 +439,7 @@ set(ACQ_POE
     src/poe/types/league.h
     src/poe/types/leagueaccount.h
     src/poe/types/leaguerule.h
+    src/poe/types/mercenaryskill.h
     src/poe/types/passivegroup.h
     src/poe/types/passivenode.h
     src/poe/types/publicstashchange.h
@@ -696,7 +728,6 @@ if(WIN32)
     target_compile_options(acquisition_core PRIVATE
         $<$<CXX_COMPILER_ID:MSVC>:/W4>
         $<$<CXX_COMPILER_ID:MSVC>:/EHsc>
-        $<$<CXX_COMPILER_ID:MSVC>:/D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR>
         $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<NOT:$<CONFIG:Debug>>>:/Zi>
     )
     target_link_options(acquisition PRIVATE
@@ -800,6 +831,33 @@ add_custom_command(TARGET acquisition POST_BUILD
     VERBATIM
 )
 
+# Install the application and the Crashpad handler it launches at runtime.
+install(TARGETS acquisition
+    BUNDLE DESTINATION . COMPONENT Runtime
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT Runtime
+)
+
+if(APPLE)
+    install(PROGRAMS "$<TARGET_FILE:crashpad_handler>"
+        DESTINATION "acquisition.app/Contents/MacOS"
+        COMPONENT Runtime
+    )
+else()
+    install(PROGRAMS "$<TARGET_FILE:crashpad_handler>"
+        DESTINATION "${CMAKE_INSTALL_BINDIR}"
+        COMPONENT Runtime
+    )
+endif()
+
+if(UNIX AND NOT APPLE)
+    install(FILES acquisition.desktop
+        DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/applications"
+        COMPONENT Runtime
+    )
+endif()
+
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
+
+target_link_libraries(qdarkstyle PRIVATE Qt6::Core)
