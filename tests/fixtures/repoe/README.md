@@ -1,0 +1,38 @@
+# RePoE excerpts
+
+Real game data for tests, taken from the public RePoE files the application
+downloads from `https://repoe-fork.github.io` (game version 3.29.3.6, as
+given by that site's `version.txt` when the files were fetched on
+2026-11-12).
+
+## `stat_translations.json`
+
+Whole entries of `stat_translations.min.json`, copied byte for byte. The
+file is a JSON array with one source entry per line; nothing inside an
+entry is edited. Entries were cut by their position in the source array
+with a script that slices each top-level element's raw text out of the
+file and checks that it parses to the same object.
+
+Source positions, in file order: 790, 802, 1202, 1385, 1593, 1644, 1650,
+1656, 1661, 1674, 1863, 2832, 2857, 7662, 8152.
+
+## `item_classes.min.json`
+
+The whole file, unchanged.
+
+## `base_items.json`
+
+Whole entries of `base_items.min.json`, copied byte for byte. The file is
+a JSON object with one source entry (key and value) per line; nothing
+inside an entry is edited. Entries were cut by key with a script that
+slices each value's raw text out of the file and checks that it parses to
+the same object.
+
+Keys, in file order: `Metadata/Items/Rings/Ring4`,
+`Metadata/Items/Armours/Helmets/HelmetStr1`,
+`Metadata/Items/Weapons/OneHandWeapons/OneHandSwords/OneHandSword1`,
+`Metadata/Items/Flasks/FlaskLife1`, `Metadata/Items/Jewels/JewelInt`,
+`Metadata/Items/Jewels/JewelAbyssCaster`,
+`Metadata/Items/Currency/CurrencyRerollRare`,
+`Metadata/Items/Maps/MapKeyTier16`,
+`Metadata/Items/DivinationCards/DivinationCardTheDoctor`.

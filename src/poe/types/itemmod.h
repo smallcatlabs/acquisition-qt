@@ -37,14 +37,15 @@ namespace poe {
             // all. Callers should branch on this rather than on whether the
             // optional is engaged.
             //
-            // Keep in sync with FlagFields: a flag added there but not here
-            // reads as "unflagged" instead of reaching its branch.
+            // Whether any flag that says what kind of mod this is is set.
+            // Item::LoadModifiers does not call this: it routes each line by
+            // its flags itself (fractured, mutated, crafted and vestigial
+            // lines get sections of their own), and a line whose flags it has
+            // no branch for, including a flag field added to FlagFields
+            // later, stays in the section of the array it arrived in.
             //
-            // The one deliberate exception is rareonly (3.30): it says which
-            // items a mod can roll on, not what kind of mod it is, so it must
-            // not route a mod out of its ordinary section. Item::LoadModifiers
-            // has no branch for it; adding it here would reach that function's
-            // "flagged with no recognized flag" fallback.
+            // rareonly (3.30) is deliberately left out: it says which items a
+            // mod can roll on, not what kind of mod it is.
             bool any() const
             {
                 return fractured.value_or(false) || mutated.value_or(false)
