@@ -7,6 +7,7 @@
 #include <QBuffer>
 #include <QDesktopServices>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QMessageBox>
 #include <QOAuthHttpServerReplyHandler>
 #include <QPushButton>
@@ -70,6 +71,7 @@ private slots:
     void networkManagerHasNoDiskCache();
     void repeatedGetIsNotServedFromCache();
     void legacyNetworkCacheIsRemoved();
+    void legacyNetworkCacheLinkIsNotFollowed();
     void loginListensOnLoopbackAfterClose();
     void startupRefreshClosesTheListener();
     void msvcCheckPassesWithoutLibraries();
@@ -504,7 +506,10 @@ void ShellTest::networkManagerHasNoDiskCache()
     // the user's real data directory.
     QVERIFY(QStandardPaths::isTestModeEnabled());
     const QString location = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    QVERIFY(location.contains(".qttest"));
+    // Qt's test directory: ~/.qttest on Unix and macOS, a "qttest" directory
+    // under %APPDATA% on Windows. Refuse to delete anything outside it.
+    const QStringList segments = QDir::fromNativeSeparators(location).split('/');
+    QVERIFY2(segments.contains(".qttest") || segments.contains("qttest"), qPrintable(location));
     QDir cache_dir(location + "/network_cache");
     QVERIFY(cache_dir.removeRecursively());
 
@@ -631,6 +636,31 @@ static QHostAddress callbackAddress(const OAuthManager &oauth)
     return {};
 }
 
+void ShellTest::legacyNetworkCacheLinkIsNotFollowed()
+{
+    // A network_cache that is a link to a directory elsewhere: the clean-up
+    // must not delete what the link points at.
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir root(dir.path());
+    QVERIFY(root.mkpath("elsewhere"));
+    QVERIFY(root.mkpath("data"));
+    {
+        QFile keep(root.filePath("elsewhere/keep.txt"));
+        QVERIFY(keep.open(QIODevice::WriteOnly));
+        keep.write("x");
+    }
+    const QString link = root.filePath("data/network_cache");
+    if (!QFile::link(root.filePath("elsewhere"), link) || !QFileInfo(link).isSymbolicLink()) {
+        QSKIP("symbolic links to directories cannot be created here");
+    }
+
+    NetworkManager::removeLegacyDiskCache(QDir(root.filePath("data")));
+    QVERIFY(root.exists("elsewhere/keep.txt"));
+    QVERIFY(!QFileInfo(link).isSymbolicLink());
+    QVERIFY(!QFileInfo::exists(link));
+}
+
 void ShellTest::loginListensOnLoopbackAfterClose()
 {
     UrlCatcher browser("https");
@@ -646,7 +676,7 @@ void ShellTest::loginListensOnLoopbackAfterClose()
     // listen on loopback again, not on every interface.
     handler->close();
     QVERIFY(!handler->isListening());
-    services.oauth.initLogin();
+    QVERIFY(services.oauth.initLogin());
     const QHostAddress address = callbackAddress(services.oauth);
     QVERIFY2(address.isLoopback(), qPrintable(address.toString()));
     QCOMPARE(browser.urls.size(), 1);
