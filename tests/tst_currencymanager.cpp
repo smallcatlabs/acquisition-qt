@@ -2,6 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Tom Holz
 
 #include <QDoubleSpinBox>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
 #include <QSettings>
 #include <QSqlDatabase>
@@ -217,25 +220,36 @@ void CurrencyManagerTest::typedRatioIsSavedWhenFinished()
     fixture.settings.setValue("show_chaos", true);
     CurrencyDialog dialog(fixture.settings, currency);
 
-    QDoubleSpinBox *ratio = nullptr;
-    for (auto *box : dialog.findChildren<QDoubleSpinBox *>()) {
-        if (box->isEnabled()) {
-            ratio = box;
-            break;
+    // The saved chaos ratio of the first row's currency, read from the
+    // stored JSON array by its own key.
+    const auto rows = dialog.findChildren<CurrencyWidget *>();
+    QVERIFY(!rows.isEmpty());
+    QDoubleSpinBox *ratio = rows.front()->chaos_ratio;
+    const QString tag = currency.currencies().at(1)->currency.AsTag();
+    QCOMPARE(rows.front()->name->text(), currency.currencies().at(1)->name);
+    const auto savedRatio = [&fixture, &tag]() -> double {
+        const auto saved = QJsonDocument::fromJson(
+            fixture.buyouts.data->Get("currency_items").toUtf8());
+        for (const auto &entry : saved.array()) {
+            if (entry.toObject().value("currency").toString() == tag) {
+                return entry.toObject().value("chaos_ratio").toDouble();
+            }
         }
-    }
-    QVERIFY(ratio);
+        return -1;
+    };
+    QCOMPARE(savedRatio(), 1.0);
+
     ratio->clear();
     QTest::keyClicks(ratio, "150");
-    QVERIFY(!fixture.buyouts.data->Get("currency_items").contains("150"));
+    QCOMPARE(savedRatio(), 1.0);
 
     QTest::keyClick(ratio, Qt::Key_Return);
-    QVERIFY(fixture.buyouts.data->Get("currency_items").contains("150"));
+    QCOMPARE(savedRatio(), 150.0);
 
     // An arrow step is a finished edit of its own and is saved at once.
     QTest::keyClick(ratio, Qt::Key_Up);
     QCOMPARE(ratio->value(), 151.0);
-    QVERIFY(fixture.buyouts.data->Get("currency_items").contains("151"));
+    QCOMPARE(savedRatio(), 151.0);
 }
 
 QTEST_MAIN(CurrencyManagerTest)
