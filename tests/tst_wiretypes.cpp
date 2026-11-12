@@ -36,6 +36,7 @@ private slots:
     void itemModRareOnlyFlagIsRead();
     void rareOnlyAloneDoesNotMoveAnExplicitMod();
     void rareOnlyDoesNotOverrideCrafted();
+    void doubleCorruptedCountsAsCorrupted();
     void characterWickermanIsRead();
     void passiveNodeVariantFieldsAreRead();
     void passiveNodeConnectionsAreRead();
@@ -145,6 +146,22 @@ void WireTypesTest::rareOnlyDoesNotOverrideCrafted()
     QCOMPARE(textMods(*item, "craftedMods"), std::vector<QString>{"+25% to Fire Resistance"});
     QVERIFY(textMods(*item, "explicitMods").empty());
     QVERIFY(item->crafted());
+}
+
+void WireTypesTest::doubleCorruptedCountsAsCorrupted()
+{
+    // Tom's ruling, 2026-11-12: a double-corrupted item is corrupted for
+    // every purpose that reads Item::corrupted() (the Corrupted search
+    // filter among them). The fixture deliberately omits "corrupted": the
+    // reference does not say whether GGG sends both flags together, so
+    // Acquisition must not depend on it.
+    const auto item = buildItem(R"json(, "doubleCorrupted": true)json");
+    QVERIFY(item);
+    QVERIFY(item->corrupted());
+
+    const auto plain = buildItem("");
+    QVERIFY(plain);
+    QVERIFY(!plain->corrupted());
 }
 
 void WireTypesTest::characterWickermanIsRead()
