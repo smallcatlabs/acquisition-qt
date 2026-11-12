@@ -199,7 +199,9 @@ private:
     // capture is enabled.
     std::unique_ptr<NetworkCapture> m_capture;
 
-    QTimer m_update_timer;
+    // The once-a-second status timer: a child named "statusTimer", so tests
+    // can see that a pause starts it and its end stops it.
+    QTimer m_update_timer{this};
 
     // Whether the last Paused emitted reported a pause, so that its end is
     // reported once.

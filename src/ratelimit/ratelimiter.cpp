@@ -38,6 +38,7 @@ RateLimiter::RateLimiter(NetworkManager &network_manager, RateLimit::Scheduler *
     , m_scheduler(scheduler ? *scheduler : m_own_scheduler)
 {
     spdlog::trace("RateLimiter::RateLimiter() entered");
+    m_update_timer.setObjectName("statusTimer");
     m_update_timer.setSingleShot(false);
     m_update_timer.setInterval(UPDATE_INTERVAL_MSEC);
     connect(&m_update_timer, &QTimer::timeout, this, &RateLimiter::SendStatusUpdate);
