@@ -160,7 +160,9 @@ public:
 
     ModRow state() const
     {
-        return {m_modSelect->currentText(), parse(m_minText), parse(m_maxText)};
+        // Surrounding whitespace is not part of a mod name: text that is
+        // only whitespace chooses no mod (#271).
+        return {m_modSelect->currentText().trimmed(), parse(m_minText), parse(m_maxText)};
     }
 
 private:

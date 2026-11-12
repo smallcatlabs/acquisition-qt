@@ -5,6 +5,7 @@
 
 #include <QString>
 
+#include <algorithm>
 #include <optional>
 #include <variant>
 #include <vector>
@@ -64,7 +65,15 @@ struct ModRow
 struct ModsState
 {
     std::vector<ModRow> rows;
-    bool isActive() const { return !rows.empty(); }
+    // Active when some row has a mod chosen: a blank row (just added by
+    // "Add mod") matches every item, so it must not make the search
+    // filtered (#271).
+    bool isActive() const
+    {
+        return std::any_of(rows.begin(), rows.end(), [](const ModRow &row) {
+            return !row.mod.isEmpty();
+        });
+    }
     bool operator==(const ModsState &) const = default;
 };
 
