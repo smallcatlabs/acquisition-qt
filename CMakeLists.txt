@@ -372,7 +372,6 @@ set(ACQ_LEGACY
     src/legacy/legacybuyoutimporter.cpp
     src/legacy/legacybuyoutimporter.h
     src/legacy/legacycharacter.h
-    src/legacy/legacycurrency.h
     src/legacy/legacydatastore.cpp
     src/legacy/legacydatastore.h
     src/legacy/legacyitem.cpp

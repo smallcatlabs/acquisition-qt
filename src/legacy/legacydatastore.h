@@ -39,8 +39,6 @@ struct LegacyDataStore
     // IGNORE: using CurrencyTable = std::unordered_map<unsigned long long, QString>;
 
     LegacyDataStore(const QString &filename);
-    bool exportJson(const QString &filename) const;
-    bool exportTgz(const QString &filename) const;
 
     bool isValid() const { return m_valid; }
     qint64 itemCount() const { return m_item_count; }
@@ -58,15 +56,4 @@ private:
     bool m_valid{false};
     qint64 m_item_count{0};
     qint64 m_skipped_row_count{0};
-
-    // Grant access to Glaze’s reflection for this type
-    friend struct glz::meta<LegacyDataStore>;
-};
-
-template<>
-struct glz::meta<LegacyDataStore>
-{
-    using T = LegacyDataStore;
-    static constexpr auto value
-        = glz::object("data", &T::m_data, "tabs", &T::m_tabs, "items", &T::m_items);
 };
