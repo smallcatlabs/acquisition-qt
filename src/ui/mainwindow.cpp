@@ -28,6 +28,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSettings>
+#include <QStatusBar>
 #include <QString>
 #include <QStringList>
 #include <QTabBar>
@@ -80,6 +81,8 @@ constexpr int SEARCH_UPDATE_DELAY_MS = 350;
 // applied delta. Non-resetting, so a sustained burst still resizes
 // this often (bounded staleness AND bounded work).
 constexpr int DELTA_RESIZE_DEBOUNCE_MS = 250;
+// How long a "Price not saved" notice covers the status line (#257).
+constexpr int PRICE_NOT_SAVED_TIMEOUT_MS = 10000;
 
 namespace {
 
@@ -891,15 +894,20 @@ void MainWindow::OnBuyoutChange()
     }
     m_items_manager.PropagateTabBuyouts();
     ScheduleResizeTreeColumns();
-    if (!saved) {
-        // Refused (the buyouts did not load, #257) or rejected by the
-        // database: the old price stays, so the edit must not look applied.
-        // Only a rejection is logged per edit (as an error), so only then
-        // does the notice point at the log.
-        m_status_bar_label->setText(
-            m_buyout_manager.BuyoutsLoaded()
-                ? tr("Price not saved. Check the log file for details.")
-                : tr("Price not saved: prices cannot be saved in this session."));
+    // Refused (the buyouts did not load, #257) or rejected by the database:
+    // the old price stays, so the edit must not look applied. Only a
+    // rejection is logged per edit (as an error), so only then does the
+    // notice point at the log. It is a temporary status message, so it
+    // never replaces refresh progress for long, and the next edit that
+    // saves clears it.
+    if (saved) {
+        statusBar()->clearMessage();
+    } else {
+        statusBar()
+            ->showMessage(m_buyout_manager.BuyoutsLoaded()
+                              ? tr("Price not saved. Check the log file for details.")
+                              : tr("Price not saved: prices cannot be saved in this session."),
+                          PRICE_NOT_SAVED_TIMEOUT_MS);
     }
 }
 

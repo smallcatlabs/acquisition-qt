@@ -37,7 +37,8 @@ the legacy import refuses to start, and the [forum shop](forum-shop.md) is not
 updated. Check the log, fix the cause, and restart.
 
 If the database rejects a single edit at another time, the status line says
-*Price not saved* and the log file records the error.
+*Price not saved* and the log file records the error. The notice goes away
+after a few seconds, or as soon as an edit is saved.
 
 ### Buyout types
 

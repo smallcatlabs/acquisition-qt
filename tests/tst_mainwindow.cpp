@@ -46,6 +46,7 @@ private slots:
     void legacyImportRefusedWhenBuyoutsNotLoaded();
     void startupWarnsWhenBuyoutsNotLoaded();
     void refusedPriceEditSaysSoInStatusLine();
+    void savedPriceEditClearsNotSavedNotice();
     void tabChangeActivatesSelectedSearch();
     // Renegotiated in M3 S6 from `itemsRefreshRefiltersBackgroundSearches`
     // (the F33-era eager background refilter rode the final-snapshot reset
@@ -560,6 +561,28 @@ void MainWindowTest::refusedPriceEditSaysSoInStatusLine()
     QVERIFY2(status.contains("cannot be saved in this session"), qPrintable(status));
     QVERIFY2(!status.contains("log file"), qPrintable(status));
     QVERIFY(!fixture.buyoutFixture.repo->loadItemBuyouts().value().contains("item-257"));
+}
+
+// #257: after a save the database rejected (the repo logs it as an error),
+// the next edit that is saved clears the notice.
+void MainWindowTest::savedPriceEditClearsNotSavedNotice()
+{
+    MainWindowFixture fixture;
+    selectOneItem(fixture);
+
+    QSqlQuery q(*fixture.buyoutFixture.db);
+    QVERIFY(q.exec("CREATE TRIGGER block_item_insert BEFORE INSERT ON item_buyouts "
+                   "BEGIN SELECT RAISE(FAIL, 'test: insert blocked'); END"));
+    applyBuyoutCommand(fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "7");
+    QString status = statusText(fixture);
+    QVERIFY2(status.contains("Price not saved"), qPrintable(status));
+    QVERIFY2(status.contains("log file"), qPrintable(status));
+
+    QVERIFY(q.exec("DROP TRIGGER block_item_insert"));
+    applyBuyoutCommand(fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "8");
+    status = statusText(fixture);
+    QVERIFY2(!status.contains("Price not saved"), qPrintable(status));
+    QCOMPARE(fixture.buyoutFixture.repo->loadItemBuyouts().value().at("item-257").value, 8.0);
 }
 
 void MainWindowTest::tabChangeActivatesSelectedSearch()
