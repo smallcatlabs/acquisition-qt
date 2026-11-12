@@ -905,8 +905,10 @@ void ShellTest::dataDirLockTakesOverStaleLock()
     QVERIFY(dir.isValid());
     const QDir data_dir(dir.path());
 
+    // A process that has exited: this test binary, asked only for its help
+    // text, which needs no shell or other program on any platform.
     QProcess child;
-    child.start("/bin/sh", {"-c", "exit 0"});
+    child.start(QCoreApplication::applicationFilePath(), {"-help"});
     QVERIFY(child.waitForStarted());
     const qint64 dead_pid = child.processId();
     QVERIFY(child.waitForFinished());
@@ -929,7 +931,12 @@ void ShellTest::dataDirLockTakesOverStaleLock()
         }
         QVERIFY(LockDataDirectory(data_dir) == nullptr);
 
-        content.replace(QByteArray::number(pid), QByteArray::number(dead_pid));
+        // Replace the PID in its own line (the first) only: its digits may
+        // also occur in the host name or machine id lines.
+        QList<QByteArray> lines = content.split('\n');
+        QCOMPARE(lines.at(0), QByteArray::number(pid));
+        lines[0] = QByteArray::number(dead_pid);
+        content = lines.join('\n');
         QFile stale(data_dir.filePath("acquisition.lock"));
         QVERIFY(stale.open(QIODevice::WriteOnly | QIODevice::Truncate));
         stale.write(content);
