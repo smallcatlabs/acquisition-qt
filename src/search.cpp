@@ -51,7 +51,6 @@ Search::Search(BuyoutManager &bo_manager,
     , m_model(bo_manager, *this)
     , m_caption(caption)
     , m_filtered(false)
-    , m_filtered_item_count(0)
     , m_current_mode(ViewMode::ByTab)
     , m_refresh_reason(RefreshReason::Unknown)
 {
@@ -386,11 +385,7 @@ void Search::FilterItems(const Items &items)
     // definition flips only at filter edits, which are full refilters by
     // construction (D6).
     m_filtered = !active_filters.empty();
-    m_filtered_item_count = 0;
-    m_visible_by_id.clear();
-    m_unindexed_visible_ids.clear();
-    m_duplicate_visible_ids.clear();
-    m_empty_id_visible_count = 0;
+    m_visible.Clear();
 
     // A single bucket with null location is used to view all items at once.
     m_bucket_by_item.clear();
@@ -420,7 +415,7 @@ void Search::FilterItems(const Items &items)
             // Record the stable identity for R6-3 reselection and the
             // count; the shared helper keeps refilter and delta
             // bookkeeping identical (S4).
-            IndexInsertVisible(item);
+            m_visible.Insert(item);
         }
     }
 
@@ -591,67 +586,6 @@ int Search::FindBucketRow(const LocationInventory::Key &key) const
 {
     const auto it = m_row_by_key.find(key);
     return (it != m_row_by_key.end()) ? it->second : -1;
-}
-
-void Search::IndexInsertVisible(const std::shared_ptr<Item> &item)
-{
-    m_filtered_item_count += item->count();
-    const QString id = item->id();
-    if (id.isEmpty()) {
-        // Id-less items cannot be identity-tracked; the unindexed mark
-        // sends consumers down the every-occurrence path.
-        ++m_empty_id_visible_count;
-        m_unindexed_visible_ids.insert(id);
-        return;
-    }
-    const auto [it, inserted] = m_visible_by_id.emplace(id, item);
-    if (!inserted) {
-        // Mid-refresh divergence: one id visible twice. Track every
-        // occurrence so a removal restores the survivor exactly.
-        auto &occurrences = m_duplicate_visible_ids[id];
-        if (occurrences.empty()) {
-            occurrences.push_back(it->second);
-        }
-        occurrences.push_back(item);
-        m_unindexed_visible_ids.insert(id);
-    }
-}
-
-void Search::IndexRemoveVisible(const std::shared_ptr<Item> &item)
-{
-    m_filtered_item_count -= item->count();
-    const QString id = item->id();
-    if (id.isEmpty()) {
-        if ((m_empty_id_visible_count > 0) && (--m_empty_id_visible_count == 0)) {
-            m_unindexed_visible_ids.erase(id);
-        }
-        return;
-    }
-    const auto dup = m_duplicate_visible_ids.find(id);
-    if (dup != m_duplicate_visible_ids.end()) {
-        auto &occurrences = dup->second;
-        const auto occurrence = std::find(occurrences.begin(), occurrences.end(), item);
-        if (occurrence != occurrences.end()) {
-            occurrences.erase(occurrence);
-        }
-        if (occurrences.size() == 1) {
-            // Unique again: the survivor is the freshly-refiltered answer.
-            m_visible_by_id[id] = occurrences.front();
-            m_duplicate_visible_ids.erase(dup);
-            m_unindexed_visible_ids.erase(id);
-        } else if (!occurrences.empty()) {
-            m_visible_by_id[id] = occurrences.front();
-        } else {
-            m_visible_by_id.erase(id);
-            m_duplicate_visible_ids.erase(dup);
-            m_unindexed_visible_ids.erase(id);
-        }
-    } else {
-        const auto it = m_visible_by_id.find(id);
-        if ((it != m_visible_by_id.end()) && (it->second == item)) {
-            m_visible_by_id.erase(it);
-        }
-    }
 }
 
 int Search::NestingParentRow(const ItemLocation &location) const
@@ -982,7 +916,7 @@ std::vector<std::uint64_t> Search::InsertTabBucket(const ItemLocation &canonical
         AdoptMembers(rowForSerial(serial));
     } else {
         for (const auto &item : accepted) {
-            IndexInsertVisible(item);
+            m_visible.Insert(item);
         }
     }
     return inserted;
@@ -1009,7 +943,7 @@ bool Search::RemoveTabBucket(int bucket_row, bool cascade)
     const Bucket &bucket = m_bucket_by_tab[static_cast<size_t>(bucket_row)];
     const bool had_items = !bucket.items().empty();
     for (const auto &item : bucket.items()) {
-        IndexRemoveVisible(item);
+        m_visible.Remove(item);
     }
     RemoveBucketAt(bucket_row);
 
@@ -1213,7 +1147,7 @@ bool Search::RemoveBucketRows(int bucket_row, Predicate &&predicate)
     for (auto run = runs.rbegin(); run != runs.rend(); ++run) {
         m_model.BeginRemoveItemRows(bucket_row, run->first, run->last);
         for (int row = run->first; row <= run->last; ++row) {
-            IndexRemoveVisible(bucket_items[static_cast<size_t>(row)]);
+            m_visible.Remove(bucket_items[static_cast<size_t>(row)]);
         }
         bucket.RemoveRows(run->first, run->last - run->first + 1);
         m_model.EndRemoveItemRows();
@@ -1295,7 +1229,7 @@ void Search::InsertArrivals(int bucket_row, const Items &accepted)
             bucket.InsertRows(first, run_items, &run_keys);
             m_model.EndInsertItemRows();
             for (const auto &item : run_items) {
-                IndexInsertVisible(item);
+                m_visible.Insert(item);
             }
             offset += static_cast<int>(end - start);
             start = end;
@@ -1309,7 +1243,7 @@ void Search::InsertArrivals(int bucket_row, const Items &accepted)
         bucket.InsertRows(first, accepted, nullptr);
         m_model.EndInsertItemRows();
         for (const auto &item : accepted) {
-            IndexInsertVisible(item);
+            m_visible.Insert(item);
         }
         bucket.InvalidateOrder();
     }
@@ -1455,10 +1389,10 @@ Search::DeltaApplication Search::ApplyFlatDelta(const FetchSourceKey &source, co
         [this](int first, int last) { m_model.BeginInsertItemRows(0, first, last); },
         [this] { m_model.EndInsertItemRows(); });
     for (const auto &item : removed_items) {
-        IndexRemoveVisible(item);
+        m_visible.Remove(item);
     }
     for (const auto &item : accepted) {
-        IndexInsertVisible(item);
+        m_visible.Insert(item);
     }
 
     if (!removed_items.empty() || !accepted.empty()) {
@@ -1516,7 +1450,7 @@ Search::DeltaApplication Search::ApplyChildReconciliation(
             [this](int first, int last) { m_model.BeginInsertItemRows(0, first, last); },
             [this] { m_model.EndInsertItemRows(); });
         for (const auto &item : removed_items) {
-            IndexRemoveVisible(item);
+            m_visible.Remove(item);
         }
         if (!removed_items.empty()) {
             result.content_changed = true;
@@ -1647,10 +1581,10 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
             [this](int first, int last) { m_model.BeginInsertItemRows(0, first, last); },
             [this] { m_model.EndInsertItemRows(); });
         for (const auto &item : removed_items) {
-            IndexRemoveVisible(item);
+            m_visible.Remove(item);
         }
         for (const auto &item : missing) {
-            IndexInsertVisible(item);
+            m_visible.Insert(item);
         }
         if (!removed_items.empty() || !missing.empty()) {
             result.content_changed = true;
@@ -1854,7 +1788,7 @@ void Search::RenameCaption(const QString &newName)
 
 QString Search::GetCaption() const
 {
-    return QString("%1 [%2]").arg(m_caption).arg(m_filtered_item_count);
+    return QString("%1 [%2]").arg(m_caption).arg(m_visible.itemCount());
 }
 
 ItemLocation Search::GetTabLocation(const QModelIndex &index) const

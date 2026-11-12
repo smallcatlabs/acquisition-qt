@@ -23,6 +23,7 @@
 #include "items_model.h"
 #include "locationinventory.h"
 #include "util/util.h"
+#include "visibleindex.h"
 
 class BuyoutManager;
 class FilterCatalog;
@@ -105,8 +106,7 @@ public:
     // mid-refresh. Returns null for unknown or empty ids.
     std::shared_ptr<Item> visibleItemById(const QString &id) const
     {
-        const auto it = m_visible_by_id.find(id);
-        return (it != m_visible_by_id.end()) ? it->second : nullptr;
+        return m_visible.itemById(id);
     }
 
     // True when the id index cannot represent every visible occurrence of
@@ -114,10 +114,7 @@ public:
     // occurrence only — R6-3 reselection wants exactly one item) or the
     // empty id shared by id-less items. The buyout repaint falls back to
     // scanning every bucket for such ids; rebuilt by every refilter.
-    bool visibleIdUnindexed(const QString &id) const
-    {
-        return m_unindexed_visible_ids.count(id) > 0;
-    }
+    bool visibleIdUnindexed(const QString &id) const { return m_visible.unindexed(id); }
     const std::shared_ptr<Item> &currentItem() const { return m_current_item; }
     void setCurrentItem(std::shared_ptr<Item> item) { m_current_item = std::move(item); }
     const std::optional<ItemLocation> &currentBucket() const { return m_current_bucket; }
@@ -324,11 +321,6 @@ private:
     std::vector<Bucket> &active_buckets();
     const ItemLocation &canonicalLocation(const ItemLocation &embedded) const;
 
-    // S4 delta internals. The index helpers keep m_visible_by_id, the
-    // duplicate-occurrence side table, the unindexed set, and the filtered
-    // item count answering as if freshly refiltered, in O(1) per item.
-    void IndexInsertVisible(const std::shared_ptr<Item> &item);
-    void IndexRemoveVisible(const std::shared_ptr<Item> &item);
     void RebuildRowLookups();
     int FindBucketRow(const LocationInventory::Key &key) const;
 
@@ -451,25 +443,9 @@ private:
     // search last filtered (D9 rule 1).
     bool m_items_dirty{false};
 
-    // The visible result by stable item id (R6-3 reselection), rebuilt by
-    // every refilter and maintained per delta (S4). For a duplicated id
-    // the entry is the first occurrence — the invariant is
-    // m_visible_by_id[id] == m_duplicate_visible_ids[id].front().
-    std::unordered_map<QString, std::shared_ptr<Item>> m_visible_by_id;
-
-    // Ids the index above cannot fully represent: duplicated ids and the
-    // empty id (see visibleIdUnindexed).
-    std::set<QString> m_unindexed_visible_ids;
-
-    // Every visible occurrence of a currently-duplicated non-empty id
-    // (mid-refresh divergence can show one id in two tabs). Kept so a
-    // delta removing one occurrence restores the survivor to the id index
-    // exactly — the indexes answer as if freshly refiltered
-    // (deltaUpdatesVisibleIndexesIncrementally). Empty except mid-refresh.
-    std::unordered_map<QString, Items> m_duplicate_visible_ids;
-    // Visible items sharing the empty id; the unindexed set carries the
-    // empty id while this is nonzero.
-    size_t m_empty_id_visible_count{0};
+    // The visible result by stable item id and the visible item count,
+    // rebuilt by every refilter and maintained per delta (S4).
+    VisibleIndex m_visible;
 
     std::vector<std::unique_ptr<Column>> m_columns;
 
@@ -516,7 +492,6 @@ private:
     // deltas, flips only at filter edits. Drives hidden empty buckets
     // and default expansion.
     bool m_filtered;
-    size_t m_filtered_item_count;
     std::set<LocationInventory::Key> m_expanded_keys;
     std::set<LocationInventory::Key> m_collapsed_folder_keys;
     ScrollAnchor m_scroll_anchor;
