@@ -800,11 +800,6 @@ void MainWindow::ScheduleDeltaResizeTreeColumns()
     }
 }
 
-void MainWindow::OnBuyoutChange()
-{
-    ui->buyoutPanel->commit();
-}
-
 void MainWindow::OnBuyoutCommitted(const Buyout &bo)
 {
     spdlog::trace("MainWindow::OnBuyoutCommitted() entered");

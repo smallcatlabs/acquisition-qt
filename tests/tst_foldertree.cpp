@@ -1850,7 +1850,7 @@ void FolderTreeTest::buyoutEditSkipsFolderRows()
     type->setCurrentIndex(Buyout::BUYOUT_TYPE_BUYOUT);
     currency->setCurrentIndex(Currency::CURRENCY_CHAOS_ORB);
     value->setText("7");
-    h.fixture.window->OnBuyoutChange();
+    emit type->activated(Buyout::BUYOUT_TYPE_BUYOUT);
 
     QVERIFY(buyouts.GetTab(h.world.tab("tab-d")).IsActive());
     QVERIFY(!buyouts.GetTab(h.world.tab("folder-f")).IsActive());

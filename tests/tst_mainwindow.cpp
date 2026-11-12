@@ -346,9 +346,10 @@ static void switchToByItemView(MainWindowFixture &fixture)
 }
 
 // One user buyout command (M3 R2-5): the widget states a user would leave
-// behind, then the command boundary itself. setCurrentIndex/setText emit no
-// activated/textEdited, so this drives OnBuyoutChange exactly once — the
-// command applies to whatever the tree's selection model holds.
+// behind, then the command boundary itself: the type box's activated(), as
+// when the user picks a type. setCurrentIndex/setText emit no activated or
+// editingFinished, so this commits exactly once — the command applies to
+// whatever the tree's selection model holds.
 static void applyBuyoutCommand(MainWindowFixture &fixture,
                                int typeIndex,
                                int currencyIndex,
@@ -363,7 +364,7 @@ static void applyBuyoutCommand(MainWindowFixture &fixture,
     buyoutType->setCurrentIndex(typeIndex);
     buyoutCurrency->setCurrentIndex(currencyIndex);
     buyoutValue->setText(value);
-    fixture.window->OnBuyoutChange();
+    emit buyoutType->activated(typeIndex);
 }
 
 void MainWindowTest::initTestCase()

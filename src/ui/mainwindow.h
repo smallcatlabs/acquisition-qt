@@ -107,9 +107,6 @@ public slots:
     void OnStatusUpdate(ProgramState state, const QString &status);
     void OnNotifyUser(const QString &message);
     void OnShopWarning(const QString &message);
-    // Commits what the price editor holds, as if the user had just entered
-    // it, to the current selection.
-    void OnBuyoutChange();
     // Applies a price the editor committed to the current selection.
     void OnBuyoutCommitted(const Buyout &bo);
     // The M3 S2 buyout batch response: one per outer batch boundary
