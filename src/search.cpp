@@ -204,28 +204,20 @@ const QModelIndex Search::index(const std::shared_ptr<Item> &item) const
         // Return an invalid index because there is no current item.
         return QModelIndex();
     }
-    // Look for a bucket that matches the item's location. In ByItem mode
-    // the single bucket has a null location and holds every visible item,
-    // so it is always searched; a ByTab bucket must match the item's
-    // stable display key (M2 D6 — never mutable header text or position).
-    const auto &bucket_list = buckets();
-    const auto item_key = LocationInventory::KeyFor(item->location());
-    const int bucket_count = static_cast<int>(bucket_list.size());
-    for (int row = 0; row < bucket_count; ++row) {
-        // Check each search bucket against the item's location.
-        const auto &bucket = bucket_list[row];
-        if ((m_current_mode == ViewMode::ByItem)
-            || (LocationInventory::KeyFor(bucket.location()) == item_key)) {
-            // Check each item in the bucket.
-            const QModelIndex parent = m_model.BucketIndex(row);
-            const auto &items = bucket.items();
-            const int item_count = static_cast<int>(items.size());
-            for (int n = 0; n < item_count; ++n) {
-                const auto &model_item = items[n];
-                if (item == model_item) {
-                    // Found the index of a match.
-                    return m_model.index(n, 0, parent);
-                }
+    // The item's bucket: the flat bucket in By-Item, the bucket with the
+    // item's stable display key in By-Tab (M2 D6 — never mutable header
+    // text or position), found through the row lookup (#272).
+    const int row = bucketRowFor(*item);
+    if (row >= 0) {
+        const QModelIndex parent = m_model.BucketIndex(row);
+        const auto &items = buckets()[static_cast<size_t>(row)].items();
+        auto &probes = ModelProbes::instance();
+        for (size_t n = 0; n < items.size(); ++n) {
+            if (probes.enabled) {
+                ++probes.index_lookup_steps;
+            }
+            if (items[n] == item) {
+                return m_model.index(static_cast<int>(n), 0, parent);
             }
         }
     }

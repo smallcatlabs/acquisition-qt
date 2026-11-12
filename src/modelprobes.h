@@ -67,6 +67,13 @@ struct ModelProbes
     // fired it. The delta-debounce pin asserts a burst yields one.
     std::int64_t column_resizes = 0;
 
+    // Sites live since #272: the work of relocating rows by item. Items
+    // examined to remap the persistent indexes after a sort
+    // (ItemsModel::ApplySort), and items examined to find one item's row
+    // (Search::index).
+    std::int64_t sort_remap_steps = 0;
+    std::int64_t index_lookup_steps = 0;
+
     // Site lives since #282: selected rows examined to carry a selection
     // through a delta — rows read from the selection before it and bucket
     // rows walked to restore it after (MainWindow).
