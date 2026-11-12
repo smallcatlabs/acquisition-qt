@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include <QtTest/QtTest>
 
 #include <optional>
@@ -27,7 +29,10 @@ private slots:
     void rarityFilter();
     void modsFilter();
     void valuelessModFilter();
+    void mapTierFromBaseType();
 };
+
+static const QString kIcon = "https://web.poecdn.com/image/test.png";
 
 static std::shared_ptr<Item> makeFilterItem(
     const QString &id,
@@ -245,7 +250,7 @@ void FiltersTest::minMaxFilter()
     BuyoutManagerFixture buyoutFixture;
     const FilterCatalog catalog = BuildFilterCatalog(*buyoutFixture.manager);
 
-    for (const QString &caption :
+    for (const QString caption :
          {"Crit.",   "DPS",    "pDPS",    "eDPS",    "cDPS",     "APS",      "Armour",
           "Evasion", "Shield", "Block",   "Sockets", "Links",    "R. Level", "R. Str",
           "R. Dex",  "R. Int", "Quality", "Level",   "Map Tier", "ilvl"}) {
@@ -558,7 +563,7 @@ void FiltersTest::booleanPredicates()
     // The altart predicate is an icon-needle list, so check a few more needles.
     const auto *altart = findFilterSpec(catalog, "Alt. art");
     QVERIFY(altart);
-    for (const QString &needle : {"RedBeak2.png", "dGlsbGF0ZUFsdCI7czoy", "WinterHeart.png"}) {
+    for (const QString needle : {"RedBeak2.png", "dGlsbGF0ZUFsdCI7czoy", "WinterHeart.png"}) {
         const auto item = makeFilterItem("alt-" + needle,
                                          "",
                                          2,
@@ -674,6 +679,59 @@ void FiltersTest::valuelessModFilter()
     QVERIFY(MatchesFilter(*item, *mods, state));
     state.rows.back().min = 1.0;
     QVERIFY(!MatchesFilter(*item, *mods, state));
+}
+
+// #229: maps carry no "Map Tier" property; the tier is only in the base
+// type. The census in that issue found the property on 0 of 7,273 maps in
+// the maintainer's corpus, with base types such as "Map (Tier 16)". The
+// base type "Map (Tier N)" is a real RePoE base (class MapKey); "Shaper's
+// Orb (Tier N)" is a quest item and has no map tier.
+void FiltersTest::mapTierFromBaseType()
+{
+    BuyoutManagerFixture buyoutFixture;
+    const FilterCatalog catalog = BuildFilterCatalog(*buyoutFixture.manager);
+    const auto *tier = findMinMaxFilterSpec(catalog, "Map Tier");
+    QVERIFY(tier);
+
+    const auto map16 = makeFilterItem("map16", "", 2, "Rare", kIcon, "Map (Tier 16)");
+    const auto map3 = makeFilterItem("map3", "", 0, "Normal", kIcon, "Map (Tier 3)");
+    const auto orb = makeFilterItem("orb", "", 0, "Normal", kIcon, "Shaper's Orb (Tier 3)");
+    const auto sword = makeFilterItem("sword", "", 2, "Rare", kIcon, "Rusted Sword");
+
+    MinMaxState state;
+    state.min = 14.0;
+    QVERIFY(MatchesFilter(*map16, *tier, state));
+    QVERIFY(!MatchesFilter(*map3, *tier, state));
+    QVERIFY(!MatchesFilter(*orb, *tier, state));
+    QVERIFY(!MatchesFilter(*sword, *tier, state));
+
+    state.min.reset();
+    state.max = 5.0;
+    QVERIFY(MatchesFilter(*map3, *tier, state));
+    QVERIFY(!MatchesFilter(*map16, *tier, state));
+    QVERIFY(!MatchesFilter(*orb, *tier, state));
+    QVERIFY(!MatchesFilter(*sword, *tier, state));
+
+    // A property, where an item has one, wins over the base type.
+    const auto withProperty = makeFilterItem("map-property",
+                                             R"json(,
+        "properties": [{"displayMode": 0, "name": "Map Tier", "values": [["7", 0]]}]
+    )json",
+                                             0,
+                                             "Normal",
+                                             kIcon,
+                                             "Map (Tier 3)");
+    QVERIFY(!MatchesFilter(*withProperty, *tier, state));
+    state.max = 7.0;
+    QVERIFY(MatchesFilter(*withProperty, *tier, state));
+
+    // An unexpected shape yields no tier rather than a wrong one.
+    state = MinMaxState{.min = 0.0, .max = std::nullopt};
+    for (const QString base :
+         {"Map (Tier )", "Map (Tier 16", "Map (Tier x)", "Map (Tier 3) Extra"}) {
+        QVERIFY2(!MatchesFilter(*makeFilterItem("odd", "", 0, "Normal", kIcon, base), *tier, state),
+                 qPrintable(base));
+    }
 }
 
 QTEST_GUILESS_MAIN(FiltersTest)

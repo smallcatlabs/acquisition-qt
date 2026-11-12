@@ -152,7 +152,19 @@ FilterCatalog BuildFilterCatalog(const BuyoutManager &buyoutManager)
     specs.push_back(requiredStat("Int", "R. Int", FilterGroup::Requirements));
     specs.push_back(defaultProperty("Quality", "Quality", FilterGroup::Misc, 0.0));
     specs.push_back(simpleProperty("Level", "Level", FilterGroup::Misc));
-    specs.push_back(simpleProperty("Map Tier", "Map Tier", FilterGroup::Misc));
+    // The tier may come from the base type rather than a property (#229),
+    // so presence is read from the numeric view.
+    specs.push_back(minMax(
+        "Map Tier",
+        FilterGroup::Misc,
+        [](const Item &item) {
+            const auto &numeric = item.numeric_properties();
+            const auto found = numeric.find(QStringLiteral("Map Tier"));
+            return found == numeric.end() ? 0.0 : found->second;
+        },
+        [](const Item &item) {
+            return item.numeric_properties().contains(QStringLiteral("Map Tier"));
+        }));
     specs.push_back(
         itemMethod("ilvl", FilterGroup::Misc, [](const Item &item) { return item.ilvl(); }));
     specs.push_back(boolean("Alt. art", FilterGroup::MiscFlags, MatchesAltart));
