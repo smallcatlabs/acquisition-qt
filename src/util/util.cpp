@@ -3,6 +3,7 @@
 
 #include "util/util.h"
 
+#include <QByteArrayView>
 #include <QComboBox>
 #include <QCryptographicHash>
 #include <QDirIterator>
@@ -178,7 +179,9 @@ bool Util::MatchMod(const char *const match, const char *const mod, double *outp
             auto prev = pmod;
             while ((*pmod >= '0' && *pmod <= '9') || *pmod == '.')
                 ++pmod;
-            result += std::strtod(prev, NULL);
+            // Read in the C locale whatever the process locale is: the
+            // game always writes a decimal point (#132).
+            result += QByteArrayView(prev, pmod - prev).toDouble();
             ++pmatch;
         } else if (*pmatch == *pmod) {
             ++pmatch;

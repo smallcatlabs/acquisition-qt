@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 #include <QtTest/QtTest>
 
 #include "testfixtures.h"
@@ -12,6 +14,7 @@ private slots:
     void corruptedUnidentifiedItem();
     void displayMode3Property();
     void talismanRequirements();
+    void vestigialAndDesecratedModsAreShown();
 };
 
 void ItemTooltipTextTest::rareWithImplicitAndExplicitMods()
@@ -203,6 +206,49 @@ void ItemTooltipTextTest::talismanRequirements()
                              "+11% to Chaos Resistance</font>"
                              "<br><img src=':/separators/SeparatorRare.png'><br>"
                              "<font color='#d20000'>Corrupted</font>"
+                             "</center>";
+    QCOMPARE(GenerateItemInfo(item, "Rare", true), expected);
+}
+
+// #266: a desecrated mod is shown in the section it arrived in; a vestigial
+// mod in a section of its own after the implicits. Neither has styling of
+// its own.
+void ItemTooltipTextTest::vestigialAndDesecratedModsAreShown()
+{
+    const Item item = makeTestItem(R"json({
+        "baseType": "Leather Belt",
+        "explicitMods": [
+            {"description": "+80 to maximum Life", "flags": {"desecrated": true}},
+            {"description": "+48% to Lightning Resistance"}
+        ],
+        "frameType": 2,
+        "frameTypeId": "Rare",
+        "h": 1,
+        "icon": "https://web.poecdn.com/image/test.png",
+        "id": "flagged",
+        "identified": true,
+        "ilvl": 83,
+        "implicitMods": [
+            {"description": "Has 1 Abyssal Socket"},
+            {"description": "+30 to maximum Life", "flags": {"vestigial": true}}
+        ],
+        "inventoryId": "Belt",
+        "name": "Kraken Shackle",
+        "typeLine": "Leather Belt",
+        "verified": false,
+        "w": 2,
+        "x": 0,
+        "y": 0
+    })json",
+                                   makeTestStashLocation());
+
+    const QString expected = "<center>"
+                             "<font color='#88f'>Has 1 Abyssal Socket</font>"
+                             "<br><img src=':/separators/SeparatorRare.png'><br>"
+                             "<font color='#88f'>+30 to maximum Life</font>"
+                             "<br><img src=':/separators/SeparatorRare.png'><br>"
+                             "<font color='#88f'>+80 to maximum Life<br>"
+                             "+48% to Lightning Resistance</font>"
                              "</center>";
     QCOMPARE(GenerateItemInfo(item, "Rare", true), expected);
 }
