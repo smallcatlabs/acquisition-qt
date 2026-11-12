@@ -14,9 +14,6 @@
 
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 
-// Local function prototypes
-void checkApplicationDirectory(const QStringList &libraries);
-
 #ifdef Q_OS_WINDOWS
 static QString DLL(const QString &name)
 {
@@ -28,25 +25,24 @@ static QString DLL(const QString &name)
 }
 #endif
 
-void checkMicrosoftRuntime()
+bool checkMicrosoftRuntime()
 {
 #ifndef Q_OS_WINDOWS
     // Do nothing on Linux or macOS, but we still want this file to be included
     // in the build we can check for things like linting errors when developing
     // on other platforms.
+    return true;
 #else
     spdlog::info("Checking Microsoft Visual C++ Runtime...");
     const QStringList libraries = {DLL("msvcp140"), DLL("vcruntime140"), DLL("vcruntime140_1")};
     spdlog::debug("Checking MSVC runtime libraries: {}", libraries.join(", "));
-    checkApplicationDirectory(libraries);
+    return checkApplicationDirectory(QDir(QGuiApplication::applicationDirPath()), libraries);
 #endif
 }
 
-void checkApplicationDirectory(const QStringList &libraries)
+bool checkApplicationDirectory(const QDir &dir, const QStringList &libraries)
 {
-    // Get the directory where the application is running from.
-    const QString path = QGuiApplication::applicationDirPath();
-    const QDir dir(path);
+    const QString path = dir.absolutePath();
 
     spdlog::debug("Checking application directory for unexpected MSVC libraries.");
     spdlog::debug("Application directory: {}", path);
@@ -88,8 +84,9 @@ void checkApplicationDirectory(const QStringList &libraries)
             QDesktopServices::openUrl(QUrl::fromLocalFile(path));
         }
         if (clicked != ignore) {
-            spdlog::critical("Aborting.");
-            abort();
+            spdlog::info("Quitting at the user's request.");
+            return false;
         }
     }
+    return true;
 }

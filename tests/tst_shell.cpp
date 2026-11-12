@@ -27,18 +27,23 @@
 #include <spdlog/sinks/dist_sink.h>
 #include <spdlog/spdlog.h>
 
+#include "application.h"
+#include "datastore/datastore.h"
 #include "datastore/sqlitedatastore.h"
 #include "fakenetworkmanager.h"
 #include "imagecache.h"
 #include "mainwindowfixture.h"
 #include "ui/logindialog.h"
 #include "ui/mainwindow_bridge.h"
+#include "util/checkmsvc.h"
 #include "util/crashreporting.h"
 #include "util/databackup.h"
+#include "util/fatalerror.h"
 #include "util/logging.h"
 #include "util/networkmanager.h"
 #include "util/oauthmanager.h"
 #include "util/updatechecker.h"
+#include "version_defines.h"
 
 class ShellTest : public QObject
 {
@@ -72,6 +77,12 @@ private slots:
     void loginListensOnLoopbackAfterClose();
     void everyLoginRedirectsToTheListenerItBinds();
     void startupRefreshClosesTheListener();
+    void msvcCheckPassesWithoutLibraries();
+    void msvcCheckAnswer_data();
+    void msvcCheckAnswer();
+    void fatalErrorReportsWithLoggingOff();
+    void freshDataDirTakesNoBackup();
+    void legacyStoreVersionNamesTheBackup();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -724,6 +735,114 @@ void ShellTest::startupRefreshClosesTheListener()
 
     QTRY_COMPARE_WITH_TIMEOUT(granted.count(), 1, 1000);
     QVERIFY(callbackAddress(oauth).isNull());
+}
+
+void ShellTest::msvcCheckPassesWithoutLibraries()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    bool result = false;
+    const bool prompted = answerModal<QMessageBox>(
+        [&] { result = checkApplicationDirectory(QDir(dir.path()), {"msvcp140.dll"}); },
+        [](QMessageBox &box) { box.reject(); });
+    QVERIFY(!prompted);
+    QVERIFY(result);
+}
+
+void ShellTest::msvcCheckAnswer_data()
+{
+    QTest::addColumn<QString>("choice");
+    QTest::addColumn<bool>("continues");
+    QTest::addColumn<bool>("opensFolder");
+    QTest::newRow("ignore") << "Ignore and continue" << true << false;
+    QTest::newRow("quit") << "Quit" << false << false;
+    QTest::newRow("open folder") << "Open folder and quit" << false << true;
+}
+
+void ShellTest::msvcCheckAnswer()
+{
+    // An app-local runtime DLL beside the executable: the user's choice
+    // decides, and quitting is a clean exit, not an abort.
+    QFETCH(QString, choice);
+    QFETCH(bool, continues);
+    QFETCH(bool, opensFolder);
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    {
+        QFile dll(dir.filePath("vcruntime140.dll"));
+        QVERIFY(dll.open(QIODevice::WriteOnly));
+    }
+    UrlCatcher folder("file");
+
+    bool result = !continues;
+    const bool prompted = answerModal<QMessageBox>(
+        [&] {
+            result = checkApplicationDirectory(QDir(dir.path()),
+                                               {"msvcp140.dll", "vcruntime140.dll"});
+        },
+        [&](QMessageBox &box) {
+            for (auto *button : box.buttons()) {
+                if (button->text() == choice) {
+                    button->click();
+                    return;
+                }
+            }
+            box.reject();
+        });
+    QVERIFY(prompted);
+    QCOMPARE(result, continues);
+    QCOMPARE(folder.urls.size(), opensFolder ? 1 : 0);
+}
+
+void ShellTest::fatalErrorReportsWithLoggingOff()
+{
+    // "off" is a selectable log level; the report must not depend on it.
+    const auto level = spdlog::get_level();
+    spdlog::set_level(spdlog::level::off);
+    std::FILE *out = std::tmpfile();
+    QVERIFY(out);
+    ReportFatalError("invariant broken: test", out);
+    spdlog::set_level(level);
+
+    std::fflush(out);
+    std::rewind(out);
+    char buffer[256] = {};
+    const size_t n = std::fread(buffer, 1, sizeof(buffer) - 1, out);
+    std::fclose(out);
+    QVERIFY2(QByteArray(buffer, qsizetype(n)).contains("invariant broken: test"), buffer);
+}
+
+void ShellTest::freshDataDirTakesNoBackup()
+{
+    // A first run has nothing to back up: opening the global store must not
+    // make its own brand-new database look like old data (#292).
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir data_dir(dir.path());
+    QSettings settings(data_dir.filePath("settings.ini"), QSettings::IniFormat);
+
+    const auto store = OpenGlobalDataStore(data_dir, settings);
+    QVERIFY(store);
+    const QStringList backups = data_dir.entryList({"data-backup-*"}, QDir::AllEntries);
+    QVERIFY2(backups.isEmpty(), qPrintable(backups.join(", ")));
+    QCOMPARE(settings.value("version").toString(), QString(APP_VERSION_STRING));
+}
+
+void ShellTest::legacyStoreVersionNamesTheBackup()
+{
+    // An install from before the version moved to settings.ini recorded it
+    // in the global store; that version still names the backup.
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir data_dir(dir.path());
+    const QString global_file = data_dir.filePath("data/" + SqliteDataStore::MakeFilename("", ""));
+    SqliteDataStore(global_file).Set("version", "0.9.0");
+    QSettings settings(data_dir.filePath("settings.ini"), QSettings::IniFormat);
+
+    const auto store = OpenGlobalDataStore(data_dir, settings);
+    QVERIFY(store);
+    QVERIFY(data_dir.exists("data-backup-0.9.0"));
+    QCOMPARE(settings.value("version").toString(), QString(APP_VERSION_STRING));
 }
 
 QTEST_MAIN(ShellTest)
