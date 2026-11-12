@@ -44,7 +44,6 @@ private:
     void FinishWithLocalFiles(const QString &reason);
     void FinishUpdate();
     QByteArray ReadFile(const QString &filename);
-    QString ParseVersion(const QString &contents);
 
     bool m_initialized;
     NetworkManager &m_network_manager;

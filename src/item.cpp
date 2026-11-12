@@ -19,24 +19,6 @@
 #include "poe/types/item.h"
 #include "util/util.h"
 
-const std::array<Item::CategoryReplaceMap, Item::k_CategoryLevels> Item::m_replace_map = {
-    // Category hierarchy 0 replacement map
-    Item::CategoryReplaceMap({{"Divination", "Divination Cards"}, {"QuestItems", "Quest Items"}}),
-    // Category hierarchy 1 replacement map
-    Item::CategoryReplaceMap({{"BodyArmours", "Body"},
-                              {"VaalGems", "Vaal"},
-                              {"AtlasMaps", "2.4"},
-                              {"act4maps", "2.0"},
-                              {"OneHandWeapons", "1Hand"},
-                              {"TwoHandWeapons", "2Hand"}}),
-    // Category hierarchy 2 replacement map
-    Item::CategoryReplaceMap({{"OneHandAxes", "Axes"},
-                              {"OneHandMaces", "Maces"},
-                              {"OneHandSwords", "Swords"},
-                              {"TwoHandAxes", "Axes"},
-                              {"TwoHandMaces", "Maces"},
-                              {"TwoHandSwords", "Swords"}})};
-
 static QString item_unique_properties(const std::optional<std::vector<poe::ItemProperty>> &props)
 {
     if (!props) {
@@ -149,7 +131,6 @@ Item::Item(const poe::Item &item, const ItemLocation &base_location)
     if (item.frameType) {
         m_frameType = static_cast<int>(*item.frameType);
     }
-    m_frameTypeId = item.frameTypeId;
     m_icon = item.icon;
 
     LoadModifiers(item);
