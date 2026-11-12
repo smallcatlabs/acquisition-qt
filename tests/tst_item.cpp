@@ -1,7 +1,9 @@
 #include <QtTest/QtTest>
 
+#include <clocale>
 #include <cmath>
 #include <memory>
+#include <string>
 
 #include "item.h"
 #include "modlist.h"
@@ -23,7 +25,27 @@ private slots:
     void catalystQualityCountsAsQuality();
     void resonatorAndAbyssSocketsHaveNoColour();
     void valuelessModStoresZero();
+    void decimalModValueIgnoresProcessLocale();
 };
+
+// Real RePoE stat translations, cut from the game data (see
+// tests/fixtures/repoe/README.md).
+static QByteArray readRepoeFixture(const char *name)
+{
+    const QString path = QFINDTESTDATA(QString("fixtures/repoe/%1").arg(name));
+    QFile file(path);
+    if (path.isEmpty() || !file.open(QIODevice::ReadOnly)) {
+        qFatal("missing RePoE fixture %s", name);
+    }
+    return file.readAll();
+}
+
+static void loadRealStatTranslations()
+{
+    InitStatTranslations();
+    AddStatTranslations(readRepoeFixture("stat_translations.json"));
+    InitModList();
+}
 
 // The fixture shape of tst_filters.cpp's makeFilterItem: a minimal wire item
 // with extra JSON appended.
@@ -266,6 +288,43 @@ void ItemTest::valuelessModStoresZero()
     double value = 42.0;
     QVERIFY(Util::MatchMod("Cannot be Frozen", "Cannot be Frozen", &value));
     QCOMPARE(value, 0.0);
+}
+
+// #132: QCoreApplication adopts the system locale on Unix, so a process
+// whose LC_NUMERIC uses a decimal comma must still read "0.26" as 0.26.
+void ItemTest::decimalModValueIgnoresProcessLocale()
+{
+    // Restores the process locale on every exit from this test.
+    struct NumericLocaleGuard
+    {
+        std::string saved = std::setlocale(LC_NUMERIC, nullptr);
+        ~NumericLocaleGuard() { std::setlocale(LC_NUMERIC, saved.c_str()); }
+    } guard;
+
+    bool haveCommaLocale = false;
+    for (const char *candidate : {"de_DE.UTF-8", "de_DE.utf8", "fr_FR.UTF-8", "fr_FR.utf8"}) {
+        if (std::setlocale(LC_NUMERIC, candidate) != nullptr) {
+            haveCommaLocale = true;
+            break;
+        }
+    }
+    if (!haveCommaLocale) {
+        QSKIP("No comma-decimal locale (de_DE or fr_FR) is installed on this machine");
+    }
+    QCOMPARE(std::localeconv()->decimal_point[0], ',');
+
+    loadRealStatTranslations();
+    // A line from a real ring.
+    double direct = 0.0;
+    QVERIFY(Util::MatchMod("#% of Physical Attack Damage Leeched as Life",
+                           "0.26% of Physical Attack Damage Leeched as Life",
+                           &direct));
+    QCOMPARE(direct, 0.26);
+
+    const auto item = makeItem("leech", R"json(,
+        "explicitMods": [{"description": "0.26% of Physical Attack Damage Leeched as Life"}]
+    )json");
+    QCOMPARE(item->mod_table().at("#% of Physical Attack Damage Leeched as Life"), 0.26);
 }
 
 QTEST_GUILESS_MAIN(ItemTest)
