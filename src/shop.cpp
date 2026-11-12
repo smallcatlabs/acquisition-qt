@@ -172,8 +172,27 @@ void Shop::OnRefreshFinished(const RefreshOutcome &outcome)
     SubmitAutomaticShop();
 }
 
+bool Shop::BuyoutsReadyToPost(bool automatic)
+{
+    if (m_buyout_manager.BuyoutsLoaded()) {
+        return true;
+    }
+    spdlog::error("Shop: not submitting the shop because the buyouts did not load.");
+    if (!automatic || !m_warned_unloaded_buyouts) {
+        m_warned_unloaded_buyouts = true;
+        emit UserWarning("Acquisition could not load your prices, so your forum shop was not "
+                         "updated. Your shop threads have been left as they are."
+                         "\n\n"
+                         "Check the log file for details.");
+    }
+    return false;
+}
+
 void Shop::SubmitAutomaticShop()
 {
+    if (!BuyoutsReadyToPost(true)) {
+        return;
+    }
     if (m_threads.empty()) {
         spdlog::error("Shop: cannot submit shops because shop threads are not set.");
         emit UserWarning("No forum threads have been set."
@@ -198,6 +217,7 @@ void Shop::SubmitAutomaticShop()
     // converges to the newest clean snapshot instead of posting every
     // clean refresh generation.
     auto job = CaptureJob(false);
+    job->automatic = true;
     if (m_active_job) {
         spdlog::debug("Shop: a submission is active; holding the newest clean capture");
         m_waiting_capture = std::move(job);
@@ -222,6 +242,9 @@ QString Shop::SpoilerBuyout(const Buyout &bo)
 void Shop::SubmitShopToForum(bool force)
 {
     spdlog::debug("Shop: submitting shop(s) to forums with force = {}", force);
+    if (!BuyoutsReadyToPost(false)) {
+        return;
+    }
     if (m_active_job) {
         spdlog::warn("Shop: cannnot submit shops because the last update is not finished.");
         return;
@@ -408,17 +431,31 @@ void Shop::OnStashIndexUpdated()
     RenderJob(job);
     PublishPreviewCache(job);
 
+    // More pages than threads (#253): the pages that fit are posted and the
+    // rest are not. Checked before the unchanged-hash exit, so the user
+    // hears about a standing shortfall even when nothing needs posting:
+    // every time for a manual request, once per session for automatic ones.
+    if (job.threads.size() < job.shop_data.size()) {
+        const qsizetype missing = job.shop_data.size() - job.threads.size();
+        spdlog::warn("Shop: need {} more shops defined to fit all your items.", missing);
+        if (!job.automatic || !m_warned_page_shortfall) {
+            m_warned_page_shortfall = true;
+            emit UserWarning(QString("Your forum shop needs %1 more thread(s) to list all of your "
+                                     "priced items. Only the first %2 page(s) are posted."
+                                     "\n\n"
+                                     "Use the Shop --> 'Forum shop thread...' menu item to add "
+                                     "threads.")
+                                 .arg(missing)
+                                 .arg(job.threads.size()));
+        }
+    }
+
     // Don't resubmit the shop if the data hasn't changed. The no-post case
     // is a SUCCESS terminal exit (M2 D8): it drains the waiting capture.
     if ((previous_hash == job.shop_hash) && !job.force) {
         spdlog::trace("Shop: skipping update because the shop hash has not changed");
         CompleteActiveJob();
         return;
-    }
-
-    if (job.threads.size() < job.shop_data.size()) {
-        spdlog::warn("Shop: need {} more shops defined to fit all your items.",
-                     job.shop_data.size() - job.threads.size());
     }
 
     job.requests_completed = 0;

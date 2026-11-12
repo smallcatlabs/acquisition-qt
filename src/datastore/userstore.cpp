@@ -41,15 +41,25 @@ UserStore::UserStore(const QDir &dir, const QString &username)
     m_stashes = std::make_unique<StashRepo>(m_db);
     m_buyouts = std::make_unique<BuyoutRepo>(m_db);
 
+    m_usable = open(dir, username);
+    if (!m_usable) {
+        spdlog::error("UserStore: the store for '{}' is not usable; prices will not be posted",
+                      username);
+    }
+    m_buyouts->setStoreUsable(m_usable);
+}
+
+bool UserStore::open(const QDir &dir, const QString &username)
+{
     if (!m_db.isValid()) {
         spdlog::error("UserStore: database is not valid: {}", m_db.lastError().text());
-        return;
+        return false;
     }
 
     QDir dataDir(dir);
     if (!dataDir.mkpath(dir.absolutePath())) {
         spdlog::error("UserStore: unable to create directory: {}", dir.absolutePath());
-        return;
+        return false;
     }
 
     const QString filename = dataDir.absoluteFilePath("userstore-" + username + ".db");
@@ -64,7 +74,7 @@ UserStore::UserStore(const QDir &dir, const QString &username)
                       m_db.connectionName(),
                       m_db.databaseName(),
                       m_db.lastError().text());
-        return;
+        return false;
     }
 
     QSqlQuery q(m_db);
@@ -74,12 +84,26 @@ UserStore::UserStore(const QDir &dir, const QString &username)
         }
     }
 
-    const int version = userVersion();
-    spdlog::debug("UserStore: user_version is {}, schema version is {}", version, SCHEMA_VERSION);
-    if (version < SCHEMA_VERSION) {
-        spdlog::info("UserStore: migrating from user_version {} to {}", version, SCHEMA_VERSION);
-        migrate();
+    const std::optional<int> version = userVersion();
+    if (!version) {
+        // Not readable is not "fresh": treating it as version 0 would rebuild
+        // the cache tables of a database we cannot see into.
+        return false;
     }
+    spdlog::debug("UserStore: user_version is {}, schema version is {}", *version, SCHEMA_VERSION);
+    if (*version > SCHEMA_VERSION) {
+        // A newer build wrote this database (#257). Its shape is not ours to
+        // migrate, and nothing here may stamp an older version over it.
+        spdlog::error("UserStore: user_version {} is newer than this build's schema version {}",
+                      *version,
+                      SCHEMA_VERSION);
+        return false;
+    }
+    if (*version < SCHEMA_VERSION) {
+        spdlog::info("UserStore: migrating from user_version {} to {}", *version, SCHEMA_VERSION);
+        return migrate();
+    }
+    return true;
 }
 
 UserStore::~UserStore()
@@ -133,16 +157,17 @@ namespace {
 
 } // namespace
 
-int UserStore::userVersion()
+std::optional<int> UserStore::userVersion()
 {
     QSqlQuery q(m_db);
-    if (!q.exec("PRAGMA user_version")) {
+    if (!q.exec("PRAGMA user_version") || !q.next()) {
         spdlog::error("UserStore: error getting user_version: {}", q.lastError().text());
+        return std::nullopt;
     }
-    return q.next() ? q.value(0).toInt() : 0;
+    return q.value(0).toInt();
 }
 
-void UserStore::migrate()
+bool UserStore::migrate()
 {
     QSqlQuery q(m_db);
 
@@ -150,15 +175,24 @@ void UserStore::migrate()
     if (!q.exec("BEGIN IMMEDIATE")) {
         spdlog::error("UserStore: migration could not acquire a write lock: {}",
                       q.lastError().text());
-        return;
+        return false;
     }
 
     // Another connection might have migrated while we waited.
-    const int version = userVersion();
-    if (version >= SCHEMA_VERSION) {
+    const std::optional<int> read_version = userVersion();
+    if (!read_version) {
+        m_db.rollback();
+        return false;
+    }
+    const int version = *read_version;
+    if (version > SCHEMA_VERSION) {
+        spdlog::error("UserStore: a newer build migrated to {} while waiting for the lock", version);
+        m_db.rollback();
+        return false;
+    }
+    if (version == SCHEMA_VERSION) {
         spdlog::debug("UserStore: migration occured while waiting for the lock");
-        m_db.commit();
-        return;
+        return m_db.commit();
     }
 
     // Two distinct cases, and they must not be mixed.
@@ -176,17 +210,17 @@ void UserStore::migrate()
     if (version < 1) {
         if (!m_characters->resetRepo()) {
             m_db.rollback();
-            return;
+            return false;
         }
 
         if (!m_stashes->resetRepo()) {
             m_db.rollback();
-            return;
+            return false;
         }
 
         if (!m_buyouts->resetRepo()) {
             m_db.rollback();
-            return;
+            return false;
         }
 
     } else {
@@ -207,7 +241,7 @@ void UserStore::migrate()
                 if (!q.exec(sql)) {
                     ds::logQueryError("UserStore::migrate", q);
                     m_db.rollback();
-                    return;
+                    return false;
                 }
             }
         }
@@ -229,19 +263,19 @@ void UserStore::migrate()
                 spdlog::info("UserStore: rebuilding stashes (pre-alpha.7 primary key)");
                 if (!m_stashes->resetRepo()) {
                     m_db.rollback();
-                    return;
+                    return false;
                 }
             }
             if (!primaryKeyIsId(m_db, "characters")) {
                 spdlog::info("UserStore: rebuilding characters (pre-alpha.7 primary key)");
                 if (!m_characters->resetRepo()) {
                     m_db.rollback();
-                    return;
+                    return false;
                 }
             }
             if (!m_buyouts->ensureSchema()) {
                 m_db.rollback();
-                return;
+                return false;
             }
         }
     }
@@ -250,14 +284,15 @@ void UserStore::migrate()
     if (!q.exec(QString("PRAGMA user_version=%1").arg(SCHEMA_VERSION))) {
         spdlog::error("UserStore: error setting user_version: {}", q.lastError().text());
         m_db.rollback();
-        return;
+        return false;
     }
 
     // Commit the transaction.
     if (!m_db.commit()) {
         spdlog::error("UserStore: error committing migration: {}", m_db.lastError().text());
-        return;
+        return false;
     }
 
     spdlog::info("UserStore: migrated from version {} to {}", version, SCHEMA_VERSION);
+    return true;
 }

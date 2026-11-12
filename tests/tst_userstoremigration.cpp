@@ -224,6 +224,10 @@ private slots:
     void aRowFromANewerPayloadVersionIsNotRead();
     void compositeKeyDatabaseIsRebuilt();
     void buyoutRowsSurviveTheRepairStep();
+
+    // #250/#257: the store reports whether it opened and migrated.
+    void healthyStoreIsUsable();
+    void newerSchemaIsNotUsableAndNotMigrated();
 };
 
 void UserStoreMigrationTest::migratesVersion1ToCurrent()
@@ -415,6 +419,53 @@ void UserStoreMigrationTest::buyoutRowsSurviveTheRepairStep()
     QCOMPARE(buyouts.size(), size_t(1));
     QVERIFY(buyouts.contains("item-a"));
     QCOMPARE(buyouts.at("item-a").value, 5.0);
+}
+
+void UserStoreMigrationTest::healthyStoreIsUsable()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    {
+        UserStore fresh(QDir(dir.path()), kAccount);
+        QVERIFY(fresh.isUsable());
+    }
+    UserStore reopened(QDir(dir.path()), kAccount);
+    QVERIFY(reopened.isUsable());
+}
+
+// #257: a database written by a newer build is not this build's to migrate
+// or use. Its shape must be left exactly as found: no buyout tables created,
+// no columns added, no version stamped.
+void UserStoreMigrationTest::newerSchemaIsNotUsableAndNotMigrated()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    createVersion1Database(dir);
+
+    const QString connection = "newer-seed-" + QUuid::createUuid().toString(QUuid::WithoutBraces);
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connection);
+        db.setDatabaseName(dbPath(dir));
+        QVERIFY(db.open());
+        QSqlQuery q(db);
+        // SCHEMA_VERSION + 1; the existing pins hard-code the current 3.
+        QVERIFY(q.exec("PRAGMA user_version=4"));
+        db.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+
+    {
+        UserStore store(QDir(dir.path()), kAccount);
+        QVERIFY(!store.isUsable());
+    }
+
+    QCOMPARE(readUserVersion(dir), 4);
+    QVERIFY(!hasTable(dir, "item_buyouts"));
+    QVERIFY(!hasTable(dir, "location_buyouts"));
+    QVERIFY(!hasColumn(dir, "stashes", "json_version"));
+    QCOMPARE(rowCount(dir, "stashes"), 1);
+    QCOMPARE(rowCount(dir, "characters"), 1);
 }
 
 QTEST_MAIN(UserStoreMigrationTest)

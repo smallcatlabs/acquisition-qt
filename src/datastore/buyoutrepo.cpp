@@ -201,6 +201,11 @@ bool BuyoutRepo::ensureSchema()
 
 std::unordered_map<QString, Buyout> BuyoutRepo::getItemBuyouts()
 {
+    return loadItemBuyouts().value_or(std::unordered_map<QString, Buyout>{});
+}
+
+std::optional<std::unordered_map<QString, Buyout>> BuyoutRepo::loadItemBuyouts()
+{
     spdlog::debug("BuyoutRepo: getting item buyouts");
 
     QSqlQuery q(m_db);
@@ -209,12 +214,12 @@ std::unordered_map<QString, Buyout> BuyoutRepo::getItemBuyouts()
                    "    currency, inherited, last_update, source, type, value"
                    " FROM item_buyouts")) {
         spdlog::error("BuyoutRepo: prepare() failed: {}", q.lastError().text());
-        return {};
+        return std::nullopt;
     }
 
     if (!q.exec()) {
         ds::logQueryError("BuyoutRepo::getItemBuyouts()", q);
-        return {};
+        return std::nullopt;
     }
 
     std::unordered_map<QString, Buyout> buyouts;
@@ -230,10 +235,19 @@ std::unordered_map<QString, Buyout> BuyoutRepo::getItemBuyouts()
         buyout.value = q.value(8).toDouble();
         buyouts[item_id] = buyout;
     }
+    if (q.lastError().isValid()) {
+        ds::logQueryError("BuyoutRepo::getItemBuyouts()", q);
+        return std::nullopt;
+    }
     return buyouts;
 }
 
 std::unordered_map<QString, Buyout> BuyoutRepo::getLocationBuyouts()
+{
+    return loadLocationBuyouts().value_or(std::unordered_map<QString, Buyout>{});
+}
+
+std::optional<std::unordered_map<QString, Buyout>> BuyoutRepo::loadLocationBuyouts()
 {
     spdlog::debug("BuyoutRepo: getting location buyouts");
 
@@ -243,12 +257,12 @@ std::unordered_map<QString, Buyout> BuyoutRepo::getLocationBuyouts()
                    "    currency, inherited, last_update, source, type, value"
                    " FROM location_buyouts")) {
         spdlog::error("BuyoutRepo: prepare() failed: {}", q.lastError().text());
-        return {};
+        return std::nullopt;
     }
 
     if (!q.exec()) {
         ds::logQueryError("BuyoutRepo::getLocationBuyouts()", q);
-        return {};
+        return std::nullopt;
     }
 
     std::unordered_map<QString, Buyout> buyouts;
@@ -263,6 +277,10 @@ std::unordered_map<QString, Buyout> BuyoutRepo::getLocationBuyouts()
         buyout.type = Buyout::TagAsBuyoutType(q.value(6).toString());
         buyout.value = q.value(7).toDouble();
         buyouts[location_id] = buyout;
+    }
+    if (q.lastError().isValid()) {
+        ds::logQueryError("BuyoutRepo::getLocationBuyouts()", q);
+        return std::nullopt;
     }
     return buyouts;
 }

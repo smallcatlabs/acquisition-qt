@@ -6,6 +6,7 @@
 #include <QNetworkCookie>
 #include <QSettings>
 
+#include <optional>
 #include <set>
 
 #include "buyoutmanager.h"
@@ -16,6 +17,38 @@
 #include "shop.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "util/util.h"
+
+namespace {
+
+    // The one rule for prices read from the game (#251), shared by the tab
+    // pass, the item pass and the per-delta pass. `text` is an item's note or
+    // a tab's name. Returns the buyout to store, or nothing to leave the
+    // stored one alone:
+    // - text that yields an ACTIVE buyout sets it (game pricing wins);
+    // - otherwise a stored game-set price is reset to inherit, so a deleted
+    //   note, a renamed tab, or a note naming an unknown currency (#273)
+    //   never leaves a stale, locked price behind;
+    // - anything else (no stored price, a manual price) is left alone.
+    // A price inherited from a tab carries the game source too; it belongs to
+    // propagation, and clearing it here would delete and rewrite its row on
+    // every pass.
+    std::optional<Buyout> GameBuyoutUpdate(BuyoutManager &manager,
+                                           const Buyout &stored,
+                                           const QString &text)
+    {
+        if (!text.isEmpty()) {
+            const Buyout parsed = manager.StringToBuyout(text);
+            if (parsed.IsActive()) {
+                return parsed;
+            }
+        }
+        if (stored.IsGameSet() && !stored.inherited) {
+            return Buyout();
+        }
+        return std::nullopt;
+    }
+
+} // namespace
 
 ItemsManager::ItemsManager(QSettings &settings, BuyoutManager &buyout_manager, DataStore &datastore)
     : m_settings(settings)
@@ -56,10 +89,11 @@ void ItemsManager::ApplyAutoTabBuyouts()
 
     // Loop over all tabs, create buyout based on tab name which applies auto-pricing policies
     for (auto const &loc : m_buyout_manager.GetStashTabLocations()) {
-        auto tab_label = loc.tab_label();
-        Buyout buyout = m_buyout_manager.StringToBuyout(tab_label);
-        if (buyout.IsActive()) {
-            m_buyout_manager.SetTab(loc, buyout);
+        const auto update = GameBuyoutUpdate(m_buyout_manager,
+                                             m_buyout_manager.GetTab(loc),
+                                             loc.tab_label());
+        if (update) {
+            m_buyout_manager.SetTab(loc, *update);
         }
     }
 
@@ -76,16 +110,11 @@ void ItemsManager::ApplyAutoItemBuyouts()
     const BuyoutBatch batch(m_buyout_manager);
     // Loop over all items, check for note field with pricing and apply
     for (auto const &item : m_items.Flat()) {
-        auto const &note = item->note();
-        if (!note.isEmpty()) {
-            Buyout buyout = m_buyout_manager.StringToBuyout(note);
-            // This line may look confusing, buyout returns an active buyout if game
-            // pricing was found or a default buyout (inherit) if it was not.
-            // If there is a currently valid note we want to apply OR if
-            // old note no longer is valid (so basically clear pricing)
-            if (buyout.IsActive() || m_buyout_manager.Get(*item).IsGameSet()) {
-                m_buyout_manager.Set(*item, buyout);
-            }
+        const auto update = GameBuyoutUpdate(m_buyout_manager,
+                                             m_buyout_manager.Get(*item),
+                                             item->note());
+        if (update) {
+            m_buyout_manager.Set(*item, *update);
         }
     }
 
@@ -225,12 +254,11 @@ void ItemsManager::ApplyScopedPricing(const Items &delta_items)
     for (const auto &item : delta_items) {
         // 1. Note-based item buyouts, mirroring ApplyAutoItemBuyouts's
         //    per-item rule (re-derivable from the item's own note).
-        const auto &note = item->note();
-        if (!note.isEmpty()) {
-            const Buyout buyout = m_buyout_manager.StringToBuyout(note);
-            if (buyout.IsActive() || m_buyout_manager.Get(*item).IsGameSet()) {
-                m_buyout_manager.Set(*item, buyout);
-            }
+        const auto update = GameBuyoutUpdate(m_buyout_manager,
+                                             m_buyout_manager.Get(*item),
+                                             item->note());
+        if (update) {
+            m_buyout_manager.Set(*item, *update);
         }
 
         // 2. Tab-inheritance propagation, mirroring PropagateTabBuyouts's

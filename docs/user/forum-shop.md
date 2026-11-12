@@ -31,6 +31,17 @@ your stash directly. Acquisition writes and updates those threads for you.
 Items priced *[Ignore]* are omitted; *No price* items appear without a tag.
 Which tag each buyout type produces is listed in [Pricing](pricing.md).
 
+Two situations stop or limit a post, and Acquisition tells you about each:
+
+- **More items than the threads hold.** The pages that fit are posted and the
+  rest are not. A warning says how many more threads to add under
+  **Shop → Forum shop thread…**. It appears each time you update by hand, and
+  once per session when the shop updates automatically.
+- **Your prices could not be loaded.** If Acquisition could not read its price
+  database at startup, it posts nothing and leaves your threads as they are,
+  so a problem on your computer cannot blank your shop. Check the log, fix
+  the cause, and restart.
+
 ## The template
 
 **Shop → Edit Shop Template** opens the text that becomes the thread body. The

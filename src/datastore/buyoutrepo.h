@@ -5,6 +5,7 @@
 
 #include <QObject>
 
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -52,8 +53,18 @@ class BuyoutRepo : public QObject
 public:
     explicit BuyoutRepo(QSqlDatabase &db);
 
+    // Reads that report a failed query as nullopt, distinct from "no rows"
+    // (#250). The get* forms return an empty map on failure, as before.
+    std::optional<std::unordered_map<QString, Buyout>> loadItemBuyouts();
+    std::optional<std::unordered_map<QString, Buyout>> loadLocationBuyouts();
     std::unordered_map<QString, Buyout> getItemBuyouts();
     std::unordered_map<QString, Buyout> getLocationBuyouts();
+
+    // Whether the store holding these tables opened and migrated cleanly
+    // (#250/#257). UserStore sets it; a repo built directly on a database
+    // (the tests) is usable by default.
+    void setStoreUsable(bool usable) { m_store_usable = usable; }
+    bool storeUsable() const { return m_store_usable; }
 
     bool removeItemBuyout(const Item &item);
     bool removeLocationBuyout(const ItemLocation &location);
@@ -79,4 +90,5 @@ public slots:
 
 private:
     QSqlDatabase &m_db;
+    bool m_store_usable{true};
 };

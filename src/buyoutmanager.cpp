@@ -391,16 +391,35 @@ void BuyoutManager::Save()
 
 void BuyoutManager::Load()
 {
-    m_buyouts = m_repo.getItemBuyouts();
-    m_tab_buyouts = m_repo.getLocationBuyouts();
+    m_loaded = LoadBuyouts();
     Deserialize(m_data.Get("refresh_checked_state"), m_refresh_checked);
 }
 
 void BuyoutManager::ReloadBuyouts()
 {
-    m_buyouts = m_repo.getItemBuyouts();
-    m_tab_buyouts = m_repo.getLocationBuyouts();
+    m_loaded = LoadBuyouts();
     RecordChange(ChangeScope::Everything, {});
+}
+
+bool BuyoutManager::LoadBuyouts()
+{
+    auto items = m_repo.loadItemBuyouts();
+    auto tabs = m_repo.loadLocationBuyouts();
+    if (items) {
+        m_buyouts = std::move(*items);
+    }
+    if (tabs) {
+        m_tab_buyouts = std::move(*tabs);
+    }
+    const bool loaded = m_repo.storeUsable() && items && tabs;
+    if (!loaded) {
+        spdlog::error("BuyoutManager: buyouts did not load (store usable: {}, item read: {}, "
+                      "tab read: {}); the forum shop will not be updated",
+                      m_repo.storeUsable(),
+                      items.has_value(),
+                      tabs.has_value());
+    }
+    return loaded;
 }
 
 void BuyoutManager::SetStashTabLocations(const std::vector<ItemLocation> &tabs)

@@ -3,11 +3,14 @@
 
 #include <QtTest/QtTest>
 
+#include <QBuffer>
 #include <QSettings>
+#include <QSqlQuery>
 #include <QStandardPaths>
 
 #include <memory>
 
+#include "datastore/userstore.h"
 #include "fakenetwork.h"
 #include "fakenetworkmanager.h"
 #include "itemsmanager.h"
@@ -93,6 +96,14 @@ private slots:
     void disablingAutoUpdateDropsWaitingCapture();
     void skippedRefreshDoesNotInvalidateWaitingCapture();
     void expireDropsWaitingCapture();
+
+    // #253: pages beyond the configured threads.
+    void morePagesThanThreadsWarnsWithoutReposting();
+    void automaticShortfallWarnsOncePerSession();
+
+    // #250: the shop refuses to post while the buyouts did not load.
+    void unloadedBuyoutsBlockSubmission();
+    void healthyEmptyStoreStillPostsEmpty();
 };
 
 namespace {
@@ -155,6 +166,65 @@ namespace {
         fixture.networkManager->sent(get_index + 1)
             .reply->finish({}, 200, QNetworkReply::NoError, QByteArray("ok"));
         drainEvents();
+    }
+
+    // The form body of a forum POST. QNetworkAccessManager::post(request,
+    // QByteArray) wraps the body in a QBuffer parented to the reply.
+    QUrlQuery postedForm(const FakeNetworkManager::Sent &sent)
+    {
+        const auto *buffer = sent.reply ? sent.reply->findChild<QBuffer *>() : nullptr;
+        return buffer ? QUrlQuery(QString::fromUtf8(buffer->data())) : QUrlQuery();
+    }
+
+    // A Shop over a real per-account UserStore instead of the in-memory
+    // buyout fixture, sharing the fixture's settings, network and datastore.
+    struct StoreBackedShop
+    {
+        StoreBackedShop(ShopFixture &fixture, const QDir &dir)
+            : store(dir, "TESTER#1234")
+            , buyouts(*fixture.buyoutFixture.data, store.buyouts())
+            , items(*fixture.settings, buyouts, *fixture.buyoutFixture.data)
+            , shop(*fixture.settings,
+                   *fixture.networkManager,
+                   *fixture.api,
+                   *fixture.buyoutFixture.data,
+                   items,
+                   buyouts)
+        {}
+
+        UserStore store;
+        BuyoutManager buyouts;
+        ItemsManager items;
+        Shop shop;
+    };
+
+    // A store at the current schema version whose item_buyouts table is
+    // gone: it opens and needs no migration, but every buyout read fails.
+    void createStoreWithoutItemBuyouts(const QDir &dir)
+    {
+        {
+            UserStore seed(dir, "TESTER#1234");
+            QVERIFY(seed.isUsable());
+        }
+        const QString connection = "drop-" + QUuid::createUuid().toString(QUuid::WithoutBraces);
+        {
+            QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connection);
+            db.setDatabaseName(dir.absoluteFilePath("userstore-TESTER#1234.db"));
+            QVERIFY(db.open());
+            QSqlQuery q(db);
+            QVERIFY(q.exec("DROP TABLE item_buyouts"));
+            db.close();
+        }
+        QSqlDatabase::removeDatabase(connection);
+    }
+
+    void armStoreBackedShop(ShopFixture &fixture, StoreBackedShop &backed)
+    {
+        backed.shop.SetThread({"123"});
+        fixture.settings->setValue("session_id", "fake-poesessid");
+        fixture.settings->setValue("account", "someone");
+        fixture.settings->setValue("realm", "pc");
+        fixture.settings->setValue("league", "Standard");
     }
 
 } // namespace
@@ -718,6 +788,184 @@ void ShopTest::expireDropsWaitingCapture()
     QVERIFY(fixture.shop->shop_data().first().contains(" 1 chaos"));
     completeForumSubmission(fixture, 0);
     QCOMPARE(fixture.rateLimiter->futureCount(), size_t(1)); // no drain
+}
+
+namespace {
+
+    // Two priced items in one tab and one thread, with a template padded so
+    // that the shop renders two pages.
+    void armTwoPageShop(ShopFixture &fixture)
+    {
+        armForSubmission(fixture);
+        fixture.buyoutFixture.data->Set("shop_hash", "previous-hash");
+
+        // Two priced items in one tab, and a template padded so that one item
+        // fits a 50000-character post and two do not: two pages.
+        const ItemLocation tab = makeTestStashLocation();
+        const QByteArray json_a = R"({"verified": false, "w": 1, "h": 1,
+            "icon": "https://web.poecdn.com/image/test.png", "id": "page-a", "name": "",
+            "typeLine": "Iron Ring", "baseType": "Iron Ring", "identified": true, "ilvl": 1,
+            "x": 0, "y": 0})";
+        QByteArray json_b = json_a;
+        json_b.replace("page-a", "page-b").replace(R"("x": 0)", R"("x": 1)");
+        const auto item_a = std::make_shared<Item>(makeTestItem(json_a.constData(), tab));
+        const auto item_b = std::make_shared<Item>(makeTestItem(json_b.constData(), tab));
+        fixture.itemsManager->OnItemsRefreshed({item_a, item_b}, {tab}, false);
+        fixture.buyoutFixture.manager->Set(*item_a, makeChaosBuyout(1));
+        fixture.buyoutFixture.manager->Set(*item_b, makeChaosBuyout(1));
+
+        const qsizetype item_length = tab.GetForumCode("pc", "Standard", 0).size();
+        const qsizetype header_length = QStringLiteral(R"([spoiler="~b/o 1 chaos"])").size();
+        const qsizetype overhead = 19 + QStringLiteral("[/spoiler]").size();
+        const qsizetype padding = 50000 - overhead - header_length - item_length - item_length / 2
+                                  - QStringLiteral("[items]").size();
+        fixture.shop->SetShopTemplate("[items]" + QString(padding, 'x'));
+    }
+
+} // namespace
+
+// #253: a shop that renders more pages than there are threads posts the
+// pages that fit and tells the user how many more threads are needed. The
+// hash is saved as usual, so unchanged pages are not posted again, and the
+// warning is raised before the unchanged-hash exit so a standing shortfall
+// is still reported.
+void ShopTest::morePagesThanThreadsWarnsWithoutReposting()
+{
+    ShopFixture fixture;
+    armTwoPageShop(fixture);
+
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    fixture.shop->SubmitShopToForum();
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    QCOMPARE(fixture.shop->shop_data().size(), 2);
+
+    // The one thread receives page one. Read the POST body before its reply
+    // finishes and is released.
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+    QCOMPARE(fixture.networkManager->sent(1).request.url().toString(),
+             QString("https://www.pathofexile.com/forum/edit-thread/123"));
+    QCOMPARE(postedForm(fixture.networkManager->sent(1))
+                 .queryItemValue("content", QUrl::FullyDecoded),
+             fixture.shop->shop_data().first());
+    fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, QByteArray("ok"));
+    drainEvents();
+
+    // Nothing else was sent and the user was told. The hash is saved as for
+    // any completed post, so unchanged pages are not posted again.
+    QCOMPARE(fixture.networkManager->count(), 2);
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY(warnings.first().first().toString().contains("1 more"));
+    QVERIFY(fixture.buyoutFixture.data->Get("shop_hash") != QString("previous-hash"));
+
+    // A second manual submission of the same shop posts nothing, but the
+    // shortfall is still there, so the user is told again.
+    fixture.shop->SubmitShopToForum();
+    fixture.rateLimiter->resolve(1, kStashIndexJson);
+    drainEvents();
+    QCOMPARE(fixture.networkManager->count(), 2);
+    QCOMPARE(warnings.count(), 2);
+}
+
+// #253: an automatic submission warns about a standing shortfall once per
+// session, however many clean refreshes follow.
+void ShopTest::automaticShortfallWarnsOncePerSession()
+{
+    ShopFixture fixture;
+    armTwoPageShop(fixture);
+    fixture.shop->SetAutoUpdate(true);
+
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+    fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, QByteArray("ok"));
+    drainEvents();
+    QCOMPARE(warnings.count(), 1);
+
+    // Later clean refreshes with the same shop post nothing and stay quiet.
+    for (size_t i = 1; i < 3; ++i) {
+        fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+        drainEvents();
+        fixture.rateLimiter->resolve(i, kStashIndexJson);
+        drainEvents();
+    }
+    QCOMPARE(fixture.networkManager->count(), 2);
+    QCOMPARE(warnings.count(), 1);
+}
+
+// #250: when the buyout store could not be read, the manager holds no
+// prices, and a clean refresh with auto-update on would overwrite every
+// forum thread with "Empty". Neither path may post; the user is told —
+// once per session for the automatic path, every time for the manual one.
+void ShopTest::unloadedBuyoutsBlockSubmission()
+{
+    ShopFixture fixture;
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    createStoreWithoutItemBuyouts(QDir(dir.path()));
+
+    StoreBackedShop backed(fixture, QDir(dir.path()));
+    QVERIFY(backed.store.isUsable());
+    QVERIFY(!backed.buyouts.BuyoutsLoaded());
+
+    armStoreBackedShop(fixture, backed);
+    backed.shop.SetAutoUpdate(true);
+    fixture.buyoutFixture.data->Set("shop_hash", "previous-hash");
+    const auto item = std::make_shared<Item>(makeTestItem("item-250"));
+    backed.items.OnItemsRefreshed({item}, {item->location()}, false);
+
+    QSignalSpy warnings(&backed.shop, &Shop::UserWarning);
+    for (int i = 0; i < 2; ++i) {
+        backed.shop.OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+        drainEvents();
+        if (fixture.rateLimiter->futureCount() > size_t(i)) {
+            fixture.rateLimiter->resolve(i, kStashIndexJson);
+            drainEvents();
+        }
+    }
+    QCOMPARE(fixture.networkManager->count(), 0);
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(0));
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY(warnings.first().first().toString().contains("not updated"));
+
+    backed.shop.SubmitShopToForum(true);
+    backed.shop.SubmitShopToForum(true);
+    drainEvents();
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(0));
+    QCOMPARE(fixture.networkManager->count(), 0);
+    QCOMPARE(warnings.count(), 3);
+    QCOMPARE(fixture.buyoutFixture.data->Get("shop_hash"), QString("previous-hash"));
+}
+
+// A healthy store with no prices is loaded, and an empty shop still posts
+// "Empty": that is what the user asked for when they hold no priced items.
+void ShopTest::healthyEmptyStoreStillPostsEmpty()
+{
+    ShopFixture fixture;
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+
+    StoreBackedShop backed(fixture, QDir(dir.path()));
+    QVERIFY(backed.store.isUsable());
+    QVERIFY(backed.buyouts.BuyoutsLoaded());
+
+    armStoreBackedShop(fixture, backed);
+    QSignalSpy warnings(&backed.shop, &Shop::UserWarning);
+    backed.shop.SubmitShopToForum();
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(1));
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+
+    QCOMPARE(fixture.networkManager->count(), 1);
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+    QCOMPARE(postedForm(fixture.networkManager->sent(1)).queryItemValue("content"),
+             QString("Empty"));
+    QCOMPARE(warnings.count(), 0);
 }
 
 QTEST_MAIN(ShopTest)

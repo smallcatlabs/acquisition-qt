@@ -74,6 +74,11 @@ public:
     void Save();
     void ReloadBuyouts();
 
+    // Did the buyouts load? False when the store was not usable or either
+    // read failed (#250): the maps then do not reflect the user's prices,
+    // and nothing may post them to the forum.
+    bool BuyoutsLoaded() const { return m_loaded; }
+
     void MigrateItem(const QString &old_hash, const QString &new_hash);
 
 signals:
@@ -97,6 +102,9 @@ private:
     // private so the D1 rule 4 enumeration has no public non-reporting
     // mutation of the lookup state (M3 S8 design review).
     void Load();
+    // Reads both buyout tables into the maps; returns whether the store was
+    // usable and both reads succeeded. A failed read leaves its map as is.
+    bool LoadBuyouts();
     void EmitPendingChanges();
 
     BuyoutType StringToBuyoutType(QString bo_str) const;
@@ -117,6 +125,7 @@ private:
     std::unordered_map<QString, bool> m_refresh_checked;
     std::set<QString> m_refresh_locked;
     bool m_save_needed;
+    bool m_loaded{false};
     std::vector<ItemLocation> m_tabs;
 
     int m_batch_depth{0};
