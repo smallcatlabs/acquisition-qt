@@ -5,18 +5,67 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
+#include <QStringView>
 
-#include <map>
+#include <optional>
 #include <vector>
 
 #include "util/spdlog_qt.h"
 
+// One currency, in one place.
+struct CurrencyInfo
+{
+    // The persistence key in both buyout tables, in the currency dialog's
+    // saved ratios and in the legacy importer, and the word posted to the
+    // forum. Never changed once a currency is in the table.
+    QString tag;
+    // The display name, which is also the item name the currency dialog
+    // counts.
+    QString name;
+    // The words a price note may name it by, matched in any case: the
+    // game's own word (trade-ground-truth T9) and other spellings.
+    QStringList words;
+    // The Price column sorts by currency on this first (higher is worth
+    // more).
+    int rank;
+    // How many Scrolls of Wisdom one is worth in the currency dialog's
+    // wisdom total; 0 when it is not counted there.
+    int wisdom;
+};
+
+// The currencies of one game. A table is a value: one per realm could be
+// chosen; there is one today. Its order is part of the stored data: the
+// currency history is positional, so currencies are only ever appended.
+class CurrencyTable
+{
+public:
+    explicit CurrencyTable(std::vector<CurrencyInfo> rows);
+
+    // The Path of Exile 1 table.
+    static const CurrencyTable &Default();
+
+    size_t size() const { return m_rows.size(); }
+    const CurrencyInfo &at(size_t row) const { return m_rows.at(row); }
+    const std::vector<CurrencyInfo> &rows() const { return m_rows; }
+
+    std::optional<size_t> findTag(QStringView tag) const;
+    // A word from a price note, in any case.
+    std::optional<size_t> findWord(QStringView word) const;
+
+private:
+    std::vector<CurrencyInfo> m_rows;
+};
+
+// A currency, or none. The value is the currency's position in the default
+// table plus one; 0 is no currency. The named values are the currencies the
+// application has always had (the first 19 rows); later rows have no name.
 struct Currency
 {
     Q_GADGET;
 
 public:
-    enum CurrencyType {
+    enum CurrencyType : int {
         CURRENCY_NONE,
         CURRENCY_ORB_OF_ALTERATION,
         CURRENCY_ORB_OF_FUSING,
@@ -40,35 +89,36 @@ public:
     };
     Q_ENUM(CurrencyType)
 
-    typedef std::map<CurrencyType, QString> TypeStringMap;
-    typedef std::map<CurrencyType, int> TypeIntMap;
-    typedef std::map<QString, CurrencyType> StringTypeMap;
-
     Currency() = default;
     Currency(CurrencyType in_type)
         : type(in_type) {};
 
     CurrencyType type{CurrencyType::CURRENCY_NONE};
 
-    static std::vector<CurrencyType> Types();
+    // The currency in a row of the default table.
+    static Currency AtRow(size_t row);
+    // A stored tag; an unknown tag is no currency.
     static Currency FromTag(const QString &tag);
-    static Currency FromIndex(int i);
-    static Currency FromString(const QString &currency);
+    // A word from a price note, in any case; an unknown word is no currency.
+    static Currency FromWord(QStringView word);
+
+    bool IsNone() const { return type == CURRENCY_NONE; }
+    // The table row; null for no currency.
+    const CurrencyInfo *Info() const;
 
     bool operator==(const Currency &rhs) const { return type == rhs.type; }
     bool operator!=(const Currency &rhs) const { return type != rhs.type; }
+    // Table order (the shop groups prices by it).
     bool operator<(const Currency &rhs) const { return type < rhs.type; }
 
+    // Empty for no currency.
     const QString &AsString() const;
     const QString &AsTag() const;
-    const int &AsRank() const;
-
-private:
-    static const QString m_currency_type_error;
-    static const Currency::TypeStringMap m_currency_type_as_string;
-    static const Currency::TypeStringMap m_currency_type_as_tag;
-    static const Currency::TypeIntMap m_currency_type_as_rank;
-    static const Currency::StringTypeMap m_string_to_currency_type;
+    // The rank from the table; 0 for no currency.
+    int AsRank() const;
+    // What the Price column sorts on first: by rank, the unranked currencies
+    // in table order below every ranked one, and no currency below all.
+    int SortKey() const;
 };
 
 using CurrencyType = Currency::CurrencyType;

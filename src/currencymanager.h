@@ -6,7 +6,6 @@
 #include <QObject>
 #include <QString>
 
-#include <array>
 #include <memory>
 #include <vector>
 
@@ -52,13 +51,6 @@ struct CurrencyItem
         , exalt(curr, Currency::CURRENCY_EXALTED_ORB, exalt_ratio, 1)
         , chaos(curr, Currency::CURRENCY_CHAOS_ORB, chaos_ratio, 1) {};
 };
-constexpr std::array<const char *, 5> CurrencyForWisdom({{"Scroll of Wisdom",
-                                                          "Portal Scroll",
-                                                          "Armourer's Scrap",
-                                                          "Blacksmith's Whetstone",
-                                                          "Orb of Transmutation"}});
-
-constexpr std::array<int, 5> CurrencyWisdomValue({{1, 1, 2, 4, 4}});
 
 class CurrencyManager : public QObject
 {
@@ -89,10 +81,11 @@ private:
     DataStore &m_data;
     ItemsManager &m_items_manager;
 
+    // One per row of the currency table, in table order: the history string
+    // and its CSV columns are positional.
     std::vector<std::shared_ptr<CurrencyItem>> m_currencies;
-    // The count of each currency in CurrencyForWisdom, sized with it so
-    // that no start-up path can leave it empty (#285).
-    std::array<int, CurrencyWisdomValue.size()> m_wisdoms{};
+    // A new item per table row, with the default ratios.
+    void MakeCurrencyItems();
     // Used only the first time we launch the app
     void FirstInitCurrency();
     //Migrate from old storage (csv-like serializing) to new one (using json)

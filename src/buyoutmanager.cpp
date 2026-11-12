@@ -357,7 +357,9 @@ Buyout BuyoutManager::StringToBuyout(QString format)
 {
     // Parse format string and initialize buyout object, if string does not match any known format
     // then the buyout object will not be valid (IsValid will return false).
-    static const QRegularExpression exp("(~\\S+)\\s+(\\d+\\.?\\d*)\\s+(\\w+)");
+    // The currency word may be hyphenated (offer-gift) and is matched in any
+    // case (#273).
+    static const QRegularExpression exp("(~\\S+)\\s+(\\d+\\.?\\d*)\\s+([\\w-]+)");
 
     Buyout tmp;
     // regex_search allows for stuff before ~ and after currency type.  We only want to honor the formats
@@ -366,7 +368,7 @@ Buyout BuyoutManager::StringToBuyout(QString format)
     if (m.hasMatch()) {
         tmp.type = StringToBuyoutType(m.captured(1));
         tmp.value = m.captured(2).toDouble();
-        tmp.currency = Currency::FromString(m.captured(3));
+        tmp.currency = Currency::FromWord(m.captured(3));
         tmp.source = Buyout::BUYOUT_SOURCE_GAME;
         tmp.last_update = QDateTime::currentDateTime();
     }

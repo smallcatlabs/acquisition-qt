@@ -92,10 +92,63 @@ meaningful for a tab and is logged as obsolete if it is found on one.
 
 ### Currencies
 
-Alteration, Fusing, Alchemy, Chaos, Gemcutter's Prism, Exalted, Chromatic,
-Jeweller's, Chance, Cartographer's Chisel, Scouring, Blessed, Regret, Regal,
-Divine, Vaal, Perandus Coin, Mirror of Kalandra, Silver Coin. The forum tags are
-the usual short forms (`chaos`, `exa`, `divine`, `fuse`, …).
+Every currency the game's price dialog offers, plus three older ones. The
+*Tag* is the word Acquisition posts to the forum shop; a price note may also
+name the currency by any of the *Note words*, in any case.
+
+| Currency | Tag | Note words |
+|---|---|---|
+| Orb of Alteration | `alt` | alt, alts, alteration, alterations |
+| Orb of Fusing | `fuse` | fusing, fuse, fuses, fusings |
+| Orb of Alchemy | `alch` | alch, alchs, alchemy |
+| Chaos Orb | `chaos` | chaos |
+| Gemcutter's Prism | `gcp` | gcp, gcps, gemcutter, gemcutters |
+| Exalted Orb | `exa` | exalted, exa |
+| Chromatic Orb | `chrom` | chrome, chrom, chromes, chromatic, chromatics |
+| Jeweller's Orb | `jew` | jewellers, jew, jewel, jewels, jeweler, jewelers |
+| Orb of Chance | `chance` | chance |
+| Cartographer's Chisel | `chisel` | chisel, chisels, cartographer, cartographers |
+| Orb of Scouring | `scour` | scour, scours, scouring |
+| Blessed Orb | `blessed` | blessed |
+| Orb of Regret | `regret` | regret, regrets |
+| Regal Orb | `regal` | regal, regals |
+| Divine Orb | `divine` | divine, divines |
+| Vaal Orb | `vaal` | vaal |
+| Perandus Coin | `coin` | coin, coins, perandus, p, shekel |
+| Mirror of Kalandra | `mirror` | mirror, mir |
+| Silver Coin | `silver` | silver |
+| Orb of Annulment | `annul` | annul |
+| Orb of Augmentation | `aug` | aug |
+| Orb of Transmutation | `transmute` | transmute |
+| Scroll of Wisdom | `wisdom` | wisdom |
+| Portal Scroll | `portal` | portal |
+| Armourer's Scrap | `scrap` | scrap |
+| Blacksmith's Whetstone | `whetstone` | whetstone |
+| Glassblower's Bauble | `bauble` | bauble |
+| Offering to the Goddess | `offer` | offer |
+| Dedication to the Goddess | `offer-dedication` | offer-dedication |
+| Gift to the Goddess | `offer-gift` | offer-gift |
+| Tribute to the Goddess | `offer-tribute` | offer-tribute |
+| Lesser Eldritch Ember | `lesser-ember` | lesser-ember |
+| Greater Eldritch Ember | `greater-ember` | greater-ember |
+| Grand Eldritch Ember | `grand-ember` | grand-ember |
+| Exceptional Eldritch Ember | `excep-ember` | excep-ember |
+| Lesser Eldritch Ichor | `lesser-echor` | lesser-echor |
+| Greater Eldritch Ichor | `greater-echor` | greater-echor |
+| Grand Eldritch Ichor | `grand-echor` | grand-echor |
+| Exceptional Eldritch Ichor | `excep-echor` | excep-echor |
+| Facetor's Lens | `facetors` | facetors |
+| Engineer's Orb | `engineers` | engineers |
+| Infused Engineer's Orb | `infused-engineers-orb` | infused-engineers-orb |
+
+The *Price* column sorts by currency first: Silver Coin highest, then Mirror
+of Kalandra, Exalted Orb, Divine Orb, and so on down to Chromatic Orb. The
+currencies from Orb of Annulment down the table have no rank of their own yet;
+they sort below all the others, in the order of this table.
+
+In the currency window (*Currency > List currency...*), the currencies from Orb
+of Annulment down start with a ratio of 0, which leaves them out of the totals
+until you give them a ratio.
 
 ## Prices set in the game
 

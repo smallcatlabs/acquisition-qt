@@ -13,6 +13,9 @@ class BuyoutManagerTest : public QObject
 
 private slots:
     void stringToBuyout();
+    // #273: every word the game writes, hyphenated or not, in any case.
+    void notesReadHyphenatedAndCapitalisedWords();
+    void noteWithNewWordPricesFreshItem();
     void itemBuyoutRoundTrip();
     void tabBuyoutRoundTrip();
     void tabBuyoutPropagation();
@@ -133,6 +136,42 @@ void BuyoutManagerTest::stringToBuyout()
     QCOMPARE(tolerant.type, Buyout::BUYOUT_TYPE_BUYOUT);
     QCOMPARE(tolerant.value, 7.0);
     QCOMPARE(tolerant.currency, Currency::CURRENCY_CHAOS_ORB);
+}
+
+void BuyoutManagerTest::notesReadHyphenatedAndCapitalisedWords()
+{
+    BuyoutManagerFixture fixture;
+    const Buyout gift = fixture.manager->StringToBuyout("~price 3 offer-gift");
+    QVERIFY(gift.IsActive());
+    QCOMPARE(gift.value, 3.0);
+    QCOMPARE(gift.currency.AsString(), QString("Gift to the Goddess"));
+
+    const Buyout orb = fixture.manager->StringToBuyout("~price 1 infused-engineers-orb");
+    QVERIFY(orb.IsActive());
+    QCOMPARE(orb.currency.AsString(), QString("Infused Engineer's Orb"));
+
+    const Buyout capitalised = fixture.manager->StringToBuyout("~b/o 5 Chaos");
+    QVERIFY(capitalised.IsActive());
+    QCOMPARE(capitalised.currency, Currency::CURRENCY_CHAOS_ORB);
+}
+
+// #273, the user-visible half: a note in a word the parser did not know
+// was ignored, so the item inherited its tab's price and was posted at it.
+// The game's own word for Jeweller's Orbs now prices the item.
+void BuyoutManagerTest::noteWithNewWordPricesFreshItem()
+{
+    PricingFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-273", "Dump", 0);
+    const auto item = makeNotedItem("item-273", tab, "~b/o 5 jewellers");
+    QVERIFY(fixture.buyouts.manager->SetTab(tab, makeChaosBuyout(2.0)));
+
+    fixture.items.OnItemsRefreshed({item}, {tab}, false);
+
+    const Buyout bo = fixture.buyouts.manager->Get(*item);
+    QVERIFY(bo.IsGameSet());
+    QVERIFY(!bo.inherited);
+    QCOMPARE(bo.value, 5.0);
+    QCOMPARE(bo.currency.AsString(), QString("Jeweller's Orb"));
 }
 
 void BuyoutManagerTest::itemBuyoutRoundTrip()
@@ -442,8 +481,9 @@ void BuyoutManagerTest::unknownCurrencyClearsGamePrice()
     QVERIFY(fixture.buyouts.manager->Get(*first).IsGameSet());
     QVERIFY(fixture.buyouts.manager->Get(*second).IsGameSet());
 
-    const auto first_unknown = makeNotedItem("item-251d", tab, "~b/o 5 jewellers");
-    const auto second_unknown = makeNotedItem("item-251e", tab, "~b/o 3 jewellers");
+    // A word in no currency table, typed by hand.
+    const auto first_unknown = makeNotedItem("item-251d", tab, "~b/o 5 tablespoons");
+    const auto second_unknown = makeNotedItem("item-251e", tab, "~b/o 3 tablespoons");
 
     // Delta path first, for the first item only.
     fixture.items.OnTabRefreshed(tab, {first_unknown, second});

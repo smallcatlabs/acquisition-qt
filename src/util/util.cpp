@@ -50,8 +50,12 @@ void Util::PopulateBuyoutTypeComboBox(QComboBox *combobox)
 
 void Util::PopulateBuyoutCurrencyComboBox(QComboBox *combobox)
 {
-    for (auto type : Currency::Types()) {
-        combobox->addItem(QString(Currency(type).AsString()));
+    // A blank entry for no currency, then the table's currencies in order,
+    // each carrying its tag: select an entry by tag (findData), never by
+    // position.
+    combobox->addItem(QString(), QString());
+    for (const CurrencyInfo &currency : CurrencyTable::Default().rows()) {
+        combobox->addItem(currency.name, currency.tag);
     }
 }
 

@@ -93,7 +93,7 @@ void BuyoutPanel::showStoredPrice()
     if (m_targets.empty() || !m_lookup) {
         redraw(Buyout(), false);
         const QScopedValueRollback updating(m_updating, true);
-        m_currency->setCurrentIndex(Currency::CURRENCY_NONE);
+        m_currency->setCurrentIndex(m_currency->findData(QString()));
         return;
     }
     const Buyout shown = m_lookup(m_targets.rows.front());
@@ -113,7 +113,7 @@ void BuyoutPanel::redraw(const Buyout &buyout, bool editable)
     m_type->setCurrentIndex(buyout.type);
     m_type->setEnabled(editable);
     if (buyout.IsPriced()) {
-        m_currency->setCurrentIndex(buyout.currency.type);
+        m_currency->setCurrentIndex(m_currency->findData(buyout.currency.AsTag()));
         m_value->setText(QString::number(buyout.value, 'g', 15));
     } else {
         m_value->setText("");
@@ -127,7 +127,7 @@ bool BuyoutPanel::commit(Trigger trigger)
     const std::optional<double> value = ParseBuyoutValue(text);
     Buyout bo;
     bo.type = Buyout::IndexAsBuyoutType(m_type->currentIndex());
-    bo.currency = Currency::FromIndex(m_currency->currentIndex());
+    bo.currency = Currency::FromTag(m_currency->currentData().toString());
     bo.value = value.value_or(0.0);
     bo.last_update = QDateTime::currentDateTime();
 
