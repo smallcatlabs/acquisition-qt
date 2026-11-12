@@ -247,22 +247,25 @@ int main(int argc, char *argv[])
     CurrencyManager currency(settings, *bm.data, manager);
     Shop shop(settings, network, api, *bm.data, manager, *bm.manager);
     ImageCache image_cache(network, bm.tempDir.filePath("cache"));
+    UserStore store(QDir(bm.tempDir.filePath("data")), kAccount);
     MainWindow window(settings,
                       network,
                       limiter,
-                      *bm.data,
                       manager,
                       *bm.manager,
+                      *bm.repo,
+                      store.stashes(),
+                      store.characters(),
                       currency,
                       shop,
-                      image_cache);
+                      image_cache,
+                      QDir(bm.tempDir.path()));
     // M3 (S4/S5) retired the D9 throttle: a delta now applies to the
     // current search's model synchronously inside this measured unit, so
     // the rows below include the model's bucket-scoped application — the
     // production path. (M2's runs excluded the then-asynchronous tick via
     // SetDeltaThrottleInterval, deleted with the timer.)
 
-    UserStore store(QDir(bm.tempDir.filePath("data")), kAccount);
     ItemsManagerWorker worker(settings, *bm.manager, api);
     WorkerTestAccess access(worker);
 

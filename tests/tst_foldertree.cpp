@@ -1730,12 +1730,12 @@ void FolderTreeTest::checkSelectedAndCheckAllOnFolders()
     QVERIFY(buyouts.GetRefreshChecked(h.world.tab("tab-b")));
 
     h.fixture.window->OnUncheckAll();
-    for (const QString &id : {"tab-a", "tab-b", "tab-c", "tab-d", "tab-e"}) {
+    for (const QString id : {"tab-a", "tab-b", "tab-c", "tab-d", "tab-e"}) {
         QVERIFY2(!buyouts.GetRefreshChecked(h.world.tab(id)), qPrintable(id));
     }
     QVERIFY(buyouts.GetRefreshChecked(h.world.tab("folder-f")));
     h.fixture.window->OnCheckAll();
-    for (const QString &id : {"tab-a", "tab-b", "tab-c", "tab-d", "tab-e"}) {
+    for (const QString id : {"tab-a", "tab-b", "tab-c", "tab-d", "tab-e"}) {
         QVERIFY2(buyouts.GetRefreshChecked(h.world.tab(id)), qPrintable(id));
     }
     QVERIFY(!buyouts.GetRefreshChecked(h.world.tab("folder-g"))); // never written
@@ -1757,13 +1757,13 @@ void FolderTreeTest::refreshCheckStatesCoversNestedHeaders()
             repainted.insert(h.model->index(row, 0, top_left.parent()));
         }
     }
-    for (const QString &header : {"#1, \"Folder F\"",
-                                  "#2, \"Alpha\"",
-                                  "#3, \"Beta\"",
-                                  "#4, \"Folder G\"",
-                                  "#5, \"Gamma\"",
-                                  "#6, \"Delta\"",
-                                  "#7, \"Echo\""}) {
+    for (const QString header : {"#1, \"Folder F\"",
+                                 "#2, \"Alpha\"",
+                                 "#3, \"Beta\"",
+                                 "#4, \"Folder G\"",
+                                 "#5, \"Gamma\"",
+                                 "#6, \"Delta\"",
+                                 "#7, \"Echo\""}) {
         QVERIFY2(repainted.contains(headerFor(*h.model, header)), qPrintable(header));
     }
 }

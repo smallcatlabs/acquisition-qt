@@ -1,9 +1,17 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QSet>
 #include <QtTest/QtTest>
 
+#include <clocale>
 #include <cmath>
 #include <memory>
+#include <string>
 
 #include "item.h"
+#include "itemcategories.h"
 #include "modlist.h"
 #include "testfixtures.h"
 #include "util/util.h"
@@ -23,7 +31,40 @@ private slots:
     void catalystQualityCountsAsQuality();
     void resonatorAndAbyssSocketsHaveNoColour();
     void valuelessModStoresZero();
+    void decimalModValueIgnoresProcessLocale();
+    void ignoredFirstFormatStillSubstitutesTheRest();
+    void resonatorSocketsExportAsResonators();
+    void colourOnlySocketsUseTheColourAlphabet();
+    void vestigialAndDesecratedModsAreKept();
+    void realRingModTable();
+    void templateWithLiteralNumber();
+    void negativeRollReducesResistanceTotals();
+    void rangeIsAveraged();
+    void clusterNotableIsPresent();
+    void literalSignWinsOverSignedPlaceholder();
+    void pathOfBuildingTakesGearFlasksAndJewels();
+    void pathOfBuildingClassesMatchGameData();
+    void pseudoModNeedsAValue();
 };
+
+// Real RePoE stat translations, cut from the game data (see
+// tests/fixtures/repoe/README.md).
+static QByteArray readRepoeFixture(const char *name)
+{
+    const QString path = QFINDTESTDATA(QString("fixtures/repoe/%1").arg(name));
+    QFile file(path);
+    if (path.isEmpty() || !file.open(QIODevice::ReadOnly)) {
+        qFatal("missing RePoE fixture %s", name);
+    }
+    return file.readAll();
+}
+
+static void loadRealStatTranslations()
+{
+    InitStatTranslations();
+    AddStatTranslations(readRepoeFixture("stat_translations.json"));
+    InitModList();
+}
 
 // The fixture shape of tst_filters.cpp's makeFilterItem: a minimal wire item
 // with extra JSON appended.
@@ -266,6 +307,399 @@ void ItemTest::valuelessModStoresZero()
     double value = 42.0;
     QVERIFY(Util::MatchMod("Cannot be Frozen", "Cannot be Frozen", &value));
     QCOMPARE(value, 0.0);
+}
+
+// #132: QCoreApplication adopts the system locale on Unix, so a process
+// whose LC_NUMERIC uses a decimal comma must still read "0.26" as 0.26.
+void ItemTest::decimalModValueIgnoresProcessLocale()
+{
+    // Restores the process locale on every exit from this test.
+    struct NumericLocaleGuard
+    {
+        std::string saved = std::setlocale(LC_NUMERIC, nullptr);
+        ~NumericLocaleGuard() { std::setlocale(LC_NUMERIC, saved.c_str()); }
+    } guard;
+
+    bool haveCommaLocale = false;
+    for (const char *candidate :
+         {"de_DE.UTF-8", "de_DE.utf8", "fr_FR.UTF-8", "fr_FR.utf8", "de-DE", "German_Germany.1252"}) {
+        if (std::setlocale(LC_NUMERIC, candidate) != nullptr) {
+            haveCommaLocale = true;
+            break;
+        }
+    }
+    if (!haveCommaLocale) {
+        // The pull-request workflow (.github/workflows/tests.yml) generates
+        // de_DE.UTF-8 and sets this variable; there a missing locale is a
+        // broken step, not a reason to skip. The release and sanitizer
+        // workflows also run under CI but do not generate the locale.
+        if (qEnvironmentVariableIsSet("ACQ_REQUIRE_COMMA_LOCALE")) {
+            QFAIL("ACQ_REQUIRE_COMMA_LOCALE is set but no comma-decimal locale is installed");
+        }
+        QSKIP("No comma-decimal locale (de_DE or fr_FR) is installed on this machine");
+    }
+    QCOMPARE(std::localeconv()->decimal_point[0], ',');
+
+    loadRealStatTranslations();
+    // A line from a real ring.
+    double direct = 0.0;
+    QVERIFY(Util::MatchMod("#% of Physical Attack Damage Leeched as Life",
+                           "0.26% of Physical Attack Damage Leeched as Life",
+                           &direct));
+    QCOMPARE(direct, 0.26);
+
+    const auto item = makeItem("leech", R"json(,
+        "explicitMods": [{"description": "0.26% of Physical Attack Damage Leeched as Life"}]
+    )json");
+    QCOMPARE(item->mod_table().at("#% of Physical Attack Damage Leeched as Life"), 0.26);
+}
+
+// #265: a translation whose first stat is not displayed ("ignore") still
+// shows the others. Their placeholders become "#" like any other; they were
+// left as a literal "{1}", which no item line can match.
+void ItemTest::ignoredFirstFormatStillSubstitutesTheRest()
+{
+    loadRealStatTranslations();
+
+    const QStringList names = mod_list_model().stringList();
+    QVERIFY(names.contains("Projectiles have #% chance to Return to you"));
+    QVERIFY(!names.contains("Projectiles have {1}% chance to Return to you"));
+    QVERIFY(names.contains("Projectiles Return to you"));
+
+    const auto item = makeItem("return", R"json(,
+        "explicitMods": [{"description": "Projectiles have 30% chance to Return to you"}]
+    )json");
+    QCOMPARE(item->mod_table().at("Projectiles have #% chance to Return to you"), 30.0);
+}
+
+// #267: a Delve resonator socket ("DV") is exported to Path of Building as
+// itself, not as a green socket; abyss and coloured sockets keep their
+// letters.
+void ItemTest::resonatorSocketsExportAsResonators()
+{
+    const auto resonator = makeItem("resonator", R"json(,
+        "sockets": [
+            {"group": 0, "attr": "DV", "sColour": "DV"},
+            {"group": 0, "attr": "DV", "sColour": "DV"},
+            {"group": 1, "attr": "DV", "sColour": "DV"}
+        ])json");
+    QVERIFY2(resonator->POBformat().contains("\nSockets: DV-DV DV\n"),
+             qPrintable(resonator->POBformat()));
+
+    const auto gear = makeItem("gear", R"json(,
+        "sockets": [
+            {"group": 0, "attr": "S", "sColour": "R"},
+            {"group": 0, "attr": "D", "sColour": "G"},
+            {"group": 1, "attr": "I", "sColour": "B"},
+            {"group": 1, "attr": "G", "sColour": "W"},
+            {"group": 2, "attr": "A", "sColour": "A"}
+        ])json");
+    QVERIFY2(gear->POBformat().contains("\nSockets: R-G B-W A\n"), qPrintable(gear->POBformat()));
+}
+
+// #266: a mod flagged desecrated stays in the section of the array it
+// arrived in, and is searchable there. A mod flagged vestigial is kept in a
+// section of its own. Both were dropped.
+void ItemTest::vestigialAndDesecratedModsAreKept()
+{
+    loadRealStatTranslations();
+
+    const auto item = makeItem("flagged", R"json(,
+        "implicitMods": [
+            {"description": "+30 to maximum Life", "flags": {"vestigial": true}},
+            {"description": "+12 to maximum Life", "flags": {"desecrated": true}}
+        ],
+        "explicitMods": [
+            {"description": "+80 to maximum Life", "flags": {"desecrated": true}},
+            {"description": "+5 to maximum Life", "flags": {"vestigial": true}},
+            {"description": "0.26% of Physical Attack Damage Leeched as Life"}
+        ]
+    )json");
+
+    // Vestigial lines are kept and shown in a section of their own, but not
+    // counted: provisional until the maintainer rules on what the flag means.
+    const auto &text = item->text_mods();
+    QCOMPARE(text.at("implicitMods"), (std::vector<QString>{"+12 to maximum Life"}));
+    QCOMPARE(text.at("explicitMods"),
+             (std::vector<QString>{"+80 to maximum Life",
+                                   "0.26% of Physical Attack Damage Leeched as Life"}));
+    QCOMPARE(text.at("vestigialMods"),
+             (std::vector<QString>{"+30 to maximum Life", "+5 to maximum Life"}));
+    QCOMPARE(item->mod_table().at("+# to maximum Life"), 92.0);
+
+    const QString pob = item->POBformat();
+    QVERIFY2(pob.contains("\nImplicits: 1\n+12 to maximum Life\n"), qPrintable(pob));
+    QVERIFY2(pob.contains("\n+80 to maximum Life\n0.26% of Physical"), qPrintable(pob));
+    QVERIFY2(!pob.contains("+30 to maximum Life"), qPrintable(pob));
+    QVERIFY2(!pob.contains("+5 to maximum Life"), qPrintable(pob));
+}
+
+// A socket's attribute ("S", "D", "I", "G") and its colour ("R", "G", "B",
+// "W") name the same thing in two alphabets; the API reference, as recorded
+// in poe/types/itemsocket.h, documents both on every PoE1 socket. Where only
+// the colour is present it is read in the colour alphabet: "G" is green,
+// not the attribute "G" (white).
+void ItemTest::colourOnlySocketsUseTheColourAlphabet()
+{
+    const auto item = makeItem("colour-only", R"json(,
+        "sockets": [
+            {"group": 0, "sColour": "R"},
+            {"group": 0, "sColour": "G"},
+            {"group": 0, "sColour": "B"},
+            {"group": 0, "sColour": "W"}
+        ])json");
+    QCOMPARE(item->sockets().r, 1);
+    QCOMPARE(item->sockets().g, 1);
+    QCOMPARE(item->sockets().b, 1);
+    QCOMPARE(item->sockets().w, 1);
+    QVERIFY2(item->POBformat().contains("\nSockets: R-G-B-W\n"), qPrintable(item->POBformat()));
+}
+
+// The whole mod table of a real ring (lines from a forum page the
+// maintainer captured), against real stat translations: the natural mods
+// under their names, and every pseudo-mod they feed.
+void ItemTest::realRingModTable()
+{
+    loadRealStatTranslations();
+
+    const auto ring = makeItem("ring", R"json(,
+        "explicitMods": [
+            {"description": "+13% to Fire and Cold Resistances"},
+            {"description": "+48 to Strength"},
+            {"description": "+107 to maximum Life"},
+            {"description": "0.26% of Physical Attack Damage Leeched as Life"}
+        ]
+    )json");
+
+    const ModTable expected{
+        {"+#% to Fire and Cold Resistances", 13.0},
+        {"+# to Strength", 48.0},
+        {"+# to maximum Life", 107.0},
+        {"#% of Physical Attack Damage Leeched as Life", 0.26},
+        {"+#% total to Fire Resistance", 13.0},
+        {"+#% total to Cold Resistance", 13.0},
+        {"+#% total Elemental Resistance", 26.0},
+        {"+#% total Resistance", 26.0},
+        {"+# total to Strength", 48.0},
+    };
+    const ModTable &table = ring->mod_table();
+    QCOMPARE(table.size(), expected.size());
+    for (const auto &[name, value] : expected) {
+        QVERIFY2(table.contains(name), qPrintable(name));
+        QCOMPARE(table.at(name), value);
+    }
+}
+
+// #265: a template whose own text holds a number ("Level 20", "0.5 second")
+// matches a line; rewriting every number in the line to "#" never could.
+void ItemTest::templateWithLiteralNumber()
+{
+    loadRealStatTranslations();
+
+    const auto item = makeItem("literal", R"json(,
+        "explicitMods": [
+            {"description": "25% chance to Trigger Level 20 Animate Weapon on Kill"},
+            {"description": "50% chance to Trigger Socketed Spell on Kill, with a 0.5 second Cooldown"}
+        ]
+    )json");
+    const ModTable &table = item->mod_table();
+    QVERIFY(table.contains("#% chance to Trigger Level 20 Animate Weapon on Kill"));
+    QCOMPARE(table.at("#% chance to Trigger Level 20 Animate Weapon on Kill"), 25.0);
+    QVERIFY(
+        table.contains("#% chance to Trigger Socketed Spell on Kill, with a 0.5 second Cooldown"));
+    QCOMPARE(table.at("#% chance to Trigger Socketed Spell on Kill, with a 0.5 second Cooldown"),
+             50.0);
+
+    // The literal number must match: another level is not this mod.
+    const auto other = makeItem("literal-other", R"json(,
+        "explicitMods": [{"description": "25% chance to Trigger Level 19 Animate Weapon on Kill"}]
+    )json");
+    QVERIFY(!other->mod_table().contains("#% chance to Trigger Level 20 Animate Weapon on Kill"));
+}
+
+// #265: a negative roll of a "+#" mod is that mod with a negative value, and
+// it reduces the resistance totals it feeds.
+void ItemTest::negativeRollReducesResistanceTotals()
+{
+    loadRealStatTranslations();
+
+    const auto item = makeItem("negative", R"json(,
+        "explicitMods": [
+            {"description": "+13% to Fire and Cold Resistances"},
+            {"description": "-22% to Lightning Resistance"}
+        ]
+    )json");
+    const ModTable &table = item->mod_table();
+    QVERIFY(table.contains("+#% to Lightning Resistance"));
+    QCOMPARE(table.at("+#% to Lightning Resistance"), -22.0);
+    QCOMPARE(table.at("+#% total to Lightning Resistance"), -22.0);
+    QCOMPARE(table.at("+#% total to Fire Resistance"), 13.0);
+    QCOMPARE(table.at("+#% total Elemental Resistance"), 4.0);
+    QCOMPARE(table.at("+#% total Resistance"), 4.0);
+}
+
+// A line with two numbers is filed under its template with their mean.
+void ItemTest::rangeIsAveraged()
+{
+    loadRealStatTranslations();
+
+    const auto item = makeItem("range", R"json(,
+        "explicitMods": [{"description": "Adds 10 to 21 Fire Damage"}]
+    )json");
+    QCOMPARE(item->mod_table().at("Adds # to # Fire Damage"), 15.5);
+}
+
+// A cluster jewel notable has a literal "1" and no value; it is present
+// under its own text.
+void ItemTest::clusterNotableIsPresent()
+{
+    loadRealStatTranslations();
+
+    const auto item = makeItem("cluster", R"json(,
+        "explicitMods": [{"description": "1 Added Passive Skill is Adrenaline"}]
+    )json");
+    QVERIFY(item->mod_table().contains("1 Added Passive Skill is Adrenaline"));
+    QCOMPARE(item->mod_table().at("1 Added Passive Skill is Adrenaline"), 0.0);
+}
+
+// RePoE writes some negative values as their own entry with a literal sign
+// ("-{0} to ..." beside "+{0} to ..."). A line with a minus goes to that
+// entry, with the number as written, as it does for templates without a
+// literal number.
+void ItemTest::literalSignWinsOverSignedPlaceholder()
+{
+    loadRealStatTranslations();
+
+    const auto item = makeItem("accuracy", R"json(,
+        "explicitMods": [
+            {"description": "-5 to Accuracy Rating per 10 Dexterity on Unallocated Passives in Radius"}
+        ]
+    )json");
+    const ModTable &table = item->mod_table();
+    QCOMPARE(table.size(), size_t(1));
+    QCOMPARE(table.at("-# to Accuracy Rating per 10 Dexterity on Unallocated Passives in Radius"),
+             5.0);
+}
+
+static std::shared_ptr<Item> makeItemOfBase(const QString &baseType, int frameType)
+{
+    const QByteArray json = QString(R"json({
+        "baseType": "%1",
+        "frameType": %2,
+        "frameTypeId": "Rare",
+        "h": 1,
+        "icon": "https://web.poecdn.com/image/test.png",
+        "id": "base-%1",
+        "identified": true,
+        "ilvl": 84,
+        "name": "",
+        "typeLine": "%1",
+        "verified": false,
+        "w": 1,
+        "x": 0,
+        "y": 0
+    })json")
+                                .arg(baseType)
+                                .arg(frameType)
+                                .toUtf8();
+    return std::make_shared<Item>(makeTestItem(json.constData(), makeTestStashLocation()));
+}
+
+static void loadRealItemClasses()
+{
+    InitItemClasses(readRepoeFixture("item_classes.min.json"));
+    InitItemBaseTypes(readRepoeFixture("base_items.json"));
+}
+
+// #264: gear, flasks and jewels can be copied for Path of Building; other
+// items cannot. Real class and base names from RePoE.
+void ItemTest::pathOfBuildingTakesGearFlasksAndJewels()
+{
+    loadRealItemClasses();
+
+    for (const char *base : {"Gold Ring",
+                             "Iron Hat",
+                             "Rusted Sword",
+                             "Small Life Flask",
+                             "Cobalt Jewel",
+                             "Hypnotic Eye Jewel"}) {
+        QVERIFY2(makeItemOfBase(base, 2)->Wearable(), base);
+    }
+    QVERIFY(!makeItemOfBase("Chaos Orb", 5)->Wearable());
+    QVERIFY(!makeItemOfBase("Map (Tier 16)", 2)->Wearable());
+    QVERIFY(!makeItemOfBase("The Doctor", 6)->Wearable());
+}
+
+// #264: the rule's two parts against the game's own class list, so a
+// renamed or added class fails here instead of silently changing what can
+// be copied: every listed flask and jewel id exists, the classes with
+// influence tags are exactly the gear measured for 3.29.3.6, and nothing
+// else is accepted.
+void ItemTest::pathOfBuildingClassesMatchGameData()
+{
+    loadRealItemClasses();
+
+    const QJsonObject classes = QJsonDocument::fromJson(readRepoeFixture("item_classes.min.json"))
+                                    .object();
+    QVERIFY(!classes.isEmpty());
+
+    for (const QString &id : PathOfBuildingNonGearClassIds()) {
+        QVERIFY2(classes.contains(id), qPrintable(id));
+    }
+
+    const QSet<QString> gear{"Amulet",
+                             "Belt",
+                             "Body Armour",
+                             "Boots",
+                             "Bow",
+                             "Claw",
+                             "Dagger",
+                             "Gloves",
+                             "Helmet",
+                             "One Hand Axe",
+                             "One Hand Mace",
+                             "One Hand Sword",
+                             "Quiver",
+                             "Ring",
+                             "Rune Dagger",
+                             "Sceptre",
+                             "Shield",
+                             "Staff",
+                             "Thrusting One Hand Sword",
+                             "Two Hand Axe",
+                             "Two Hand Mace",
+                             "Two Hand Sword",
+                             "Wand",
+                             "Warstaff"};
+    QSet<QString> withInfluenceTags;
+    for (auto it = classes.begin(); it != classes.end(); ++it) {
+        if (it.value().toObject().contains("influence_tags")) {
+            withInfluenceTags.insert(it.key());
+        }
+        const bool expected = gear.contains(it.key())
+                              || PathOfBuildingNonGearClassIds().contains(it.key());
+        QVERIFY2(IsPathOfBuildingItemClass(it.key()) == expected, qPrintable(it.key()));
+    }
+    QCOMPARE(withInfluenceTags, gear);
+}
+
+// #265: a line that matches no template but whose rewritten text is a
+// pseudo-mod source feeds that pseudo-mod only if a value can be read from
+// it. A pseudo-mod must not become present with a value of 0 because the
+// read failed. The catalogue here holds no translations, so the source is
+// not a template name; the line's literal "#" makes the read fail.
+void ItemTest::pseudoModNeedsAValue()
+{
+    InitStatTranslations();
+    InitModList();
+
+    ModTable table;
+    AddModToTable("+#% to Cold Resistance", table);
+    QVERIFY(!table.contains("+#% total to Cold Resistance"));
+
+    // The same source with a number still feeds the pseudo-mod.
+    AddModToTable("+15% to Cold Resistance", table);
+    QCOMPARE(table.at("+#% total to Cold Resistance"), 15.0);
 }
 
 QTEST_GUILESS_MAIN(ItemTest)

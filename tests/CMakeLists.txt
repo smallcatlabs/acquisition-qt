@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # Every executable that ctest runs, and nothing else: the sanitizer job
 # (.github/workflows/sanitizers.yml) builds this target so that the
 # `acquisition` app, which must never be built sanitized, is not built at all.
@@ -25,6 +27,7 @@ endfunction()
 
 function(acq_add_test name)
     qt_add_executable(${name} ${name}.cpp)
+    acq_first_party(${name})
     target_include_directories(${name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(${name} PRIVATE acquisition_core Qt6::Test)
     add_dependencies(acq_tests ${name})
@@ -44,6 +47,7 @@ endfunction()
 # runs only that slot.
 function(acq_add_scenario_test name)
     qt_add_executable(${name} ${name}.cpp)
+    acq_first_party(${name})
     target_include_directories(${name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(${name} PRIVATE acquisition_core Qt6::Test)
     add_dependencies(acq_tests ${name})
@@ -56,28 +60,29 @@ function(acq_add_scenario_test name)
     endforeach()
 endfunction()
 
-# M2-M2 measurement harness (items-pipeline M2, stage 4): not a test — an
-# offscreen benchmark run by hand in a Release build. It reuses the test
-# fakes and the deterministic dataset generator, so it lives here.
-# Hand-run measurement harness (M2-M2), not a test: excluded from the
-# default build; build explicitly with --target m2m2_benchmark.
-qt_add_executable(m2m2_benchmark EXCLUDE_FROM_ALL m2m2_benchmark.cpp)
-target_include_directories(m2m2_benchmark PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(m2m2_benchmark PRIVATE acquisition_core)
+# Hand-run measurement harnesses, not tests: ctest does not run them, but the
+# default build compiles them, so a change that breaks one fails the build
+# instead of rotting unseen. They reuse the test fakes and the deterministic
+# dataset generator, so they live here. Run them by hand in a Release build.
+#   m2m2_benchmark: the M2-M2 harness (items-pipeline M2, stage 4).
+#   m3_holdpoint_benchmark: the M3 hold-point harness (items-pipeline M3,
+#     working rule 3): the conditional budget rows at S3-S5 and the S7 gate's
+#     model-side rows, with the spike presets.
+#   m1m2_benchmark: the M1-M2 harness (items-pipeline M2, D10): the
+#     batch-submit QueueUpdated burst vs status-widget frame time.
+foreach(benchmark m2m2_benchmark m3_holdpoint_benchmark m1m2_benchmark)
+    qt_add_executable(${benchmark} ${benchmark}.cpp)
+    acq_first_party(${benchmark})
+    target_include_directories(${benchmark} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(${benchmark} PRIVATE acquisition_core)
+endforeach()
 
-# The M3 hold-point harness (items-pipeline M3, working rule 3): the
-# conditional budget rows at S3-S5 and the S7 gate's model-side rows, run
-# by hand in a Release build with the spike presets.
-qt_add_executable(m3_holdpoint_benchmark EXCLUDE_FROM_ALL m3_holdpoint_benchmark.cpp)
-target_include_directories(m3_holdpoint_benchmark PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(m3_holdpoint_benchmark PRIVATE acquisition_core)
-
-# The M1-M2 harness (items-pipeline M2, D10; post-M2 follow-up): the
-# batch-submit QueueUpdated burst vs status-widget frame time, run by
-# hand in a Release build.
-qt_add_executable(m1m2_benchmark EXCLUDE_FROM_ALL m1m2_benchmark.cpp)
-target_include_directories(m1m2_benchmark PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(m1m2_benchmark PRIVATE acquisition_core)
+# The mod-match census (#265, #296): runs the mod matching over real RePoE
+# stat translation files named on the command line. Not a test; build
+# explicitly with --target modmatch_census.
+qt_add_executable(modmatch_census EXCLUDE_FROM_ALL modmatch_census.cpp)
+target_include_directories(modmatch_census PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(modmatch_census PRIVATE acquisition_core)
 
 # The filter core must stay free of the UI (Phase 5, D5). A STATIC archive has
 # no link step, so this cannot be left to target_link_libraries.

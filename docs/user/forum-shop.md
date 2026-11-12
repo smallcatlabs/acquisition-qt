@@ -16,22 +16,26 @@ your stash directly. Acquisition writes and updates those threads for you.
 3. **Shop → Update shop POESESSID** — paste your `POESESSID` cookie from
    pathofexile.com. OAuth cannot edit forum posts, so this cookie is required.
    The same dialog is under **Settings → POESESSID**. If the site rejects the
-   cookie, Acquisition warns you and stops updating until you enter a new one.
+   cookie, Acquisition warns you, clears it, and turns **Automatically update
+   shop** off (the menu item is unchecked) until you enter a new one.
 
 ## Publishing
 
 - **Shop → Update forum shop(s)** rewrites every configured thread with the
   current buyouts. Each item is wrapped in a `[spoiler]` with its price prefix,
-  and the whole list is placed where `[items]` appears in the template.
+  and the whole list is placed where `[items]` appears in the template. If an
+  update is still running, you are told to try again when it has finished.
 - **Shop → Automatically update shop** (checkable) republishes after every
-  refresh, but only if something changed since the last post.
+  refresh, but only if something changed since the last post. If no thread or
+  no POESESSID is set, a warning says so once per session rather than after
+  every refresh; updating by hand tells you each time.
 - **Shop → Copy shop data to clipboard** gives you the generated forum markup
   without posting, for pasting by hand.
 
 Items priced *[Ignore]* are omitted; *No price* items appear without a tag.
 Which tag each buyout type produces is listed in [Pricing](pricing.md).
 
-Two situations stop or limit a post, and Acquisition tells you about each:
+These situations stop or limit a post, and Acquisition tells you about each:
 
 - **More items than the threads hold.** The pages that fit are posted and the
   rest are not. A warning says how many more threads to add under
@@ -41,6 +45,18 @@ Two situations stop or limit a post, and Acquisition tells you about each:
   database at startup, it posts nothing and leaves your threads as they are,
   so a problem on your computer cannot blank your shop. Check the log, fix
   the cause, and restart.
+- **The site or the forum does not take the update.** The status bar says
+  "Forum shop not updated" and why: the site did not answer, a thread could
+  not be opened for editing, the forum could not find one of your items
+  (refresh your tabs and update again), or the forum reported an error. A
+  message gives the same reason each time you update by hand, and once per
+  session when the shop updates automatically. Threads already updated in
+  that run keep their new content; the next update starts again from the
+  first thread.
+- **The forum asks you to wait.** For a wait of a minute or less, Acquisition
+  waits and tries that thread again, starting from a fresh edit page; each
+  thread gets at most three attempts in all. A longer wait stops the update,
+  and the message says how long to wait before updating again.
 
 ## The template
 

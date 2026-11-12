@@ -279,15 +279,13 @@ void MainWindow::InitializeRateLimitDialog()
     button->setFlat(false);
     button->setText("Rate Limit Status");
     connect(button, &QPushButton::clicked, m_rate_limit_dialog, &RateLimitDialog::show);
+    // The limiter reports 0 once when the last pause ends (#284).
     connect(&m_rate_limiter, &RateLimiter::Paused, this, [=](int pause) {
         if (pause > 0) {
             button->setText("Rate limited for " + QString::number(pause) + " seconds");
             button->setStyleSheet("font-weight: bold; color: red");
-        } else if (pause == 0) {
-            button->setText("Rate limiting is OFF");
-            button->setStyleSheet("");
         } else {
-            button->setText("ERROR: pause is " + QString::number(pause));
+            button->setText("Rate Limit Status");
             button->setStyleSheet("");
         }
     });
@@ -499,6 +497,12 @@ void MainWindow::InitializeUi()
             &QAction::triggered,
             this,
             &MainWindow::OnSetAutomaticShopUpdate);
+    // The shop can turn automatic updates off itself (a rejected
+    // POESESSID); the menu item follows the setting, not the last click.
+    connect(&m_shop,
+            &Shop::AutoUpdateChanged,
+            ui->actionSetAutomaticallyShopUpdate,
+            &QAction::setChecked);
 
     // Connect the Theme submenu. The group keeps exactly one theme checked:
     // clicking the active theme leaves it checked.
@@ -1559,7 +1563,13 @@ void MainWindow::ModelViewRefresh()
     m_current_search->FilterItems(m_items_manager.items());
     ui->treeView->setSortingEnabled(false);
     if (ui->treeView->model() != &model) {
+        // setModel() creates a new selection model and leaves the old one to
+        // the caller (QAbstractItemView docs); nothing else shares it.
+        QItemSelectionModel *old_selection = ui->treeView->selectionModel();
         ui->treeView->setModel(&model);
+        if (old_selection) {
+            old_selection->deleteLater();
+        }
     }
     ui->treeView->header()->setSortIndicator(model.GetSortColumn(), model.GetSortOrder());
     ui->treeView->setSortingEnabled(true);
@@ -1938,6 +1948,16 @@ void MainWindow::UpdateCurrentBucket()
     ui->pobTooltipButton->setEnabled(false);
 }
 
+// The url an item's image is fetched from: a relative icon is served by the CDN.
+static QString itemImageUrl(const Item &item)
+{
+    const QString icon = item.icon();
+    if (icon.startsWith('/')) {
+        return POE_WEBCDN + icon;
+    }
+    return icon;
+}
+
 void MainWindow::UpdateCurrentItem()
 {
     spdlog::trace("MainWindow::UpdateCurrentItem() entered");
@@ -1968,20 +1988,17 @@ void MainWindow::UpdateCurrentItem()
         m_items_manager.locationInventory().Canonical(m_current_item->location()).GetHeader());
     ui->pobTooltipButton->setEnabled(m_current_item->Wearable());
 
-    QString icon = m_current_item->icon();
-    if ((icon.size() >= 1) && (icon[0] == '/')) {
-        icon = POE_WEBCDN + icon;
-    }
-    emit GetImage(icon);
+    emit GetImage(itemImageUrl(*m_current_item));
 }
 
 void MainWindow::OnImageFetched(const QString &url)
 {
     if (m_current_item) {
-        const QString icon = m_current_item->icon();
-        if (url == icon) {
+        if (url == itemImageUrl(*m_current_item)) {
             const QImage image = m_image_cache.load(url);
-            if (!image.isNull()) {
+            if (image.isNull()) {
+                ui->imageLabel->setText("No image");
+            } else {
                 const QPixmap pixmap = GenerateItemIcon(*m_current_item, image);
                 ui->imageLabel->setPixmap(pixmap);
             }
@@ -2130,9 +2147,9 @@ void MainWindow::UpdateShopMenu()
     ui->actionSetAutomaticallyShopUpdate->setChecked(m_shop.auto_update());
 }
 
-void MainWindow::OnUpdateAvailable()
+void MainWindow::OnUpdateAvailable(bool available)
 {
-    m_update_button.show();
+    m_update_button.setVisible(available);
 }
 
 void MainWindow::OnCopyShopToClipboard()

@@ -7,6 +7,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPointer>
+#include <QTimer>
 
 #include <chrono>
 
@@ -56,6 +57,12 @@ private slots:
     void cancelingEveryParkedEntryStillEstablishes();
     void resubmitFromCancellationHandlerIsSafe();
     void cancellationWinsOverAConcurrentSetupFailure();
+
+    // #284: the status countdown ends when the pump stops waiting, whether
+    // its wait ran out or was canceled.
+    void pausedReportsZeroWhenTheHoldEnds();
+    void pausedReportsZeroWhenTheWaitIsCanceled();
+    void subSecondPacingIsNotReportedAsAPause();
 };
 
 namespace {
@@ -842,6 +849,116 @@ void RateLimiterTest::cancellationWinsOverAConcurrentSetupFailure()
     // probing: it must find nothing and complete nothing a second time.
     settle(rig.scheduler);
     QCOMPARE(victim.completions, 1);
+}
+
+namespace {
+
+    // A HEAD 429 with Full headers and Retry-After: 120 holds the pump's
+    // first send for 120 + 60 + 1 = 181s (D4), which it announces as a
+    // pause.
+    void holdFirstSend(Rig &rig, FutureSubmission &submission)
+    {
+        submission.attach(rig.limiter.SubmitFuture("ep", request("one"), submission.token()));
+        settle(rig.scheduler);
+        auto headers = policyHeaders("10:60:60", "0:60:0");
+        headers.append(QNetworkReply::RawHeaderPair{"Retry-After", "120"});
+        rig.network.sent(0).reply->finish(headers, 429, QNetworkReply::UnknownContentError);
+        drainEvents();
+    }
+
+    // One tick of the hub's once-a-second status timer, run by hand so the
+    // values come from the fake clock.
+    void tick(RateLimiter &limiter)
+    {
+        QVERIFY(QMetaObject::invokeMethod(&limiter, "SendStatusUpdate"));
+    }
+
+    // The real timer behind those ticks: it must run while a pause lasts and
+    // stop once none is left, or the button never counts down.
+    bool statusTimerRunning(RateLimiter &limiter)
+    {
+        const auto *timer = limiter.findChild<QTimer *>("statusTimer");
+        if (!timer) {
+            qFatal("statusTimerRunning: the limiter has no status timer");
+        }
+        return timer->isActive();
+    }
+
+} // namespace
+
+void RateLimiterTest::pausedReportsZeroWhenTheHoldEnds()
+{
+    Rig rig;
+    QSignalSpy paused(&rig.limiter, &RateLimiter::Paused);
+    FutureSubmission s1;
+    QVERIFY(!statusTimerRunning(rig.limiter));
+    holdFirstSend(rig, s1);
+    QVERIFY(statusTimerRunning(rig.limiter));
+
+    tick(rig.limiter);
+    QVERIFY(!paused.isEmpty());
+    QCOMPARE(paused.last().at(0).toInt(), 181);
+    QCOMPARE(paused.last().at(1).toString(), QString("test-request-limit"));
+
+    // The hold runs out and the request is sent: nothing is paused any more,
+    // which is reported once.
+    advanceAndSettle(rig.scheduler, 185s);
+    QCOMPARE(rig.network.count(), 2);
+    tick(rig.limiter);
+    QCOMPARE(paused.last().at(0).toInt(), 0);
+    QVERIFY(!statusTimerRunning(rig.limiter));
+    const auto reported = paused.count();
+    tick(rig.limiter);
+    QCOMPARE(paused.count(), reported);
+
+    rig.network.sent(1).reply->finish(policyHeaders("10:60:60", "1:60:0"), 200);
+    drainEvents();
+    QCOMPARE(s1.completions, 1);
+}
+
+void RateLimiterTest::pausedReportsZeroWhenTheWaitIsCanceled()
+{
+    Rig rig;
+    QSignalSpy paused(&rig.limiter, &RateLimiter::Paused);
+    FutureSubmission s1;
+    holdFirstSend(rig, s1);
+
+    tick(rig.limiter);
+    QVERIFY(!paused.isEmpty());
+    QVERIFY(paused.last().at(0).toInt() > 0);
+
+    // The caller gives up (an aborted update) while the pump waits: the
+    // countdown must not keep running.
+    s1.abort();
+    settle(rig.scheduler);
+    QCOMPARE(s1.kind(), std::optional(RateLimit::FetchError::Kind::Canceled));
+    tick(rig.limiter);
+    QCOMPARE(paused.last().at(0).toInt(), 0);
+}
+
+// Every send waits out a short pacing buffer; that is not rate limiting, and
+// the status button is left alone.
+void RateLimiterTest::subSecondPacingIsNotReportedAsAPause()
+{
+    Rig rig;
+    QSignalSpy paused(&rig.limiter, &RateLimiter::Paused);
+    FutureSubmission s1;
+    s1.attach(rig.limiter.SubmitFuture("ep", request("one"), s1.token()));
+    settle(rig.scheduler);
+    rig.network.sent(0).reply->finish(policyHeaders("10:60:60", "0:60:0"), 200);
+    drainEvents();
+
+    // The request is in its pacing wait (100ms) when the status timer ticks.
+    tick(rig.limiter);
+    QCOMPARE(paused.count(), 0);
+
+    advanceAndSettle(rig.scheduler, kGateSpacing);
+    QCOMPARE(rig.network.count(), 2);
+    rig.network.sent(1).reply->finish(policyHeaders("10:60:60", "1:60:0"), 200);
+    drainEvents();
+    QCOMPARE(s1.completions, 1);
+    tick(rig.limiter);
+    QCOMPARE(paused.count(), 0);
 }
 
 QTEST_GUILESS_MAIN(RateLimiterTest)

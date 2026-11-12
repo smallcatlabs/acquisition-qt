@@ -48,6 +48,9 @@ private slots:
     void refusedPriceEditSaysSoInStatusLine();
     void savedPriceEditClearsNotSavedNotice();
     void tabChangeActivatesSelectedSearch();
+    void searchTabSwitchReleasesOldSelectionModel();
+    void missingItemImageShowsNoImage();
+    void relativeIconShowsFetchedImage();
     // Renegotiated in M3 S6 from `itemsRefreshRefiltersBackgroundSearches`
     // (the F33-era eager background refilter rode the final-snapshot reset
     // seam): the snapshot now flags background searches items-dirty and
@@ -182,6 +185,7 @@ private slots:
     // UI papercuts (November 2026).
     void refreshIntervalDialogEditsCurrentValue();
     void refreshIntervalDialogCancelChangesNothing();
+    void rateLimitButtonReturnsToItsLabelAfterAPause();
     void activeThemeStaysCheckedWhenClicked();
     void activeLoggingLevelStaysCheckedWhenClicked();
     void priceBoxIgnoresTextThatIsNotAPrice_data();
@@ -650,6 +654,108 @@ void MainWindowTest::tabChangeActivatesSelectedSearch()
     QCOMPARE(tabs->tabText(1), "Search 2 [1]");
     QCOMPARE(name->text(), "beta");
     QCOMPARE(visibleItemNames(*tree), QStringList({"Beta Shield"}));
+}
+
+void MainWindowTest::searchTabSwitchReleasesOldSelectionModel()
+{
+    // QAbstractItemView::setModel creates a new selection model and does
+    // not delete the old one; every search-tab switch left one behind.
+    MainWindowFixture fixture;
+    auto *tabs = findSearchTabs(*fixture.window);
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tabs);
+    QVERIFY(tree);
+    QCOMPARE(tabs->currentIndex(), 0);
+
+    QPointer<QItemSelectionModel> first = tree->selectionModel();
+    QVERIFY(first);
+    tabs->setCurrentIndex(1);
+    QVERIFY(tree->selectionModel() != first);
+    QTRY_VERIFY_WITH_TIMEOUT(first.isNull(), 500);
+
+    QPointer<QItemSelectionModel> second = tree->selectionModel();
+    tabs->setCurrentIndex(0);
+    QTRY_VERIFY_WITH_TIMEOUT(second.isNull(), 500);
+    QVERIFY(tree->selectionModel());
+}
+
+void MainWindowTest::missingItemImageShowsNoImage()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    auto *label = fixture.window->findChild<QLabel *>("imageLabel");
+    QVERIFY(tree);
+    QVERIFY(label);
+    QSignalSpy requested(fixture.window.get(), &MainWindow::GetImage);
+
+    const ItemLocation tab = makeTestStashLocation("stash-image", "Image Tab", 0);
+    Items items;
+    items.push_back(makeMainWindowItem("image-item", "Pictured", "Sword", tab));
+    fixture.itemsManager->OnItemsRefreshed(items, {tab}, false);
+    const QModelIndex bucket = findBucket(*tree->model(), tab.GetHeader());
+    const QModelIndex row = findItemRow(*tree->model(), bucket, "Pictured Sword");
+    QVERIFY(row.isValid());
+    tree->selectionModel()->setCurrentIndex(row,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    QTRY_COMPARE_WITH_TIMEOUT(requested.count(), 1, 1000);
+    QCOMPARE(label->text(), QString("Loading..."));
+
+    // The cache finished without an image (a failed or undecodable fetch).
+    fixture.window->OnImageFetched(requested.at(0).at(0).toString());
+    QCOMPARE(label->text(), QString("No image"));
+}
+
+void MainWindowTest::relativeIconShowsFetchedImage()
+{
+    // UpdateCurrentItem requests a relative icon under the CDN prefix; the
+    // fetched-image handler must recognise that url as the current item's.
+    // Whether the game still sends relative icons is not known; the code
+    // handles them, so the test covers that branch.
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    auto *label = fixture.window->findChild<QLabel *>("imageLabel");
+    QVERIFY(tree);
+    QVERIFY(label);
+    QSignalSpy requested(fixture.window.get(), &MainWindow::GetImage);
+
+    const ItemLocation tab = makeTestStashLocation("stash-relative", "Relative Tab", 0);
+    const QByteArray json = R"json({
+        "baseType": "Ring",
+        "frameType": 2,
+        "frameTypeId": "Rare",
+        "h": 1,
+        "icon": "/image/Art/2DItems/Rings/Ring1.png",
+        "id": "relative-item",
+        "identified": true,
+        "ilvl": 1,
+        "name": "Relative",
+        "typeLine": "Ring",
+        "verified": false,
+        "w": 1,
+        "x": 0,
+        "y": 0
+    })json";
+    Items items;
+    items.push_back(std::make_shared<Item>(makeTestItem(json.constData(), tab)));
+    fixture.itemsManager->OnItemsRefreshed(items, {tab}, false);
+    const QModelIndex bucket = findBucket(*tree->model(), tab.GetHeader());
+    const QModelIndex row = findItemRow(*tree->model(), bucket, "Relative Ring");
+    QVERIFY(row.isValid());
+    tree->selectionModel()->setCurrentIndex(row,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    QTRY_COMPARE_WITH_TIMEOUT(requested.count(), 1, 1000);
+    const QString url = requested.at(0).at(0).toString();
+    QVERIFY2(url.startsWith("http"), qPrintable(url));
+
+    // Put the image where ImageCache keeps it, then report the fetch done.
+    QImage image(47, 47, QImage::Format_ARGB32);
+    image.fill(Qt::red);
+    QVERIFY(image.save(fixture.tempDir.filePath("cache/" + Util::Md5(url) + ".png")));
+    QVERIFY(fixture.imageCache->contains(url));
+    fixture.window->OnImageFetched(url);
+    QVERIFY(!label->pixmap().isNull());
 }
 
 void MainWindowTest::itemsRefreshDefersBackgroundSearchesToActivation()
@@ -4100,6 +4206,25 @@ void MainWindowTest::refreshIntervalDialogCancelChangesNothing()
 
     QVERIFY(seen.seen);
     QCOMPARE(fixture.settings->value("autoupdate_interval").toInt(), 45);
+}
+
+// #284: once a pause ends, the rate-limit button reads as it did before it.
+void MainWindowTest::rateLimitButtonReturnsToItsLabelAfterAPause()
+{
+    MainWindowFixture fixture;
+    QPushButton *button = nullptr;
+    for (auto *candidate : fixture.window->findChildren<QPushButton *>()) {
+        if (candidate->text() == "Rate Limit Status") {
+            button = candidate;
+        }
+    }
+    QVERIFY(button);
+
+    emit fixture.rateLimiter->Paused(30, "test-request-limit");
+    QCOMPARE(button->text(), QString("Rate limited for 30 seconds"));
+    emit fixture.rateLimiter->Paused(0, QString());
+    QCOMPARE(button->text(), QString("Rate Limit Status"));
+    QVERIFY(button->styleSheet().isEmpty());
 }
 
 // #284: the theme actions are exclusive; clicking the active one keeps it

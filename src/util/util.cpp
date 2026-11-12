@@ -3,9 +3,9 @@
 
 #include "util/util.h"
 
+#include <QByteArrayView>
 #include <QComboBox>
 #include <QCryptographicHash>
-#include <QDir>
 #include <QDirIterator>
 #include <QFontMetrics>
 #include <QLabel>
@@ -17,17 +17,12 @@
 #include <QString>
 #include <QStringList>
 #include <QTextDocument>
-#include <QUrlQuery>
+#include <QUrl>
 
 #include <cmath>
 
 #include "currency.h"
 #include "poe/types/stashtab.h"
-
-QByteArray Util::toPathBytes(const QString &path)
-{
-    return QFile::encodeName(QDir::toNativeSeparators(path));
-}
 
 QString Util::Md5(const QString &value)
 {
@@ -184,7 +179,9 @@ bool Util::MatchMod(const char *const match, const char *const mod, double *outp
             auto prev = pmod;
             while ((*pmod >= '0' && *pmod <= '9') || *pmod == '.')
                 ++pmod;
-            result += std::strtod(prev, NULL);
+            // Read in the C locale whatever the process locale is: the
+            // game always writes a decimal point (#132).
+            result += QByteArrayView(prev, pmod - prev).toDouble();
             ++pmatch;
         } else if (*pmatch == *pmod) {
             ++pmatch;
@@ -259,16 +256,21 @@ QString Util::Decode(const QString &entity)
     return text.toPlainText();
 }
 
-QUrlQuery Util::EncodeQueryItems(const std::vector<std::pair<QString, QString>> &items)
+QByteArray Util::EncodeForm(const std::vector<std::pair<QString, QString>> &fields)
 {
-    // https://github.com/owncloud/client/issues/9203
-    QUrlQuery result;
-    for (const auto &item : items) {
-        const QString key = QUrl::toPercentEncoding(item.first);
-        const QString value = QUrl::toPercentEncoding(item.second);
-        result.addQueryItem(key, value);
+    // application/x-www-form-urlencoded: every byte of the UTF-8 text that
+    // is not unreserved is percent-encoded, '+' and '%' included, so the
+    // receiver's form decoder gives back exactly the text sent. QUrlQuery
+    // cannot do this: it never encodes '+' (which a form decoder reads as a
+    // space) and takes a valid "%41" in its input as already encoded.
+    QByteArray body;
+    for (const auto &[key, value] : fields) {
+        if (!body.isEmpty()) {
+            body += '&';
+        }
+        body += QUrl::toPercentEncoding(key) + '=' + QUrl::toPercentEncoding(value);
     }
-    return result;
+    return body;
 }
 
 QColor Util::recommendedForegroundTextColor(const QColor &backgroundColor)

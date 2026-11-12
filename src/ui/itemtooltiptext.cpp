@@ -114,6 +114,7 @@ std::vector<QString> GenerateMods(const Item &item)
     const auto explicitMods = getTextMods(item, "explicitMods", "#88f");
     const auto craftedMods = getTextMods(item, "craftedMods", "#b4b4ff");
     const auto mutatedMods = getTextMods(item, "mutatedMods", "#cd2285");
+    const auto vestigialMods = getTextMods(item, "vestigialMods", "#88f");
 
     // There are no spacers between fractured, implicit, and crafted mods.
     // Mutuated mods on foulborn uniques go at the bottom of this section as well.
@@ -131,13 +132,17 @@ std::vector<QString> GenerateMods(const Item &item)
         main_section.push_back(mutatedMods);
     }
 
-    // There are spacers between enchants, implicits, and the main section.
+    // There are spacers between enchants, implicits, vestigial mods (shown
+    // apart because they are not counted, #266) and the main section.
     std::vector<QString> sections;
     if (!enchantMods.isEmpty()) {
         sections.push_back(enchantMods);
     }
     if (!implicitMods.isEmpty()) {
         sections.push_back(implicitMods);
+    }
+    if (!vestigialMods.isEmpty()) {
+        sections.push_back(vestigialMods);
     }
     if (!main_section.isEmpty()) {
         sections.push_back(main_section.join("<br>"));
