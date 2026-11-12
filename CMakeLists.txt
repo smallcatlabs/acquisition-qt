@@ -247,8 +247,7 @@ if(NOT TARGET QCoro6::Core)
     # QCoro v0.13.0 is a hard floor, pinned exactly (network-redesign spec,
     # "Dependency: QCoro"): the semantics the shutdown contract leans on are
     # spike-verified at 0.13 exactly, and the FetchContent include-path fix
-    # landed in that release. spikes/qcoro/CMakeLists.txt is the verified
-    # integration reference for the flags below.
+    # landed in that release.
     #
     # FetchContent hygiene (spike-verified S1-10): QCoro's examples default ON
     # and its tests follow BUILD_TESTING, which this project enables globally.
@@ -311,6 +310,7 @@ set(ACQ_CORE
     src/currency.h
     src/currencymanager.cpp
     src/currencymanager.h
+    src/fetchsourcekey.h
     src/imagecache.cpp
     src/imagecache.h
     src/influence.cpp
@@ -332,15 +332,18 @@ set(ACQ_CORE
     src/itemsmanagerworker.h
     src/itemsfromwire.cpp
     src/itemsfromwire.h
+    src/locationinventory.h
     src/modlist.cpp
     src/modlist.h
     src/pseudomods.cpp
     src/pseudomods.h
+    src/refreshoutcome.h
     src/replytimeout.h
     src/search.cpp
     src/search.h
     src/shop.cpp
     src/shop.h
+    src/sourcekeyeditems.h
 )
 
 set(ACQ_FILTERS
@@ -509,6 +512,7 @@ set(ACQ_UTIL
     src/util/oauthmanager.h
     src/util/oauthtoken.cpp
     src/util/oauthtoken.h
+    src/util/programstate.h
     src/util/spdlog_qt.h
     src/util/updatechecker.cpp
     src/util/updatechecker.h
@@ -614,7 +618,6 @@ add_custom_target(project_files SOURCES
     docs/adr/0002-defer-qml-migration.md
     docs/cleanup/findings.md
     docs/design/items-pipeline.md
-    docs/design/network-ggg-email-draft.md
     docs/design/network-ground-truth.md
     docs/design/network-redesign.md
     docs/design/network-redesign-phase5-verification.md
@@ -871,5 +874,3 @@ endif()
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
-
-target_link_libraries(qdarkstyle PRIVATE Qt6::Core)
