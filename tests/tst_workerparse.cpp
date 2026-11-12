@@ -23,6 +23,7 @@ class WorkerParseTest : public QObject
 private slots:
     void parsesCachedStashItems();
     void specialChildItemsKeyedByChildFetchId();
+    void characterAlongsideSpecialChildLoads();
 };
 
 static poe::Item makePoeItem(const char *id)
@@ -162,6 +163,80 @@ void WorkerParseTest::specialChildItemsKeyedByChildFetchId()
     QCOMPARE(result.items[0]->id(), QString("child-item"));
     QCOMPARE(result.items[0]->location().id(), parent.id);
     QCOMPARE(result.items[0]->location().fetch_id(), child.id);
+}
+
+// #294: a character cached alongside a special stash's child loads as its own
+// tab with its own items; the child row is not a tab and its items stay
+// under the parent.
+void WorkerParseTest::characterAlongsideSpecialChildLoads()
+{
+    BuyoutManagerFixture fixture;
+    const QString account = "worker-parse-account-3";
+    const QString realm = "pc";
+    const QString league = "Worker Parse League";
+    const QString dataDir = fixture.tempDir.filePath("data");
+
+    poe::StashTab parent;
+    parent.id = "parent0001";
+    parent.name = "Uniques";
+    parent.type = "UniqueStash";
+    parent.index = 0;
+
+    poe::StashTab child;
+    child.id = "child00001";
+    child.name = "Rings";
+    child.type = "UniqueStash";
+    child.parent = parent.id;
+    child.items = std::vector<poe::Item>{makePoeItem("child-item")};
+
+    poe::Character character;
+    character.id = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    character.name = "ParseTester";
+    character.realm = realm;
+    character.class_ = "Witch";
+    character.league = league;
+    character.level = 90;
+    character.experience = 0;
+    character.inventory = std::vector<poe::Item>{makePoeItem("character-item")};
+
+    {
+        UserStore store(QDir(dataDir), account);
+        QVERIFY(store.stashes().saveStashList({parent, child}, realm, league));
+        QVERIFY(saveStashFixture(store.stashes(), child, realm, league));
+        QVERIFY(store.characters().saveCharacterList({character}));
+        QVERIFY(saveCharacterFixture(store.characters(), character));
+    }
+
+    QSettings settings(fixture.tempDir.filePath("settings.ini"), QSettings::IniFormat);
+    NetworkManager network;
+    RateLimiter rateLimiter(network);
+    PoeApiClient api(rateLimiter);
+    ItemsManagerWorker worker(settings,
+                              makeTestIdentity(account, realm, league),
+                              QDir(dataDir),
+                              *fixture.manager,
+                              api);
+
+    const ParseResult result = worker.ParseCachedItems(dataDir);
+
+    QCOMPARE(result.tabs.size(), 2);
+    QCOMPARE(result.tabs[0].id(), parent.id);
+    QCOMPARE(result.tabs[1].id(), character.id);
+    QCOMPARE(result.tabs[1].type(), ItemLocationType::CHARACTER);
+    QCOMPARE(result.tabs[1].character(), character.name);
+    QVERIFY(result.tab_id_index.contains(parent.id));
+    QVERIFY(result.tab_id_index.contains(character.id));
+    QVERIFY(!result.tab_id_index.contains(child.id));
+
+    QCOMPARE(result.items.size(), 2);
+    QCOMPARE(result.items[0]->id(), QString("child-item"));
+    QCOMPARE(result.items[0]->location().id(), parent.id);
+    QCOMPARE(result.items[0]->location().fetch_id(), child.id);
+    QCOMPARE(result.items[1]->id(), QString("character-item"));
+    QCOMPARE(result.items[1]->location().type(), ItemLocationType::CHARACTER);
+    QCOMPARE(result.items[1]->location().id(), character.id);
+    QCOMPARE(result.items[1]->location().fetch_id(), character.id);
+    QCOMPARE(result.items[1]->location().character(), character.name);
 }
 
 QTEST_GUILESS_MAIN(WorkerParseTest)
