@@ -60,7 +60,13 @@ void Application::InitCoreServices()
 
     // Connect signals from the login dialog.
     connect(&login(), &LoginDialog::ChangeTheme, this, &Application::SetTheme);
-    connect(&login(), &LoginDialog::ChangeUserDir, this, &Application::SetUserDir);
+    // Queued: SetUserDir destroys the login dialog, whose button is still
+    // emitting when this signal fires.
+    connect(&login(),
+            &LoginDialog::ChangeUserDir,
+            this,
+            &Application::SetUserDir,
+            Qt::QueuedConnection);
     connect(&login(), &LoginDialog::LoginComplete, this, &Application::OnLogin);
 
     if (settings().value("realm").toString().isEmpty()) {

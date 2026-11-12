@@ -3,10 +3,16 @@
 
 #include <QtTest>
 
+#include <QApplication>
+#include <QFileDialog>
+#include <QPushButton>
 #include <QSettings>
+#include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
+#include <QTimer>
 
+#include <functional>
 #include <memory>
 
 #include "datastore/sqlitedatastore.h"
@@ -33,6 +39,8 @@ private slots:
     void backupSkippedWithoutDataDirRecordsVersion();
     void backupSkippedForEmptyDataDirRecordsVersion();
     void backupTakenOnNewVersion();
+    void cancellingDataDirPickerChangesNothing();
+    void choosingDataDirEmitsIt();
 };
 
 void ShellTest::initTestCase()
@@ -218,6 +226,62 @@ void ShellTest::backupTakenOnNewVersion()
     QCOMPARE(QDir(backup).entryList(QDir::AllEntries | QDir::NoDotAndDotDot),
              QStringList{"userstore-TestAccount.db"});
     QCOMPARE(settings.value("version").toString(), QString("1.2.3"));
+}
+
+namespace {
+
+    // Press the login dialog's data-directory button and answer the file
+    // dialog it opens with `answer` once that dialog is showing.
+    bool pressUserDirButton(LoginDialog &dialog, const std::function<void(QFileDialog &)> &answer)
+    {
+        auto *button = dialog.findChild<QPushButton *>("userDirButton");
+        if (!button) {
+            return false;
+        }
+        bool answered = false;
+        QTimer poll;
+        poll.setInterval(10);
+        QObject::connect(&poll, &QTimer::timeout, [&] {
+            if (auto *picker = qobject_cast<QFileDialog *>(QApplication::activeModalWidget())) {
+                poll.stop();
+                answered = true;
+                answer(*picker);
+            }
+        });
+        poll.start();
+        emit button->pressed();
+        return answered;
+    }
+
+} // namespace
+
+void ShellTest::cancellingDataDirPickerChangesNothing()
+{
+    LoginDialogServices services;
+    QVERIFY(services.dir.isValid());
+    auto dialog = services.makeDialog();
+    QSignalSpy changed(dialog.get(), &LoginDialog::ChangeUserDir);
+
+    QVERIFY(pressUserDirButton(*dialog, [](QFileDialog &picker) { picker.reject(); }));
+    QCOMPARE(changed.count(), 0);
+}
+
+void ShellTest::choosingDataDirEmitsIt()
+{
+    LoginDialogServices services;
+    QVERIFY(services.dir.isValid());
+    QTemporaryDir other;
+    QVERIFY(other.isValid());
+    auto dialog = services.makeDialog();
+    QSignalSpy changed(dialog.get(), &LoginDialog::ChangeUserDir);
+
+    QVERIFY(pressUserDirButton(*dialog, [&](QFileDialog &picker) {
+        picker.setDirectory(other.path());
+        static_cast<QDialog &>(picker).accept(); // QFileDialog::accept is protected
+    }));
+    QCOMPARE(changed.count(), 1);
+    QCOMPARE(QFileInfo(changed.at(0).at(0).toString()).canonicalFilePath(),
+             QFileInfo(other.path()).canonicalFilePath());
 }
 
 QTEST_MAIN(ShellTest)

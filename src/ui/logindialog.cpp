@@ -460,6 +460,10 @@ void LoginDialog::OnUserDirButtonPushed()
     const QString new_dir = QFileDialog::getExistingDirectory(this,
                                                               "Select the user directory",
                                                               parent_dir);
+    // An empty result means the picker was cancelled.
+    if (new_dir.isEmpty()) {
+        return;
+    }
     if (new_dir != current_dir) {
         ui->userDirButton->setText(new_dir);
         emit ChangeUserDir(new_dir);
