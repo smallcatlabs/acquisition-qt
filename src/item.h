@@ -109,7 +109,12 @@ public:
     int h() const { return m_h; }
     int frameType() const { return m_frameType; }
     const QString &icon() const { return m_icon; }
+    // Property values as the game displays them ("8.00%", "35-120"), for
+    // columns and other display; Quality and Level are stored stripped.
     const std::map<QString, QString> &properties() const { return m_properties; }
+    // The properties whose value is a single number, parsed: a leading "+"
+    // and a trailing "%" are dropped. Ranges and other non-numbers are absent.
+    const std::map<QString, double> &numeric_properties() const { return m_numeric_properties; }
     const std::vector<ItemProperty> &text_properties() const { return m_text_properties; }
     const std::vector<ItemRequirement> &text_requirements() const { return m_text_requirements; }
     const std::map<QString, ItemMods> &text_mods() const { return m_text_mods; }
@@ -175,6 +180,7 @@ private:
     QString m_frameTypeId;
     QString m_icon;
     std::map<QString, QString> m_properties;
+    std::map<QString, double> m_numeric_properties;
     QString m_old_hash;
     QString m_hash;
     // vector of pairs [damage, type]

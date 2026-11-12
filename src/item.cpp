@@ -467,10 +467,27 @@ void Item::LoadProperties(const std::vector<poe::ItemProperty> &properties)
                     strval.chop(6);
                 }
             } else if (name == "Stack Size") {
+                // "123/5000": the count is the part before the slash.
                 const auto n = strval.indexOf("/");
-                m_count = strval.first(n).toInt();
+                m_count = (n >= 0 ? strval.first(n) : strval).toInt();
             }
             m_properties[name] = strval;
+
+            // The filters need numbers, but values arrive in display form:
+            // "8.00%", "+20%". Keep the display string above and store the
+            // number separately when the value is a single number.
+            QString numeric = strval.trimmed();
+            if (numeric.startsWith("+")) {
+                numeric.removeFirst();
+            }
+            if (numeric.endsWith("%")) {
+                numeric.chop(1);
+            }
+            bool ok = false;
+            const double number = numeric.toDouble(&ok);
+            if (ok) {
+                m_numeric_properties[name] = number;
+            }
         }
 
         ItemProperty property;

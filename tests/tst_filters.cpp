@@ -17,6 +17,7 @@ private slots:
     void nameFilter();
     void categoryFilter();
     void minMaxFilter();
+    void percentPropertyFilters();
     void defaultAndRequiredFilters();
     void socketColorFilters();
     void booleanFilter();
@@ -235,6 +236,39 @@ void FiltersTest::minMaxFilter()
 
     state.min.reset();
     QVERIFY(MatchesFilter(*withoutCrit, *crit, state));
+}
+
+// #229: Crit and Block arrive as "8.00%" and "23%". The filters read the
+// number, not the display string.
+void FiltersTest::percentPropertyFilters()
+{
+    BuyoutManagerFixture buyoutFixture;
+    const FilterCatalog catalog = BuildFilterCatalog(*buyoutFixture.manager);
+    const auto item = makeFilterItem("percent",
+                                     R"json(,
+        "properties": [
+            {"displayMode": 0, "name": "Critical Strike Chance", "values": [["8.00%", 1]]},
+            {"displayMode": 0, "name": "Chance to Block", "values": [["23%", 0]]}
+        ])json");
+
+    const auto *crit = findMinMaxFilterSpec(catalog, "Crit.");
+    QVERIFY(crit);
+    MinMaxState state;
+    state.min = 7.5;
+    QVERIFY(MatchesFilter(*item, *crit, state));
+    state.min = 8.5;
+    QVERIFY(!MatchesFilter(*item, *crit, state));
+    state.min.reset();
+    state.max = 5.0;
+    QVERIFY(!MatchesFilter(*item, *crit, state));
+
+    const auto *block = findMinMaxFilterSpec(catalog, "Block");
+    QVERIFY(block);
+    state = MinMaxState{};
+    state.min = 20.0;
+    QVERIFY(MatchesFilter(*item, *block, state));
+    state.min = 24.0;
+    QVERIFY(!MatchesFilter(*item, *block, state));
 }
 
 void FiltersTest::defaultAndRequiredFilters()

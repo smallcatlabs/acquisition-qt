@@ -174,6 +174,10 @@ bool Util::MatchMod(const char *const match, const char *const mod, double *outp
     auto pmod = mod;
     int cnt = 0;
 
+    // Callers read the output even when the match fails: a failed match
+    // reports 0.
+    *output = 0.0;
+
     while (*pmatch && *pmod) {
         if (*pmatch == '#') {
             ++cnt;
@@ -189,8 +193,11 @@ bool Util::MatchMod(const char *const match, const char *const mod, double *outp
             return false;
         }
     }
+    if (*pmatch || *pmod) {
+        return false;
+    }
     *output = result / cnt;
-    return !*pmatch && !*pmod;
+    return true;
 }
 
 QString Util::Capitalise(const QString &str)

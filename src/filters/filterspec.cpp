@@ -66,7 +66,10 @@ FilterCatalog BuildFilterCatalog(const BuyoutManager &buyoutManager)
                 caption,
                 group,
                 [propertyName](const Item &item) {
-                    return item.properties().at(propertyName).toDouble();
+                    // Present but not a number reads as 0, as before.
+                    const auto &numeric = item.numeric_properties();
+                    const auto found = numeric.find(propertyName);
+                    return found == numeric.end() ? 0.0 : found->second;
                 },
                 [propertyName](const Item &item) { return item.properties().count(propertyName); });
         };
@@ -79,9 +82,9 @@ FilterCatalog BuildFilterCatalog(const BuyoutManager &buyoutManager)
             caption,
             group,
             [propertyName, defaultValue](const Item &item) {
-                const auto &properties = item.properties();
-                const auto found = properties.find(propertyName);
-                return found == properties.end() ? defaultValue : found->second.toDouble();
+                const auto &numeric = item.numeric_properties();
+                const auto found = numeric.find(propertyName);
+                return found == numeric.end() ? defaultValue : found->second;
             },
             [](const Item &) { return true; });
     };
