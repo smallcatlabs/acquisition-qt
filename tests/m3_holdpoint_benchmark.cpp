@@ -916,11 +916,12 @@ int main(int argc, char *argv[])
         cleanSnapshotRow("S6 clean final snapshot, By-Item (median of 5)");
     }
 
-    std::printf("\n=== M3 hold-point result (S3-S7 rows): preset %s, %d tabs, %zu items, Qt %s ===\n",
-                qPrintable(preset_name),
-                dataset.tabCount(),
-                all_items.size(),
-                qVersion());
+    std::printf(
+        "\n=== M3 hold-point result (S3-S7 rows): preset %s, %d tabs, %zu items, Qt %s ===\n",
+        qPrintable(preset_name),
+        dataset.tabCount(),
+        all_items.size(),
+        qVersion());
     const bool rows_missed = printRows(rows);
     const bool failed = rows_missed || memory_missed;
     std::printf("  S7 gate: %s\n", failed ? "FAIL" : "PASS");

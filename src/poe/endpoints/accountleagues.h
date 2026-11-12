@@ -11,8 +11,9 @@ namespace poe {
 
     // https://www.pathofexile.com/developer/docs/reference#accountleagues
 
-    struct AccountLeagues {
+    struct AccountLeagues
+    {
         std::vector<poe::League> leagues;
     };
 
-}
+} // namespace poe

@@ -11,8 +11,9 @@ namespace libpoe {
 
     // https://www.pathofexile.com/developer/docs/reference#stashes-get
 
-    struct AccountStashes {
+    struct AccountStashes
+    {
         std::optional<poe::StashTab> stash;
     };
 
-}
+} // namespace libpoe

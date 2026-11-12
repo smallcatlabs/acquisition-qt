@@ -20,11 +20,11 @@
 
 #include "fetchsourcekey.h"
 #include "item.h"
-#include "refreshoutcome.h"
-#include "sourcekeyeditems.h"
 #include "poe/types/character.h"
 #include "poe/types/stashtab.h"
 #include "ratelimit/fetcherror.h"
+#include "refreshoutcome.h"
+#include "sourcekeyeditems.h"
 #include "util/programstate.h"
 #include "util/util.h"
 

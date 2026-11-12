@@ -3421,8 +3421,7 @@ void WorkerUpdateTest::terminalEventExactlyOncePerUpdate()
     const auto &failed = f.terminals[1];
     QVERIFY(std::holds_alternative<FailedRefresh>(failed.outcome));
     // The FIRST terminal error is preserved, kind intact.
-    QCOMPARE(std::get<FailedRefresh>(failed.outcome).error.kind,
-             RateLimit::FetchError::Kind::Http);
+    QCOMPARE(std::get<FailedRefresh>(failed.outcome).error.kind, RateLimit::FetchError::Kind::Http);
 
     QCOMPARE(f.settleStragglers(), size_t(1));
     QCOMPARE(f.terminals.size(), size_t(2)); // stragglers add nothing

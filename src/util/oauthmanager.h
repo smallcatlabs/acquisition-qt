@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include <QObject>
 #include <QAbstractOAuth>
+#include <QObject>
 #include <QString>
 #include <QTimer>
 #include <QUrl>
@@ -23,7 +23,7 @@ class OAuthManager : public QObject
     Q_OBJECT
 
 public:
-    explicit OAuthManager(NetworkManager& manager, DataStore &datastore, QObject *parent = nullptr);
+    explicit OAuthManager(NetworkManager &manager, DataStore &datastore, QObject *parent = nullptr);
     void initLogin();
 
 private slots:
@@ -39,8 +39,8 @@ private:
     NetworkManager &m_network_manager;
     DataStore &m_data;
 
-    QOAuth2AuthorizationCodeFlow* m_oauth;
-    QOAuthHttpServerReplyHandler* m_handler;
+    QOAuth2AuthorizationCodeFlow *m_oauth;
+    QOAuthHttpServerReplyHandler *m_handler;
 
     OAuthToken m_token;
 };

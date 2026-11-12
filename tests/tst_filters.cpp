@@ -498,11 +498,7 @@ void FiltersTest::booleanPredicates()
     };
     const std::vector<BooleanCase> cases{
         {"Alt. art",
-         makeFilterItem("alt-art",
-                        "",
-                        2,
-                        "Rare",
-                        "https://web.poecdn.com/image/RedBeak2.png")},
+         makeFilterItem("alt-art", "", 2, "Rare", "https://web.poecdn.com/image/RedBeak2.png")},
         {"Priced", makeFilterItem("priced", "")},
         {"Unidentified",
          makeFilterItem("unidentified",
@@ -554,8 +550,8 @@ void FiltersTest::booleanPredicates()
             }
             const bool matched = MatchesFilter(*other.item, *spec, BoolState{true});
             QVERIFY2(!matched,
-                     qPrintable(QString("%1 matched the %2 item")
-                                    .arg(current.caption, other.caption)));
+                     qPrintable(
+                         QString("%1 matched the %2 item").arg(current.caption, other.caption)));
         }
     }
 

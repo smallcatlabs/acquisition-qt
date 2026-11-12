@@ -32,8 +32,7 @@ namespace json::raw {
 
 namespace {
 
-    enum class BufferSensitivity
-    {
+    enum class BufferSensitivity {
         ordinary,
         credentials,
     };

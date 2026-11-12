@@ -20,8 +20,10 @@
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "version_defines.h"
 
-constexpr const char* GITHUB_RELEASES_URL = "https://api.github.com/repos/smallcatlabs/acquisition-qt/releases";
-constexpr const char* GITHUB_DOWNLOADS_URL = "https://github.com/smallcatlabs/acquisition-qt/releases";
+constexpr const char *GITHUB_RELEASES_URL
+    = "https://api.github.com/repos/smallcatlabs/acquisition-qt/releases";
+constexpr const char *GITHUB_DOWNLOADS_URL
+    = "https://github.com/smallcatlabs/acquisition-qt/releases";
 
 // This are just the fields used by acquisition. See https://docs.github.com/en/rest/releases/releases
 struct GitHubReleaseTag
@@ -33,17 +35,19 @@ struct GitHubReleaseTag
 // Check for updates every 24 hours.
 constexpr int UPDATE_INTERVAL = 24 * 60 * 60 * 1000;
 
-UpdateChecker::UpdateChecker(
-    QSettings& settings,
-    NetworkManager& network_manager)
+UpdateChecker::UpdateChecker(QSettings &settings, NetworkManager &network_manager)
     : m_settings(settings)
     , m_nm(network_manager)
     , m_running_version(semver::version::parse(APP_VERSION_STRING))
 {
     const QString skip_release = m_settings.value("skip_release").toString();
     const QString skip_prerelease = m_settings.value("skip_prerelease").toString();
-    m_previous_release = skip_release.isEmpty() ? semver::version() : semver::version::parse(skip_release.toStdString());
-    m_previous_prerelease = skip_prerelease.isEmpty() ? semver::version() : semver::version::parse(skip_prerelease.toStdString());
+    m_previous_release = skip_release.isEmpty()
+                             ? semver::version()
+                             : semver::version::parse(skip_release.toStdString());
+    m_previous_prerelease = skip_prerelease.isEmpty()
+                                ? semver::version()
+                                : semver::version::parse(skip_prerelease.toStdString());
 
     spdlog::debug("UpdateChecker: running version is {}", m_running_version.str());
     spdlog::debug("UpdateChecker: skipped release is {}", m_previous_release.str());
@@ -54,22 +58,27 @@ UpdateChecker::UpdateChecker(
     connect(&m_timer, &QTimer::timeout, this, &UpdateChecker::CheckForUpdates);
 }
 
-void UpdateChecker::CheckForUpdates() {
+void UpdateChecker::CheckForUpdates()
+{
     // Get the releases from GitHub as a json object.
     spdlog::trace("UpdateChecker: requesting GitHub releases: {}", GITHUB_RELEASES_URL);
     QNetworkRequest request = QNetworkRequest(QUrl(GITHUB_RELEASES_URL));
-    QNetworkReply* reply = m_nm.get(request);
+    QNetworkReply *reply = m_nm.get(request);
     connect(reply, &QNetworkReply::errorOccurred, this, &UpdateChecker::OnUpdateErrorOccurred);
     connect(reply, &QNetworkReply::sslErrors, this, &UpdateChecker::OnUpdateSslErrors);
     connect(reply, &QNetworkReply::finished, this, &UpdateChecker::OnUpdateReplyReceived);
 }
 
-void UpdateChecker::OnUpdateErrorOccurred(QNetworkReply::NetworkError code) {
-    QNetworkReply* reply = qobject_cast<QNetworkReply*>(QObject::sender());
-    spdlog::error("Network error {} occurred while checking for an update: {}", code, reply->errorString());
+void UpdateChecker::OnUpdateErrorOccurred(QNetworkReply::NetworkError code)
+{
+    QNetworkReply *reply = qobject_cast<QNetworkReply *>(QObject::sender());
+    spdlog::error("Network error {} occurred while checking for an update: {}",
+                  code,
+                  reply->errorString());
 }
 
-void UpdateChecker::OnUpdateSslErrors(const QList<QSslError>& errors) {
+void UpdateChecker::OnUpdateSslErrors(const QList<QSslError> &errors)
+{
     const int n = errors.size();
     spdlog::error("{} SSL error(s) checking for an update:", n);
     for (int i = 0; i < n; ++i) {
@@ -77,12 +86,13 @@ void UpdateChecker::OnUpdateSslErrors(const QList<QSslError>& errors) {
     }
 }
 
-void UpdateChecker::OnUpdateReplyReceived() {
+void UpdateChecker::OnUpdateReplyReceived()
+{
     // Process the releases received from GitHub.
     spdlog::trace("UpdateChecker: received an update reply from GitHub.");
 
     // Check for network errors.
-    QNetworkReply* reply = qobject_cast<QNetworkReply*>(QObject::sender());
+    QNetworkReply *reply = qobject_cast<QNetworkReply *>(QObject::sender());
     // The reply is ours to release on every path; it stays readable until
     // control returns to the event loop.
     reply->deleteLater();
@@ -98,7 +108,7 @@ void UpdateChecker::OnUpdateReplyReceived() {
     m_latest_release = semver::version();
     m_latest_prerelease = semver::version();
 
-    for (const auto& release : releases) {
+    for (const auto &release : releases) {
         if (release.prerelease) {
             if ((release.version > m_latest_prerelease)) {
                 m_latest_prerelease = release.version;
@@ -128,7 +138,7 @@ void UpdateChecker::OnUpdateReplyReceived() {
     }
 }
 
-std::vector<UpdateChecker::ReleaseTag> UpdateChecker::ParseReleaseTags(const QByteArray& bytes)
+std::vector<UpdateChecker::ReleaseTag> UpdateChecker::ParseReleaseTags(const QByteArray &bytes)
 {
     std::vector<GitHubReleaseTag> github_releases;
 
@@ -177,16 +187,19 @@ std::vector<UpdateChecker::ReleaseTag> UpdateChecker::ParseReleaseTags(const QBy
     return releases;
 }
 
-bool UpdateChecker::has_newer_release() const {
+bool UpdateChecker::has_newer_release() const
+{
     return (m_latest_release > m_previous_release) && (m_running_version < m_latest_release);
 }
 
-bool UpdateChecker::has_newer_prerelease() const {
-    return (m_latest_prerelease > m_previous_prerelease) && (m_running_version < m_latest_prerelease);
+bool UpdateChecker::has_newer_prerelease() const
+{
+    return (m_latest_prerelease > m_previous_prerelease)
+           && (m_running_version < m_latest_prerelease);
 }
 
-void UpdateChecker::AskUserToUpdate() {
-
+void UpdateChecker::AskUserToUpdate()
+{
     if (!has_newer_release() && !has_newer_prerelease()) {
         spdlog::warn("UpdateChecker: no newer versions available");
         //return;
@@ -208,7 +221,10 @@ void UpdateChecker::AskUserToUpdate() {
         }
     }
     if (lines.isEmpty()) {
-        QMessageBox::information(nullptr, "Acquisition Update Checker", "No updates appear to be available", QMessageBox::StandardButton::Ok);
+        QMessageBox::information(nullptr,
+                                 "Acquisition Update Checker",
+                                 "No updates appear to be available",
+                                 QMessageBox::StandardButton::Ok);
         return;
     }
     const QString message = lines.join("\n");
@@ -219,7 +235,8 @@ void UpdateChecker::AskUserToUpdate() {
     msgbox.setText(message);
     auto accept_button = msgbox.addButton("  Go to Github  ", QMessageBox::AcceptRole);
     auto remind_button = msgbox.addButton("  Ignore  ", QMessageBox::RejectRole);
-    auto ignore_button = msgbox.addButton("  Ignore, and don't ask again  ", QMessageBox::RejectRole);
+    auto ignore_button = msgbox.addButton("  Ignore, and don't ask again  ",
+                                          QMessageBox::RejectRole);
     msgbox.setDefaultButton(ignore_button);
 
     // Resize the buttons so the text fits.

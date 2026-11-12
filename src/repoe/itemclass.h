@@ -17,4 +17,4 @@ namespace repoe {
         QString name;
         std::optional<std::vector<QString>> influence_tags;
     };
-}
+} // namespace repoe

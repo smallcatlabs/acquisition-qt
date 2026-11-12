@@ -13,7 +13,8 @@
 
 namespace poe {
 
-    struct WebCharacter {
+    struct WebCharacter
+    {
         QString name;
         QString realm;
         QString class_;
@@ -22,15 +23,17 @@ namespace poe {
         bool pinnable;
     };
 
-    struct WebCharacterList {
+    struct WebCharacterList
+    {
         std::vector<poe::WebCharacter> characters;
     };
 
-    struct WebCharacterStash {
+    struct WebCharacterStash
+    {
         std::vector<poe::Item> items;
     };
 
-}
+} // namespace poe
 
 template<>
 struct glz::meta<poe::WebCharacter>

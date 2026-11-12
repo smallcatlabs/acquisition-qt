@@ -11,8 +11,9 @@ namespace poe {
 
     // https://www.pathofexile.com/developer/docs/reference#characters-list
 
-    struct AccountCharacters {
+    struct AccountCharacters
+    {
         std::vector<poe::Character> characters;
     };
 
-}
+} // namespace poe

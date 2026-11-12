@@ -33,4 +33,3 @@ QByteArray json::writeStash(const poe::StashTab &stash)
 {
     return write_json(stash);
 }
-
