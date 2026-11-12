@@ -228,6 +228,7 @@ private slots:
     // #250/#257: the store reports whether it opened and migrated.
     void healthyStoreIsUsable();
     void newerSchemaIsNotUsableAndNotMigrated();
+    void newerSchemaReceivesNoPriceWrites();
 };
 
 void UserStoreMigrationTest::migratesVersion1ToCurrent()
@@ -415,7 +416,7 @@ void UserStoreMigrationTest::buyoutRowsSurviveTheRepairStep()
     UserStore store(QDir(dir.path()), kAccount);
     QCOMPARE(readUserVersion(dir), 3);
 
-    const auto buyouts = store.buyouts().getItemBuyouts();
+    const auto buyouts = store.buyouts().loadItemBuyouts().value();
     QCOMPARE(buyouts.size(), size_t(1));
     QVERIFY(buyouts.contains("item-a"));
     QCOMPARE(buyouts.at("item-a").value, 5.0);
@@ -466,6 +467,49 @@ void UserStoreMigrationTest::newerSchemaIsNotUsableAndNotMigrated()
     QVERIFY(!hasColumn(dir, "stashes", "json_version"));
     QCOMPARE(rowCount(dir, "stashes"), 1);
     QCOMPARE(rowCount(dir, "characters"), 1);
+}
+
+// #257: prices edited while the store is unusable must not be written
+// into a database a newer build owns. The seed has buyout tables, so a
+// write that was attempted would succeed and leave a row behind.
+void UserStoreMigrationTest::newerSchemaReceivesNoPriceWrites()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    {
+        UserStore fresh(QDir(dir.path()), kAccount);
+        QVERIFY(fresh.isUsable());
+    }
+    const QString connection = "newer-seed-" + QUuid::createUuid().toString(QUuid::WithoutBraces);
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connection);
+        db.setDatabaseName(dbPath(dir));
+        QVERIFY(db.open());
+        QSqlQuery q(db);
+        // SCHEMA_VERSION + 1, as in newerSchemaIsNotUsableAndNotMigrated.
+        QVERIFY(q.exec("PRAGMA user_version=4"));
+        db.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+
+    {
+        UserStore store(QDir(dir.path()), kAccount);
+        QVERIFY(!store.isUsable());
+        SqliteDataStore data(dir.filePath("league-data"));
+        BuyoutManager manager(data, store.buyouts());
+        QVERIFY(!manager.BuyoutsLoaded());
+
+        const Item item = makeTestItem("item-257");
+        manager.Set(item, makeChaosBuyout(9.0));
+        manager.SetTab(item.location(), makeChaosBuyout(4.0));
+
+        QVERIFY(manager.Get(item).IsNull());
+        QVERIFY(manager.GetTab(item.location()).IsNull());
+    }
+
+    QCOMPARE(readUserVersion(dir), 4);
+    QCOMPARE(rowCount(dir, "item_buyouts"), 0);
+    QCOMPARE(rowCount(dir, "location_buyouts"), 0);
 }
 
 QTEST_MAIN(UserStoreMigrationTest)
