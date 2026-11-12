@@ -152,6 +152,8 @@ public:
     const ModTable &mod_table() const { return m_mod_table; }
     int ilvl() const { return m_ilvl; }
     bool operator<(const Item &other) const;
+    // Whether Path of Building imports this item: decided by its item class
+    // (see IsPathOfBuildingItemClass).
     bool Wearable() const;
     QString POBformat() const;
 
