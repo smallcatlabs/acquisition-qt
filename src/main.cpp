@@ -150,12 +150,7 @@ int main(int argc, char *argv[])
     // main() returns.
     const auto dataDirLock = LockDataDirectory(appDataDir);
     if (!dataDirLock) {
-        QMessageBox::critical(nullptr,
-                              "Acquisition",
-                              QString("Acquisition is already running with this data "
-                                      "directory:\n\n%1\n\nUse that window, or start "
-                                      "with --data-dir to use another directory.")
-                                  .arg(QDir::toNativeSeparators(appDataDir.absolutePath())));
+        QMessageBox::critical(nullptr, "Acquisition", DataDirLockRefusal(appDataDir));
         return EXIT_FAILURE;
     }
 

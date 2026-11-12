@@ -85,6 +85,8 @@ private slots:
     void imageCacheKeysOnRequestedUrl();
     void dataDirLockRefusesSecondHolder();
     void dataDirLockTakesOverStaleLock();
+    void dataDirLockRefusesForeignHostLock();
+    void dataDirLockRefusalNamesHolderAndFile();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -945,6 +947,73 @@ void ShellTest::dataDirLockTakesOverStaleLock()
     auto lock = LockDataDirectory(data_dir);
     QVERIFY(lock);
     QVERIFY(lock->isLocked());
+}
+
+// Writes acquisition.lock as a lock taken on another computer would be:
+// a real lock file's content with the host name line replaced.
+static bool writeForeignHostLock(const QDir &data_dir)
+{
+    QLockFile probe(data_dir.filePath("probe.lock"));
+    if (!probe.lock()) {
+        return false;
+    }
+    QFile file(data_dir.filePath("probe.lock"));
+    if (!file.open(QIODevice::ReadOnly)) {
+        return false;
+    }
+    QList<QByteArray> lines = file.readAll().split('\n');
+    if (lines.size() < 3) {
+        return false;
+    }
+    lines[2] = "another-computer.example";
+    QFile foreign(data_dir.filePath("acquisition.lock"));
+    return foreign.open(QIODevice::WriteOnly) && (foreign.write(lines.join('\n')) > 0);
+}
+
+void ShellTest::dataDirLockRefusesForeignHostLock()
+{
+    // A lock taken on another computer (a shared or synced data directory)
+    // cannot be judged stale from here, so it is refused, not taken over.
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir data_dir(dir.path());
+    QVERIFY(writeForeignHostLock(data_dir));
+    QVERIFY(LockDataDirectory(data_dir) == nullptr);
+
+    const QString message = DataDirLockRefusal(data_dir);
+    QVERIFY2(message.contains("another-computer.example"), qPrintable(message));
+    QVERIFY2(message.contains(QDir::toNativeSeparators(data_dir.filePath("acquisition.lock"))),
+             qPrintable(message));
+}
+
+void ShellTest::dataDirLockRefusalNamesHolderAndFile()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir data_dir(dir.path());
+    const auto held = LockDataDirectory(data_dir);
+    QVERIFY(held && held->isLocked());
+
+    const QString message = DataDirLockRefusal(data_dir);
+    const QString lock_path = QDir::toNativeSeparators(data_dir.filePath("acquisition.lock"));
+    QVERIFY2(message.contains(QDir::toNativeSeparators(data_dir.absolutePath())),
+             qPrintable(message));
+    QVERIFY2(message.contains(lock_path), qPrintable(message));
+    QVERIFY2(message.contains(QString::number(QCoreApplication::applicationPid())),
+             qPrintable(message));
+
+    // An unreadable lock file: the message still names the file.
+    QTemporaryDir other;
+    QVERIFY(other.isValid());
+    {
+        QFile garbage(QDir(other.path()).filePath("acquisition.lock"));
+        QVERIFY(garbage.open(QIODevice::WriteOnly));
+        garbage.write("not a lock file");
+    }
+    const QString unknown = DataDirLockRefusal(QDir(other.path()));
+    QVERIFY2(unknown.contains(
+                 QDir::toNativeSeparators(QDir(other.path()).filePath("acquisition.lock"))),
+             qPrintable(unknown));
 }
 
 QTEST_MAIN(ShellTest)
