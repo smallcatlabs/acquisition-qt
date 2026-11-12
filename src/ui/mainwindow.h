@@ -278,6 +278,7 @@ private:
     QTimer m_delta_resize_debounce;
     QMetaObject::Connection m_current_item_conn;
     QMetaObject::Connection m_selection_conn;
+    QMetaObject::Connection m_model_reset_conn;
     // Set while ReconcileSelectionIntent settles the selection; the price
     // editor is updated once at its end.
     bool m_defer_price_editor{false};

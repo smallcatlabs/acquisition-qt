@@ -323,6 +323,10 @@ void MainWindow::InitializeUi()
     connect(m_tab_bar, &QTabBar::currentChanged, this, &MainWindow::OnTabChange);
     ui->mainLayout->insertWidget(0, m_tab_bar);
 
+    ui->buyoutPanel->setPriceLookup([this](const PriceTarget &target) {
+        return target.isItem() ? m_buyout_manager.Get(*target.item)
+                               : m_buyout_manager.GetTab(target.location);
+    });
     connect(ui->buyoutPanel, &BuyoutPanel::committed, this, &MainWindow::OnBuyoutCommitted);
     connect(ui->buyoutPanel, &BuyoutPanel::notice, this, [this](const QString &text) {
         statusBar()->showMessage(text, PRICE_NOT_SAVED_TIMEOUT_MS);
@@ -810,24 +814,35 @@ PriceTargets MainWindow::SelectedPriceTargets() const
 {
     // The selection, as targets: folders take no buyout and nothing
     // cascades to their members (D11, R7); the By-Item header row has no
-    // location to price.
+    // location to price. The current row goes first when it is among them,
+    // since the editor shows the first target's price.
     PriceTargets targets;
     if (!m_current_search || !ui->treeView->selectionModel()) {
         return targets;
     }
-    const auto &selected_rows = ui->treeView->selectionModel()->selectedRows();
-    for (const auto &index : selected_rows) {
+    const QItemSelectionModel &selection = *ui->treeView->selectionModel();
+    const QModelIndex current = selection.currentIndex().siblingAtColumn(0);
+    for (const auto &index : selection.selectedRows()) {
         const ItemsModel::RowRef ref = m_current_search->model().Locate(index);
+        std::optional<PriceTarget> row;
         if (ref.isItem()) {
             const Bucket &bucket = m_current_search->bucket(ref.bucket_row);
             if (bucket.has_item(ref.item_row)) {
-                targets.item_ids.push_back(bucket.item(ref.item_row)->id());
+                row = PriceTarget::ForItem(bucket.item(ref.item_row));
             }
         } else if (ref.isBucket() && !m_current_search->isFolderBucket(ref.bucket_row)) {
             const ItemLocation location = m_current_search->GetTabLocation(index);
             if (location.IsValid()) {
-                targets.tabs.push_back(location);
+                row = PriceTarget::ForLocation(location);
             }
+        }
+        if (!row) {
+            continue;
+        }
+        if (index == current) {
+            targets.rows.insert(targets.rows.begin(), *row);
+        } else {
+            targets.rows.push_back(*row);
         }
     }
     return targets;
@@ -1523,6 +1538,7 @@ void MainWindow::ModelViewRefresh()
     spdlog::trace("MainWindow::ModelViewRefresh() entered");
     disconnect(m_current_item_conn);
     disconnect(m_selection_conn);
+    disconnect(m_model_reset_conn);
 
     m_buyout_manager.Save();
 
@@ -1567,6 +1583,12 @@ void MainWindow::ModelViewRefresh()
                                &QItemSelectionModel::selectionChanged,
                                this,
                                &MainWindow::OnSelectionChanged);
+    // A model reset (a refilter, a view-mode switch) clears the selection
+    // without a signal; the editor is shown what is selected after it.
+    m_model_reset_conn = connect(&model,
+                                 &QAbstractItemModel::modelReset,
+                                 this,
+                                 &MainWindow::UpdateCurrentBuyout);
 
     ui->viewComboBox->setCurrentIndex(static_cast<int>(m_current_search->GetViewMode()));
 
@@ -1970,23 +1992,9 @@ void MainWindow::OnImageFetched(const QString &url)
 void MainWindow::UpdateCurrentBuyout()
 {
     spdlog::trace("MainWindow::UpdateCurrentBuyout() entered");
-    if (m_defer_price_editor) {
-        return;
-    }
-    if (m_current_item) {
-        ui->buyoutPanel->showPrice(SelectedPriceTargets(), m_buyout_manager.Get(*m_current_item));
-    } else if (m_current_bucket_location
-               && (m_current_bucket_location->IsFolder() || !m_current_bucket_location->IsValid())) {
-        // No buyouts on folders (D11, R7): the widgets are disabled, and a
-        // tab buyout an earlier version stored against the folder id is
-        // not rendered. The By-Item view's single header row has no
-        // location at all and is treated the same way.
-        ResetBuyoutWidgets();
-    } else if (m_current_bucket_location) {
-        ui->buyoutPanel->showPrice(SelectedPriceTargets(),
-                                   m_buyout_manager.GetTab(*m_current_bucket_location));
-    } else {
-        ResetBuyoutWidgets();
+    // The editor is shown the selected rows, and reads their price itself.
+    if (!m_defer_price_editor) {
+        ui->buyoutPanel->showTargets(SelectedPriceTargets());
     }
 }
 
@@ -2001,10 +2009,7 @@ void MainWindow::OnSelectionChanged()
 
 void MainWindow::ResetBuyoutWidgets()
 {
-    if (m_defer_price_editor) {
-        return;
-    }
-    ui->buyoutPanel->showNothing(SelectedPriceTargets());
+    UpdateCurrentBuyout();
 }
 
 void MainWindow::OnItemsRefreshed(bool initial_refresh)
@@ -2132,6 +2137,8 @@ void MainWindow::OnUpdateAvailable()
 
 void MainWindow::OnCopyShopToClipboard()
 {
+    // A price still being typed is part of the shop being copied.
+    ui->buyoutPanel->finishEditing();
     m_shop.CopyToClipboard();
 }
 

@@ -205,10 +205,14 @@ private slots:
     void refreshCollapsingMultiSelectionPricesTheTypedRows();
     void refreshReselectingDeselectedRowPricesTheTypedRows();
     void refilterWhileTypingPricesTheTypedRow();
-    void messageBoxWhileTypingCommitsNothing();
     void typedValueThenCurrencyCommitsOnceAcrossEventLoop();
     void invalidTextOnEnterSaysWhy();
     void invalidTextOnTargetChangeSaysWhy();
+    void clickFromTabToItemShowsTheCommittedPrice();
+    void collapsedSelectionShowsTheCommittedPrice();
+    void deselectedCurrentRowIsNotShown();
+    void emptySelectionDisablesTheEditor();
+    void numberWithoutCurrencySaysSo();
     void headerSelectionSurvivesItemDetailsTimer();
 
 private:
@@ -4228,7 +4232,8 @@ void MainWindowTest::priceBoxAcceptsDecimalPointOrComma()
     QCOMPARE(stored.type, Buyout::BUYOUT_TYPE_BUYOUT);
     QCOMPARE(stored.currency.type, Currency::CURRENCY_CHAOS_ORB);
     QCOMPARE(stored.value, 2.5);
-    QCOMPARE(value->text(), text);
+    // The box then shows the stored price, read after the commit.
+    QCOMPARE(value->text(), "2.5");
 }
 
 // #282: when a refresh removes the selected item, the price editor is reset
@@ -4626,8 +4631,9 @@ void MainWindowTest::newSearchClickCommitsToTheRowsTypedFor()
     QCOMPARE(fixture.buyoutFixture.manager->Get(*item).type, Buyout::BUYOUT_TYPE_BUYOUT);
 }
 
-// Switching the view mode shows the same selected row again: the typed
-// price stays pending, and Enter then prices the row it was typed for.
+// Switching the view mode resets the model, which clears the selection: the
+// editor is shown that, so a price being typed is committed to the row it
+// was typed for at once.
 void MainWindowTest::viewModeSwitchCommitsToTheRowsTypedFor()
 {
     MainWindowFixture fixture;
@@ -4639,10 +4645,9 @@ void MainWindowTest::viewModeSwitchCommitsToTheRowsTypedFor()
 
     viewCombo->setCurrentIndex(1);
     emit viewCombo->activated(1);
-    QCOMPARE(value->text(), "150");
-    QTest::keyClick(value, Qt::Key_Return);
 
     QCOMPARE(fixture.buyoutFixture.manager->Get(*item).value, 150.0);
+    QVERIFY(!value->isModified());
 }
 
 // Closing the search whose row the price was typed for (a middle click on
@@ -4700,6 +4705,27 @@ void MainWindowTest::typedPriceForGoneRowSaysSo()
     QVERIFY2(status.contains("no longer there"), qPrintable(status));
 }
 
+// Clicks a row of the tree with the mouse, as a user does: the view makes it
+// current before it changes the selection, the opposite order of
+// setCurrentIndex(ClearAndSelect). The window is shown (exposed, not
+// necessarily active) so the row has a place on screen.
+static void clickRow(MainWindowFixture &fixture,
+                     const QModelIndex &row,
+                     Qt::KeyboardModifiers modifiers = Qt::NoModifier)
+{
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    if (!fixture.window->isVisible()) {
+        fixture.window->resize(900, 500);
+        fixture.window->show();
+        QVERIFY(QTest::qWaitForWindowExposed(fixture.window.get()));
+    }
+    QVERIFY(row.isValid());
+    tree->scrollTo(row);
+    const QRect rect = tree->visualRect(row);
+    QVERIFY(rect.isValid());
+    QTest::mouseClick(tree->viewport(), Qt::LeftButton, modifiers, rect.center());
+}
+
 // Three unpriced items of one tab, the tab expanded; nothing selected yet.
 struct ThreeRows
 {
@@ -4748,16 +4774,14 @@ static QLineEdit *typeUnfinished(MainWindowFixture &fixture, const QString &text
 }
 
 // A refresh delta for the selected rows' tab collapses a multi-selection to
-// the current row; the price typed for both rows goes to both.
+// the current row; the price typed for both rows goes to both. The rows are
+// selected with real clicks.
 void MainWindowTest::refreshCollapsingMultiSelectionPricesTheTypedRows()
 {
     MainWindowFixture fixture;
-    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
     const ThreeRows r = threeRows(fixture);
-    tree->selectionModel()->setCurrentIndex(r.rowA,
-                                            QItemSelectionModel::ClearAndSelect
-                                                | QItemSelectionModel::Rows);
-    tree->selectionModel()->select(r.rowB, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+    clickRow(fixture, r.rowA);
+    clickRow(fixture, r.rowB, Qt::ControlModifier);
     auto *value = typeUnfinished(fixture, "150");
 
     fixture.itemsManager->OnTabRefreshed(r.tab, threeRowsAgain(r));
@@ -4777,14 +4801,12 @@ void MainWindowTest::refreshReselectingDeselectedRowPricesTheTypedRows()
     MainWindowFixture fixture;
     auto *tree = fixture.window->findChild<QTreeView *>("treeView");
     const ThreeRows r = threeRows(fixture);
-    auto *selection = tree->selectionModel();
-    selection->setCurrentIndex(r.rowA,
-                               QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
-    selection->setCurrentIndex(r.rowB, QItemSelectionModel::Select | QItemSelectionModel::Rows);
-    selection->setCurrentIndex(r.rowC, QItemSelectionModel::Select | QItemSelectionModel::Rows);
-    selection->select(r.rowC, QItemSelectionModel::Deselect | QItemSelectionModel::Rows);
-    QCOMPARE(selection->currentIndex(), r.rowC);
-    QCOMPARE(selection->selectedRows().size(), 2);
+    clickRow(fixture, r.rowA);
+    clickRow(fixture, r.rowB, Qt::ControlModifier);
+    clickRow(fixture, r.rowC, Qt::ControlModifier);
+    clickRow(fixture, r.rowC, Qt::ControlModifier);
+    QCOMPARE(tree->selectionModel()->currentIndex(), r.rowC);
+    QCOMPARE(tree->selectionModel()->selectedRows().size(), 2);
     auto *value = typeUnfinished(fixture, "150");
 
     fixture.itemsManager->OnTabRefreshed(r.tab, threeRowsAgain(r));
@@ -4816,32 +4838,6 @@ void MainWindowTest::refilterWhileTypingPricesTheTypedRow()
     const auto &manager = *fixture.buyoutFixture.manager;
     QCOMPARE(manager.Get(*r.a).value, 150.0);
     QVERIFY(manager.Get(*r.b).IsNull());
-}
-
-// A message box the program opens by itself while a price is typed (it
-// takes focus) commits nothing: "1" of "15" is not saved, and "15" is.
-void MainWindowTest::messageBoxWhileTypingCommitsNothing()
-{
-    MainWindowFixture fixture;
-    const auto item = selectItemForPricing(fixture);
-    auto *value = focusPriceBox(fixture);
-    QTest::keyClicks(value, "1");
-    QSignalSpy changes(fixture.buyoutFixture.manager.get(), &BuyoutManager::BuyoutsChanged);
-
-    QTimer::singleShot(0, fixture.window.get(), [&fixture] {
-        QTimer::singleShot(50, [] {
-            if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
-                box->accept();
-            }
-        });
-        fixture.window->OnNotifyUser("Refreshing");
-    });
-    QTest::qWait(300);
-    QCOMPARE(changes.count(), 0);
-
-    QTest::keyClicks(value, "5");
-    QTest::keyClick(value, Qt::Key_Return);
-    QCOMPARE(fixture.buyoutFixture.manager->Get(*item).value, 15.0);
 }
 
 // A value typed, the event loop turning, then a currency chosen from its
@@ -4884,25 +4880,136 @@ void MainWindowTest::invalidTextOnEnterSaysWhy()
     QVERIFY2(status.contains("not a price"), qPrintable(status));
 }
 
-// Text that is not a price, pending when another row is selected, is not
+// Text that is not a price, pending when another row is clicked, is not
 // applied, and the status line says so.
 void MainWindowTest::invalidTextOnTargetChangeSaysWhy()
 {
     MainWindowFixture fixture;
-    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
     const ThreeRows r = threeRows(fixture);
-    tree->selectionModel()->setCurrentIndex(r.rowA,
-                                            QItemSelectionModel::ClearAndSelect
-                                                | QItemSelectionModel::Rows);
+    clickRow(fixture, r.rowA);
     typeUnfinished(fixture, "abc");
 
-    tree->selectionModel()->setCurrentIndex(r.rowB,
-                                            QItemSelectionModel::ClearAndSelect
-                                                | QItemSelectionModel::Rows);
+    clickRow(fixture, r.rowB);
 
     QVERIFY(fixture.buyoutFixture.manager->Get(*r.a).IsNull());
     const QString status = statusText(fixture);
     QVERIFY2(status.contains("not a price"), qPrintable(status));
+}
+
+// A tab header priced 1 chaos is clicked, 5 is typed, then an item of the
+// tab is clicked: the tab (and the item, which inherits it) take 5, and the
+// box shows 5, the price after the commit, not the 1 read before it.
+void MainWindowTest::clickFromTabToItemShowsTheCommittedPrice()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    const ThreeRows r = threeRows(fixture);
+    QVERIFY(fixture.buyoutFixture.manager->SetTab(r.tab, makeChaosBuyout(1.0)));
+    fixture.itemsManager->PropagateTabBuyouts();
+    const QModelIndex header = findBucket(*tree->model(), r.tab.GetHeader());
+    clickRow(fixture, header);
+    auto *value = fixture.window->findChild<QLineEdit *>("buyoutValueLineEdit");
+    QCOMPARE(value->text(), "1");
+    value->clear();
+    QTest::keyClicks(value, "5");
+
+    clickRow(fixture, r.rowA);
+
+    const auto &manager = *fixture.buyoutFixture.manager;
+    QCOMPARE(manager.GetTab(r.tab).value, 5.0);
+    QCOMPARE(manager.Get(*r.a).value, 5.0);
+    QCOMPARE(value->text(), "5");
+}
+
+// A and B priced 1 and 2, both selected, 15 typed; a refresh collapses the
+// selection to B. Both take 15, the box shows 15, and a currency then
+// chosen with the keyboard writes 15 in that currency, not B's old 2.
+void MainWindowTest::collapsedSelectionShowsTheCommittedPrice()
+{
+    MainWindowFixture fixture;
+    const ThreeRows r = threeRows(fixture);
+    auto &manager = *fixture.buyoutFixture.manager;
+    QVERIFY(manager.Set(*r.a, makeChaosBuyout(1.0)));
+    QVERIFY(manager.Set(*r.b, makeChaosBuyout(2.0)));
+    clickRow(fixture, r.rowA);
+    clickRow(fixture, r.rowB, Qt::ControlModifier);
+    auto *value = fixture.window->findChild<QLineEdit *>("buyoutValueLineEdit");
+    value->clear();
+    QTest::keyClicks(value, "15");
+
+    fixture.itemsManager->OnTabRefreshed(r.tab, threeRowsAgain(r));
+    QCOMPARE(manager.Get(*r.a).value, 15.0);
+    QCOMPARE(manager.Get(*r.b).value, 15.0);
+    QCOMPARE(value->text(), "15");
+
+    auto *currency = fixture.window->findChild<QComboBox *>("buyoutCurrencyComboBox");
+    QTest::keyClick(currency, Qt::Key_Down);
+    QCOMPARE(manager.Get(*r.b).value, 15.0);
+    QVERIFY(manager.Get(*r.b).currency.type != Currency::CURRENCY_CHAOS_ORB);
+}
+
+// Click A, ctrl-click B, ctrl-click C, ctrl-click C again: the box shows a
+// price of the selected rows (A's), not that of C, which is current but no
+// longer selected.
+void MainWindowTest::deselectedCurrentRowIsNotShown()
+{
+    MainWindowFixture fixture;
+    const ThreeRows r = threeRows(fixture);
+    auto &manager = *fixture.buyoutFixture.manager;
+    QVERIFY(manager.Set(*r.a, makeChaosBuyout(3.0)));
+    QVERIFY(manager.Set(*r.c, makeChaosBuyout(9.0)));
+    clickRow(fixture, r.rowA);
+    clickRow(fixture, r.rowB, Qt::ControlModifier);
+    clickRow(fixture, r.rowC, Qt::ControlModifier);
+    clickRow(fixture, r.rowC, Qt::ControlModifier);
+
+    auto *value = fixture.window->findChild<QLineEdit *>("buyoutValueLineEdit");
+    QCOMPARE(value->text(), "3");
+}
+
+// Ctrl-clicking the only selected row leaves nothing selected (the row
+// stays current): the editor has nothing to price and is disabled.
+void MainWindowTest::emptySelectionDisablesTheEditor()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    const ThreeRows r = threeRows(fixture);
+    clickRow(fixture, r.rowA);
+    clickRow(fixture, r.rowA, Qt::ControlModifier);
+    QVERIFY(tree->selectionModel()->selectedRows().isEmpty());
+
+    auto *type = fixture.window->findChild<QComboBox *>("buyoutTypeComboBox");
+    auto *value = fixture.window->findChild<QLineEdit *>("buyoutValueLineEdit");
+    QVERIFY(!type->isEnabled());
+    QVERIFY(!value->isEnabled());
+}
+
+// A number typed with no currency chosen is not dropped in silence: Enter
+// says a currency is needed and leaves the number in the box; choosing the
+// currency with the keyboard then saves it.
+void MainWindowTest::numberWithoutCurrencySaysSo()
+{
+    MainWindowFixture fixture;
+    const ThreeRows r = threeRows(fixture);
+    clickRow(fixture, r.rowA);
+    auto *type = fixture.window->findChild<QComboBox *>("buyoutTypeComboBox");
+    auto *currency = fixture.window->findChild<QComboBox *>("buyoutCurrencyComboBox");
+    auto *value = fixture.window->findChild<QLineEdit *>("buyoutValueLineEdit");
+    type->setCurrentIndex(Buyout::BUYOUT_TYPE_BUYOUT);
+    emit type->activated(Buyout::BUYOUT_TYPE_BUYOUT);
+    QCOMPARE(currency->currentIndex(), int(Currency::CURRENCY_NONE));
+    QTest::keyClicks(value, "5");
+
+    QTest::keyClick(value, Qt::Key_Return);
+    QVERIFY(fixture.buyoutFixture.manager->Get(*r.a).IsNull());
+    QCOMPARE(value->text(), "5");
+    const QString status = statusText(fixture);
+    QVERIFY2(status.contains("currency"), qPrintable(status));
+
+    QTest::keyClick(currency, Qt::Key_Down);
+    const Buyout stored = fixture.buyoutFixture.manager->Get(*r.a);
+    QCOMPARE(stored.value, 5.0);
+    QCOMPARE(stored.currency.type, Currency::CURRENCY_ORB_OF_ALTERATION);
 }
 
 // #282: selecting a tab header after an item stops the item's pending

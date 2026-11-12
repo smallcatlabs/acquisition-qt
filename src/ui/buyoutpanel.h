@@ -5,6 +5,8 @@
 
 #include <QWidget>
 
+#include <functional>
+
 #include "applybuyout.h"
 
 class QComboBox;
@@ -12,9 +14,10 @@ class QLineEdit;
 struct Buyout;
 
 // The price editor under the item list: the buyout type, currency and value
-// controls. The window shows it a price together with the rows that price
-// is for (its targets); the panel emits committed() with those targets, so
-// a price can only reach rows the panel was shown.
+// controls. The window shows it the rows a price is for (its targets); the
+// panel reads the price it displays from those targets itself, and emits
+// committed() with them, so it can only display a price of its targets,
+// read after any commit, and a price can only reach rows it was shown.
 //
 // A value the user types is pending until it is committed, to the targets
 // shown when typing began and to no others. It is committed exactly when:
@@ -27,32 +30,35 @@ class BuyoutPanel : public QWidget
 {
     Q_OBJECT
 public:
+    // Reads a target's stored price.
+    using PriceLookup = std::function<Buyout(const PriceTarget &)>;
+
     explicit BuyoutPanel(QWidget *parent = nullptr);
 
-    // Shows `buyout` for `targets`. The controls are editable unless the
-    // game set the price.
-    void showPrice(const PriceTargets &targets, const Buyout &buyout);
-    // Shows no price and disables the controls: nothing shown can be
-    // priced here. `targets` are still the rows selected.
-    void showNothing(const PriceTargets &targets);
-    // Commits a pending value now.
+    void setPriceLookup(PriceLookup lookup);
+    // Shows `targets`: a pending value for other targets is committed (or,
+    // when it cannot be, dropped with a notice) first; then the first
+    // target's price is read and shown. The controls are editable unless
+    // that price was set in the game. With no targets nothing is editable.
+    void showTargets(const PriceTargets &targets);
+    // Commits a pending value now; one that cannot be committed is dropped
+    // with a notice.
     void finishEditing();
 
 signals:
     void committed(const PriceTargets &targets, const Buyout &buyout);
-    // Something the status line should say: a typed value that is not a
-    // price.
+    // Something the status line should say: why a price was not committed.
     void notice(const QString &text);
 
 private:
-    // Moves to `targets`: a pending value for other targets is committed
-    // first. Returns false when the targets are the same and a value is
-    // pending, which the caller then leaves as it is.
-    bool moveTo(const PriceTargets &targets);
+    // Shows the first target's stored price, read now.
+    void showStoredPrice();
     void redraw(const Buyout &buyout, bool editable);
-    // Emits committed() for what the controls hold, when it is a buyout
-    // worth saving; a value that is not a price is reported instead.
-    void commit();
+    // Emits committed() for what the controls hold and returns true, or
+    // says why it cannot (no number, not a number, no currency) and
+    // returns false. A typed value stops being pending only here, on
+    // success.
+    bool commit();
     // Marks the value box when its text is not a price.
     void showValueValidity();
     void setPricedControlsEnabled(bool enabled);
@@ -61,6 +67,7 @@ private:
     QComboBox *m_currency;
     QLineEdit *m_value;
     PriceTargets m_targets;
+    PriceLookup m_lookup;
     // Set while the panel changes its own controls. Nothing Qt emits
     // meanwhile can reach commit(): every commit path checks it first.
     bool m_updating{false};

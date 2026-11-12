@@ -25,6 +25,8 @@ private slots:
     void noticeNamesTheCause();
     void targetsCompareAsSets();
     void resolvesTargetsThatAreStillThere();
+    void resolvesToTheCopyWhereItWasShown();
+    void noticeStatesEveryReason();
 };
 
 namespace {
@@ -186,19 +188,23 @@ void ApplyBuyoutTest::noticeNamesTheCause()
     QVERIFY(unloaded.contains("cannot be saved in this session"));
 }
 
-// The same rows in another order are the same targets; a tab is compared
-// by its type and id, so a renamed tab is the same target.
+// The same rows in another order are the same targets; an item is
+// compared by id (a refresh's replacement is the same target) and a tab by
+// its type and id, so a renamed tab is the same target.
 void ApplyBuyoutTest::targetsCompareAsSets()
 {
+    const ItemLocation tab = makeTestStashLocation("stash-x", "Before", 0);
+    const auto a = makeItem("a", tab);
+    const auto b = makeItem("b", tab);
     PriceTargets first;
-    first.item_ids = {"a", "b"};
-    first.tabs = {makeTestStashLocation("stash-x", "Before", 0)};
+    first.rows = {PriceTarget::ForItem(a), PriceTarget::ForItem(b), PriceTarget::ForLocation(tab)};
     PriceTargets second;
-    second.item_ids = {"b", "a"};
-    second.tabs = {makeTestStashLocation("stash-x", "After", 0)};
+    second.rows = {PriceTarget::ForLocation(makeTestStashLocation("stash-x", "After", 0)),
+                   PriceTarget::ForItem(makeItem("b", tab)),
+                   PriceTarget::ForItem(a)};
     QVERIFY(first == second);
 
-    second.item_ids = {"a"};
+    second.rows.pop_back();
     QVERIFY(!(first == second));
     QVERIFY(PriceTargets() == PriceTargets());
 }
@@ -211,13 +217,16 @@ void ApplyBuyoutTest::resolvesTargetsThatAreStillThere()
     const ItemLocation tab = makeTestStashLocation("stash-r", "Dump", 0);
     const ItemLocation gone_tab = makeTestStashLocation("stash-gone", "Gone", 1);
     const auto kept = makeItem("item-kept", tab);
-    f.items.OnItemsRefreshed({kept, makeItem("item-gone", tab)}, {tab, gone_tab}, false);
+    const auto gone = makeItem("item-gone", tab);
+    f.items.OnItemsRefreshed({kept, gone}, {tab, gone_tab}, false);
     const auto replacement = makeItem("item-kept", tab);
     f.items.OnItemsRefreshed({replacement}, {tab}, false);
 
     PriceTargets targets;
-    targets.item_ids = {"item-kept", "item-gone"};
-    targets.tabs = {tab, gone_tab};
+    targets.rows = {PriceTarget::ForItem(kept),
+                    PriceTarget::ForItem(gone),
+                    PriceTarget::ForLocation(tab),
+                    PriceTarget::ForLocation(gone_tab)};
     const ResolvedTargets resolved = ResolvePriceTargets(targets,
                                                          f.items.items(),
                                                          f.items.locationInventory());
@@ -227,6 +236,49 @@ void ApplyBuyoutTest::resolvesTargetsThatAreStillThere()
     QCOMPARE(resolved.targets.items.front(), replacement.get());
     QCOMPARE(resolved.targets.tabs.size(), size_t(1));
     QCOMPARE(resolved.targets.tabs.front().id(), tab.id());
+}
+
+// Mid-refresh an id can sit in two tabs. The target resolves to the copy in
+// the tab it was shown in, so the lock check sees that copy's tab: shown in
+// an ordinary tab, it is not refused because another copy sits in a tab
+// priced in the game.
+void ApplyBuyoutTest::resolvesToTheCopyWhereItWasShown()
+{
+    Fixture f;
+    const ItemLocation priced = makeTestStashLocation("stash-priced", "~price 2 chaos", 0);
+    const ItemLocation plain = makeTestStashLocation("stash-plain", "Dump", 1);
+    const auto in_priced = makeItem("item-twice", priced);
+    const auto in_plain = makeItem("item-twice", plain);
+    f.items.OnItemsRefreshed({in_priced, in_plain}, {priced, plain}, false);
+
+    PriceTargets shown_plain;
+    shown_plain.rows = {PriceTarget::ForItem(in_plain)};
+    const ResolvedTargets resolved = ResolvePriceTargets(shown_plain,
+                                                         f.items.items(),
+                                                         f.items.locationInventory());
+    QCOMPARE(resolved.targets.items.size(), size_t(1));
+    QCOMPARE(resolved.targets.items.front(), in_plain.get());
+
+    PriceTargets shown_priced;
+    shown_priced.rows = {PriceTarget::ForItem(in_priced)};
+    QCOMPARE(ResolvePriceTargets(shown_priced, f.items.items(), f.items.locationInventory())
+                 .targets.items.front(),
+             in_priced.get());
+}
+
+// Every reason that applies is stated, with its count, not just the first.
+void ApplyBuyoutTest::noticeStatesEveryReason()
+{
+    ApplyBuyoutResult result;
+    result.applied = 1;
+    result.locked = 2;
+    result.not_saved = 3;
+    result.missing = 4;
+    const QString notice = ApplyBuyoutNotice(result, true);
+    QVERIFY2(notice.contains("saved for 1 row"), qPrintable(notice));
+    QVERIFY2(notice.contains("2 row(s) are priced in the game"), qPrintable(notice));
+    QVERIFY2(notice.contains("not saved for 3 row"), qPrintable(notice));
+    QVERIFY2(notice.contains("4 row(s)"), qPrintable(notice));
 }
 
 QTEST_GUILESS_MAIN(ApplyBuyoutTest)

@@ -4,6 +4,7 @@
 #include "applybuyout.h"
 
 #include <QCoreApplication>
+#include <QStringList>
 
 #include <algorithm>
 #include <unordered_map>
@@ -17,19 +18,17 @@
 
 namespace {
 
-    std::vector<QString> sortedIds(const PriceTargets &targets)
-    {
-        std::vector<QString> ids = targets.item_ids;
-        std::sort(ids.begin(), ids.end());
-        return ids;
-    }
+    // A target's identity: an item's id, or a location's type and id.
+    using TargetKey = std::pair<bool, std::pair<ItemLocationType, QString>>;
 
-    std::vector<LocationInventory::Key> sortedKeys(const PriceTargets &targets)
+    std::vector<TargetKey> sortedKeys(const PriceTargets &targets)
     {
-        std::vector<LocationInventory::Key> keys;
-        keys.reserve(targets.tabs.size());
-        for (const ItemLocation &tab : targets.tabs) {
-            keys.push_back(LocationInventory::KeyFor(tab));
+        std::vector<TargetKey> keys;
+        keys.reserve(targets.rows.size());
+        for (const PriceTarget &row : targets.rows) {
+            keys.push_back(row.isItem()
+                               ? TargetKey{true, {ItemLocationType::STASH, row.item->id()}}
+                               : TargetKey{false, LocationInventory::KeyFor(row.location)});
         }
         std::sort(keys.begin(), keys.end());
         return keys;
@@ -37,44 +36,73 @@ namespace {
 
 } // namespace
 
+PriceTarget PriceTarget::ForItem(std::shared_ptr<const Item> item)
+{
+    const ItemLocation location = item->location();
+    return PriceTarget{.item = std::move(item), .location = location};
+}
+
+PriceTarget PriceTarget::ForLocation(const ItemLocation &location)
+{
+    return PriceTarget{.item = nullptr, .location = location};
+}
+
 bool PriceTargets::operator==(const PriceTargets &other) const
 {
-    return (item_ids.size() == other.item_ids.size()) && (tabs.size() == other.tabs.size())
-           && (sortedIds(*this) == sortedIds(other)) && (sortedKeys(*this) == sortedKeys(other));
+    return (rows.size() == other.rows.size()) && (sortedKeys(*this) == sortedKeys(other));
 }
 
 ResolvedTargets ResolvePriceTargets(const PriceTargets &targets,
                                     const std::vector<std::shared_ptr<Item>> &items,
                                     const LocationInventory &locations)
 {
-    ResolvedTargets resolved;
-    const auto &known = locations.entries();
-    for (const ItemLocation &tab : targets.tabs) {
-        if (known.contains(LocationInventory::KeyFor(tab))) {
-            resolved.targets.tabs.push_back(tab);
-        } else {
-            ++resolved.missing;
+    // One pass over the published items for the ids wanted: the copy at the
+    // location each was shown in, and the first copy anywhere.
+    struct Found
+    {
+        LocationInventory::Key shown;
+        const Item *there{nullptr};
+        const Item *anywhere{nullptr};
+    };
+    std::unordered_map<QString, Found> found;
+    for (const PriceTarget &row : targets.rows) {
+        if (row.isItem()) {
+            found.emplace(row.item->id(),
+                          Found{.shown = LocationInventory::KeyFor(row.location),
+                                .there = nullptr,
+                                .anywhere = nullptr});
         }
     }
-    if (!targets.item_ids.empty()) {
-        // One pass over the published items; the first item with an id
-        // stands for it (buyouts are keyed by id).
-        std::unordered_map<QString, const Item *> found;
-        for (const QString &id : targets.item_ids) {
-            found.emplace(id, nullptr);
-        }
+    if (!found.empty()) {
         for (const auto &item : items) {
             const auto it = found.find(item->id());
-            if ((it != found.end()) && (it->second == nullptr)) {
-                it->second = item.get();
+            if (it == found.end()) {
+                continue;
+            }
+            if (it->second.anywhere == nullptr) {
+                it->second.anywhere = item.get();
+            }
+            if ((it->second.there == nullptr)
+                && (LocationInventory::KeyFor(item->location()) == it->second.shown)) {
+                it->second.there = item.get();
             }
         }
-        for (const QString &id : targets.item_ids) {
-            if (const Item *item = found.at(id)) {
+    }
+
+    ResolvedTargets resolved;
+    const auto &known = locations.entries();
+    for (const PriceTarget &row : targets.rows) {
+        if (row.isItem()) {
+            const Found &f = found.at(row.item->id());
+            if (const Item *item = f.there ? f.there : f.anywhere) {
                 resolved.targets.items.push_back(item);
             } else {
                 ++resolved.missing;
             }
+        } else if (known.contains(LocationInventory::KeyFor(row.location))) {
+            resolved.targets.tabs.push_back(row.location);
+        } else {
+            ++resolved.missing;
         }
     }
     return resolved;
@@ -120,28 +148,34 @@ ApplyBuyoutResult ApplyBuyout(BuyoutManager &buyouts,
 
 QString ApplyBuyoutNotice(const ApplyBuyoutResult &result, bool buyouts_loaded)
 {
-    if ((result.not_saved == 0) && (result.missing > 0)) {
-        return QCoreApplication::translate("ApplyBuyout",
-                                           "Price not applied to %1 row(s): they are no longer "
-                                           "there.")
-            .arg(result.missing);
+    const auto tr = [](const char *text) {
+        return QCoreApplication::translate("ApplyBuyout", text);
+    };
+    QStringList parts;
+    if (result.not_saved > 0) {
+        // Only a rejection by the database is logged per edit (as an
+        // error), so only then does the notice point at the log; a session
+        // whose buyouts did not load refuses every edit and logs that once.
+        parts.append((buyouts_loaded ? tr("Price not saved for %1 row(s). Check the log file "
+                                          "for details.")
+                                     : tr("Price not saved for %1 row(s): prices cannot be "
+                                          "saved in this session."))
+                         .arg(result.not_saved));
     }
-    if (result.not_saved == 0) {
-        // Only part of a multi-selection can be priced in the game: a row
-        // the game priced cannot be edited on its own.
-        return (result.locked == 0)
-                   ? QString()
-                   : QCoreApplication::translate("ApplyBuyout",
-                                                 "Some selected rows are priced in the game and "
-                                                 "were not changed. Change their price in the "
-                                                 "game.");
+    if (result.missing > 0) {
+        parts.append(
+            tr("%1 row(s) the price was typed for are no longer there.").arg(result.missing));
     }
-    // Only a rejection by the database is logged per edit (as an error), so
-    // only then does the notice point at the log; a session whose buyouts
-    // did not load refuses every edit and logs that once.
-    return buyouts_loaded
-               ? QCoreApplication::translate("ApplyBuyout",
-                                             "Price not saved. Check the log file for details.")
-               : QCoreApplication::translate(
-                     "ApplyBuyout", "Price not saved: prices cannot be saved in this session.");
+    if (result.locked > 0) {
+        parts.append(tr("%1 row(s) are priced in the game and were not changed; change their "
+                        "price in the game.")
+                         .arg(result.locked));
+    }
+    if (parts.isEmpty()) {
+        return QString();
+    }
+    if (result.applied > 0) {
+        parts.prepend(tr("Price saved for %1 row(s).").arg(result.applied));
+    }
+    return parts.join(' ');
 }

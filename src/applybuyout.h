@@ -16,17 +16,29 @@ class ItemsManager;
 class LocationInventory;
 struct Buyout;
 
+// One row a price editor shows a price for: an item (the copy shown, which
+// also says where it was) or a tab or character (its location).
+struct PriceTarget
+{
+    std::shared_ptr<const Item> item;
+    ItemLocation location;
+
+    static PriceTarget ForItem(std::shared_ptr<const Item> item);
+    static PriceTarget ForLocation(const ItemLocation &location);
+    bool isItem() const { return item != nullptr; }
+};
+
 // The rows a price editor shows a price for, and the only rows a price
-// typed there can be written to: items by id, tabs and characters by
-// location (compared by type and id). Both survive a refresh: an item a
-// refresh replaced with the same id is the same target. Rows that cannot
-// be priced (folders, the By-Item header) are left out by the caller.
+// typed there can be written to. They are compared by identity that
+// survives a refresh: an item by id (a refresh that replaces it with the
+// same id leaves it the same target), a tab or character by type and id.
+// The first row is the one whose price is shown. Rows that cannot be
+// priced (folders, the By-Item header) are left out by the caller.
 struct PriceTargets
 {
-    std::vector<QString> item_ids;
-    std::vector<ItemLocation> tabs;
+    std::vector<PriceTarget> rows;
 
-    bool empty() const { return item_ids.empty() && tabs.empty(); }
+    bool empty() const { return rows.empty(); }
     // The same rows, in any order.
     bool operator==(const PriceTargets &other) const;
 };
@@ -38,8 +50,10 @@ struct BuyoutTargets
     std::vector<const Item *> items;
 };
 
-// Resolves targets against the current items and locations. Targets no
-// longer there are left out and counted in `missing`.
+// Resolves targets against the current items and locations. An item
+// resolves to the copy with its id at the location it was shown in, if
+// there is one, else to any copy with its id. Targets no longer there are
+// left out and counted in `missing`.
 struct ResolvedTargets
 {
     BuyoutTargets targets;
@@ -73,9 +87,8 @@ ApplyBuyoutResult ApplyBuyout(BuyoutManager &buyouts,
                               const BuyoutTargets &targets,
                               const Buyout &buyout);
 
-// What the status line says after an edit: why some targets kept their
-// price, or an empty string when every target took it and any earlier
-// notice should go. A price that was not saved takes precedence, then rows
-// no longer there, then rows priced in the game.
+// What the status line says after an edit: every reason some targets kept
+// their price, with how many, or an empty string when every target took
+// it and any earlier notice should go.
 // `buyouts_loaded` is BuyoutManager::BuyoutsLoaded().
 QString ApplyBuyoutNotice(const ApplyBuyoutResult &result, bool buyouts_loaded);

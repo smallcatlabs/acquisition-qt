@@ -38,22 +38,18 @@ BuyoutPanel::BuyoutPanel(QWidget *parent)
     Util::PopulateBuyoutCurrencyComboBox(m_currency);
 
     // A choice of type or currency commits at once, with the value the box
-    // holds, typed or not.
+    // holds, typed or not; Enter commits a typed value. When the value
+    // cannot be committed the text stays, pending, and the status line says
+    // why.
     const auto choose = [this] {
         if (!m_updating) {
-            m_value->setModified(false);
             commit();
         }
     };
     connect(m_type, &QComboBox::activated, this, choose);
     connect(m_currency, &QComboBox::activated, this, choose);
-    // Enter commits a typed value; text that is not a price stays in the
-    // box, marked, and the status line says why.
     connect(m_value, &QLineEdit::returnPressed, this, [this] {
         if (!m_updating && m_value->isModified()) {
-            if (ParseBuyoutValue(m_value->text())) {
-                m_value->setModified(false);
-            }
             commit();
         }
     });
@@ -63,38 +59,45 @@ BuyoutPanel::BuyoutPanel(QWidget *parent)
     setPricedControlsEnabled(false);
 }
 
-void BuyoutPanel::showPrice(const PriceTargets &targets, const Buyout &buyout)
+void BuyoutPanel::setPriceLookup(PriceLookup lookup)
 {
-    if (moveTo(targets)) {
-        redraw(buyout, !buyout.IsGameSet());
-    }
+    m_lookup = std::move(lookup);
 }
 
-void BuyoutPanel::showNothing(const PriceTargets &targets)
+void BuyoutPanel::showTargets(const PriceTargets &targets)
 {
-    if (moveTo(targets)) {
+    if (targets == m_targets) {
+        if (m_value->isModified()) {
+            return; // the same rows again: a value being typed stays
+        }
+    } else {
+        finishEditing();
+    }
+    m_targets = targets;
+    showStoredPrice();
+}
+
+void BuyoutPanel::showStoredPrice()
+{
+    // Read only now, after any commit: what the panel shows is the stored
+    // price of its first target, never a price read before a commit.
+    if (m_targets.empty() || !m_lookup) {
         redraw(Buyout(), false);
         const QScopedValueRollback updating(m_updating, true);
         m_currency->setCurrentIndex(Currency::CURRENCY_NONE);
+        return;
     }
+    const Buyout shown = m_lookup(m_targets.rows.front());
+    redraw(shown, !shown.IsGameSet());
 }
 
 void BuyoutPanel::finishEditing()
 {
-    if (m_value->isModified()) {
+    if (m_value->isModified() && !commit()) {
+        // The rows it was typed for are going: what cannot be committed is
+        // dropped (commit() said why).
         m_value->setModified(false);
-        commit();
     }
-}
-
-bool BuyoutPanel::moveTo(const PriceTargets &targets)
-{
-    if (targets == m_targets) {
-        return !m_value->isModified();
-    }
-    finishEditing();
-    m_targets = targets;
-    return true;
 }
 
 void BuyoutPanel::redraw(const Buyout &buyout, bool editable)
@@ -111,9 +114,10 @@ void BuyoutPanel::redraw(const Buyout &buyout, bool editable)
     setPricedControlsEnabled(editable && buyout.IsPriced());
 }
 
-void BuyoutPanel::commit()
+bool BuyoutPanel::commit()
 {
-    const std::optional<double> value = ParseBuyoutValue(m_value->text());
+    const QString text = m_value->text();
+    const std::optional<double> value = ParseBuyoutValue(text);
     Buyout bo;
     bo.type = Buyout::IndexAsBuyoutType(m_type->currentIndex());
     bo.currency = Currency::FromIndex(m_currency->currentIndex());
@@ -125,22 +129,32 @@ void BuyoutPanel::commit()
         setPricedControlsEnabled(bo.IsPriced());
     }
 
-    if (!bo.IsValid()) {
-        spdlog::trace("BuyoutPanel: the buyout is invalid");
-        return;
-    }
-    // Empty or unreadable text (a ratio, "1,000", a lone ".") writes
-    // nothing; text the user typed is reported.
-    if (bo.IsPriced() && !value) {
-        spdlog::trace("BuyoutPanel: the value is not a price");
-        if (!m_value->text().isEmpty()) {
+    if (bo.IsPriced()) {
+        if (text.trimmed().isEmpty()) {
+            emit notice(tr("No price typed, so nothing was applied: type a number greater than "
+                           "zero, such as 5 or 2.5."));
+            return false;
+        }
+        if (!value) {
             emit notice(tr("\"%1\" is not a price, and was not applied: type a number greater "
                            "than zero, such as 5 or 2.5.")
-                            .arg(m_value->text()));
+                            .arg(text));
+            return false;
         }
-        return;
+        if (bo.currency == Currency::CURRENCY_NONE) {
+            emit notice(tr("No currency chosen, so the price was not applied: choose a "
+                           "currency."));
+            return false;
+        }
+    }
+    if (!bo.IsValid()) {
+        spdlog::trace("BuyoutPanel: the buyout is invalid");
+        return false;
     }
     emit committed(m_targets, bo);
+    m_value->setModified(false);
+    showStoredPrice();
+    return true;
 }
 
 void BuyoutPanel::showValueValidity()
