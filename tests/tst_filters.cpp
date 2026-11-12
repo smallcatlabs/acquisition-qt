@@ -724,7 +724,7 @@ void FiltersTest::mapTierFromBaseType()
 
     // An unexpected shape yields no tier rather than a wrong one.
     state = MinMaxState{.min = 0.0, .max = std::nullopt};
-    for (const QString &base :
+    for (const QString base :
          {"Map (Tier )", "Map (Tier 16", "Map (Tier x)", "Map (Tier 3) Extra"}) {
         QVERIFY2(!MatchesFilter(*makeFilterItem("odd", "", 0, "Normal", kIcon, base), *tier, state),
                  qPrintable(base));
