@@ -30,7 +30,7 @@ public slots:
     void UpdateVisual(bool show_chaos, bool show_exalt);
 
 public:
-    CurrencyWidget(std::shared_ptr<CurrencyItem> currency, QObject *parent);
+    CurrencyWidget(std::shared_ptr<CurrencyItem> currency, QWidget *parent);
 
     QLabel *name;
     QLabel *count;
@@ -48,6 +48,7 @@ class CurrencyDialog : public QDialog
     Q_OBJECT
 public:
     CurrencyDialog(QSettings &settings, CurrencyManager &manager, QWidget *parent = nullptr);
+    ~CurrencyDialog() override;
     bool ShowChaos() const;
     bool ShowExalt() const;
 
@@ -61,7 +62,7 @@ private:
     QSettings &m_settings;
     CurrencyManager &m_currency_manager;
     std::vector<CurrencyWidget *> m_currencies_widgets;
-    CurrencyLabels *m_headers;
+    std::unique_ptr<CurrencyLabels> m_headers;
     QVBoxLayout *m_layout;
     QLabel *m_total_exalt_value;
     QLabel *m_total_chaos_value;

@@ -33,38 +33,47 @@ struct CurrencyLabels
     QLabel *exalt_total;
     QLabel *chaos_total;
     QLabel *wisdom_total;
-    CurrencyLabels()
+    // Owned by `parent` from the start: a label of a hidden column is never
+    // placed in a layout, which would otherwise be what gives it a parent.
+    explicit CurrencyLabels(QWidget *parent)
     {
-        name = new QLabel("Name");
-        count = new QLabel("Count");
-        chaos_ratio = new QLabel("Amount a chaos Orb can buy");
-        chaos_value = new QLabel("Value in Chaos Orb");
-        exalt_ratio = new QLabel("Amount an Exalted Orb can buy");
-        exalt_value = new QLabel("Value in Exalted Orb");
-        exalt_total = new QLabel("Total Exalted Orbs");
-        chaos_total = new QLabel("Total Chaos Orbs");
-        wisdom_total = new QLabel("Total Scrolls of Wisdom");
+        name = new QLabel("Name", parent);
+        count = new QLabel("Count", parent);
+        chaos_ratio = new QLabel("Amount a chaos Orb can buy", parent);
+        chaos_value = new QLabel("Value in Chaos Orb", parent);
+        exalt_ratio = new QLabel("Amount an Exalted Orb can buy", parent);
+        exalt_value = new QLabel("Value in Exalted Orb", parent);
+        exalt_total = new QLabel("Total Exalted Orbs", parent);
+        chaos_total = new QLabel("Total Chaos Orbs", parent);
+        wisdom_total = new QLabel("Total Scrolls of Wisdom", parent);
     }
 };
 
-CurrencyWidget::CurrencyWidget(std::shared_ptr<CurrencyItem> currency, QObject *parent)
+CurrencyWidget::CurrencyWidget(std::shared_ptr<CurrencyItem> currency, QWidget *parent)
     : QObject(parent)
     , m_currency(std::move(currency))
 {
-    name = new QLabel("");
-    count = new QLabel("");
-    chaos_ratio = new QDoubleSpinBox;
+    // The controls are owned by `parent` from the start, for the same reason
+    // as the header labels: a hidden column's are never placed in a layout.
+    name = new QLabel("", parent);
+    count = new QLabel("", parent);
+    chaos_ratio = new QDoubleSpinBox(parent);
     chaos_ratio->setMaximum(100000);
     chaos_ratio->setValue(m_currency->chaos.value1);
-    chaos_value = new QDoubleSpinBox;
+    chaos_value = new QDoubleSpinBox(parent);
     chaos_value->setMaximum(100000);
     chaos_value->setEnabled(false);
-    exalt_ratio = new QDoubleSpinBox;
+    exalt_ratio = new QDoubleSpinBox(parent);
     exalt_ratio->setMaximum(100000);
     exalt_ratio->setValue(m_currency->exalt.value1);
-    exalt_value = new QDoubleSpinBox;
+    exalt_value = new QDoubleSpinBox(parent);
     exalt_value->setMaximum(100000);
     exalt_value->setEnabled(false);
+    // A typed ratio takes effect, and is saved, when the edit is finished
+    // (Enter or leaving the box), not at each keystroke (#285). An arrow
+    // key or wheel step still takes effect at once.
+    chaos_ratio->setKeyboardTracking(false);
+    exalt_ratio->setKeyboardTracking(false);
     Update();
     connect(chaos_ratio, &QDoubleSpinBox::valueChanged, this, &CurrencyWidget::Update);
     connect(exalt_ratio, &QDoubleSpinBox::valueChanged, this, &CurrencyWidget::Update);
@@ -99,7 +108,7 @@ CurrencyDialog::CurrencyDialog(QSettings &settings, CurrencyManager &manager, QW
     , m_settings(settings)
     , m_currency_manager(manager)
 {
-    m_headers = new CurrencyLabels;
+    m_headers = std::make_unique<CurrencyLabels>(this);
     for (auto &curr : m_currency_manager.currencies()) {
         // The "no currency" entry has no row (#285).
         if (curr->currency == Currency::CURRENCY_NONE) {
@@ -118,24 +127,24 @@ CurrencyDialog::CurrencyDialog(QSettings &settings, CurrencyManager &manager, QW
         }
         m_currencies_widgets.push_back(tmp);
     }
-    m_separator = new QFrame;
+    m_separator = new QFrame(this);
     m_separator->setFrameShape(QFrame::Shape::HLine);
-    m_total_exalt_value = new QLabel("");
-    m_show_exalt = new QCheckBox("show exalt ratio");
+    m_total_exalt_value = new QLabel("", this);
+    m_show_exalt = new QCheckBox("show exalt ratio", this);
     m_show_exalt->setChecked(m_settings.value("show_exalt", false).toBool());
     connect(m_show_exalt, &QCheckBox::checkStateChanged, this, &CurrencyDialog::UpdateVisual);
     connect(m_show_exalt, &QCheckBox::toggled, this, [this](bool checked) {
         m_settings.setValue("show_exalt", checked);
     });
 
-    m_total_chaos_value = new QLabel("");
-    m_show_chaos = new QCheckBox("show chaos ratio");
+    m_total_chaos_value = new QLabel("", this);
+    m_show_chaos = new QCheckBox("show chaos ratio", this);
     m_show_chaos->setChecked(m_settings.value("show_chaos", false).toBool());
     connect(m_show_chaos, &QCheckBox::checkStateChanged, this, &CurrencyDialog::UpdateVisual);
     connect(m_show_chaos, &QCheckBox::toggled, this, [this](bool checked) {
         m_settings.setValue("show_chaos", checked);
     });
-    m_total_wisdom_value = new QLabel("");
+    m_total_wisdom_value = new QLabel("", this);
     m_layout = new QVBoxLayout;
     Update();
     UpdateVisual();
@@ -143,6 +152,8 @@ CurrencyDialog::CurrencyDialog(QSettings &settings, CurrencyManager &manager, QW
     setWindowFlags(Qt::WindowCloseButtonHint);
 #endif
 }
+
+CurrencyDialog::~CurrencyDialog() = default;
 
 bool CurrencyDialog::ShowChaos() const
 {

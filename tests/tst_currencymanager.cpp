@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-FileCopyrightText: 2026 Tom Holz
+
 #include <QDoubleSpinBox>
 #include <QLabel>
 #include <QSettings>
@@ -22,6 +25,8 @@ private slots:
     void historyKeepsTwoUpdatesInOneSecond();
     void dialogOwnsItsRowsAndSkipsNone();
     void failedHistoryInsertKeepsLastValue();
+    void hiddenColumnsAreOwnedByTheDialog();
+    void typedRatioIsSavedWhenFinished();
 };
 
 namespace {
@@ -180,6 +185,57 @@ void CurrencyManagerTest::failedHistoryInsertKeepsLastValue()
     currency.Update();
     QVERIFY(fixture.buyouts.data->Get("currency_last_value") != before);
     QCOMPARE(fixture.buyouts.data->GetAllCurrency().size(), size_t(1));
+}
+
+// Controls of a column hidden when the dialog is built were never placed in
+// its layout, so they had no parent and leaked with their connections.
+void CurrencyManagerTest::hiddenColumnsAreOwnedByTheDialog()
+{
+    CurrencyFixture fixture;
+    CurrencyManager currency(fixture.settings, *fixture.buyouts.data, fixture.items);
+    fixture.settings.setValue("show_chaos", false);
+    fixture.settings.setValue("show_exalt", false);
+    CurrencyDialog dialog(fixture.settings, currency);
+
+    // Four spin boxes a row: the chaos and exalt ratios and values.
+    const qsizetype rows = qsizetype(currency.currencies().size()) - 1;
+    QCOMPARE(dialog.findChildren<QDoubleSpinBox *>().size(), 4 * rows);
+    QStringList labels;
+    for (const QLabel *label : dialog.findChildren<QLabel *>()) {
+        labels.append(label->text());
+    }
+    QVERIFY(labels.contains("Amount a chaos Orb can buy"));
+    QVERIFY(labels.contains("Total Exalted Orbs"));
+}
+
+// A ratio typed into a spin box is saved when the edit is finished, not at
+// each keystroke (typing "150" saved 1, 15 and 150).
+void CurrencyManagerTest::typedRatioIsSavedWhenFinished()
+{
+    CurrencyFixture fixture;
+    CurrencyManager currency(fixture.settings, *fixture.buyouts.data, fixture.items);
+    fixture.settings.setValue("show_chaos", true);
+    CurrencyDialog dialog(fixture.settings, currency);
+
+    QDoubleSpinBox *ratio = nullptr;
+    for (auto *box : dialog.findChildren<QDoubleSpinBox *>()) {
+        if (box->isEnabled()) {
+            ratio = box;
+            break;
+        }
+    }
+    QVERIFY(ratio);
+    ratio->clear();
+    QTest::keyClicks(ratio, "150");
+    QVERIFY(!fixture.buyouts.data->Get("currency_items").contains("150"));
+
+    QTest::keyClick(ratio, Qt::Key_Return);
+    QVERIFY(fixture.buyouts.data->Get("currency_items").contains("150"));
+
+    // An arrow step is a finished edit of its own and is saved at once.
+    QTest::keyClick(ratio, Qt::Key_Up);
+    QCOMPARE(ratio->value(), 151.0);
+    QVERIFY(fixture.buyouts.data->Get("currency_items").contains("151"));
 }
 
 QTEST_MAIN(CurrencyManagerTest)
