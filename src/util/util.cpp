@@ -196,7 +196,8 @@ bool Util::MatchMod(const char *const match, const char *const mod, double *outp
     if (*pmatch || *pmod) {
         return false;
     }
-    *output = result / cnt;
+    // A mod with no number has no value to average (#265).
+    *output = cnt > 0 ? result / cnt : 0.0;
     return true;
 }
 

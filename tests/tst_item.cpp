@@ -22,6 +22,7 @@ private slots:
     void requirementNamesAreCanonical();
     void catalystQualityCountsAsQuality();
     void resonatorAndAbyssSocketsHaveNoColour();
+    void valuelessModStoresZero();
 };
 
 // The fixture shape of tst_filters.cpp's makeFilterItem: a minimal wire item
@@ -242,6 +243,29 @@ void ItemTest::resonatorAndAbyssSocketsHaveNoColour()
     QCOMPARE(armour->sockets().b, 1);
     QCOMPARE(armour->sockets().w, 1);
     QCOMPARE(armour->links_cnt(), 2);
+}
+
+// #265: a mod with no number has no value to average; it stores 0, not the
+// NaN of a division by a zero count, which passed every min/max.
+void ItemTest::valuelessModStoresZero()
+{
+    InitStatTranslations();
+    AddStatTranslations(R"json([
+        {"English":[{"format":["ignore"],"string":"Cannot be Frozen"}]}
+    ])json");
+    InitModList();
+
+    const auto item = makeItem("valueless", R"json(,
+        "explicitMods": [{"description": "Cannot be Frozen"}]
+    )json");
+    const ModTable &table = item->mod_table();
+    QVERIFY(table.contains("Cannot be Frozen"));
+    QVERIFY(!std::isnan(table.at("Cannot be Frozen")));
+    QCOMPARE(table.at("Cannot be Frozen"), 0.0);
+
+    double value = 42.0;
+    QVERIFY(Util::MatchMod("Cannot be Frozen", "Cannot be Frozen", &value));
+    QCOMPARE(value, 0.0);
 }
 
 QTEST_GUILESS_MAIN(ItemTest)

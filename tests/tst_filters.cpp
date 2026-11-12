@@ -25,6 +25,7 @@ private slots:
     void booleanPredicates();
     void rarityFilter();
     void modsFilter();
+    void valuelessModFilter();
 };
 
 static std::shared_ptr<Item> makeFilterItem(
@@ -594,6 +595,32 @@ void FiltersTest::modsFilter()
     QVERIFY(!MatchesFilter(*item, *mods, state));
     state.rows.back().max = 45.0;
     state.rows.push_back(ModRow{"+# to missing stat", std::nullopt, std::nullopt});
+    QVERIFY(!MatchesFilter(*item, *mods, state));
+}
+
+// #265: a mod with no number is present, with value 0; a minimum above 0
+// rejects it instead of passing a NaN.
+void FiltersTest::valuelessModFilter()
+{
+    InitStatTranslations();
+    AddStatTranslations(R"json([
+        {"English":[{"format":["ignore"],"string":"Cannot be Frozen"}]}
+    ])json");
+    InitModList();
+
+    const auto item = makeFilterItem("valueless",
+                                     R"json(,
+        "explicitMods": [{"description": "Cannot be Frozen"}]
+    )json");
+    BuyoutManagerFixture buyoutFixture;
+    const FilterCatalog catalog = BuildFilterCatalog(*buyoutFixture.manager);
+    const auto *mods = findFilterSpec(catalog, "Mods");
+    QVERIFY(mods);
+
+    ModsState state;
+    state.rows.push_back(ModRow{"Cannot be Frozen", std::nullopt, std::nullopt});
+    QVERIFY(MatchesFilter(*item, *mods, state));
+    state.rows.back().min = 1.0;
     QVERIFY(!MatchesFilter(*item, *mods, state));
 }
 
