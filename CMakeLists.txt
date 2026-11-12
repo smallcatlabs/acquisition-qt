@@ -503,6 +503,8 @@ set(ACQ_UTIL
     src/util/crashreporting.h
     src/util/databackup.cpp
     src/util/databackup.h
+    src/util/datadirlock.cpp
+    src/util/datadirlock.h
     src/util/fatalerror.cpp
     src/util/fatalerror.h
     src/util/glaze_qt.h

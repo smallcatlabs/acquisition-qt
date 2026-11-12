@@ -39,7 +39,6 @@ namespace Util {
     enum class TabSelection { All, Checked, Selected, TabsOnly };
     Q_ENUM_NS(TabSelection)
 
-    QByteArray toPathBytes(const QString &path);
     QString Md5(const QString &value);
     double AverageDamage(const QString &s);
     void PopulateBuyoutTypeComboBox(QComboBox *combobox);

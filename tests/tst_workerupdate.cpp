@@ -1,5 +1,7 @@
 #include <QtTest/QtTest>
 
+#include <QDateTime>
+#include <QDir>
 #include <QEventLoop>
 #include <QSettings>
 
@@ -15,8 +17,13 @@
 #include "datastore/stashrepo.h"
 #include "datastore/userstore.h"
 #include "fakeapiclient.h"
+#include "fakenetworkmanager.h"
+#include "fakescheduler.h"
 #include "itemsmanager.h"
 #include "itemsmanagerworker.h"
+#include "poe/poeapiclient.h"
+#include "ratelimit/gate.h"
+#include "ratelimit/ratelimiter.h"
 #include "testfixtures.h"
 #include "util/json_readers.h"
 #include "util/networkmanager.h"
@@ -142,6 +149,17 @@ private slots:
 
     // #260: the cache load and a live refresh build the same items.
     void cacheLoadAndLiveRefreshBuildTheSameItems();
+
+    // #259: a failed update's status line names what went wrong, through the
+    // real facade and hub.
+    void failedUpdateStatusNamesTheError();
+    void timedOutRequestSaysTheServerDidNotAnswer();
+    void rateLimitedSetupDoesNotClaimNoRetryTime();
+
+    // #279: the auto-refresh timer never notifies and never queues.
+    void timerTickDuringUpdateIsDroppedQuietly();
+    void timerTickWhileInitializingKeepsTheUsersQueuedRequest();
+    void timerTickWhenIdleRefreshesCheckedTabs();
 };
 
 namespace {
@@ -538,6 +556,10 @@ namespace {
                                  ++manager_reconcile_reemits;
                              });
         }
+
+        // Route the manager's refresh requests to the worker with the same
+        // function Application uses. Call after attachManager().
+        void connectRefreshRequests() { ConnectRefreshRequests(*manager, *worker); }
 
         QString dataDir() const { return bm.tempDir.filePath("data"); }
 
@@ -3982,6 +4004,272 @@ void WorkerUpdateTest::cacheLoadAndLiveRefreshBuildTheSameItems()
                           "stash-plain",
                           "stash-sword"}));
     QCOMPARE(cached, live);
+}
+
+namespace {
+
+    // The rate-limit headers a HEAD probe needs to establish a single-rule
+    // policy (the shape tst_ratelimiter and tst_workerintegration use).
+    QList<QNetworkReply::RawHeaderPair> failurePolicyHeaders(const QByteArray &state = "0:60:0")
+    {
+        return {
+            {"X-Rate-Limit-Policy", "test-request-limit"},
+            {"X-Rate-Limit-Rules", "Ip"},
+            {"X-Rate-Limit-Ip", "10:60:60"},
+            {"X-Rate-Limit-Ip-State", state},
+            {"Date", QDateTime::currentDateTimeUtc().toString(Qt::RFC2822Date).toUtf8()},
+        };
+    }
+
+    // How the stash-list request of a Selected update fails: on the HEAD
+    // probe that sets up its endpoint, or on the GET itself.
+    struct FailureCase
+    {
+        const char *name;
+        bool fail_head;
+        QList<QNetworkReply::RawHeaderPair> headers;
+        int status;
+        QNetworkReply::NetworkError error;
+        QByteArray body;
+    };
+
+    // Run one Selected update of a seeded stash tab through the real facade
+    // and hub to its failure, and return the Ready status messages it
+    // produced.
+    QStringList readyMessagesForFailure(const FailureCase &failure)
+    {
+        using namespace std::chrono_literals;
+        BuyoutManagerFixture bm;
+        QSettings settings(bm.tempDir.filePath("settings.ini"), QSettings::IniFormat);
+        settings.setValue("realm", kRealm);
+        settings.setValue("league", kLeague);
+        settings.setValue("account", "status-text");
+        settings.sync();
+
+        poe::StashTab stash;
+        stash.id = "stash00001";
+        stash.name = "Status Tab";
+        stash.type = "PremiumStash";
+        stash.index = 0;
+        {
+            UserStore store(QDir(bm.tempDir.filePath("data")), "status-text");
+            if (!store.stashes().saveStashList({stash}, kRealm, kLeague)
+                || !saveStashFixture(store.stashes(), stash, kRealm, kLeague)) {
+                qFatal("readyMessagesForFailure: could not seed the stash tab");
+            }
+        }
+
+        FakeScheduler scheduler;
+        FakeNetworkManager network;
+        RateLimiter limiter(network, &scheduler);
+        PoeApiClient api(limiter);
+        ItemsManagerWorker worker(settings, *bm.manager, api);
+
+        int initial = 0;
+        QStringList ready;
+        QObject::connect(&worker,
+                         &ItemsManagerWorker::ItemsRefreshed,
+                         &worker,
+                         [&](const Items &, const std::vector<ItemLocation> &, bool first) {
+                             initial += first ? 1 : 0;
+                         });
+        QObject::connect(&worker,
+                         &ItemsManagerWorker::StatusUpdate,
+                         &worker,
+                         [&](ProgramState state, const QString &message) {
+                             if (state == ProgramState::Ready) {
+                                 ready.append(message);
+                             }
+                         });
+        worker.OnRePoEReady();
+        if (!QTest::qWaitFor([&] { return initial == 1; }, 10000)) {
+            qFatal("readyMessagesForFailure: the cache load never finished");
+        }
+        ready.clear();
+
+        const auto settle = [&] {
+            for (int i = 0; i < 10; ++i) {
+                QCoreApplication::processEvents();
+                QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+                scheduler.AdvanceBy(0ms);
+            }
+        };
+
+        worker.Update(TabSelection::Selected, {ItemLocation(stash)});
+        settle();
+        if (failure.fail_head) {
+            network.sent(0).reply->finish(failure.headers, failure.status, failure.error);
+        } else {
+            network.sent(0).reply->finish(failurePolicyHeaders(), 200);
+            settle();
+            // Past the pacing deadline and the gate's spacing floor: the GET
+            // is sent.
+            scheduler.AdvanceBy(100ms);
+            settle();
+            scheduler.AdvanceBy(RateLimit::Gate::MIN_SEND_SPACING);
+            settle();
+            if (network.count() != 2) {
+                qFatal("readyMessagesForFailure: the list GET was not sent");
+            }
+            network.sent(1).reply->finish(failure.headers,
+                                          failure.status,
+                                          failure.error,
+                                          failure.body);
+        }
+        settle();
+        return ready;
+    }
+
+} // namespace
+
+void WorkerUpdateTest::failedUpdateStatusNamesTheError()
+{
+    const QList<FailureCase> cases{
+        {"expired login",
+         false,
+         failurePolicyHeaders("1:60:0"),
+         401,
+         QNetworkReply::AuthenticationRequiredError,
+         {}},
+        {"tab gone",
+         false,
+         failurePolicyHeaders("1:60:0"),
+         404,
+         QNetworkReply::ContentNotFoundError,
+         {}},
+        {"no network", false, {}, 0, QNetworkReply::ConnectionRefusedError, {}},
+        {"rate limited",
+         false,
+         failurePolicyHeaders("1:60:0"),
+         429,
+         QNetworkReply::UnknownContentError,
+         {}},
+        {"unreadable list",
+         false,
+         failurePolicyHeaders("1:60:0"),
+         200,
+         QNetworkReply::NoError,
+         "this is not json"},
+        {"unusable setup headers", true, {}, 200, QNetworkReply::NoError, {}},
+    };
+
+    QStringList seen;
+    for (const auto &failure : cases) {
+        const QStringList ready = readyMessagesForFailure(failure);
+        // P-FAILURE: one terminal Ready transition per failed update.
+        QVERIFY2(ready.size() == 1, failure.name);
+        const QString &message = ready.front();
+        QVERIFY2(message.startsWith("Update failed: "), qPrintable(message));
+        // Nothing from the request itself reaches the status line.
+        QVERIFY2(!message.contains("://"), qPrintable(message));
+        QVERIFY2(!message.contains("fake network error"), qPrintable(message));
+        QVERIFY2(!seen.contains(message),
+                 qPrintable(QString("'%1' repeats an earlier case: %2").arg(failure.name, message)));
+        seen.append(message);
+    }
+    // An expired or revoked login points the user at logging in again.
+    QVERIFY2(seen.front().contains("log in again"), qPrintable(seen.front()));
+}
+
+// Every API request carries a transfer timeout; when it runs out Qt aborts
+// the reply with OperationCanceledError. Acquisition never aborts an API
+// reply itself (network-redesign D2), so that code means "no answer in
+// time", not that anyone cancelled.
+void WorkerUpdateTest::timedOutRequestSaysTheServerDidNotAnswer()
+{
+    for (const auto error : {QNetworkReply::OperationCanceledError, QNetworkReply::TimeoutError}) {
+        const QStringList ready = readyMessagesForFailure({"timed out", false, {}, 0, error, {}});
+        QCOMPARE(ready.size(), 1);
+        QCOMPARE(ready.front(), QString("Update failed: the server did not answer in time"));
+    }
+}
+
+// A setup HEAD answered 429 with an acceptable Retry-After but incomplete
+// rate-limit headers fails the update as RateLimited, without the retry
+// details a pump-side 429 carries. The text claims nothing it cannot know.
+void WorkerUpdateTest::rateLimitedSetupDoesNotClaimNoRetryTime()
+{
+    const QStringList ready = readyMessagesForFailure(
+        {"setup 429", true, {{"Retry-After", "120"}}, 429, QNetworkReply::UnknownContentError, {}});
+    QCOMPARE(ready.size(), 1);
+    QCOMPARE(ready.front(), QString("Update failed: rate limited by the server"));
+}
+
+// #279: a timer tick that finds an update running does nothing: no notice
+// (a modal per tick would stack while the user is away), no request, and the
+// running update is left alone.
+void WorkerUpdateTest::timerTickDuringUpdateIsDroppedQuietly()
+{
+    WorkerFixture f("timer-busy");
+    f.start();
+    f.attachManager();
+    f.connectRefreshRequests();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+
+    f.worker->Update(TabSelection::All);
+    f.deliverStashList(stashList({stashJson("stashaaaa1", "Tab A", 0)}));
+    f.deliverCharacterList({});
+    QVERIFY(f.hasPendingStash("stashaaaa1"));
+    const std::stop_token token = f.api.tokenForStash("stashaaaa1");
+    const size_t calls_before = f.callCount();
+    const auto notifies_before = f.notify_messages.size();
+
+    f.manager->OnAutoRefreshTimer();
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    QCOMPARE(f.notify_messages.size(), notifies_before);
+    QCOMPARE(f.callCount(), calls_before);
+    QVERIFY(!token.stop_requested());
+
+    f.deliverStash("stashaaaa1", stashOf(stashJson("stashaaaa1", "Tab A", 0, QStringList{"a1"})));
+    QCOMPARE(f.refresh_count, 2);
+    QCOMPARE(f.terminals.size(), size_t(1));
+}
+
+// #279: while the cache is still loading, a user's refresh is queued; a timer
+// tick in that window is dropped and must not replace it.
+void WorkerUpdateTest::timerTickWhileInitializingKeepsTheUsersQueuedRequest()
+{
+    WorkerFixture f("timer-init");
+    f.start();
+    f.attachManager();
+    f.connectRefreshRequests();
+    // The cache load completes on a later event-loop turn, so the worker is
+    // still initializing here.
+    QCOMPARE(f.refresh_count, 0);
+
+    // The user's request takes the manager's path, as a menu action does.
+    f.manager->Update(TabSelection::All);
+    QCOMPARE(f.notify_messages.size(), 1); // the user is told it is queued
+    f.manager->OnAutoRefreshTimer();
+    QCOMPARE(f.notify_messages.size(), 1);
+
+    // The queued run is the user's "All": both lists are requested.
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    QVERIFY(f.hasPendingStashList());
+    QVERIFY(f.hasPendingCharacterList());
+
+    f.deliverStashList({});
+    f.deliverCharacterList({});
+    QCOMPARE(f.refresh_count, 2);
+    QCOMPARE(f.terminals.size(), size_t(1));
+}
+
+// The timer's own job: an idle worker refreshes the checked tabs.
+void WorkerUpdateTest::timerTickWhenIdleRefreshesCheckedTabs()
+{
+    WorkerFixture f("timer-idle");
+    f.start();
+    f.attachManager();
+    f.connectRefreshRequests();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+
+    // Nothing is checked, so the update needs no list and completes at once.
+    f.manager->OnAutoRefreshTimer();
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    QCOMPARE(f.terminals.size(), size_t(1));
+    QVERIFY(std::holds_alternative<CompletedRefresh>(f.terminals[0].outcome));
+    QVERIFY(f.notify_messages.isEmpty());
 }
 
 QTEST_GUILESS_MAIN(WorkerUpdateTest)

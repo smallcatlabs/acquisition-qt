@@ -4,7 +4,6 @@
 #pragma once
 
 #include <QDialog>
-#include <QDir>
 
 #include "util/oauthtoken.h"
 
@@ -24,15 +23,13 @@ class LoginDialog : public QDialog
 {
     Q_OBJECT
 public:
-    explicit LoginDialog(const QDir &app_data_dir,
-                         QSettings &settings,
+    explicit LoginDialog(QSettings &settings,
                          NetworkManager &network_manager,
                          OAuthManager &oauth_manager,
                          DataStore &data_store);
     ~LoginDialog();
 signals:
     void ChangeTheme(const QString &theme);
-    void ChangeUserDir(const QString &user_dir);
     void LoginComplete();
 private slots:
     void OnLeaguesReceived();
@@ -46,7 +43,6 @@ private slots:
     void OnReportCrashesCheckBoxChanged(Qt::CheckState state);
     void OnLoggingLevelChanged(const QString &level);
     void OnThemeChanged(const QString &theme);
-    void OnUserDirButtonPushed();
     void OnOAuthAccessGranted(const OAuthToken &token);
 
 protected:
@@ -59,7 +55,6 @@ private:
     void LeaguesRequestError(const QString &error, const QByteArray &reply);
     void DisplayError(const QString &error);
 
-    const QDir m_app_data_dir;
     QSettings &m_settings;
     NetworkManager &m_network_manager;
     OAuthManager &m_oauth_manager;

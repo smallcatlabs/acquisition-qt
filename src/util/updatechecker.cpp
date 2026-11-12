@@ -134,7 +134,7 @@ void UpdateChecker::OnUpdateReplyReceived()
 
     // Send a signal if there's a new version from the last check.
     if (has_newer_release() || has_newer_prerelease()) {
-        emit UpdateAvailable();
+        emit UpdateAvailable(true);
     }
 }
 
@@ -194,15 +194,21 @@ bool UpdateChecker::has_newer_release() const
 
 bool UpdateChecker::has_newer_prerelease() const
 {
-    return (m_latest_prerelease > m_previous_prerelease)
+    // A prerelease is offered only when it is newer than the latest release
+    // too: one older than that release (its beta, say) is not worth asking
+    // about, whether or not the release itself was declined.
+    return (m_latest_prerelease > m_previous_prerelease) && (m_latest_prerelease > m_latest_release)
            && (m_running_version < m_latest_prerelease);
 }
 
 void UpdateChecker::AskUserToUpdate()
 {
     if (!has_newer_release() && !has_newer_prerelease()) {
-        spdlog::warn("UpdateChecker: no newer versions available");
-        //return;
+        // Nothing to offer. This is reached when the "no longer available"
+        // signal below is connected back here (the login window's
+        // connection), and must not open a prompt.
+        spdlog::debug("UpdateChecker: no newer versions available");
+        return;
     }
 
     // Setup the update message.
@@ -212,20 +218,11 @@ void UpdateChecker::AskUserToUpdate()
         lines.append("   " + QString::fromStdString(m_latest_release.str()));
     }
     if (has_newer_prerelease()) {
-        if (m_latest_prerelease > m_latest_release) {
-            if (!lines.isEmpty()) {
-                lines.append("");
-            }
-            lines.append("A newer prerelease is available:");
-            lines.append("   " + QString::fromStdString(m_latest_prerelease.str()));
+        if (!lines.isEmpty()) {
+            lines.append("");
         }
-    }
-    if (lines.isEmpty()) {
-        QMessageBox::information(nullptr,
-                                 "Acquisition Update Checker",
-                                 "No updates appear to be available",
-                                 QMessageBox::StandardButton::Ok);
-        return;
+        lines.append("A newer prerelease is available:");
+        lines.append("   " + QString::fromStdString(m_latest_prerelease.str()));
     }
     const QString message = lines.join("\n");
 
@@ -257,6 +254,7 @@ void UpdateChecker::AskUserToUpdate()
         m_previous_prerelease = m_latest_prerelease;
         m_settings.setValue("skip_release", QString::fromStdString(m_latest_release.str()));
         m_settings.setValue("skip_prerelease", QString::fromStdString(m_latest_prerelease.str()));
+        emit UpdateAvailable(false);
     } else {
         m_previous_release = semver::version();
         m_previous_prerelease = semver::version();

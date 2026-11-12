@@ -9,7 +9,7 @@ The **Tabs** menu:
 | Fetch tabs list | Downloads the list of stash tabs and characters only, without their contents |
 | Refresh checked tabs | Downloads the tabs and characters whose check box in the item list is ticked |
 | Refresh all tabs | Downloads everything |
-| Auto refresh checked tabs | Checkable; repeats *Refresh checked tabs* on a timer |
+| Auto refresh checked tabs | Checkable; repeats *Refresh checked tabs* on a timer, silently skipping a turn while a refresh is running or items are still loading |
 | Auto refresh interval... | Sets that timer in minutes, from 1 to 1440 (a day); opens on the current value |
 | Get map stashes / Get unique stashes | Checkable; also download the sub-tabs of Map and Unique stash tabs |
 
@@ -22,12 +22,17 @@ checked tabs** whenever at least one of a folder's tabs is ticked.
 Items already on disk are shown immediately at startup; the refresh replaces
 them tab by tab as downloads finish.
 
+If a refresh fails, the status bar reads *Update failed:* followed by the reason,
+for example a network error, an HTTP status, or rate limiting. The tabs that
+arrived before the failure keep their new contents.
+
 ## Rate limiting
 
 The Path of Exile API limits how fast Acquisition may fetch. Acquisition reads the
 limits the API sends back and paces itself, so a large account simply takes a
 while. The status bar button reads **Rate Limit Status** normally, or
-*Rate limited for N seconds* while waiting. Clicking it opens the
+*Rate limited for N seconds* while a wait of a second or more is under way, and
+returns to **Rate Limit Status** when the wait ends or the refresh is stopped. Clicking it opens the
 **Rate Limit Status Window**, which lists each policy and rule with its current
 hits, limit, period, and timeout. Nothing here needs configuring; it exists so
 you can see why a refresh is paused.
@@ -52,8 +57,9 @@ Acquisition checks the GitHub releases at startup and once a day after that.
 When a newer version exists, an **Update available** button appears in the
 status bar. Clicking it names the new version and offers **Go to Github** (the
 download page), **Ignore**, or **Ignore, and don't ask again**. Pre-releases are
-offered separately from stable releases, and a version you choose not to be
-asked about again is not offered again.
+offered separately from stable releases, and only when newer than the latest
+stable release. A version you choose not to be asked
+about again is not offered again, and the button goes away.
 
 ## Crash reports
 
@@ -69,14 +75,20 @@ next launch. With it turned off, the crash reporter is not started at all.
 See [Getting started](getting-started.md#where-your-data-lives) for the data
 directory. Deleting `data/` forces a full re-download and loses your buyouts;
 deleting `cache/` only loses cached item images; `settings.ini` holds the
-options from the login window and the menus.
+options from the login window and the menus. A leftover `network_cache/` from
+an earlier version is safe to delete. `settings.ini` and `data/` also hold your
+sign-in unencrypted; see
+[Where your data lives](getting-started.md#where-your-data-lives) before
+sharing either.
 
 ## Common problems
 
 | Symptom | Likely cause |
 |---|---|
 | *Error requesting leagues* on the login window | The API is unreachable; check your connection or proxy |
+| *Acquisition is already running with this data directory* | Another Acquisition, on this or another computer, uses that directory: use it, or start with `--data-dir`. If none is running, delete the lock file the message names |
 | Login button stays disabled | You have not authenticated, or no league is selected |
+| *Update failed: Path of Exile rejected the login (HTTP 401)* | The login has expired or was revoked; restart Acquisition and log in again |
 | Refresh seems stuck | Open the Rate Limit Status Window; the API is probably throttling |
 | *No forum threads have been set* | Set a thread under **Shop → Forum shop thread…** |
 | *POESESSID has not been set* / rejected | Enter a fresh cookie under **Shop → Update shop POESESSID** |

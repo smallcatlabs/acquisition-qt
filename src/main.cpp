@@ -4,14 +4,18 @@
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
+#include <QFile>
 #include <QFontDatabase>
 #include <QLocale>
+#include <QMessageBox>
 #include <QScopeGuard>
 #include <QSettings>
+#include <QSslSocket>
 #include <QStandardPaths>
 #include <QTimer>
 
 #include <clocale>
+#include <cstdlib>
 #include <optional>
 #include <string_view>
 
@@ -21,10 +25,9 @@
 #include "shop.h"
 #include "ui/logindialog.h"
 #include "util/crashreporting.h"
-#include "util/fatalerror.h"
+#include "util/datadirlock.h"
 #include "util/logging.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
-#include "util/util.h"
 #include "version_defines.h"
 
 #ifdef Q_OS_WINDOWS
@@ -141,6 +144,16 @@ int main(int argc, char *argv[])
     const auto appDir = QDir(QCoreApplication::applicationDirPath());
     const auto appDataDir = QDir(parser.value(option_data_dir));
 
+    // One instance per data directory: two would refresh with the same stored
+    // token, write the same databases and could both post the shop. Taken
+    // before settings, Sentry and logging touch the directory, and held until
+    // main() returns.
+    const auto dataDirLock = LockDataDirectory(appDataDir);
+    if (!dataDirLock) {
+        QMessageBox::critical(nullptr, "Acquisition", DataDirLockRefusal(appDataDir));
+        return EXIT_FAILURE;
+    }
+
     // The settings are read before anything else starts, because the user's
     // crash-reporting choice decides whether sentry starts at all.
     QSettings settings(appDataDir.filePath("settings.ini"), QSettings::IniFormat);
@@ -153,13 +166,23 @@ int main(int argc, char *argv[])
 
     if (report_crashes) {
         // Configure Sentry event logging.
-        const auto handlerPath = Util::toPathBytes(appDir.filePath(CRASHPAD_HANDLER));
-        const auto sentryPath = Util::toPathBytes(appDataDir.absoluteFilePath("sentry-native-db"));
+        const QString handlerPath = QDir::toNativeSeparators(appDir.filePath(CRASHPAD_HANDLER));
+        const QString sentryPath = QDir::toNativeSeparators(
+            appDataDir.absoluteFilePath("sentry-native-db"));
 
         sentry_options_t *options = sentry_options_new();
         sentry_options_set_dsn(options, SENTRY_DSN);
-        sentry_options_set_handler_path(options, handlerPath.constData());
-        sentry_options_set_database_path(options, sentryPath.constData());
+#ifdef Q_OS_WIN
+        // sentry-native reads a narrow path on Windows as UTF-8, not in the
+        // ANSI code page, so hand it the UTF-16 path through the wide setters.
+        sentry_options_set_handler_pathw(options,
+                                         reinterpret_cast<const wchar_t *>(handlerPath.utf16()));
+        sentry_options_set_database_pathw(options,
+                                          reinterpret_cast<const wchar_t *>(sentryPath.utf16()));
+#else
+        sentry_options_set_handler_path(options, QFile::encodeName(handlerPath).constData());
+        sentry_options_set_database_path(options, QFile::encodeName(sentryPath).constData());
+#endif
         sentry_options_set_release(options, SENTRY_RELEASE);
         sentry_options_set_environment(options, SENTRY_ENVIRONMENT);
         sentry_init(options);
@@ -179,6 +202,15 @@ int main(int argc, char *argv[])
     // Setup logging.
     const QString logPath(appDataDir.filePath("log.txt"));
     logging::init(logPath);
+
+    // Shut down logging when main() exits, including the early exits below.
+    // This guard is declared before the Application object so it runs after
+    // Application's destructor, which joins the item parser thread — that
+    // thread logs, so spdlog must outlive it. (An aboutToQuit hook is too
+    // early: it fires before Application is destroyed, and a still-running
+    // parser thread would then log through a destroyed default logger and
+    // crash.)
+    auto loggingShutdown = qScopeGuard([] { spdlog::shutdown(); });
 
     // Determine the logging level. The command-line argument takes first priority.
     // If no command line argument is present, Acquistion will check for a logging
@@ -208,32 +240,31 @@ int main(int argc, char *argv[])
     // On Windows, it's possible there are incompatible versions of the MSVC runtime
     // DLLs that can cause unexpected crashes, so acquisition does some extra work
     // to try and detect this. It's not foolproof, however.
-    checkMicrosoftRuntime();
+    if (!checkMicrosoftRuntime()) {
+        return EXIT_FAILURE;
+    }
 #endif
 
     // Check SSL.
     spdlog::trace("Checking for SSL support...");
+    // Missing SSL is a problem with the installation, not a crash: say so
+    // and exit, without a crash report.
     if (!QSslSocket::supportsSsl()) {
 #ifdef Q_OS_LINUX
-        FatalError("SSL support is missing. Make sure OpenSSL 3.x shared libaries are on the "
-                   "LD_LIBRARY_PATH.");
+        const QString message = "SSL support is missing. Make sure OpenSSL 3.x shared libraries "
+                                "are on the LD_LIBRARY_PATH.";
 #else
-        FatalError("SSL support is missing.");
+        const QString message = "SSL support is missing.";
 #endif
+        spdlog::critical(message);
+        QMessageBox::critical(nullptr, "Acquisition", message);
+        return EXIT_FAILURE;
     }
     spdlog::trace("SSL Library Build Version: {}", QSslSocket::sslLibraryBuildVersionString());
     spdlog::trace("SSL Library Version: {}", QSslSocket::sslLibraryVersionString());
 
     // Run the main application, starting with the login dialog.
     spdlog::info("Running application...");
-
-    // Shut down logging when main() exits. This guard is declared before the
-    // Application object so it runs after Application's destructor, which joins
-    // the item parser thread — that thread logs, so spdlog must outlive it.
-    // (An aboutToQuit hook is too early: it fires before Application is
-    // destroyed, and a still-running parser thread would then log through a
-    // destroyed default logger and crash.)
-    auto loggingShutdown = qScopeGuard([] { spdlog::shutdown(); });
 
     // Construct an instance of Application.
     Application app(appDataDir);
