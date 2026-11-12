@@ -110,9 +110,13 @@ int main(int argc, char *argv[])
     Q_INIT_RESOURCE(lightstyle);
 
     QLocale::setDefault(QLocale::C);
-    std::setlocale(LC_ALL, "C");
 
     QApplication a(argc, argv);
+
+    // On Unix, constructing the application adopts the system locale for the
+    // C library; number parsing and formatting through it must stay in the C
+    // locale (#132), so this comes after the constructor.
+    std::setlocale(LC_NUMERIC, "C");
 
     // Holds the date and time of the current build based on m___DATE_ and m___TIME_ macros.
     // This needs to be done after creating QApplication, otherwise there can be unexecpted
