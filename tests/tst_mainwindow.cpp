@@ -220,6 +220,7 @@ private slots:
     void numberWithoutCurrencySaysSo();
     void typeChoiceSurvivesARefresh();
     void priceReadersInTheWindow();
+    void byItemViewResortsOnTabPrice();
     void headerSelectionSurvivesItemDetailsTimer();
     void byItemHeaderSelectionWritesNoRefreshState();
     void refreshSelectedWithoutTabsStartsNoUpdate();
@@ -5288,6 +5289,50 @@ void MainWindowTest::priceReadersInTheWindow()
         QCOMPARE(value->text(), QString(row.shown));
         QCOMPARE(type->isEnabled(), row.editable);
     }
+}
+
+// #293 step 2: in the By-Item view, a tab's price reaches the items that
+// show it as one change to the tab; the flat list re-sorts on it, under a
+// Price sort and under a Date sort.
+void MainWindowTest::byItemViewResortsOnTabPrice()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    const ItemLocation tabA = makeTestStashLocation("stash-flat-a", "Flat A", 0);
+    const ItemLocation tabB = makeTestStashLocation("stash-flat-b", "Flat B", 1);
+    const auto alpha = makeMainWindowItem("flat-alpha", "Alpha", "Sword", tabA);
+    const auto bravo = makeMainWindowItem("flat-bravo", "Bravo", "Sword", tabB);
+    const auto charlie = makeMainWindowItem("flat-charlie", "Charlie", "Sword", tabA);
+    fixture.itemsManager->OnItemsRefreshed({alpha, bravo, charlie}, {tabA, tabB}, false);
+    auto &manager = *fixture.buyoutFixture.manager;
+    QVERIFY(manager.Set(*alpha, makeChaosBuyout(5.0)));
+    QVERIFY(manager.Set(*charlie, makeChaosBuyout(9.0)));
+    switchToByItemView(fixture);
+    auto *model = tree->model();
+    const QModelIndex flat = model->index(0, 0);
+
+    // Price ascending: Bravo, unpriced, first.
+    tree->header()->setSortIndicator(1, Qt::AscendingOrder);
+    QCOMPARE(bucketItemNames(*model, flat),
+             QStringList({"Bravo Sword", "Alpha Sword", "Charlie Sword"}));
+    // Bravo's tab is priced at 7: Bravo moves between Alpha (5) and Charlie (9).
+    QVERIFY(manager.SetTab(tabB, makeChaosBuyout(7.0)));
+    QCOMPARE(bucketItemNames(*model, flat),
+             QStringList({"Alpha Sword", "Bravo Sword", "Charlie Sword"}));
+
+    // Date descending: the tab price's date (1000 s) is the latest of the
+    // three (the items' prices are dated 1 s); then the tab price goes and
+    // Bravo, now undated, sorts last.
+    // (A new value: a price equal but for its date is not a change.)
+    QVERIFY(manager.SetTab(tabB,
+                           Buyout(8.0,
+                                  Buyout::BUYOUT_TYPE_BUYOUT,
+                                  Currency::CURRENCY_CHAOS_ORB,
+                                  QDateTime::fromSecsSinceEpoch(1000))));
+    tree->header()->setSortIndicator(2, Qt::DescendingOrder);
+    QCOMPARE(bucketItemNames(*model, flat).front(), QString("Bravo Sword"));
+    QVERIFY(manager.SetTab(tabB, Buyout()));
+    QCOMPARE(bucketItemNames(*model, flat).back(), QString("Bravo Sword"));
 }
 
 // #282: selecting a tab header after an item stops the item's pending

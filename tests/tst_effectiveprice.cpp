@@ -28,6 +28,8 @@ private slots:
     void seededRowsReadAsBefore_data();
     void seededRowsReadAsBefore();
     void emptyPricedTabIsRefreshLocked();
+    void upgradeKeepsTheTabPrice_data();
+    void upgradeKeepsTheTabPrice();
     void tabTargetsAreLockedAsBefore();
 
 private:
@@ -333,6 +335,71 @@ void EffectivePriceTest::seededRowsReadAsBefore()
     QVERIFY(f.buyouts.manager->BuyoutsLoaded());
 
     checkReaders(f, item, tab, e, m_start);
+}
+
+// The upgrade path: a store written before #293 holds, for an item in a tab
+// with a price set in Acquisition, only a copy of that price on the item.
+// The copy is ignored; the item shows the tab's price, with its value,
+// date and provenance, is posted with it, and keeps the tab refresh-locked.
+// Beside it, an item's own row of type "inherit" reveals the tab's price
+// (it is no price of its own), and a game row of type "inherit" hides it
+// (a price the game set, though empty) until a refresh clears that row,
+// as a game price whose note has gone is cleared.
+void EffectivePriceTest::upgradeKeepsTheTabPrice_data()
+{
+    QTest::addColumn<QString>("type");
+    QTest::addColumn<QString>("row_source");
+    QTest::addColumn<bool>("inherited");
+    QTest::addColumn<bool>("hidden_before_refresh");
+    QTest::newRow("inherited copy") << "b/o" << "manual" << true << false;
+    QTest::newRow("own inherit row") << "" << "manual" << false << false;
+    QTest::newRow("game inherit row") << "" << "game" << false << true;
+}
+
+void EffectivePriceTest::upgradeKeepsTheTabPrice()
+{
+    QFETCH(QString, type);
+    QFETCH(QString, row_source);
+    QFETCH(bool, inherited);
+    QFETCH(bool, hidden_before_refresh);
+
+    Fixture f;
+    BuyoutManager &manager = *f.buyouts.manager;
+    const ItemLocation tab = makeTestStashLocation("stash-upgrade", "Dump", 0);
+    const auto item = makeItem(tab, QString());
+    const QDateTime tab_date = QDateTime::fromSecsSinceEpoch(1000);
+    QVERIFY(manager.SetTab(tab,
+                           Buyout(3.0,
+                                  Buyout::BUYOUT_TYPE_BUYOUT,
+                                  Currency::CURRENCY_CHAOS_ORB,
+                                  tab_date)));
+    QSqlQuery q(*f.buyouts.db);
+    QVERIFY(q.prepare("INSERT INTO item_buyouts (item_id, location_id, location_type, currency, "
+                      "inherited, last_update, source, type, value) VALUES (:id, :location, "
+                      "'stash', 'chaos', :inherited, :when, :source, :type, 7)"));
+    q.bindValue(":id", kItemId);
+    q.bindValue(":location", tab.id());
+    q.bindValue(":inherited", inherited ? 1 : 0);
+    q.bindValue(":when", QDateTime::fromSecsSinceEpoch(5));
+    q.bindValue(":source", row_source);
+    q.bindValue(":type", type);
+    QVERIFY2(q.exec(), qPrintable(q.lastError().text()));
+    manager.ReloadBuyouts();
+    QVERIFY(manager.BuyoutsLoaded());
+
+    const auto shows_tab_price = [&] {
+        const EffectivePrice price = manager.Effective(*item);
+        return (price.source == PriceSource::ManualTab) && (price.buyout.value == 3.0)
+               && (price.buyout.last_update == tab_date) && price.buyout.inherited;
+    };
+    QCOMPARE(shows_tab_price(), !hidden_before_refresh);
+
+    f.items.OnItemsRefreshed({item}, {tab}, false);
+    QVERIFY(shows_tab_price());
+    const auto postable = manager.PostablePrices(f.items.items());
+    QCOMPARE(postable.size(), size_t(1));
+    QCOMPARE(postable.front().second.value, 3.0);
+    QVERIFY(manager.GetRefreshLocked(tab));
 }
 
 // A tab whose own price requires a refresh is locked from the tab list even

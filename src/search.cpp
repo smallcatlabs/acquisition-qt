@@ -289,7 +289,9 @@ std::vector<int> Search::InvalidateBuyoutOrder(const BuyoutChangeSet &changes, i
     // empty id) forces the every-bucket path, the same fallback shape as
     // the rule-5 repaint. A changed tab price is a change to the price of
     // every item that shows it (BuyoutManager::Effective falls back to the
-    // tab's), so a changed tab's items are affected too.
+    // tab's), so a changed tab's items are affected too. They are found
+    // through the By-Tab buckets, which are kept in both view modes and
+    // hold the same visible items as the flat bucket.
     bool every_bucket = changes.everything;
     std::set<LocationInventory::Key> affected_tabs;
     std::set<QString> ids = changes.item_ids;
@@ -298,14 +300,6 @@ std::vector<int> Search::InvalidateBuyoutOrder(const BuyoutChangeSet &changes, i
             if (changes.tab_ids.count(bucket.location().id()) > 0) {
                 affected_tabs.insert(LocationInventory::KeyFor(bucket.location()));
                 for (const auto &item : bucket.items()) {
-                    ids.insert(item->id());
-                }
-            }
-        }
-        for (const Bucket &bucket : m_bucket_by_item) {
-            for (const auto &item : bucket.items()) {
-                if (changes.tab_ids.count(item->location().id()) > 0) {
-                    affected_tabs.insert(LocationInventory::KeyFor(item->location()));
                     ids.insert(item->id());
                 }
             }
