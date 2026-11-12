@@ -89,11 +89,20 @@ namespace {
     }
 
     // The website may redirect an unauthenticated request to an error page
-    // whose final response is 200, so the status alone is not enough.
+    // whose final response is 200, so the status alone is not enough. The
+    // phrases count only as the page's own heading (the layoutBoxTitle
+    // <h1>) or the start of its <title>: the edit page carries the user's
+    // post and the thread view everyone's, and either may contain them.
+    // No logged-out page has been captured; this shape is derived from the
+    // headings and titles of the captured pages.
+    const QRegularExpression kSessionRejectedHeading(
+        R"regex(<h1[^>]*\blayoutBoxTitle\b[^>]*>\s*(?:Login Required|Permission Denied|Content Denied)\s*</h1>)regex"
+        R"regex(|<title>\s*(?:Login Required|Permission Denied|Content Denied))regex");
+
     bool IsPoeSessionRejected(const ForumReply &reply)
     {
-        return reply.status == 401 || reply.status == 403 || reply.body.contains("Login Required")
-               || reply.body.contains("Permission Denied") || reply.body.contains("Content Denied");
+        return reply.status == 401 || reply.status == 403
+               || kSessionRejectedHeading.match(QString::fromUtf8(reply.body)).hasMatch();
     }
 
     Shop::Failure Error(const QString &message)
@@ -145,8 +154,8 @@ namespace {
                                            "\">");
         if (form.hash.isEmpty() || form.title.isEmpty()) {
             return Error(QString("The forum's page for thread %1 had no edit form. Check the "
-                                 "thread number, and that the thread was started by the account "
-                                 "the POESESSID belongs to.")
+                                 "thread number, that the thread was started by the account the "
+                                 "POESESSID belongs to, and that the POESESSID is still logged in.")
                              .arg(thread));
         }
         return form;

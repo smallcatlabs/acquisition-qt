@@ -147,6 +147,12 @@ private slots:
     void rateLimitedPostRefetchesTheEditPage();
     void longRateLimitFailsWithTheWait();
     void automaticFailureWarnsOncePerSession();
+
+    // Review of #258: a rejected session is the status or the page's own
+    // heading, never a phrase somewhere in the page's text.
+    void phraseInPostTextIsNotARejectedSession_data();
+    void phraseInPostTextIsNotARejectedSession();
+    void loggedOutHeadingIsARejectedSession();
 };
 
 namespace {
@@ -1778,6 +1784,83 @@ void ShopTest::automaticFailureWarnsOncePerSession()
     QCOMPARE(warnings.count(), 1);
     QCOMPARE(statuses.count(), 2);
     QVERIFY(fixture.shop->auto_update());
+}
+
+void ShopTest::phraseInPostTextIsNotARejectedSession_data()
+{
+    QTest::addColumn<QByteArray>("phrase");
+    QTest::addColumn<bool>("in_post_reply");
+    for (const char *phrase : {"Login Required", "Permission Denied", "Content Denied"}) {
+        QTest::addRow("%s in the edit page's textarea", phrase) << QByteArray(phrase) << false;
+        QTest::addRow("%s in a post on the thread", phrase) << QByteArray(phrase) << true;
+    }
+}
+
+// The edit page carries the user's own post in its textarea, and the page
+// a successful edit returns shows everyone's posts in the thread. Either
+// may contain the phrases a logged-out page uses; that is not a rejected
+// session.
+void ShopTest::phraseInPostTextIsNotARejectedSession()
+{
+    QFETCH(QByteArray, phrase);
+    QFETCH(bool, in_post_reply);
+
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    fixture.shop->SetAutoUpdate(true);
+    QSignalSpy rejected(fixture.shop.get(), &Shop::PoeSessionRejected);
+    QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+
+    QByteArray edit_page = editThreadPage();
+    const QByteArray textarea_end = "</textarea>";
+    QVERIFY(edit_page.contains(textarea_end));
+    if (!in_post_reply) {
+        edit_page.replace(textarea_end, " " + phrase + textarea_end);
+    }
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, edit_page);
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+
+    QByteArray after_edit = afterEditPage();
+    const QByteArray post_body = "<div class=\"content\">";
+    const qsizetype at = after_edit.lastIndexOf(post_body);
+    QVERIFY(at > 0);
+    if (in_post_reply) {
+        after_edit.insert(at + post_body.size(), phrase);
+    }
+    fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, after_edit);
+    drainEvents();
+
+    QCOMPARE(rejected.count(), 0);
+    QVERIFY(fixture.shop->auto_update());
+    QCOMPARE(lastStatus(statuses), QString("Shop threads updated"));
+}
+
+// No logged-out page has been captured. This one is the captured edit
+// page with its heading and title replaced by the phrase, the shape the
+// session check looks for; the heading's shape is derived, not captured.
+void ShopTest::loggedOutHeadingIsARejectedSession()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    fixture.shop->SetAutoUpdate(true);
+    QSignalSpy rejected(fixture.shop.get(), &Shop::PoeSessionRejected);
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+
+    QByteArray page = editThreadPage();
+    const QByteArray heading = "<h1 class=\"topBar last layoutBoxTitle\">Edit Thread</h1>";
+    QVERIFY(page.contains(heading));
+    page.replace(heading, "<h1 class=\"topBar last layoutBoxTitle\">Login Required</h1>");
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, page);
+    drainEvents();
+
+    QCOMPARE(rejected.count(), 1);
+    QVERIFY(!fixture.shop->auto_update());
+    QCOMPARE(fixture.networkManager->count(), 1);
 }
 
 QTEST_MAIN(ShopTest)
