@@ -40,13 +40,13 @@ namespace {
 
     struct ImportTarget
     {
-        QString id;
-        QString location_id;
+        QString id{};
+        QString location_id{};
         ItemLocationType location_type{ItemLocationType::STASH};
-        QString old_name;
-        QString current_name;
-        QString reason;
-        QString item_name;
+        QString old_name{};
+        QString current_name{};
+        QString reason{};
+        QString item_name{};
 
         bool operator==(const ImportTarget &other) const
         {
@@ -57,20 +57,20 @@ namespace {
 
     struct PlanRow
     {
-        QString action;
-        QString reason;
-        QString target_type;
-        LegacyBuyout buyout;
-        QString item_id;
-        QString location_id;
-        QString location_type;
-        QString item_name;
-        QString old_tab_label;
-        QString current_tab_name;
-        QString old_character;
-        QString current_character;
-        QString legacy_hash;
-        std::optional<Buyout> existing;
+        QString action{};
+        QString reason{};
+        QString target_type{};
+        LegacyBuyout buyout{};
+        QString item_id{};
+        QString location_id{};
+        QString location_type{};
+        QString item_name{};
+        QString old_tab_label{};
+        QString current_tab_name{};
+        QString old_character{};
+        QString current_character{};
+        QString legacy_hash{};
+        std::optional<Buyout> existing{};
     };
 
     struct ParsedItemWrite
@@ -410,8 +410,17 @@ LegacyBuyoutPlanReport LegacyBuyoutImporter::createPlan(const QString &source_fi
         return report;
     }
 
-    const auto current_item_buyouts = m_repo.getItemBuyouts();
-    const auto current_location_buyouts = m_repo.getLocationBuyouts();
+    // A failed read is not "no prices yet": the plan would describe every
+    // target as unpriced (#295).
+    const auto loaded_item_buyouts = m_repo.loadItemBuyouts();
+    const auto loaded_location_buyouts = m_repo.loadLocationBuyouts();
+    if (!loaded_item_buyouts || !loaded_location_buyouts) {
+        report.error = "Could not read the current buyouts from the database. Check the log file "
+                       "for details.";
+        return report;
+    }
+    const auto &current_item_buyouts = *loaded_item_buyouts;
+    const auto &current_location_buyouts = *loaded_location_buyouts;
 
     std::unordered_map<QString, QString> current_stash_names;
     for (const poe::StashTab &stash : m_stashes->getStashList(m_realm, m_league)) {
