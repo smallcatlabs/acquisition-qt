@@ -45,50 +45,68 @@ desktop kit, and build the `acquisition` target.
 
 ## Command Line Build
 
+`CMakePresets.json` defines three build trees, each under `build/<preset>`:
+
+| Preset | Build type | Use |
+|---|---|---|
+| `dev` | Debug | day-to-day development |
+| `release` | Release | what the pull-request test job builds |
+| `asan` | RelWithDebInfo + AddressSanitizer | test suite only; see below |
+
+CMake has to be able to find Qt. Either export `CMAKE_PREFIX_PATH` or put it in
+a `CMakeUserPresets.json` (ignored by git):
+
+```sh
+export CMAKE_PREFIX_PATH=<qt-install>/6.12.0/<compiler>   # e.g. ~/Qt/6.12.0/macos
+export CMAKE_GENERATOR=Ninja                              # optional, faster
+```
+
 From the repository root:
 
 ```sh
-cmake -S . -B build
-cmake --build build
+cmake --preset dev
+cmake --build --preset dev
 ```
 
-For a release-style local build:
+Replace `dev` with `release` for an optimized build. The executable is written
+to the build tree. Run it with a temporary data directory while testing:
 
 ```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
+./build/dev/acquisition.app/Contents/MacOS/acquisition --data-dir /tmp/acq-data --log-level debug   # macOS
+./build/dev/acquisition --data-dir /tmp/acq-data --log-level debug                                  # Linux
 ```
 
-The executable is written to the CMake build directory. You can run it with a
-temporary data directory while testing:
-
-```sh
-./build/acquisition.app/Contents/MacOS/acquisition --data-dir /tmp/acq-data --log-level debug
-```
+The presets are a convenience, not a requirement: `cmake -S . -B <dir>` with
+the same cache variables builds the same thing, and the release workflows
+still configure that way.
 
 ## Tests
 
-The checked-in tests use Qt Test and are registered with CTest. After building,
-run them from the repository root:
+The checked-in tests use Qt Test and are registered with CTest. After building:
 
 ```sh
-ctest --test-dir build --output-on-failure
+ctest --preset dev
 ```
 
 GUI-dependent tests are configured by CMake to use Qt's offscreen platform.
+
+`.github/workflows/tests.yml` builds the `release` preset on Linux and runs the
+whole suite on every pull request and every push to `master`. Run the suite
+locally before opening a pull request; a change to behaviour comes with a test
+that fails without it.
 
 ## Sanitizer Builds (test/CI only)
 
 The `ACQ_SANITIZE` CMake option builds the checked-in test suite with a runtime
 sanitizer. It is a test/CI-only knob: it is OFF by default and release packaging
 never sets it, so shipped binaries are never sanitized. Use a throwaway build
-tree so the normal `build/` results stay untouched, and build only test targets:
+tree so the normal results stay untouched; the `asan` preset is that tree
+(`build/asan`). Build only test targets:
 
 ```sh
-cmake -S . -B build-asan -DACQ_SANITIZE=address -DCMAKE_BUILD_TYPE=RelWithDebInfo
-cmake --build build-asan --target tst_workerintegration
-ASAN_OPTIONS=abort_on_error=1 ctest --test-dir build-asan \
-    -R tst_workerintegration --output-on-failure
+cmake --preset asan
+cmake --build --preset asan --target tst_workerintegration
+ASAN_OPTIONS=abort_on_error=1 ctest --preset asan -R tst_workerintegration
 ```
 
 This gives the phase-5 shutdown pins (`I-SHUT-*`, `I-LEAK-BOUND` in
@@ -117,7 +135,7 @@ Static analysis is run by `.github/workflows/codeql.yml` using GitHub CodeQL.
 The workflow performs a manual Linux CMake build so CodeQL sees the same Qt,
 compiler, generated sources, and include paths used by the application build.
 
-The CodeQL and sanitizer workflows run on pushes and pull requests to `master`
+The CodeQL, sanitizer and test workflows run on pushes and pull requests to `master`
 and by `workflow_dispatch`. Each workflow groups runs by pull request or ref and
 cancels an in-progress run when a newer commit supersedes it.
 
