@@ -62,6 +62,7 @@ private slots:
     void backupTakenOnNewVersion();
     void updateButtonOpensUpdatePrompt();
     void skippedReleaseIsNotOfferedAgain();
+    void declinedUpdateBeforeLoginOpensOnePrompt();
     void imageCacheDeletesReplies_data();
     void imageCacheDeletesReplies();
     void updateCheckerDeletesReplies_data();
@@ -366,6 +367,8 @@ void ShellTest::updateButtonOpensUpdatePrompt()
     QVERIFY(prompt.contains("99.0.0"));
     // The click asks the user; it does not start another check.
     QCOMPARE(network.count(), checks);
+    // "Ignore" asks again later, so the button stays.
+    QVERIFY(!button->isHidden());
 }
 
 void ShellTest::skippedReleaseIsNotOfferedAgain()
@@ -385,11 +388,61 @@ void ShellTest::skippedReleaseIsNotOfferedAgain()
     const QString prompt = answerUpdatePrompt(*button, "Ignore, and don't ask again");
     QVERIFY2(!prompt.isNull(), "clicking 'Update available' opened no prompt");
     QCOMPARE(fixture.settings->value("skip_release").toString(), QString("99.0.0"));
+    // #284: nothing newer is left to offer, so the button goes.
+    QVERIFY(button->isHidden());
+
+    QCOMPARE(available.count(), 2);
+    QCOMPARE(available.last().at(0).toBool(), false);
 
     // The periodic check finds the same release: it is not offered again.
     checker.CheckForUpdates();
     answerUpdateCheck(network, NEWER_RELEASES);
-    QCOMPARE(available.count(), 1);
+    QCOMPARE(available.count(), 2);
+    QVERIFY(button->isHidden());
+}
+
+// Before login, Application connects UpdateAvailable straight to the prompt.
+// Declining with "don't ask again" reports that nothing is left to offer,
+// which must not open a second prompt.
+void ShellTest::declinedUpdateBeforeLoginOpensOnePrompt()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
+    FakeNetworkManager network;
+    UpdateChecker checker(settings, network);
+    QObject::connect(&checker,
+                     &UpdateChecker::UpdateAvailable,
+                     &checker,
+                     &UpdateChecker::AskUserToUpdate);
+
+    // Answer every modal that opens: the first with "don't ask again", any
+    // later one by closing it.
+    int prompts = 0;
+    QTimer poll;
+    poll.setInterval(10);
+    QObject::connect(&poll, &QTimer::timeout, [&] {
+        auto *modal = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+        if (!modal) {
+            return;
+        }
+        if (++prompts == 1) {
+            for (auto *option : modal->buttons()) {
+                if (option->text().trimmed() == "Ignore, and don't ask again") {
+                    option->click();
+                    return;
+                }
+            }
+        }
+        modal->reject();
+    });
+    poll.start();
+    checker.CheckForUpdates();
+    answerUpdateCheck(network, NEWER_RELEASES);
+    poll.stop();
+
+    QCOMPARE(prompts, 1);
+    QCOMPARE(settings.value("skip_release").toString(), QString("99.0.0"));
 }
 
 void ShellTest::imageCacheDeletesReplies_data()

@@ -23,7 +23,10 @@ class UpdateChecker : public QObject
 public:
     explicit UpdateChecker(QSettings &settings, NetworkManager &network_manager);
 signals:
-    void UpdateAvailable();
+    // true when a check finds a version the user has not declined; false
+    // once the user declines it with "don't ask again", so nothing is left
+    // to offer.
+    void UpdateAvailable(bool available);
 public slots:
     void CheckForUpdates();
     void AskUserToUpdate();

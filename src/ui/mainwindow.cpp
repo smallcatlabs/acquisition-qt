@@ -2117,9 +2117,9 @@ void MainWindow::UpdateShopMenu()
     ui->actionSetAutomaticallyShopUpdate->setChecked(m_shop.auto_update());
 }
 
-void MainWindow::OnUpdateAvailable()
+void MainWindow::OnUpdateAvailable(bool available)
 {
-    m_update_button.show();
+    m_update_button.setVisible(available);
 }
 
 void MainWindow::OnCopyShopToClipboard()

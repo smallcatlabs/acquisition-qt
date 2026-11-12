@@ -134,7 +134,7 @@ void UpdateChecker::OnUpdateReplyReceived()
 
     // Send a signal if there's a new version from the last check.
     if (has_newer_release() || has_newer_prerelease()) {
-        emit UpdateAvailable();
+        emit UpdateAvailable(true);
     }
 }
 
@@ -201,8 +201,11 @@ bool UpdateChecker::has_newer_prerelease() const
 void UpdateChecker::AskUserToUpdate()
 {
     if (!has_newer_release() && !has_newer_prerelease()) {
-        spdlog::warn("UpdateChecker: no newer versions available");
-        //return;
+        // Nothing to offer. This is reached when the "no longer available"
+        // signal below is connected back here (the login window's
+        // connection), and must not open a prompt.
+        spdlog::debug("UpdateChecker: no newer versions available");
+        return;
     }
 
     // Setup the update message.
@@ -257,6 +260,7 @@ void UpdateChecker::AskUserToUpdate()
         m_previous_prerelease = m_latest_prerelease;
         m_settings.setValue("skip_release", QString::fromStdString(m_latest_release.str()));
         m_settings.setValue("skip_prerelease", QString::fromStdString(m_latest_prerelease.str()));
+        emit UpdateAvailable(false);
     } else {
         m_previous_release = semver::version();
         m_previous_prerelease = semver::version();
