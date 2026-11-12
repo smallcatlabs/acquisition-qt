@@ -229,6 +229,24 @@ MainWindow::MainWindow(QSettings &settings,
 
     LoadSettings();
     NewSearch();
+
+    // A session that starts without its prices says so once (#257). Posted,
+    // so the box opens over the shown window rather than before it.
+    if (!m_buyout_manager.BuyoutsLoaded()) {
+        QTimer::singleShot(0, this, [this] {
+            auto *box = new QMessageBox(QMessageBox::Warning,
+                                        tr("Acquisition"),
+                                        tr("Acquisition could not load your prices."),
+                                        QMessageBox::Ok,
+                                        this);
+            box->setInformativeText(
+                tr("In this session, price changes cannot be saved and the forum shop will not "
+                   "be updated.\n\nThe log file is:\n%1")
+                    .arg(QDir::toNativeSeparators(m_app_data_dir.filePath("log.txt"))));
+            box->setAttribute(Qt::WA_DeleteOnClose);
+            box->open();
+        });
+    }
 }
 
 MainWindow::~MainWindow()
@@ -825,6 +843,7 @@ void MainWindow::OnBuyoutChange()
     // one model update at command end, never one per Set. The propagation
     // pass's own boundary nests inside this one and emits nothing (R3-3).
     const BuyoutBatch batch(m_buyout_manager);
+    bool saved = true;
 
     const auto &selected_rows = ui->treeView->selectionModel()->selectedRows();
     for (const auto &index : selected_rows) {
@@ -844,7 +863,7 @@ void MainWindow::OnBuyoutChange()
             continue;
         }
         if (ref.isBucket()) {
-            m_buyout_manager.SetTab(location, bo);
+            saved = m_buyout_manager.SetTab(location, bo) && saved;
         } else {
             const int bucket_row = ref.bucket_row;
             if (ref.isItem()) {
@@ -859,7 +878,7 @@ void MainWindow::OnBuyoutChange()
                             item.name());
                         continue;
                     }
-                    m_buyout_manager.Set(item, bo);
+                    saved = m_buyout_manager.Set(item, bo) && saved;
                 } else {
                     spdlog::error("OnBuyoutChange(): bucket {} does not have {} items",
                                   bucket_row,
@@ -872,6 +891,11 @@ void MainWindow::OnBuyoutChange()
     }
     m_items_manager.PropagateTabBuyouts();
     ScheduleResizeTreeColumns();
+    if (!saved) {
+        // Refused (the prices did not load, #257) or rejected by the
+        // database: the old price stays, so the edit must not look applied.
+        m_status_bar_label->setText(tr("Price not saved. Check the log file for details."));
+    }
 }
 
 void MainWindow::OnBuyoutsChanged(const BuyoutChangeSet &changes)

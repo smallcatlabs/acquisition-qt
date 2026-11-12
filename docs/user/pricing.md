@@ -25,6 +25,16 @@ until the box holds a number. A comma followed by exactly three digits, such as
 `1,000`, is not saved either, because it could mean one thousand or one; type
 `1000` or `1.0` instead.
 
+### When prices cannot be loaded
+
+If Acquisition cannot read its price database when you log in (for example,
+a newer version of Acquisition last wrote it, or the file cannot be opened), a
+warning says so and gives the location of the log file. For the rest of that
+session your prices are read-only: an edit is not saved, and the status line
+says *Price not saved*. Refreshes leave the stored prices alone, the legacy
+import refuses to start, and the [forum shop](forum-shop.md) is not updated.
+Check the log, fix the cause, and restart.
+
 ### Buyout types
 
 | Type | Forum tag | Meaning |
@@ -71,6 +81,9 @@ items under the **Buyouts** menu bring them forward:
   workbook.
 - **Import buyout plan…** — apply a saved (and optionally edited) plan. Each row
   has an *action* of `import` or `skip`.
+
+If the current prices cannot be read, planning stops with an error rather than
+treating every target as unpriced.
 
 Run a full refresh of stashes and characters first so the matcher has current
 data. Existing manual buyouts are never overwritten by the importer.

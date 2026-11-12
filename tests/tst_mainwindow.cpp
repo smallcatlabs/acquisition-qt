@@ -16,6 +16,7 @@
 #include <QScrollBar>
 #include <QSqlQuery>
 #include <QStandardPaths>
+#include <QStatusBar>
 #include <QTabBar>
 #include <QTimer>
 #include <QTreeView>
@@ -43,6 +44,8 @@ private slots:
     void legacyImportPropagationRefreshesPricingState();
     // #257: nothing writes buyouts while they are not loaded.
     void legacyImportRefusedWhenBuyoutsNotLoaded();
+    void startupWarnsWhenBuyoutsNotLoaded();
+    void refusedPriceEditSaysSoInStatusLine();
     void tabChangeActivatesSelectedSearch();
     // Renegotiated in M3 S6 from `itemsRefreshRefiltersBackgroundSearches`
     // (the F33-era eager background refilter rode the final-snapshot reset
@@ -474,6 +477,68 @@ void MainWindowTest::legacyImportRefusedWhenBuyoutsNotLoaded()
         QVERIFY(QMetaObject::invokeMethod(fixture.window.get(), action, Qt::DirectConnection));
         QVERIFY2(text.contains("could not load your prices"), qPrintable(text));
     }
+}
+
+// #257: a session that starts without its prices says so once, with the
+// log's location, instead of leaving the user to find out from the shop.
+void MainWindowTest::startupWarnsWhenBuyoutsNotLoaded()
+{
+    MainWindowFixture fixture;
+    QCoreApplication::processEvents();
+    QVERIFY(fixture.window->findChildren<QMessageBox *>().isEmpty());
+
+    unloadBuyouts(fixture);
+    MainWindow window(*fixture.settings,
+                      *fixture.networkManager,
+                      *fixture.rateLimiter,
+                      *fixture.itemsManager,
+                      *fixture.buyoutFixture.manager,
+                      *fixture.buyoutFixture.repo,
+                      *fixture.stashRepo,
+                      *fixture.characterRepo,
+                      *fixture.currencyManager,
+                      *fixture.shop,
+                      *fixture.imageCache,
+                      QDir(fixture.tempDir.path()));
+    QCoreApplication::processEvents();
+
+    const auto boxes = window.findChildren<QMessageBox *>();
+    QCOMPARE(boxes.size(), 1);
+    QVERIFY2(boxes.front()->text().contains("could not load your prices"),
+             qPrintable(boxes.front()->text()));
+    const QString log_path = QDir::toNativeSeparators(
+        QDir(fixture.tempDir.path()).filePath("log.txt"));
+    QVERIFY2(boxes.front()->informativeText().contains(log_path),
+             qPrintable(boxes.front()->informativeText()));
+}
+
+// #257: a price edit the manager refused must not look as if it worked.
+void MainWindowTest::refusedPriceEditSaysSoInStatusLine()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tree);
+    const ItemLocation tab = makeTestStashLocation("stash-257", "Dump", 0);
+    fixture.itemsManager->OnItemsRefreshed({makeMainWindowItem("item-257", "Alpha", "Sword", tab)},
+                                           {tab},
+                                           false);
+    auto *model = tree->model();
+    const QModelIndex bucket = findBucket(*model, tab.GetHeader());
+    QVERIFY(bucket.isValid());
+    tree->expand(bucket);
+    tree->selectionModel()->setCurrentIndex(findItemRow(*model, bucket, "Alpha Sword"),
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+
+    unloadBuyouts(fixture);
+    applyBuyoutCommand(fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "7");
+
+    QStringList texts;
+    for (const QLabel *label : fixture.window->statusBar()->findChildren<QLabel *>()) {
+        texts.append(label->text());
+    }
+    QVERIFY2(texts.join('|').contains("Price not saved"), qPrintable(texts.join('|')));
+    QVERIFY(!fixture.buyoutFixture.repo->loadItemBuyouts().value().contains("item-257"));
 }
 
 void MainWindowTest::tabChangeActivatesSelectedSearch()
