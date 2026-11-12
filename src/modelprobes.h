@@ -74,6 +74,11 @@ struct ModelProbes
     std::int64_t sort_remap_steps = 0;
     std::int64_t index_lookup_steps = 0;
 
+    // Site lives since #282: selected rows examined to carry a selection
+    // through a delta — rows read from the selection before it and bucket
+    // rows walked to restore it after (MainWindow).
+    std::int64_t selection_restore_steps = 0;
+
     // Gauge, not a counter; sites live since S3 (D1 residency): estimated
     // bytes of resident sort keys, adjusted at hydration, entry rebuild,
     // and eviction (ResidentKeyStore). Unlike the counters, the gauge is
