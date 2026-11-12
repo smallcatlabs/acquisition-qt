@@ -160,6 +160,8 @@ void ApplyBuyoutTest::isOneBatch()
 
 void ApplyBuyoutTest::noticeNamesTheCause()
 {
+    // Nothing took the price: the rows it was typed for went away.
+    QVERIFY(ApplyBuyoutNotice(ApplyBuyoutResult{}, true).contains("not applied"));
     QVERIFY(ApplyBuyoutNotice(ApplyBuyoutResult{.applied = 2, .locked = 0, .not_saved = 0}, true)
                 .isEmpty());
     // Rows priced in the game are left alone, and the user is told why.

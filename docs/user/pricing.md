@@ -15,12 +15,22 @@ selected, the controls are cleared and disabled until a row is selected again. T
 2. **Currency**
 3. **Value**
 
-A choice of buyout type or currency applies to the selection at once. A value
-applies when you finish typing it: press Enter, or move on (click another row
-or control). Everything that was selected while you typed takes the price, so
-you can select several rows, type one value and press Enter to price them all.
-A refresh that arrives while you are typing a value leaves what you typed in
-the box.
+A choice of buyout type or currency applies to the selection at once, with the
+value in the box. A value you type is saved when you:
+
+- press Enter in the value box;
+- choose a buyout type or currency (the price is saved once, with your choice);
+- move out of the three controls, for example by clicking a row in the item
+  list or a search field;
+- click another search's tab, open a new search with *+*, close the search, or
+  switch between *By Tab* and *By Item*.
+
+Moving between the three controls does not save it. The rows that take the
+price are the ones that were selected while you typed, so you can select
+several rows, type one value and press Enter to price them all. A refresh
+that arrives while you are typing neither saves nor replaces what you typed.
+If the rows you typed for are gone by the time the price is saved, nothing
+takes it and the status line says *Price not applied*.
 The *Price* and *Last Update* columns in the item table show the result.
 
 The value must be a number greater than zero. Use a point or a comma as the

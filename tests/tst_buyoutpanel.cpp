@@ -1,6 +1,8 @@
+#include <QAbstractItemView>
 #include <QComboBox>
 #include <QLineEdit>
 #include <QSignalSpy>
+#include <QVBoxLayout>
 #include <QtTest/QtTest>
 
 #include "buyout.h"
@@ -19,6 +21,8 @@ private slots:
     void textThatIsNotAPriceCommitsNothingAndShows();
     void comboChoiceCommitsAtOnce();
     void redrawWhileTypingKeepsTheTypedValue();
+    void typedValueThenCurrencyCommitsOnce();
+    void focusLeavingThePanelCommits();
 };
 
 namespace {
@@ -80,17 +84,31 @@ void BuyoutPanelTest::finishingTwiceCommitsOnce()
 }
 
 // A price shown because the selection changed is never committed as if the
-// user had entered it, even when editing then "finishes".
+// user had entered it: not when Enter is pressed on it, and not when the
+// focus then leaves the panel. Shown and focused, as a user would have it.
 void BuyoutPanelTest::showingAPriceCommitsNothing()
 {
-    Panel p;
-    QSignalSpy committed(&p.panel, &BuyoutPanel::committed);
+    QWidget window;
+    auto *layout = new QVBoxLayout(&window);
+    auto *panel = new BuyoutPanel(&window);
+    auto *other = new QLineEdit(&window);
+    layout->addWidget(panel);
+    layout->addWidget(other);
+    window.show();
+    QVERIFY(QTest::qWaitForWindowActive(&window));
+    auto *value = panel->findChild<QLineEdit *>("buyoutValueLineEdit");
+    panel->setBuyout(makeChaosBuyout(5.0));
+    value->setFocus();
+    QTRY_VERIFY(value->hasFocus());
+    QSignalSpy committed(panel, &BuyoutPanel::committed);
 
-    p.value->clear();
-    QTest::keyClicks(p.value, "9");
-    p.panel.setBuyout(makeChaosBuyout(12.0));
-    QCOMPARE(p.value->text(), "12");
-    QTest::keyClick(p.value, Qt::Key_Return);
+    panel->setBuyout(makeChaosBuyout(12.0));
+    QCOMPARE(value->text(), "12");
+    QTest::keyClick(value, Qt::Key_Return);
+    panel->clear();
+    panel->setBuyout(makeChaosBuyout(13.0));
+    other->setFocus();
+    QTRY_VERIFY(other->hasFocus());
 
     QCOMPARE(committed.count(), 0);
 }
@@ -148,6 +166,7 @@ void BuyoutPanelTest::redrawWhileTypingKeepsTheTypedValue()
     p.value->clear();
     QTest::keyClicks(p.value, "150");
     p.panel.setBuyout(makeChaosBuyout(12.0));
+    QCOMPARE(committed.count(), 0);
     p.panel.clear();
     QCOMPARE(p.value->text(), "150");
     QVERIFY(p.value->isEnabled());
@@ -159,6 +178,59 @@ void BuyoutPanelTest::redrawWhileTypingKeepsTheTypedValue()
     // Committed: the next redraw is not held back.
     p.panel.setBuyout(makeChaosBuyout(12.0));
     QCOMPARE(p.value->text(), "12");
+}
+
+// Typing a value and then choosing a currency is one edit: moving to the
+// currency box (opening its list) commits nothing, and the choice commits
+// once, with the typed value and the chosen currency.
+void BuyoutPanelTest::typedValueThenCurrencyCommitsOnce()
+{
+    Panel p;
+    p.panel.show();
+    QVERIFY(QTest::qWaitForWindowActive(&p.panel));
+    p.value->setFocus();
+    QTRY_VERIFY(p.value->hasFocus());
+    QSignalSpy committed(&p.panel, &BuyoutPanel::committed);
+
+    p.value->clear();
+    QTest::keyClicks(p.value, "150");
+    QTest::mouseClick(p.currency, Qt::LeftButton);
+    QTRY_VERIFY(p.currency->view()->isVisible());
+    QCOMPARE(committed.count(), 0);
+    p.currency->hidePopup();
+    p.currency->setCurrentIndex(Currency::CURRENCY_DIVINE_ORB);
+    emit p.currency->activated(Currency::CURRENCY_DIVINE_ORB);
+
+    QCOMPARE(committed.count(), 1);
+    const auto bo = committed.front().front().value<Buyout>();
+    QCOMPARE(bo.value, 150.0);
+    QCOMPARE(bo.currency.type, Currency::CURRENCY_DIVINE_ORB);
+}
+
+// Focus leaving the panel with a typed value commits it once.
+void BuyoutPanelTest::focusLeavingThePanelCommits()
+{
+    QWidget window;
+    auto *layout = new QVBoxLayout(&window);
+    auto *panel = new BuyoutPanel(&window);
+    auto *other = new QLineEdit(&window);
+    layout->addWidget(panel);
+    layout->addWidget(other);
+    window.show();
+    QVERIFY(QTest::qWaitForWindowActive(&window));
+    panel->setBuyout(makeChaosBuyout(5.0));
+    auto *value = panel->findChild<QLineEdit *>("buyoutValueLineEdit");
+    value->setFocus();
+    QTRY_VERIFY(value->hasFocus());
+    QSignalSpy committed(panel, &BuyoutPanel::committed);
+
+    value->clear();
+    QTest::keyClicks(value, "150");
+    other->setFocus();
+    QTRY_VERIFY(other->hasFocus());
+
+    QCOMPARE(committed.count(), 1);
+    QCOMPARE(committed.front().front().value<Buyout>().value, 150.0);
 }
 
 QTEST_MAIN(BuyoutPanelTest)

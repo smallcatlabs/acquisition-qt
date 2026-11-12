@@ -3,10 +3,12 @@
 
 #include "ui/buyoutpanel.h"
 
+#include <QApplication>
 #include <QComboBox>
 #include <QDateTime>
 #include <QHBoxLayout>
 #include <QLineEdit>
+#include <QScopedValueRollback>
 #include <QValidator>
 
 #include <optional>
@@ -54,52 +56,99 @@ BuyoutPanel::BuyoutPanel(QWidget *parent)
     Util::PopulateBuyoutTypeComboBox(m_type);
     Util::PopulateBuyoutCurrencyComboBox(m_currency);
 
-    connect(m_type, &QComboBox::activated, this, &BuyoutPanel::commit);
-    connect(m_currency, &QComboBox::activated, this, &BuyoutPanel::commit);
-    // The value commits when editing finishes (Return, or the box losing
-    // focus), never on each keystroke (#252), and only when the user edited
-    // it: a price setBuyout() showed is not the user's.
-    m_value->setValidator(new PriceValidator(m_value));
-    connect(m_value, &QLineEdit::editingFinished, this, [this] {
-        if (m_value->isModified()) {
+    // A choice of type or currency commits at once, with the value the box
+    // holds, typed or not.
+    const auto choose = [this] {
+        if (!m_updating) {
             m_value->setModified(false);
             commit();
         }
+    };
+    connect(m_type, &QComboBox::activated, this, choose);
+    connect(m_currency, &QComboBox::activated, this, choose);
+    // A typed value commits on Enter (the validator lets only a price
+    // through) or when focus leaves the panel, never on each keystroke
+    // (#252); a value setBuyout() showed is not the user's (not modified).
+    m_value->setValidator(new PriceValidator(m_value));
+    connect(m_value, &QLineEdit::returnPressed, this, [this] {
+        if (!m_updating) {
+            finishEditing();
+        }
     });
+    m_focus_connection = connect(qApp,
+                                 &QApplication::focusChanged,
+                                 this,
+                                 &BuyoutPanel::onFocusChanged);
     connect(m_value, &QLineEdit::textChanged, this, &BuyoutPanel::showValueValidity);
 
     m_type->setEnabled(false);
     setPricedControlsEnabled(false);
 }
 
+BuyoutPanel::~BuyoutPanel()
+{
+    // The children are destroyed after this body; the focus moving off
+    // them then is not the user's doing, and this object is no longer a
+    // BuyoutPanel by then.
+    disconnect(m_focus_connection);
+}
+
 void BuyoutPanel::setBuyout(const Buyout &buyout)
 {
-    if (editing()) {
+    if (hasUncommittedEdit()) {
         return;
     }
+    const QScopedValueRollback updating(m_updating, true);
     m_type->setCurrentIndex(buyout.type);
     m_type->setEnabled(!buyout.IsGameSet());
-    setPricedControlsEnabled(false);
-
     if (buyout.IsPriced()) {
         m_currency->setCurrentIndex(buyout.currency.type);
         m_value->setText(QString::number(buyout.value, 'g', 15));
-        if (!buyout.IsGameSet()) {
-            setPricedControlsEnabled(true);
-        }
     } else {
         m_value->setText("");
     }
+    setPricedControlsEnabled(buyout.IsPriced() && !buyout.IsGameSet());
 }
 
 void BuyoutPanel::clear()
 {
-    if (editing()) {
+    if (hasUncommittedEdit()) {
         return;
     }
     setBuyout(Buyout());
+    const QScopedValueRollback updating(m_updating, true);
     m_type->setEnabled(false);
     m_currency->setCurrentIndex(Currency::CURRENCY_NONE);
+}
+
+void BuyoutPanel::finishEditing()
+{
+    if (hasUncommittedEdit()) {
+        m_value->setModified(false);
+        commit();
+    }
+}
+
+bool BuyoutPanel::hasUncommittedEdit() const
+{
+    return m_value->isModified();
+}
+
+bool BuyoutPanel::owns(const QWidget *widget) const
+{
+    for (const QWidget *w = widget; w != nullptr; w = w->parentWidget()) {
+        if (w == this) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void BuyoutPanel::onFocusChanged(QWidget *old, QWidget *now)
+{
+    if (!m_updating && owns(old) && !owns(now)) {
+        finishEditing();
+    }
 }
 
 void BuyoutPanel::commit()
@@ -111,7 +160,10 @@ void BuyoutPanel::commit()
     bo.value = value.value_or(0.0);
     bo.last_update = QDateTime::currentDateTime();
 
-    setPricedControlsEnabled(bo.IsPriced());
+    {
+        const QScopedValueRollback updating(m_updating, true);
+        setPricedControlsEnabled(bo.IsPriced());
+    }
 
     if (!bo.IsValid()) {
         spdlog::trace("BuyoutPanel: the buyout is invalid");
@@ -124,11 +176,6 @@ void BuyoutPanel::commit()
         return;
     }
     emit committed(bo);
-}
-
-bool BuyoutPanel::editing() const
-{
-    return m_value->isModified() && m_value->hasFocus();
 }
 
 void BuyoutPanel::showValueValidity()

@@ -51,6 +51,10 @@ ApplyBuyoutResult ApplyBuyout(BuyoutManager &buyouts,
 
 QString ApplyBuyoutNotice(const ApplyBuyoutResult &result, bool buyouts_loaded)
 {
+    if ((result.applied == 0) && (result.locked == 0) && (result.not_saved == 0)) {
+        return QCoreApplication::translate("ApplyBuyout",
+                                           "Price not applied: nothing selected can be priced.");
+    }
     if (result.not_saved == 0) {
         // Only part of a multi-selection can be priced in the game: a row
         // the game priced cannot be edited on its own.

@@ -256,6 +256,9 @@ MainWindow::MainWindow(QSettings &settings,
 
 MainWindow::~MainWindow()
 {
+    // Destroying the widgets moves focus off the price editor; nothing it
+    // emits then may reach this half-destroyed window.
+    disconnect(ui->buyoutPanel, nullptr, this, nullptr);
     // Detach the log panel's sinks while its widgets are still alive: child
     // cleanup destroys the panel's QTextEdit before ~LogPanel would run, and
     // a worker thread logging in that window would write to a dead widget
@@ -328,6 +331,7 @@ void MainWindow::InitializeUi()
         // save/restore must not run then (restore would force-expand rows the
         // user collapsed under a filtered or By Item view).
         const auto mode = static_cast<Search::ViewMode>(n);
+        ui->buyoutPanel->finishEditing(); // the typed price goes to the rows it was typed for
         if (mode != m_current_search->GetViewMode()) {
             SaveViewExpansion(*m_current_search);
             m_current_search->SetViewMode(mode);
@@ -803,7 +807,6 @@ void MainWindow::ScheduleDeltaResizeTreeColumns()
 void MainWindow::OnBuyoutCommitted(const Buyout &bo)
 {
     spdlog::trace("MainWindow::OnBuyoutCommitted() entered");
-    m_shop.ExpireShopData();
 
     // The selection, as targets: folders take no buyout and nothing
     // cascades to their members (D11, R7); the By-Item header row has no
@@ -829,11 +832,16 @@ void MainWindow::OnBuyoutCommitted(const Buyout &bo)
         }
     }
 
-    const ApplyBuyoutResult result = ApplyBuyout(m_buyout_manager, m_items_manager, targets, bo);
-    ScheduleResizeTreeColumns();
-    // A refused edit must not look applied. The notice is a temporary status
-    // message, so it never replaces refresh progress for long, and the next
-    // edit that saves clears it.
+    // A refused edit must not look applied, and a price whose rows went away
+    // before it was committed is not dropped in silence. The notice is a
+    // temporary status message, so it never replaces refresh progress for
+    // long, and the next edit that every row takes clears it.
+    ApplyBuyoutResult result;
+    if (!targets.tabs.empty() || !targets.items.empty()) {
+        m_shop.ExpireShopData();
+        result = ApplyBuyout(m_buyout_manager, m_items_manager, targets, bo);
+        ScheduleResizeTreeColumns();
+    }
     const QString notice = ApplyBuyoutNotice(result, m_buyout_manager.BuyoutsLoaded());
     if (notice.isEmpty()) {
         statusBar()->clearMessage();
@@ -1188,6 +1196,9 @@ void MainWindow::OnRenameTabClicked(int index)
 
 void MainWindow::OnDeleteTabClicked(int index)
 {
+    // A price being typed goes to the rows it was typed for, before the
+    // search holding them can go.
+    ui->buyoutPanel->finishEditing();
     // If the user is deleting the last search, create a new
     // one to replace it, because the UI breaks without at
     // least one search.
@@ -1762,6 +1773,10 @@ void MainWindow::FlushPendingSearchFormChange()
 
 void MainWindow::OnTabChange(int index)
 {
+    // A click on a search's tab does not take focus from the price editor,
+    // yet changes what is selected: a price being typed goes to the rows it
+    // was typed for first (the outgoing search is still current here).
+    ui->buyoutPanel->finishEditing();
     FlushPendingSearchFormChange();
     if (m_current_search) {
         SaveViewExpansion(*m_current_search);

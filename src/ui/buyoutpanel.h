@@ -19,29 +19,41 @@ class BuyoutPanel : public QWidget
 public:
     explicit BuyoutPanel(QWidget *parent = nullptr);
 
+    ~BuyoutPanel() override;
+
     // Shows a price. The controls are editable unless the game set it.
-    // Showing a price never commits it. Neither this nor clear() changes
-    // anything while the user is typing a value (see editing()): a redraw
-    // the user did not cause, such as a refresh, must not throw the typed
-    // value away. A selection the user changes ends the typing first, since
-    // the value box then loses focus and commits.
+    // Neither this nor clear() commits anything, and neither changes
+    // anything while the value box holds an uncommitted edit: a redraw the
+    // user did not cause, such as a refresh, must not throw a typed value
+    // away.
     void setBuyout(const Buyout &buyout);
     // Shows no price and disables the controls: nothing is selected that
     // can be priced.
     void clear();
 
-public slots:
-    // Commits what the controls hold, when it is a buyout worth saving: a
-    // priced type needs a number greater than zero in the value box.
-    void commit();
+    // Commits an uncommitted value now, to whatever is selected now. The
+    // window calls it before a user action changes the selection without
+    // taking focus from the panel (a click on a search's tab, say).
+    void finishEditing();
 
 signals:
+    // A buyout the user entered. It is emitted only for something the user
+    // did: Enter in the value box, focus leaving the panel while the value
+    // box holds an uncommitted edit, a choice of type or currency, or
+    // finishEditing(). Moving between the panel's own controls does not
+    // commit.
     void committed(const Buyout &buyout);
 
 private:
-    // The value box holds an edit not yet committed: the user changed it
-    // and it still has focus.
-    bool editing() const;
+    // The value box holds a value the user typed and has not committed.
+    bool hasUncommittedEdit() const;
+    // Whether `widget` is this panel or inside it, popups included (a combo
+    // box's list is a separate window whose parent is the combo box).
+    bool owns(const QWidget *widget) const;
+    void onFocusChanged(QWidget *old, QWidget *now);
+    // Emits committed() for what the controls hold, when it is a buyout
+    // worth saving: a priced type needs a number greater than zero.
+    void commit();
     // Marks the value box when its text is not a price.
     void showValueValidity();
     void setPricedControlsEnabled(bool enabled);
@@ -49,4 +61,9 @@ private:
     QComboBox *m_type;
     QComboBox *m_currency;
     QLineEdit *m_value;
+    // Set while the panel changes its own controls (a redraw, or a commit
+    // enabling and disabling them). Nothing Qt emits meanwhile can reach
+    // commit(): every commit path checks it first.
+    bool m_updating{false};
+    QMetaObject::Connection m_focus_connection;
 };
