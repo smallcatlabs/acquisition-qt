@@ -84,6 +84,9 @@ void UpdateChecker::OnUpdateReplyReceived() {
 
     // Check for network errors.
     QNetworkReply* reply = qobject_cast<QNetworkReply*>(QObject::sender());
+    // The reply is ours to release on every path; it stays readable until
+    // control returns to the event loop.
+    reply->deleteLater();
     if (reply->error() != QNetworkReply::NoError) {
         spdlog::error("The network reply came with an error: {}", reply->errorString());
         return;
@@ -232,10 +235,16 @@ void UpdateChecker::AskUserToUpdate() {
 
     // Save the latest releases into the settings file oinly if the
     // user asked to skip them in the future.
+    // The in-memory copies are updated too, so the choice holds for the
+    // periodic checks of this run and not only from the next start.
     if (clicked == ignore_button) {
+        m_previous_release = m_latest_release;
+        m_previous_prerelease = m_latest_prerelease;
         m_settings.setValue("skip_release", QString::fromStdString(m_latest_release.str()));
         m_settings.setValue("skip_prerelease", QString::fromStdString(m_latest_prerelease.str()));
     } else {
+        m_previous_release = semver::version();
+        m_previous_prerelease = semver::version();
         m_settings.setValue("skip_release", "");
         m_settings.setValue("skip_prerelease", "");
     }

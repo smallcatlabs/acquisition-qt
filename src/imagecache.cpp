@@ -47,6 +47,9 @@ void ImageCache::fetch(const QString &url)
 void ImageCache::onFetched()
 {
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
+    // The reply is ours to release on every path; it stays readable until
+    // control returns to the event loop.
+    reply->deleteLater();
     const QString url = reply->url().toString();
     if (reply->error() != QNetworkReply::NoError) {
         spdlog::error("ImageCache: failed to fetch image: {}: {}", reply->errorString(), url);

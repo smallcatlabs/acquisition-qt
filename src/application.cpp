@@ -28,6 +28,7 @@
 #include "shop.h"
 #include "ui/logindialog.h"
 #include "ui/mainwindow_bridge.h"
+#include "util/databackup.h"
 #include "util/fatalerror.h"
 #include "util/networkmanager.h"
 #include "util/oauthmanager.h"
@@ -59,7 +60,13 @@ void Application::InitCoreServices()
 
     // Connect signals from the login dialog.
     connect(&login(), &LoginDialog::ChangeTheme, this, &Application::SetTheme);
-    connect(&login(), &LoginDialog::ChangeUserDir, this, &Application::SetUserDir);
+    // Queued: SetUserDir destroys the login dialog, whose button is still
+    // emitting when this signal fires.
+    connect(&login(),
+            &LoginDialog::ChangeUserDir,
+            this,
+            &Application::SetUserDir,
+            Qt::QueuedConnection);
     connect(&login(), &LoginDialog::LoginComplete, this, &Application::OnLogin);
 
     if (settings().value("realm").toString().isEmpty()) {
@@ -339,24 +346,6 @@ void Application::OnLogin()
     ShowMainWindow(main_window());
 }
 
-void Application::InitCrashReporting()
-{
-    spdlog::trace("Application::InitCrashReporting() entered");
-
-    // Enable crash reporting by default.
-    bool report_crashes = true;
-
-    if (!settings().contains("report_crashes")) {
-        // Update the setting if it didn't exist before.
-        spdlog::trace("Application::InitCrashReporting() setting 'report_crashes' to true");
-        settings().setValue("report_crashes", true);
-    } else {
-        // Use the exiting setting.
-        report_crashes = settings().value("report_crashes").toBool();
-        spdlog::trace("Application::InitCrashReporting() 'report_crashes' is {}", report_crashes);
-    }
-}
-
 void Application::ClearSessionId()
 {
     network_manager().clearPoeSessionId();
@@ -458,68 +447,8 @@ void Application::OnItemsRefreshed(bool initial_refresh)
 void Application::SaveDataOnNewVersion()
 {
     spdlog::trace("Application::SaveDataOnNewVersion() entered");
-    //If user updated from a 0.5c db to a 0.5d, db exists but no "version" in it
-    //QString version = m_data->Get("version", "0.5c");
-    // We call this just after login, so we didn't pulled tabs for the first time ; so "tabs" shouldn't exist in the DB
-    // This way we don't create an useless data_save_version folder on the first time you run acquisition
-
-    auto version = settings().value("version").toString();
-
-    // The version setting was introduced in v0.16, so for prior versions we
-    // use the global data store.
-    if (version.isEmpty()) {
-        version = global_data().Get("version", "UNKNOWN-VERSION");
-    }
-
-    // Do nothing if the version is current.
-    if (version == APP_VERSION_STRING) {
-        spdlog::debug("Application: skipping backup: version is current");
-        return;
-    }
-
-    const auto src_path = m_data_dir.filePath("data");
-    QDir src{src_path};
-
-    // Do nothing if there's no data directory.
-    if (!src.exists()) {
-        spdlog::debug("Application: skipping backup: directory does not exist: {}", src_path);
-        return;
-    }
-
-    // Do nothing if the data directory is empty.
-    if (src.entryList().isEmpty()) {
-        spdlog::debug("Application: skipping backup: directory is empty: {}", src_path);
-        return;
-    }
-
-    // Find a backup directory we can use.
-    const auto dst_base = m_data_dir.filePath("data-backup-" + version);
-    auto dst_path = dst_base;
-    int n{0};
-    while (m_data_dir.exists(dst_path)) {
-        dst_path = dst_base + QString("-%1").arg(++n);
-        if (n > 20) {
-            spdlog::error("Application: skipping backup: too many backups!");
-            return;
-        }
-    }
-
-    QDir dst{dst_path};
-    if (!dst.exists()) {
-        spdlog::debug("Application: creating backup in '{}'", dst_path);
-        dst.mkpath(dst_path);
-    }
-
-    spdlog::info("Application: backup up data from version '{}' into '{}'", version, dst_path);
-
-    for (const auto &filename : src.entryList()) {
-        const QString a = src.filePath(filename);
-        const QString b = dst.filePath(filename);
-        spdlog::debug("Application: backing up {} to {}", a, b);
-        QFile::copy(a, b);
-    }
-    spdlog::info("Your data is backed up into '{}'", dst_path);
-
-    spdlog::debug("Application: updating 'version' setting to {}", APP_VERSION_STRING);
-    core().settings->setValue("version", APP_VERSION_STRING);
+    BackupDataOnNewVersion(m_data_dir,
+                           settings(),
+                           global_data().Get("version", "UNKNOWN-VERSION"),
+                           APP_VERSION_STRING);
 }

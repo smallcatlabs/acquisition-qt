@@ -6,11 +6,13 @@
 #include <QDir>
 #include <QFontDatabase>
 #include <QLocale>
+#include <QScopeGuard>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTimer>
 
 #include <clocale>
+#include <optional>
 #include <string_view>
 
 #include <sentry.h>
@@ -18,6 +20,7 @@
 #include "application.h"
 #include "shop.h"
 #include "ui/logindialog.h"
+#include "util/crashreporting.h"
 #include "util/fatalerror.h"
 #include "util/logging.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
@@ -138,30 +141,40 @@ int main(int argc, char *argv[])
     const auto appDir = QDir(QCoreApplication::applicationDirPath());
     const auto appDataDir = QDir(parser.value(option_data_dir));
 
-    // Configure Sentry event logging.
-    const auto handlerPath = Util::toPathBytes(appDir.filePath(CRASHPAD_HANDLER));
-    const auto sentryPath = Util::toPathBytes(appDataDir.absoluteFilePath("sentry-native-db"));
+    // The settings are read before anything else starts, because the user's
+    // crash-reporting choice decides whether sentry starts at all.
+    QSettings settings(appDataDir.filePath("settings.ini"), QSettings::IniFormat);
+    const bool report_crashes = CrashReportingEnabled(settings);
 
-    sentry_options_t *options = sentry_options_new();
-    sentry_options_set_dsn(options, SENTRY_DSN);
-    sentry_options_set_handler_path(options, handlerPath.constData());
-    sentry_options_set_database_path(options, sentryPath.constData());
-    sentry_options_set_release(options, SENTRY_RELEASE);
-    sentry_options_set_environment(options, SENTRY_ENVIRONMENT);
-    sentry_init(options);
+    // Make sure sentry closes when the program terminates. Only engaged when
+    // sentry was started.
+    const auto closeSentry = [] { sentry_close(); };
+    std::optional<QScopeGuard<decltype(closeSentry)>> sentryClose;
 
-    // Make sure sentry closes when the program terminates.
-    auto sentryClose = qScopeGuard([] { sentry_close(); });
+    if (report_crashes) {
+        // Configure Sentry event logging.
+        const auto handlerPath = Util::toPathBytes(appDir.filePath(CRASHPAD_HANDLER));
+        const auto sentryPath = Util::toPathBytes(appDataDir.absoluteFilePath("sentry-native-db"));
 
-    // Tag the Qt version acquisition was built against and the one it actually
-    // loaded. A mismatch between the two - and the related MSVC runtime problem
-    // that checkMicrosoftRuntime() looks for below - is a recurring source of
-    // crashes, so tagging makes that whole family filterable in sentry instead
-    // of needing a read of every stack trace. These go on the global scope
-    // immediately after sentry_init() so that crashpad picks them up for native
-    // crashes as well as for events.
-    sentry_set_tag("qt.build", QT_VERSION_STR);
-    sentry_set_tag("qt.runtime", qVersion());
+        sentry_options_t *options = sentry_options_new();
+        sentry_options_set_dsn(options, SENTRY_DSN);
+        sentry_options_set_handler_path(options, handlerPath.constData());
+        sentry_options_set_database_path(options, sentryPath.constData());
+        sentry_options_set_release(options, SENTRY_RELEASE);
+        sentry_options_set_environment(options, SENTRY_ENVIRONMENT);
+        sentry_init(options);
+        sentryClose.emplace(closeSentry);
+
+        // Tag the Qt version acquisition was built against and the one it actually
+        // loaded. A mismatch between the two - and the related MSVC runtime problem
+        // that checkMicrosoftRuntime() looks for below - is a recurring source of
+        // crashes, so tagging makes that whole family filterable in sentry instead
+        // of needing a read of every stack trace. These go on the global scope
+        // immediately after sentry_init() so that crashpad picks them up for native
+        // crashes as well as for events.
+        sentry_set_tag("qt.build", QT_VERSION_STR);
+        sentry_set_tag("qt.runtime", qVersion());
+    }
 
     // Setup logging.
     const QString logPath(appDataDir.filePath("log.txt"));
@@ -170,14 +183,14 @@ int main(int argc, char *argv[])
     // Determine the logging level. The command-line argument takes first priority.
     // If no command line argument is present, Acquistion will check for a logging
     // level in the settings file. Otherwise it will fallback to a default.
-    QSettings settings(appDataDir.filePath("settings.ini"), QSettings::IniFormat);
     QString logging_option;
     if (parser.isSet(option_log_level)) {
         logging_option = parser.value(option_log_level);
     } else {
         logging_option = settings.value("log_level", DEFAULT_LOGGING_LEVEL).toString();
     }
-    const auto loglevel = spdlog::level::from_str(logging_option.toStdString());
+    const auto loglevel = logging::parseLevel(logging_option,
+                                              spdlog::level::from_str(DEFAULT_LOGGING_LEVEL));
 
     // Start the log with basic info
     spdlog::flush_every(std::chrono::seconds(2));
@@ -187,6 +200,7 @@ int main(int argc, char *argv[])
     spdlog::info("{} {}", a.applicationName(), a.applicationVersion());
     spdlog::info("Built with Qt {} on {}", QT_VERSION_STR, build_date.toString());
     spdlog::info("Running on Qt {}", qVersion());
+    spdlog::info("Crash reporting is {}", report_crashes ? "enabled" : "disabled");
     spdlog::info("Logging level will be {}", loglevel);
     spdlog::set_level(loglevel);
 

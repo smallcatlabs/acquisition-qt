@@ -44,4 +44,6 @@ void ConnectMainWindow(Application &application,
                        Shop &shop,
                        UpdateChecker &update_checker,
                        ImageCache &image_cache);
+// The update checker's half of ConnectMainWindow.
+void ConnectUpdateChecker(MainWindow &main_window, UpdateChecker &update_checker);
 void ShowMainWindow(MainWindow &window);

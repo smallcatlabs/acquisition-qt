@@ -140,19 +140,12 @@ LoginDialog::~LoginDialog()
 {
     if (!ui->rememberMeCheckBox->isChecked()) {
         if (auto lg = spdlog::default_logger(); lg) {
-            lg->trace("Login: clearing settings");
+            lg->trace("Login: forgetting the user's credentials");
         }
-        // "Remember me" governs credentials only: preserve the league and
-        // realm selections, which are not credentials, across the clear.
-        const QVariant league = m_settings.value("league");
-        const QVariant realm = m_settings.value("realm");
-        m_settings.clear();
-        if (league.isValid()) {
-            m_settings.setValue("league", league);
-        }
-        if (realm.isValid()) {
-            m_settings.setValue("realm", realm);
-        }
+        // "Remember me" governs credentials only. Every other setting (theme,
+        // proxy, log level, crash reporting, the recorded version, ...) stays.
+        m_settings.remove("session_id");
+        m_settings.remove("account");
         m_datastore.Set("oauth_token", "");
     }
     delete ui;
@@ -417,22 +410,26 @@ void LoginDialog::OnReportCrashesCheckBoxChanged(Qt::CheckState state)
     QMessageBox msgbox(this);
     msgbox.setWindowTitle("Acquisition Crash Reporting");
 
+    // Crash reporting is decided once, at startup (main.cpp), so a change here
+    // takes effect the next time Acquisition runs. Correcting the box after a
+    // refusal must not re-enter this slot.
+    const auto restore_checkbox = [this](bool value) {
+        const QSignalBlocker blocker(ui->reportCrashesCheckBox);
+        ui->reportCrashesCheckBox->setChecked(value);
+    };
+
     if (checked) {
-        // Before enabling crash reporting, make sure the user
-        // understands and accepts that crash reporting cannot be
-        // disabled without restarting acquisition.
-        msgbox.setText("Once crash reporting is enabled, it cannot be "
-                       "disabled without restarting Acquisition.\n\nDo you want to "
-                       "enable crash reporting?");
+        msgbox.setText("Crash reporting will start the next time Acquisition "
+                       "runs.\n\nDo you want to enable crash reporting?");
         auto yes = msgbox.addButton("  Enable crash reports  ", msgbox.YesRole);
         msgbox.addButton("  Cancel  ", msgbox.NoRole);
         msgbox.exec();
         const bool enable_reporting = (msgbox.clickedButton() == yes);
         m_settings.setValue("report_crashes", enable_reporting);
         if (enable_reporting) {
-            spdlog::info("TBD: crash reporting checkbox");
+            spdlog::info("Crash reporting will be enabled the next time Acquisition runs");
         } else {
-            ui->reportCrashesCheckBox->setChecked(false);
+            restore_checkbox(false);
         }
 
     } else {
@@ -443,14 +440,15 @@ void LoginDialog::OnReportCrashesCheckBoxChanged(Qt::CheckState state)
                        "reporting.\n\nDo you want Acquisition to exit now and disable "
                        "crash reporting the next time it runs?");
         auto yes = msgbox.addButton("  Yes, exit now  ", msgbox.YesRole);
-        msgbox.addButton("  No, continue without crash reporting  ", msgbox.NoRole);
+        msgbox.addButton("  No, keep crash reporting on  ", msgbox.NoRole);
         msgbox.exec();
         const bool disable_reporting = (msgbox.clickedButton() == yes);
         m_settings.setValue("report_crashes", !disable_reporting);
         if (disable_reporting) {
+            spdlog::info("Crash reporting will be disabled the next time Acquisition runs");
             close();
         } else {
-            ui->reportCrashesCheckBox->setChecked(true);
+            restore_checkbox(true);
         }
     }
 }
@@ -462,6 +460,10 @@ void LoginDialog::OnUserDirButtonPushed()
     const QString new_dir = QFileDialog::getExistingDirectory(this,
                                                               "Select the user directory",
                                                               parent_dir);
+    // An empty result means the picker was cancelled.
+    if (new_dir.isEmpty()) {
+        return;
+    }
     if (new_dir != current_dir) {
         ui->userDirButton->setText(new_dir);
         emit ChangeUserDir(new_dir);

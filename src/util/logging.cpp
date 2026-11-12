@@ -78,3 +78,19 @@ void logging::init(const QString &filename)
     spdlog::set_default_logger(logger);
     spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
 }
+
+spdlog::level::level_enum logging::parseLevel(const QString &name,
+                                              spdlog::level::level_enum fallback)
+{
+    // spdlog::level::from_str() is case-sensitive and returns 'off' for any
+    // name it does not know, which would silently disable the log.
+    const std::string lowered = name.trimmed().toLower().toStdString();
+    const auto level = spdlog::level::from_str(lowered);
+    if (level == spdlog::level::off && lowered != "off") {
+        spdlog::warn("Unknown logging level '{}'; using {}",
+                     name,
+                     spdlog::level::to_string_view(fallback));
+        return fallback;
+    }
+    return level;
+}
