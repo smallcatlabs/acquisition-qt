@@ -5,54 +5,53 @@
 
 #include <QWidget>
 
+#include "applybuyout.h"
+
 class QComboBox;
 class QLineEdit;
 struct Buyout;
 
 // The price editor under the item list: the buyout type, currency and value
-// controls. It shows the selection's price, reads what the user enters, and
-// emits committed() with a buyout worth saving; what the buyout applies to
-// is the caller's business.
+// controls. The window shows it a price together with the rows that price
+// is for (its targets); the panel emits committed() with those targets, so
+// a price can only reach rows the panel was shown.
+//
+// A value the user types is pending until it is committed, to the targets
+// shown when typing began and to no others. It is committed exactly when:
+// the user presses Enter; the user chooses a type or currency; the panel is
+// shown different targets; or finishEditing() is called (the window closing,
+// a manual shop update). Being shown the same targets again, as a refresh
+// does when it re-adopts the selection, leaves it untouched. Nothing else
+// commits: not focus, not window activation, not a redraw.
 class BuyoutPanel : public QWidget
 {
     Q_OBJECT
 public:
     explicit BuyoutPanel(QWidget *parent = nullptr);
 
-    ~BuyoutPanel() override;
-
-    // Shows a price. The controls are editable unless the game set it.
-    // Neither this nor clear() commits anything, and neither changes
-    // anything while the value box holds an uncommitted edit: a redraw the
-    // user did not cause, such as a refresh, must not throw a typed value
-    // away.
-    void setBuyout(const Buyout &buyout);
-    // Shows no price and disables the controls: nothing is selected that
-    // can be priced.
-    void clear();
-
-    // Commits an uncommitted value now, to whatever is selected now. The
-    // window calls it before a user action changes the selection without
-    // taking focus from the panel (a click on a search's tab, say).
+    // Shows `buyout` for `targets`. The controls are editable unless the
+    // game set the price.
+    void showPrice(const PriceTargets &targets, const Buyout &buyout);
+    // Shows no price and disables the controls: nothing shown can be
+    // priced here. `targets` are still the rows selected.
+    void showNothing(const PriceTargets &targets);
+    // Commits a pending value now.
     void finishEditing();
 
 signals:
-    // A buyout the user entered. It is emitted only for something the user
-    // did: Enter in the value box, focus leaving the panel while the value
-    // box holds an uncommitted edit, a choice of type or currency, or
-    // finishEditing(). Moving between the panel's own controls does not
-    // commit.
-    void committed(const Buyout &buyout);
+    void committed(const PriceTargets &targets, const Buyout &buyout);
+    // Something the status line should say: a typed value that is not a
+    // price.
+    void notice(const QString &text);
 
 private:
-    // The value box holds a value the user typed and has not committed.
-    bool hasUncommittedEdit() const;
-    // Whether `widget` is this panel or inside it, popups included (a combo
-    // box's list is a separate window whose parent is the combo box).
-    bool owns(const QWidget *widget) const;
-    void onFocusChanged(QWidget *old, QWidget *now);
+    // Moves to `targets`: a pending value for other targets is committed
+    // first. Returns false when the targets are the same and a value is
+    // pending, which the caller then leaves as it is.
+    bool moveTo(const PriceTargets &targets);
+    void redraw(const Buyout &buyout, bool editable);
     // Emits committed() for what the controls hold, when it is a buyout
-    // worth saving: a priced type needs a number greater than zero.
+    // worth saving; a value that is not a price is reported instead.
     void commit();
     // Marks the value box when its text is not a price.
     void showValueValidity();
@@ -61,9 +60,8 @@ private:
     QComboBox *m_type;
     QComboBox *m_currency;
     QLineEdit *m_value;
-    // Set while the panel changes its own controls (a redraw, or a commit
-    // enabling and disabling them). Nothing Qt emits meanwhile can reach
-    // commit(): every commit path checks it first.
+    PriceTargets m_targets;
+    // Set while the panel changes its own controls. Nothing Qt emits
+    // meanwhile can reach commit(): every commit path checks it first.
     bool m_updating{false};
-    QMetaObject::Connection m_focus_connection;
 };

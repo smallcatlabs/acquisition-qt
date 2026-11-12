@@ -324,6 +324,9 @@ void MainWindow::InitializeUi()
     ui->mainLayout->insertWidget(0, m_tab_bar);
 
     connect(ui->buyoutPanel, &BuyoutPanel::committed, this, &MainWindow::OnBuyoutCommitted);
+    connect(ui->buyoutPanel, &BuyoutPanel::notice, this, [this](const QString &text) {
+        statusBar()->showMessage(text, PRICE_NOT_SAVED_TIMEOUT_MS);
+    });
 
     ui->viewComboBox->addItems({"By Tab", "By Item"});
     connect(ui->viewComboBox, &QComboBox::activated, this, [&](int n) {
@@ -331,7 +334,6 @@ void MainWindow::InitializeUi()
         // save/restore must not run then (restore would force-expand rows the
         // user collapsed under a filtered or By Item view).
         const auto mode = static_cast<Search::ViewMode>(n);
-        ui->buyoutPanel->finishEditing(); // the typed price goes to the rows it was typed for
         if (mode != m_current_search->GetViewMode()) {
             SaveViewExpansion(*m_current_search);
             m_current_search->SetViewMode(mode);
@@ -804,25 +806,22 @@ void MainWindow::ScheduleDeltaResizeTreeColumns()
     }
 }
 
-void MainWindow::OnBuyoutCommitted(const Buyout &bo)
+PriceTargets MainWindow::SelectedPriceTargets() const
 {
-    spdlog::trace("MainWindow::OnBuyoutCommitted() entered");
-
     // The selection, as targets: folders take no buyout and nothing
     // cascades to their members (D11, R7); the By-Item header row has no
     // location to price.
-    BuyoutTargets targets;
+    PriceTargets targets;
+    if (!m_current_search || !ui->treeView->selectionModel()) {
+        return targets;
+    }
     const auto &selected_rows = ui->treeView->selectionModel()->selectedRows();
     for (const auto &index : selected_rows) {
         const ItemsModel::RowRef ref = m_current_search->model().Locate(index);
         if (ref.isItem()) {
             const Bucket &bucket = m_current_search->bucket(ref.bucket_row);
             if (bucket.has_item(ref.item_row)) {
-                targets.items.push_back(bucket.item(ref.item_row).get());
-            } else {
-                spdlog::error("OnBuyoutCommitted(): bucket {} does not have {} items",
-                              ref.bucket_row,
-                              ref.item_row);
+                targets.item_ids.push_back(bucket.item(ref.item_row)->id());
             }
         } else if (ref.isBucket() && !m_current_search->isFolderBucket(ref.bucket_row)) {
             const ItemLocation location = m_current_search->GetTabLocation(index);
@@ -831,17 +830,29 @@ void MainWindow::OnBuyoutCommitted(const Buyout &bo)
             }
         }
     }
+    return targets;
+}
+
+void MainWindow::OnBuyoutCommitted(const PriceTargets &targets, const Buyout &bo)
+{
+    spdlog::trace("MainWindow::OnBuyoutCommitted() entered");
+    // Only the rows the editor was showing when the value was typed, as
+    // they are now; rows a refresh removed meanwhile are counted.
+    const ResolvedTargets resolved = ResolvePriceTargets(targets,
+                                                         m_items_manager.items(),
+                                                         m_items_manager.locationInventory());
 
     // A refused edit must not look applied, and a price whose rows went away
     // before it was committed is not dropped in silence. The notice is a
     // temporary status message, so it never replaces refresh progress for
     // long, and the next edit that every row takes clears it.
     ApplyBuyoutResult result;
-    if (!targets.tabs.empty() || !targets.items.empty()) {
+    if (!resolved.targets.tabs.empty() || !resolved.targets.items.empty()) {
         m_shop.ExpireShopData();
-        result = ApplyBuyout(m_buyout_manager, m_items_manager, targets, bo);
+        result = ApplyBuyout(m_buyout_manager, m_items_manager, resolved.targets, bo);
         ScheduleResizeTreeColumns();
     }
+    result.missing = resolved.missing;
     const QString notice = ApplyBuyoutNotice(result, m_buyout_manager.BuyoutsLoaded());
     if (notice.isEmpty()) {
         statusBar()->clearMessage();
@@ -1196,9 +1207,6 @@ void MainWindow::OnRenameTabClicked(int index)
 
 void MainWindow::OnDeleteTabClicked(int index)
 {
-    // A price being typed goes to the rows it was typed for, before the
-    // search holding them can go.
-    ui->buyoutPanel->finishEditing();
     // If the user is deleting the last search, create a new
     // one to replace it, because the UI breaks without at
     // least one search.
@@ -1316,6 +1324,14 @@ void MainWindow::ReconcileSelectionIntent()
     if (!m_current_search) {
         return;
     }
+    // The price editor is shown the selection once it is settled, not the
+    // lapse and re-adoption on the way: a refresh that ends on the same
+    // rows leaves a price being typed alone.
+    m_defer_price_editor = true;
+    const auto show_price_editor = qScopeGuard([this] {
+        m_defer_price_editor = false;
+        UpdateCurrentBuyout();
+    });
     if (m_current_item) {
         const QModelIndex index = m_current_search->index(m_current_item);
         if (index.isValid()) {
@@ -1506,6 +1522,7 @@ void MainWindow::ModelViewRefresh()
 {
     spdlog::trace("MainWindow::ModelViewRefresh() entered");
     disconnect(m_current_item_conn);
+    disconnect(m_selection_conn);
 
     m_buyout_manager.Save();
 
@@ -1544,6 +1561,12 @@ void MainWindow::ModelViewRefresh()
                                   &QItemSelectionModel::currentChanged,
                                   this,
                                   &MainWindow::OnCurrentItemChanged);
+    // The price editor shows the selected rows; a selection can change
+    // without the current row changing (a ctrl-click on it).
+    m_selection_conn = connect(ui->treeView->selectionModel(),
+                               &QItemSelectionModel::selectionChanged,
+                               this,
+                               &MainWindow::OnSelectionChanged);
 
     ui->viewComboBox->setCurrentIndex(static_cast<int>(m_current_search->GetViewMode()));
 
@@ -1773,10 +1796,6 @@ void MainWindow::FlushPendingSearchFormChange()
 
 void MainWindow::OnTabChange(int index)
 {
-    // A click on a search's tab does not take focus from the price editor,
-    // yet changes what is selected: a price being typed goes to the rows it
-    // was typed for first (the outgoing search is still current here).
-    ui->buyoutPanel->finishEditing();
     FlushPendingSearchFormChange();
     if (m_current_search) {
         SaveViewExpansion(*m_current_search);
@@ -1951,8 +1970,11 @@ void MainWindow::OnImageFetched(const QString &url)
 void MainWindow::UpdateCurrentBuyout()
 {
     spdlog::trace("MainWindow::UpdateCurrentBuyout() entered");
+    if (m_defer_price_editor) {
+        return;
+    }
     if (m_current_item) {
-        ui->buyoutPanel->setBuyout(m_buyout_manager.Get(*m_current_item));
+        ui->buyoutPanel->showPrice(SelectedPriceTargets(), m_buyout_manager.Get(*m_current_item));
     } else if (m_current_bucket_location
                && (m_current_bucket_location->IsFolder() || !m_current_bucket_location->IsValid())) {
         // No buyouts on folders (D11, R7): the widgets are disabled, and a
@@ -1961,15 +1983,28 @@ void MainWindow::UpdateCurrentBuyout()
         // location at all and is treated the same way.
         ResetBuyoutWidgets();
     } else if (m_current_bucket_location) {
-        ui->buyoutPanel->setBuyout(m_buyout_manager.GetTab(*m_current_bucket_location));
+        ui->buyoutPanel->showPrice(SelectedPriceTargets(),
+                                   m_buyout_manager.GetTab(*m_current_bucket_location));
     } else {
         ResetBuyoutWidgets();
     }
 }
 
+void MainWindow::OnSelectionChanged()
+{
+    // Row operations shuffle the selection mid-delta; the reconcile pass
+    // settles it and updates the editor afterwards.
+    if (!m_applying_delta) {
+        UpdateCurrentBuyout();
+    }
+}
+
 void MainWindow::ResetBuyoutWidgets()
 {
-    ui->buyoutPanel->clear();
+    if (m_defer_price_editor) {
+        return;
+    }
+    ui->buyoutPanel->showNothing(SelectedPriceTargets());
 }
 
 void MainWindow::OnItemsRefreshed(bool initial_refresh)
@@ -2143,6 +2178,8 @@ void MainWindow::OnSetAutomaticTabRefresh()
 
 void MainWindow::OnUpdateShops()
 {
+    // A price still being typed is part of what the user is publishing.
+    ui->buyoutPanel->finishEditing();
     m_shop.SubmitShopToForum(true);
 }
 
@@ -2207,6 +2244,7 @@ void MainWindow::OnSetLogging(spdlog::level::level_enum level)
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     if (m_quitting) {
+        ui->buyoutPanel->finishEditing(); // a price still being typed is kept
         event->accept();
         return;
     }
@@ -2219,6 +2257,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
     const auto button = msgbox.exec();
     if (button == QMessageBox::Yes) {
+        ui->buyoutPanel->finishEditing(); // a price still being typed is kept
         event->accept();
     } else {
         event->ignore();

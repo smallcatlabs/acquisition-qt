@@ -23,6 +23,8 @@ private slots:
     void countsWhatWasNotSaved();
     void isOneBatch();
     void noticeNamesTheCause();
+    void targetsCompareAsSets();
+    void resolvesTargetsThatAreStillThere();
 };
 
 namespace {
@@ -163,8 +165,13 @@ void ApplyBuyoutTest::isOneBatch()
 
 void ApplyBuyoutTest::noticeNamesTheCause()
 {
-    // Nothing took the price: the rows it was typed for went away.
-    QVERIFY(ApplyBuyoutNotice(ApplyBuyoutResult{}, true).contains("not applied"));
+    // Rows the price was typed for that went away are counted.
+    ApplyBuyoutResult gone;
+    gone.applied = 1;
+    gone.missing = 2;
+    const QString missing = ApplyBuyoutNotice(gone, true);
+    QVERIFY2(missing.contains("2 row(s)") && missing.contains("no longer there"),
+             qPrintable(missing));
     QVERIFY(ApplyBuyoutNotice(ApplyBuyoutResult{.applied = 2, .locked = 0, .not_saved = 0}, true)
                 .isEmpty());
     // Rows priced in the game are left alone, and the user is told why.
@@ -177,6 +184,49 @@ void ApplyBuyoutTest::noticeNamesTheCause()
     const QString unloaded
         = ApplyBuyoutNotice(ApplyBuyoutResult{.applied = 0, .locked = 0, .not_saved = 1}, false);
     QVERIFY(unloaded.contains("cannot be saved in this session"));
+}
+
+// The same rows in another order are the same targets; a tab is compared
+// by its type and id, so a renamed tab is the same target.
+void ApplyBuyoutTest::targetsCompareAsSets()
+{
+    PriceTargets first;
+    first.item_ids = {"a", "b"};
+    first.tabs = {makeTestStashLocation("stash-x", "Before", 0)};
+    PriceTargets second;
+    second.item_ids = {"b", "a"};
+    second.tabs = {makeTestStashLocation("stash-x", "After", 0)};
+    QVERIFY(first == second);
+
+    second.item_ids = {"a"};
+    QVERIFY(!(first == second));
+    QVERIFY(PriceTargets() == PriceTargets());
+}
+
+// An item a refresh replaced with the same id resolves to the new object;
+// an item or tab that is gone is counted, not resolved.
+void ApplyBuyoutTest::resolvesTargetsThatAreStillThere()
+{
+    Fixture f;
+    const ItemLocation tab = makeTestStashLocation("stash-r", "Dump", 0);
+    const ItemLocation gone_tab = makeTestStashLocation("stash-gone", "Gone", 1);
+    const auto kept = makeItem("item-kept", tab);
+    f.items.OnItemsRefreshed({kept, makeItem("item-gone", tab)}, {tab, gone_tab}, false);
+    const auto replacement = makeItem("item-kept", tab);
+    f.items.OnItemsRefreshed({replacement}, {tab}, false);
+
+    PriceTargets targets;
+    targets.item_ids = {"item-kept", "item-gone"};
+    targets.tabs = {tab, gone_tab};
+    const ResolvedTargets resolved = ResolvePriceTargets(targets,
+                                                         f.items.items(),
+                                                         f.items.locationInventory());
+
+    QCOMPARE(resolved.missing, 2);
+    QCOMPARE(resolved.targets.items.size(), size_t(1));
+    QCOMPARE(resolved.targets.items.front(), replacement.get());
+    QCOMPARE(resolved.targets.tabs.size(), size_t(1));
+    QCOMPARE(resolved.targets.tabs.front().id(), tab.id());
 }
 
 QTEST_GUILESS_MAIN(ApplyBuyoutTest)

@@ -3,13 +3,11 @@
 
 #include "ui/buyoutpanel.h"
 
-#include <QApplication>
 #include <QComboBox>
 #include <QDateTime>
 #include <QHBoxLayout>
 #include <QLineEdit>
 #include <QScopedValueRollback>
-#include <QValidator>
 
 #include <optional>
 
@@ -18,23 +16,6 @@
 #include "ui/mainwindowhelpers.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "util/util.h"
-
-namespace {
-
-    // A price is a number greater than zero (ParseBuyoutValue). Anything
-    // else may still be on its way to one, so it can be typed; the box then
-    // holds no acceptable input, and Qt does not finish editing on it.
-    class PriceValidator : public QValidator
-    {
-    public:
-        using QValidator::QValidator;
-        State validate(QString &input, int & /*pos*/) const override
-        {
-            return ParseBuyoutValue(input) ? Acceptable : Intermediate;
-        }
-    };
-
-} // namespace
 
 BuyoutPanel::BuyoutPanel(QWidget *parent)
     : QWidget(parent)
@@ -66,89 +47,68 @@ BuyoutPanel::BuyoutPanel(QWidget *parent)
     };
     connect(m_type, &QComboBox::activated, this, choose);
     connect(m_currency, &QComboBox::activated, this, choose);
-    // A typed value commits on Enter (the validator lets only a price
-    // through) or when focus leaves the panel, never on each keystroke
-    // (#252); a value setBuyout() showed is not the user's (not modified).
-    m_value->setValidator(new PriceValidator(m_value));
+    // Enter commits a typed value; text that is not a price stays in the
+    // box, marked, and the status line says why.
     connect(m_value, &QLineEdit::returnPressed, this, [this] {
-        if (!m_updating) {
-            finishEditing();
+        if (!m_updating && m_value->isModified()) {
+            if (ParseBuyoutValue(m_value->text())) {
+                m_value->setModified(false);
+            }
+            commit();
         }
     });
-    m_focus_connection = connect(qApp,
-                                 &QApplication::focusChanged,
-                                 this,
-                                 &BuyoutPanel::onFocusChanged);
     connect(m_value, &QLineEdit::textChanged, this, &BuyoutPanel::showValueValidity);
 
     m_type->setEnabled(false);
     setPricedControlsEnabled(false);
 }
 
-BuyoutPanel::~BuyoutPanel()
+void BuyoutPanel::showPrice(const PriceTargets &targets, const Buyout &buyout)
 {
-    // The children are destroyed after this body; the focus moving off
-    // them then is not the user's doing, and this object is no longer a
-    // BuyoutPanel by then.
-    disconnect(m_focus_connection);
+    if (moveTo(targets)) {
+        redraw(buyout, !buyout.IsGameSet());
+    }
 }
 
-void BuyoutPanel::setBuyout(const Buyout &buyout)
+void BuyoutPanel::showNothing(const PriceTargets &targets)
 {
-    if (hasUncommittedEdit()) {
-        return;
+    if (moveTo(targets)) {
+        redraw(Buyout(), false);
+        const QScopedValueRollback updating(m_updating, true);
+        m_currency->setCurrentIndex(Currency::CURRENCY_NONE);
     }
+}
+
+void BuyoutPanel::finishEditing()
+{
+    if (m_value->isModified()) {
+        m_value->setModified(false);
+        commit();
+    }
+}
+
+bool BuyoutPanel::moveTo(const PriceTargets &targets)
+{
+    if (targets == m_targets) {
+        return !m_value->isModified();
+    }
+    finishEditing();
+    m_targets = targets;
+    return true;
+}
+
+void BuyoutPanel::redraw(const Buyout &buyout, bool editable)
+{
     const QScopedValueRollback updating(m_updating, true);
     m_type->setCurrentIndex(buyout.type);
-    m_type->setEnabled(!buyout.IsGameSet());
+    m_type->setEnabled(editable);
     if (buyout.IsPriced()) {
         m_currency->setCurrentIndex(buyout.currency.type);
         m_value->setText(QString::number(buyout.value, 'g', 15));
     } else {
         m_value->setText("");
     }
-    setPricedControlsEnabled(buyout.IsPriced() && !buyout.IsGameSet());
-}
-
-void BuyoutPanel::clear()
-{
-    if (hasUncommittedEdit()) {
-        return;
-    }
-    setBuyout(Buyout());
-    const QScopedValueRollback updating(m_updating, true);
-    m_type->setEnabled(false);
-    m_currency->setCurrentIndex(Currency::CURRENCY_NONE);
-}
-
-void BuyoutPanel::finishEditing()
-{
-    if (hasUncommittedEdit()) {
-        m_value->setModified(false);
-        commit();
-    }
-}
-
-bool BuyoutPanel::hasUncommittedEdit() const
-{
-    return m_value->isModified();
-}
-
-bool BuyoutPanel::owns(const QWidget *widget) const
-{
-    for (const QWidget *w = widget; w != nullptr; w = w->parentWidget()) {
-        if (w == this) {
-            return true;
-        }
-    }
-    return false;
-}
-
-void BuyoutPanel::onFocusChanged(QWidget *old, QWidget *now)
-{
-    if (!m_updating && owns(old) && !owns(now)) {
-        finishEditing();
-    }
+    setPricedControlsEnabled(editable && buyout.IsPriced());
 }
 
 void BuyoutPanel::commit()
@@ -170,17 +130,23 @@ void BuyoutPanel::commit()
         return;
     }
     // Empty or unreadable text (a ratio, "1,000", a lone ".") writes
-    // nothing and leaves the box as typed.
+    // nothing; text the user typed is reported.
     if (bo.IsPriced() && !value) {
         spdlog::trace("BuyoutPanel: the value is not a price");
+        if (!m_value->text().isEmpty()) {
+            emit notice(tr("\"%1\" is not a price, and was not applied: type a number greater "
+                           "than zero, such as 5 or 2.5.")
+                            .arg(m_value->text()));
+        }
         return;
     }
-    emit committed(bo);
+    emit committed(m_targets, bo);
 }
 
 void BuyoutPanel::showValueValidity()
 {
-    const bool invalid = !m_value->text().isEmpty() && !m_value->hasAcceptableInput();
+    const QString text = m_value->text();
+    const bool invalid = !text.isEmpty() && !ParseBuyoutValue(text);
     m_value->setToolTip(invalid ? tr("Not a price: type a number greater than zero, such as "
                                      "5 or 2.5.")
                                 : QString());

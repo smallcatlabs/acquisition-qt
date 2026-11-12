@@ -48,6 +48,7 @@ class StashRepo;
 class UpdateChecker;
 
 struct Buyout;
+struct PriceTargets;
 struct BuyoutChangeSet;
 
 namespace Ui {
@@ -108,7 +109,8 @@ public slots:
     void OnNotifyUser(const QString &message);
     void OnShopWarning(const QString &message);
     // Applies a price the editor committed to the current selection.
-    void OnBuyoutCommitted(const Buyout &bo);
+    // Applies a price the editor committed to the rows it was typed for.
+    void OnBuyoutCommitted(const PriceTargets &targets, const Buyout &bo);
     // The M3 S2 buyout batch response: one per outer batch boundary
     // (BuyoutManager::BuyoutsChanged).
     void OnBuyoutsChanged(const BuyoutChangeSet &changes);
@@ -210,6 +212,9 @@ private:
     void UpdateCurrentBucket();
     void UpdateCurrentItem();
     void UpdateCurrentBuyout();
+    void OnSelectionChanged();
+    // The selected rows that can take a price.
+    PriceTargets SelectedPriceTargets() const;
     void ResetBuyoutWidgets();
     void NewSearch();
     void InitializeRateLimitDialog();
@@ -272,6 +277,10 @@ private:
     QTimer m_delayed_resize_columns;
     QTimer m_delta_resize_debounce;
     QMetaObject::Connection m_current_item_conn;
+    QMetaObject::Connection m_selection_conn;
+    // Set while ReconcileSelectionIntent settles the selection; the price
+    // editor is updated once at its end.
+    bool m_defer_price_editor{false};
     RateLimitDialog *m_rate_limit_dialog;
     bool m_quitting;
 };

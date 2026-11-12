@@ -15,30 +15,33 @@ selected, the controls are cleared and disabled until a row is selected again. T
 2. **Currency**
 3. **Value**
 
-A choice of buyout type or currency applies to the selection at once, with the
-value in the box. A value you type is saved when you:
+A choice of buyout type or currency applies at once, with the value in the
+box. A value you type is saved, to the rows that were selected when you began
+typing it and to no others, when you:
 
-- press Enter in the value box;
+- press Enter;
 - choose a buyout type or currency (the price is saved once, with your choice);
-- move out of the three controls, for example by clicking a row in the item
-  list or a search field;
-- click another search's tab, open a new search with *+*, close the search, or
-  switch between *By Tab* and *By Item*.
+- select other rows, by any means: clicking a row, switching to another search
+  or opening a new one, closing the search, or a search change that hides the
+  rows;
+- close Acquisition, or update the forum shops by hand
+  (*Shop > Update forum shop(s)*).
 
-Moving between the three controls does not save it. The rows that take the
-price are the ones that were selected while you typed, so you can select
-several rows, type one value and press Enter to price them all. A refresh
-that arrives while you are typing neither saves nor replaces what you typed.
-If the rows you typed for are gone by the time the price is saved, nothing
-takes it and the status line says *Price not applied*.
+Nothing else saves it: moving between the three controls, a message window
+appearing, or a refresh that keeps the same rows selected leaves it in the box.
+So you can select several rows, type one value and press Enter to price them
+all. A refresh that changes which rows are selected (one of them was sold, say)
+saves the value as typed so far, to the rows it was typed for; rows that are
+no longer there are skipped, and the status line says how many.
 The *Price* and *Last Update* columns in the item table show the result.
 
 The value must be a number greater than zero. Use a point or a comma as the
 decimal separator (`2.5` or `2,5`). Text that is not such a number, for example
-`79/20`, `abc` or `0`, is shown in red and is not saved: the selection keeps its
-previous price. A comma followed by exactly three digits, such as `1,000`, is
-not saved either, because it could mean one thousand or one; type `1000` or
-`1.0` instead.
+`79/20`, `abc` or `0`, is shown in red and is not saved: the rows keep their
+previous price, and the status line says the text is not a price (on Enter, the
+text stays in the box to be corrected). A comma followed by exactly three
+digits, such as `1,000`, is not saved either, because it could mean one
+thousand or one; type `1000` or `1.0` instead.
 
 Rows priced in the game (see below) keep their price when you price a selection
 that includes them; the status line says so.
