@@ -124,6 +124,7 @@ void Shop::SetThread(const QStringList &threads)
 void Shop::SetAutoUpdate(bool update)
 {
     spdlog::debug("Shop: setting autoupdate to {}", update);
+    const bool changed = (update != m_auto_update);
     m_auto_update = update;
     m_settings.setValue("shop_autoupdate", update);
     // Disabling automation drops the waiting automatic capture (M2 D8/R5-6):
@@ -132,6 +133,9 @@ void Shop::SetAutoUpdate(bool update)
     if (!update && m_waiting_capture) {
         spdlog::debug("Shop: dropping the waiting automatic capture — auto-update disabled");
         m_waiting_capture.reset();
+    }
+    if (changed) {
+        emit AutoUpdateChanged(update);
     }
 }
 
@@ -171,42 +175,53 @@ void Shop::OnRefreshFinished(const RefreshOutcome &outcome)
     SubmitAutomaticShop();
 }
 
-bool Shop::BuyoutsReadyToPost(bool automatic)
+void Shop::Warn(Notice notice, bool automatic, const QString &message)
 {
-    if (m_buyout_manager.BuyoutsLoaded()) {
-        return true;
+    const bool first_time = m_warned.insert(notice).second;
+    if (!automatic || first_time) {
+        emit UserWarning(message);
     }
-    spdlog::error("Shop: not submitting the shop because the buyouts did not load.");
-    if (!automatic || !m_warned_unloaded_buyouts) {
-        m_warned_unloaded_buyouts = true;
-        emit UserWarning("Acquisition could not load your prices, so your forum shop was not "
-                         "updated. Your shop threads have been left as they are."
-                         "\n\n"
-                         "Check the log file for details.");
+}
+
+bool Shop::ReadyToPost(bool automatic)
+{
+    if (!m_buyout_manager.BuyoutsLoaded()) {
+        spdlog::error("Shop: not submitting the shop because the buyouts did not load.");
+        Warn(Notice::BuyoutsNotLoaded,
+             automatic,
+             "Acquisition could not load your prices, so your forum shop was not "
+             "updated. Your shop threads have been left as they are."
+             "\n\n"
+             "Check the log file for details.");
+        return false;
     }
-    return false;
+    if (m_threads.empty()) {
+        spdlog::error("Shop: cannot submit shops because shop threads are not set.");
+        Warn(Notice::NoThreads,
+             automatic,
+             "No forum threads have been set."
+             "\n\n"
+             "Use the Shop --> 'Forum shop thread...' menu item.");
+        return false;
+    }
+    if (m_settings.value("session_id").toString().isEmpty()) {
+        spdlog::error("Shop: cannot submit a shop because the POESESSID is not set");
+        Warn(Notice::NoSession,
+             automatic,
+             "Cannot update forum shop threads because POESESSID has not been set."
+             "\n\n"
+             "Use the Shop --> 'Update Shop POESESSID' menu item."
+             "\n\n"
+             "This is required even if you have logged in with OAuth, because the "
+             "forums do not support OAuth.");
+        return false;
+    }
+    return true;
 }
 
 void Shop::SubmitAutomaticShop()
 {
-    if (!BuyoutsReadyToPost(true)) {
-        return;
-    }
-    if (m_threads.empty()) {
-        spdlog::error("Shop: cannot submit shops because shop threads are not set.");
-        emit UserWarning("No forum threads have been set."
-                         "\n\n"
-                         "Use the Shop --> 'Forum shop thread...' menu item.");
-        return;
-    }
-    if (m_settings.value("session_id").toString().isEmpty()) {
-        spdlog::error("Shop: cannot submit a shop because the POESESSID is not set");
-        emit UserWarning("Cannot update forum shop threads because POESESSID has not been set."
-                         "\n\n"
-                         "Use the Shop --> 'Update Shop POESESSID' menu item."
-                         "\n\n"
-                         "This is required even if you have logged in with OAuth, because the "
-                         "forums do not support OAuth.");
+    if (!ReadyToPost(true)) {
         return;
     }
 
@@ -241,30 +256,15 @@ QString Shop::SpoilerBuyout(const Buyout &bo)
 void Shop::SubmitShopToForum(bool force)
 {
     spdlog::debug("Shop: submitting shop(s) to forums with force = {}", force);
-    if (!BuyoutsReadyToPost(false)) {
+    if (!ReadyToPost(false)) {
         return;
     }
     if (m_active_job) {
-        spdlog::warn("Shop: cannnot submit shops because the last update is not finished.");
-        return;
-    }
-    if (m_threads.empty()) {
-        spdlog::error("Shop: cannot submit shops because shop threads are not set.");
-        emit UserWarning("No forum threads have been set."
-                         "\n\n"
-                         "Use the Shop --> 'Forum shop thread...' menu item.");
-        return;
-    }
-
-    const QString session_id = m_settings.value("session_id").toString();
-    if (session_id.isEmpty()) {
-        spdlog::error("Shop: cannot submit a shop because the POESESSID is not set");
-        emit UserWarning("Cannot update forum shop threads because POESESSID has not been set."
-                         "\n\n"
-                         "Use the Shop --> 'Update Shop POESESSID' menu item."
-                         "\n\n"
-                         "This is required even if you have logged in with OAuth, because the "
-                         "forums do not support OAuth.");
+        spdlog::warn("Shop: cannot submit shops because the last update is not finished.");
+        Warn(Notice::Busy,
+             false,
+             "Your forum shop is already being updated. Try again when that update has "
+             "finished.");
         return;
     }
 
@@ -437,16 +437,15 @@ void Shop::OnStashIndexUpdated()
     if (job.threads.size() < job.shop_data.size()) {
         const qsizetype missing = job.shop_data.size() - job.threads.size();
         spdlog::warn("Shop: need {} more shops defined to fit all your items.", missing);
-        if (!job.automatic || !m_warned_page_shortfall) {
-            m_warned_page_shortfall = true;
-            emit UserWarning(QString("Your forum shop needs %1 more thread(s) to list all of your "
-                                     "priced items. Only the first %2 page(s) are posted."
-                                     "\n\n"
-                                     "Use the Shop --> 'Forum shop thread...' menu item to add "
-                                     "threads.")
-                                 .arg(missing)
-                                 .arg(job.threads.size()));
-        }
+        Warn(Notice::PageShortfall,
+             job.automatic,
+             QString("Your forum shop needs %1 more thread(s) to list all of your "
+                     "priced items. Only the first %2 page(s) are posted."
+                     "\n\n"
+                     "Use the Shop --> 'Forum shop thread...' menu item to add "
+                     "threads.")
+                 .arg(missing)
+                 .arg(job.threads.size()));
     }
 
     // Don't resubmit the shop if the data hasn't changed. The no-post case

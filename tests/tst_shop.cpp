@@ -12,6 +12,7 @@
 #include <memory>
 #include <sstream>
 
+#include <spdlog/sinks/dist_sink.h>
 #include <spdlog/sinks/ostream_sink.h>
 #include <spdlog/spdlog.h>
 
@@ -19,6 +20,7 @@
 #include "fakenetwork.h"
 #include "fakenetworkmanager.h"
 #include "itemsmanager.h"
+#include "mainwindowfixture.h"
 #include "poe/poeapiclient.h"
 #include "shop.h"
 #include "testfixtures.h"
@@ -115,6 +117,15 @@ private slots:
 
     // #258: every form value reaches the forum as the user wrote it.
     void formValuesArePercentEncoded();
+
+    // #279: one admission gate. A manual request is always told why it
+    // was refused; an automatic one hears each reason once per session.
+    void automaticRefusalWarnsOncePerReason();
+    void manualRequestWhileUpdatingTellsTheUser();
+    void rejectedSessionReportsAutoUpdateOff();
+    // tst_mainwindow has no shop test to sit beside, so the menu check
+    // lives here with the main-window fixture.
+    void autoUpdateMenuFollowsTheSetting();
 };
 
 namespace {
@@ -1100,6 +1111,106 @@ void ShopTest::formValuesArePercentEncoded()
     QCOMPARE(form.value("hash"), QString("fakecsrfhash"));
     QCOMPARE(form.value("notify_owner"), QString("0"));
     QCOMPARE(form.value("submit"), QString("Submit"));
+}
+
+// Clean refreshes with automatic updates on and a precondition missing:
+// each missing precondition is reported once, however many refreshes
+// follow; a manual request is told every time.
+void ShopTest::automaticRefusalWarnsOncePerReason()
+{
+    ShopFixture fixture;
+    fixture.settings->setValue("session_id", "fake-poesessid");
+    fixture.shop->SetAutoUpdate(true);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+
+    // No threads.
+    for (int i = 0; i < 2; ++i) {
+        fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+        drainEvents();
+    }
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY(warnings.last().first().toString().contains("No forum threads"));
+
+    // Threads, but no POESESSID: a different reason, reported once.
+    fixture.shop->SetThread({"123"});
+    fixture.settings->remove("session_id");
+    for (int i = 0; i < 2; ++i) {
+        fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+        drainEvents();
+    }
+    QCOMPARE(warnings.count(), 2);
+    QVERIFY(warnings.last().first().toString().contains("POESESSID"));
+
+    // The user asked: told again.
+    fixture.shop->SubmitShopToForum(true);
+    QCOMPARE(warnings.count(), 3);
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(0));
+}
+
+void ShopTest::manualRequestWhileUpdatingTellsTheUser()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+
+    fixture.shop->SubmitShopToForum(true);
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(1));
+    QCOMPARE(warnings.count(), 0);
+
+    // A second request while the first is still running is refused, and
+    // the user hears why.
+    fixture.shop->SubmitShopToForum(true);
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(1));
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY(warnings.first().first().toString().contains("already"));
+}
+
+void ShopTest::rejectedSessionReportsAutoUpdateOff()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    QSignalSpy changes(fixture.shop.get(), &Shop::AutoUpdateChanged);
+    fixture.shop->SetAutoUpdate(true);
+    QCOMPARE(changes.count(), 1);
+    QCOMPARE(changes.last().first().toBool(), true);
+
+    fixture.shop->SubmitShopToForum();
+    fixture.rateLimiter->reject(0, RateLimit::FetchError::Kind::Http, "HTTP status 403", 403);
+    drainEvents();
+
+    QVERIFY(!fixture.shop->auto_update());
+    QCOMPARE(changes.count(), 2);
+    QCOMPARE(changes.last().first().toBool(), false);
+}
+
+// The window's own network stack is real, so nothing here may submit: the
+// setting is changed directly, as the rejection path above changes it.
+void ShopTest::autoUpdateMenuFollowsTheSetting()
+{
+    // MainWindow's log panel attaches through the "main" logger's sink hub
+    // (F42), as in tst_mainwindow.
+    auto hub = std::make_shared<spdlog::sinks::dist_sink_mt>();
+    auto main_logger = std::make_shared<spdlog::logger>("main");
+    main_logger->sinks().push_back(hub);
+    spdlog::register_logger(main_logger);
+    const auto drop_main = qScopeGuard([] { spdlog::drop("main"); });
+
+    {
+        MainWindowFixture fixture;
+        auto *action = fixture.window->findChild<QAction *>("actionSetAutomaticallyShopUpdate");
+        QVERIFY(action);
+        QVERIFY(!action->isChecked());
+
+        action->trigger();
+        QVERIFY(action->isChecked());
+        QVERIFY(fixture.shop->auto_update());
+
+        fixture.shop->SetAutoUpdate(false);
+        QVERIFY(!action->isChecked());
+
+        fixture.shop->SetAutoUpdate(true);
+        QVERIFY(action->isChecked());
+    }
 }
 
 QTEST_MAIN(ShopTest)

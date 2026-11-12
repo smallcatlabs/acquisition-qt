@@ -16,15 +16,19 @@ your stash directly. Acquisition writes and updates those threads for you.
 3. **Shop → Update shop POESESSID** — paste your `POESESSID` cookie from
    pathofexile.com. OAuth cannot edit forum posts, so this cookie is required.
    The same dialog is under **Settings → POESESSID**. If the site rejects the
-   cookie, Acquisition warns you and stops updating until you enter a new one.
+   cookie, Acquisition warns you, clears it, and turns **Automatically update
+   shop** off (the menu item is unchecked) until you enter a new one.
 
 ## Publishing
 
 - **Shop → Update forum shop(s)** rewrites every configured thread with the
   current buyouts. Each item is wrapped in a `[spoiler]` with its price prefix,
-  and the whole list is placed where `[items]` appears in the template.
+  and the whole list is placed where `[items]` appears in the template. If an
+  update is still running, you are told to try again when it has finished.
 - **Shop → Automatically update shop** (checkable) republishes after every
-  refresh, but only if something changed since the last post.
+  refresh, but only if something changed since the last post. If no thread or
+  no POESESSID is set, a warning says so once per session rather than after
+  every refresh; updating by hand tells you each time.
 - **Shop → Copy shop data to clipboard** gives you the generated forum markup
   without posting, for pasting by hand.
 
