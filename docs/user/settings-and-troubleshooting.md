@@ -86,7 +86,7 @@ sharing either.
 | Symptom | Likely cause |
 |---|---|
 | *Error requesting leagues* on the login window | The API is unreachable; check your connection or proxy |
-| *Acquisition is already running with this data directory* | Another Acquisition uses that directory; use its window, or start with `--data-dir` |
+| *Acquisition is already running with this data directory* | Another Acquisition, on this or another computer, uses that directory: use it, or start with `--data-dir`. If none is running, delete the lock file the message names |
 | Login button stays disabled | You have not authenticated, or no league is selected |
 | *Update failed: Path of Exile rejected the login (HTTP 401)* | The login has expired or was revoked; restart Acquisition and log in again |
 | Refresh seems stuck | Open the Rate Limit Status Window; the API is probably throttling |

@@ -85,9 +85,13 @@ acquisition --data-dir /path/to/other/dir
 ```
 
 Only one Acquisition at a time can use a data directory. A second one started
-on the same directory says so and exits. The running one keeps a lock file,
-`acquisition.lock`, which is removed when it closes; one left behind by a crash
-is taken over at the next start.
+on the same directory says so, shows what holds the lock and where the lock
+file is, and exits. The running one keeps a lock file, `acquisition.lock`,
+which is removed when it closes. One left behind by a crash on the same
+computer is taken over at the next start. One written on another computer (a
+shared or synced data directory) or one that cannot be read is not: if you are
+sure no Acquisition is using the directory, delete the file named in the
+message.
 
 The other command-line option is `--log-level <level>`; see
 [Settings and troubleshooting](settings-and-troubleshooting.md#logging).
