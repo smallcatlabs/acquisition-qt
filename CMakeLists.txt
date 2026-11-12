@@ -642,14 +642,41 @@ find_package(Qt6 6.11 REQUIRED COMPONENTS Core Gui Network NetworkAuth Sql Test 
 
 qt_standard_project_setup()
 
+#------------------------------------------------------
+# First-party targets
+#------------------------------------------------------
+
+# One set of warning flags for every first-party target, and none for the
+# fetched dependencies or deps/. ACQ_WERROR turns warnings into errors; only
+# the pull-request test job sets it, so a newer compiler on a release build
+# warns instead of failing.
+option(ACQ_WERROR "Treat warnings in first-party code as errors." OFF)
+add_library(acq_warnings INTERFACE)
+target_compile_options(acq_warnings INTERFACE
+    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall>
+    $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wextra>
+    $<$<CXX_COMPILER_ID:MSVC>:/W4>
+    $<$<AND:$<BOOL:${ACQ_WERROR}>,$<CXX_COMPILER_ID:GNU,Clang,AppleClang>>:-Werror>
+    $<$<AND:$<BOOL:${ACQ_WERROR}>,$<CXX_COMPILER_ID:MSVC>>:/WX>
+)
+
+# Call this on every first-party target (the libraries, the app, the tests
+# and the benchmarks) right after creating it: it sets the language level and
+# links the warning flags first, so a dependency's own flags (glaze's
+# -Wno-missing-braces) come after them on every target alike.
+function(acq_first_party target)
+    set_target_properties(${target} PROPERTIES
+        CXX_STANDARD 23
+        CXX_STANDARD_REQUIRED YES
+        CXX_EXTENSIONS NO
+    )
+    target_link_libraries(${target} PRIVATE acq_warnings)
+endfunction()
+
 # This target is the build gate for the filter core: its include and link
 # closure deliberately contains no Qt Widgets module.
 qt_add_library(acquisition_filters STATIC ${ACQ_FILTERS})
-set_target_properties(acquisition_filters PROPERTIES
-    CXX_STANDARD 23
-    CXX_STANDARD_REQUIRED YES
-    CXX_EXTENSIONS NO
-)
+acq_first_party(acquisition_filters)
 target_include_directories(acquisition_filters PUBLIC "${acquisition_SOURCE_DIR}/src")
 target_link_libraries(acquisition_filters
     PUBLIC
@@ -676,6 +703,7 @@ qt_add_library(acquisition_core STATIC
     # Generated version header
     "${CMAKE_BINARY_DIR}/version_defines.h"
 )
+acq_first_party(acquisition_core)
 
 qt_add_resources(acquisition_core
     PREFIX "/"
@@ -683,12 +711,7 @@ qt_add_resources(acquisition_core
     FILES ${ACQ_RESOURCES}
 )
 
-set_target_properties(acquisition_core PROPERTIES
-    AUTORCC ON
-    CXX_STANDARD 23
-    CXX_STANDARD_REQUIRED YES
-    CXX_EXTENSIONS NO
-)
+set_target_properties(acquisition_core PROPERTIES AUTORCC ON)
 
 # Setup include directories.
 target_include_directories(acquisition_core PUBLIC
@@ -722,6 +745,7 @@ target_link_libraries(acquisition_core PUBLIC
 qt_add_executable(acquisition WIN32 MACOSX_BUNDLE
     src/main.cpp
 )
+acq_first_party(acquisition)
 
 # Add configure_file() inputs so they show up in Qt Creator.
 target_sources(acquisition PRIVATE
@@ -729,12 +753,6 @@ target_sources(acquisition PRIVATE
     FILES
         version_info.rc.in
         src/version_defines.h.in
-)
-
-set_target_properties(acquisition PROPERTIES
-    CXX_STANDARD 23
-    CXX_STANDARD_REQUIRED YES
-    CXX_EXTENSIONS NO
 )
 
 target_link_libraries(acquisition PRIVATE acquisition_core)
@@ -745,9 +763,7 @@ target_link_libraries(acquisition PRIVATE acquisition_core)
 
 if(WIN32)
 
-    # Enable more warnings by default (MSVC only).
     target_compile_options(acquisition_core PRIVATE
-        $<$<CXX_COMPILER_ID:MSVC>:/W4>
         $<$<CXX_COMPILER_ID:MSVC>:/EHsc>
         $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<NOT:$<CONFIG:Debug>>>:/Zi>
     )
