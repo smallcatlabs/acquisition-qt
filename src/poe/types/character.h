@@ -30,7 +30,7 @@ namespace poe {
             std::optional<std::unordered_map<QString, int>>
                 mastery_effects; // dictionary of int; PoE1 only; the key is the string value of the mastery node skill hash and the value is the selected effect hash
             std::optional<std::unordered_map<QString, std::vector<int>>>
-                specializations; // dictionary of array of int; PoE2 only; the keys are set1, set2, and set3
+                specialisations; // dictionary of array of int; PoE2 only; the keys are set1, set2, and set3
             std::unordered_map<QString, poe::PassiveNode>
                 skill_overrides; // dictionary of PassiveNode; the key is the string value of the node identifier being replaced
             std::optional<QString>
@@ -69,6 +69,7 @@ namespace poe {
         std::optional<std::vector<poe::Item>> rucksack;   // ?array of Item
         std::optional<std::vector<poe::Item>> jewels;     // ?array of Item
         std::optional<std::vector<poe::Item>> guardian;   // ?array of Item; PoE1 only
+        std::optional<std::vector<poe::Item>> wickerman;  // ?array of Item; PoE1 only
         std::optional<int> active_mercenary_index;        // ?int; PoE1 only
         std::optional<poe::Character::Passives> passives; // ?object
         std::optional<poe::Character::Metadata> metadata; // ?object

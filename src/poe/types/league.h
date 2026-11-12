@@ -31,6 +31,7 @@ namespace poe {
         std::optional<std::vector<poe::LeagueRule>> rules; // ? array of LeagueRule
         std::optional<QString> registerAt;                 // ? string date time(ISO8601)
         std::optional<bool> event;                         // ? bool always true if present
+        std::optional<QString> goal;                       // ?string
         std::optional<QString> url;        // ? string a url link to a Path of Exile forum thread
         std::optional<QString> startAt;    // ? string date time(ISO8601)
         std::optional<QString> endAt;      // ? string date time(ISO8601)

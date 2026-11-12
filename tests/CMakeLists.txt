@@ -110,6 +110,7 @@ acq_add_test(tst_reconcile)
 acq_add_test(tst_userstoremigration)
 acq_add_test(tst_workerparse)
 acq_add_test(tst_workerupdate)
+acq_add_test(tst_wiretypes)
 
 acq_add_scenario_test(tst_workerintegration
     fullChainStashListSucceeds

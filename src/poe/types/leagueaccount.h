@@ -3,8 +3,10 @@
 
 #pragma once
 
+#include <unordered_map>
 #include <vector>
 
+#include <QHashFunctions> // Needed to avoid obscure errors in std::unordered_map with QString keys.
 #include <QString>
 
 #include "poe/types/item.h"
@@ -20,10 +22,14 @@ namespace poe {
         {
             QString name;                 // string
             std::vector<unsigned> hashes; // array of uint
+            // dictionary of int; the key is the string value of the variant node's skill hash and
+            // the value is the selected effect hash
+            std::unordered_map<QString, int> variants;
         };
 
         struct Mercenaries
         {
+            unsigned index; // uint
             QString name;
             unsigned level;
             QString build;

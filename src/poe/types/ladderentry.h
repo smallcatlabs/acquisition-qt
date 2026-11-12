@@ -30,7 +30,9 @@ namespace poe {
             std::optional<unsigned>
                 time; // ? uint time taken to complete the league objective in seconds
             std::optional<unsigned> score; // ? uint count of league objective completions
-            // TBD progress; // ? object the values of this depend on the league objective
+            // NOTE: kept as the raw object; the reference gives it no shape.
+            // ?object; the values of this depend on the league objective
+            std::optional<glz::raw_json> progress;
             std::optional<unsigned> experience;               // ? uint
             std::optional<poe::LadderEntry::DelveInfo> depth; // ? object deepest Delve depth completed
         };
