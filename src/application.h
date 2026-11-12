@@ -10,6 +10,8 @@
 #include <QObject>
 #include <QString>
 
+#include <memory>
+
 class QNetworkReply;
 class QSettings;
 
@@ -30,6 +32,10 @@ class RePoE;
 class Shop;
 class UserStore;
 class UpdateChecker;
+
+// Opens the global data store under <data dir>/data, first backing up that
+// folder when the version recorded in the settings is not this version.
+std::unique_ptr<DataStore> OpenGlobalDataStore(const QDir &dataDir, QSettings &settings);
 
 struct MainWindowDeleter
 {
@@ -112,8 +118,6 @@ private:
 
     void InitCoreServices();
     void InitUserSession();
-
-    void SaveDataOnNewVersion();
 
     std::unique_ptr<CoreServices> m_core;
     std::unique_ptr<UserSession> m_session;

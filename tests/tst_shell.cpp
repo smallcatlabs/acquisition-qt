@@ -25,6 +25,8 @@
 #include <spdlog/sinks/dist_sink.h>
 #include <spdlog/spdlog.h>
 
+#include "application.h"
+#include "datastore/datastore.h"
 #include "datastore/sqlitedatastore.h"
 #include "fakenetworkmanager.h"
 #include "imagecache.h"
@@ -38,6 +40,7 @@
 #include "util/networkmanager.h"
 #include "util/oauthmanager.h"
 #include "util/updatechecker.h"
+#include "version_defines.h"
 
 class ShellTest : public QObject
 {
@@ -72,6 +75,8 @@ private slots:
     void msvcCheckPassesWithoutLibraries();
     void msvcCheckAnswer_data();
     void msvcCheckAnswer();
+    void freshDataDirTakesNoBackup();
+    void legacyStoreVersionNamesTheBackup();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -732,6 +737,39 @@ void ShellTest::msvcCheckAnswer()
     QVERIFY(prompted);
     QCOMPARE(result, continues);
     QCOMPARE(folder.urls.size(), opensFolder ? 1 : 0);
+}
+
+void ShellTest::freshDataDirTakesNoBackup()
+{
+    // A first run has nothing to back up: opening the global store must not
+    // make its own brand-new database look like old data (#292).
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir data_dir(dir.path());
+    QSettings settings(data_dir.filePath("settings.ini"), QSettings::IniFormat);
+
+    const auto store = OpenGlobalDataStore(data_dir, settings);
+    QVERIFY(store);
+    const QStringList backups = data_dir.entryList({"data-backup-*"}, QDir::AllEntries);
+    QVERIFY2(backups.isEmpty(), qPrintable(backups.join(", ")));
+    QCOMPARE(settings.value("version").toString(), QString(APP_VERSION_STRING));
+}
+
+void ShellTest::legacyStoreVersionNamesTheBackup()
+{
+    // An install from before the version moved to settings.ini recorded it
+    // in the global store; that version still names the backup.
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir data_dir(dir.path());
+    const QString global_file = data_dir.filePath("data/" + SqliteDataStore::MakeFilename("", ""));
+    SqliteDataStore(global_file).Set("version", "0.9.0");
+    QSettings settings(data_dir.filePath("settings.ini"), QSettings::IniFormat);
+
+    const auto store = OpenGlobalDataStore(data_dir, settings);
+    QVERIFY(store);
+    QVERIFY(data_dir.exists("data-backup-0.9.0"));
+    QCOMPARE(settings.value("version").toString(), QString(APP_VERSION_STRING));
 }
 
 QTEST_MAIN(ShellTest)

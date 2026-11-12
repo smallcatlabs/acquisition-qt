@@ -7,6 +7,7 @@
 #include <QApplication>
 #include <QDateTime>
 #include <QDir>
+#include <QFile>
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QNetworkCookieJar>
@@ -73,8 +74,6 @@ void Application::InitCoreServices()
         settings().setValue("realm", "pc");
     }
     spdlog::debug("Application: realm is {}", settings().value("realm"));
-
-    SaveDataOnNewVersion();
 
     spdlog::debug("Application: loading theme");
     SetTheme(settings().value("theme", "default").toString());
@@ -199,6 +198,22 @@ Application::UserSession &Application::session() const
     FatalError("Application: user session not initialized");
 }
 
+std::unique_ptr<DataStore> OpenGlobalDataStore(const QDir &dataDir, QSettings &settings)
+{
+    const QDir user_dir(dataDir.filePath("data"));
+    const QString global_data_file = user_dir.filePath(SqliteDataStore::MakeFilename("", ""));
+    // Back up before the store is opened: opening creates the database, and a
+    // first run would otherwise back up its own new file. Versions before the
+    // version moved to settings.ini recorded it in the store; read it only then.
+    QString legacy_version = "UNKNOWN-VERSION";
+    if (!settings.contains("version") && QFile::exists(global_data_file)) {
+        legacy_version = SqliteDataStore(global_data_file).Get("version", legacy_version);
+    }
+    BackupDataOnNewVersion(dataDir, settings, legacy_version, APP_VERSION_STRING);
+    spdlog::trace("Application: opening global data file: {}", global_data_file);
+    return std::make_unique<SqliteDataStore>(global_data_file);
+}
+
 Application::CoreServices::CoreServices(const QDir &appDataDir)
     : dir(appDataDir)
 {
@@ -215,10 +230,7 @@ Application::CoreServices::CoreServices(const QDir &appDataDir)
     spdlog::trace("Application: creating the settings object: {}", settings_path);
     settings = std::make_unique<QSettings>(settings_path, QSettings::IniFormat);
 
-    const QDir user_dir(dir.filePath("data"));
-    const QString global_data_file = user_dir.filePath(SqliteDataStore::MakeFilename("", ""));
-    spdlog::trace("Application: opening global data file: {}", global_data_file);
-    global_data = std::make_unique<SqliteDataStore>(global_data_file);
+    global_data = OpenGlobalDataStore(dir, *settings);
 
     const QString image_cache_dir = dir.absoluteFilePath("cache");
     image_cache = std::make_unique<ImageCache>(*network_manager, image_cache_dir);
@@ -438,13 +450,4 @@ void Application::OnItemsRefreshed(bool initial_refresh)
     // Automatic forum submission moved to the typed terminal event (M2
     // D8/R1-1): Shop::OnRefreshFinished gates it on a CLEAN CompletedRefresh,
     // which the initial cached load never emits (it is not an update).
-}
-
-void Application::SaveDataOnNewVersion()
-{
-    spdlog::trace("Application::SaveDataOnNewVersion() entered");
-    BackupDataOnNewVersion(m_data_dir,
-                           settings(),
-                           global_data().Get("version", "UNKNOWN-VERSION"),
-                           APP_VERSION_STRING);
 }
