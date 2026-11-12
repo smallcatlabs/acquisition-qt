@@ -83,6 +83,7 @@ private slots:
     void legacyStoreVersionNamesTheBackup();
     void imageCacheSignalsFailedFetch();
     void imageCacheKeepsNoFileForUndecodableBody();
+    void imageCacheKeysOnRequestedUrl();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -843,6 +844,64 @@ void ShellTest::imageCacheSignalsFailedFetch()
     QCOMPARE(ready.at(0).at(0).toString(), url);
     QVERIFY(!cache.contains(url));
     QVERIFY(cache.load(url).isNull());
+}
+
+// A reply whose url() is not the one requested, as after a redirect.
+class RedirectedReply : public InFlightReply
+{
+public:
+    RedirectedReply(const QNetworkRequest &request, const QUrl &final_url, QObject *parent)
+        : InFlightReply(request, parent)
+    {
+        setUrl(final_url);
+    }
+};
+
+class RedirectingNetworkManager : public NetworkManager
+{
+public:
+    QList<QPointer<InFlightReply>> replies;
+
+protected:
+    QNetworkReply *createRequest(QNetworkAccessManager::Operation,
+                                 const QNetworkRequest &request,
+                                 QIODevice *) override
+    {
+        auto *reply = new RedirectedReply(request,
+                                          QUrl("https://web.poecdn.com/redirected/Ring1.png"),
+                                          this);
+        replies.append(reply);
+        return reply;
+    }
+};
+
+void ShellTest::imageCacheKeysOnRequestedUrl()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    RedirectingNetworkManager network;
+    ImageCache cache(network, dir.filePath("cache"));
+    QSignalSpy ready(&cache, &ImageCache::imageReady);
+
+    QByteArray png;
+    {
+        QImage image(1, 1, QImage::Format_ARGB32);
+        image.fill(Qt::red);
+        QBuffer buffer(&png);
+        QVERIFY(buffer.open(QIODevice::WriteOnly));
+        QVERIFY(image.save(&buffer, "PNG"));
+    }
+
+    const QString url = "https://web.poecdn.com/image/Art/2DItems/Rings/Ring1.png";
+    cache.fetch(url);
+    QCOMPARE(network.replies.size(), 1);
+    QVERIFY(network.replies.at(0)->url() != QUrl(url));
+    network.replies.at(0)->finish({}, 200, QNetworkReply::NoError, png);
+
+    QCOMPARE(ready.count(), 1);
+    QCOMPARE(ready.at(0).at(0).toString(), url);
+    QVERIFY(cache.contains(url));
+    QVERIFY(!cache.load(url).isNull());
 }
 
 void ShellTest::imageCacheKeepsNoFileForUndecodableBody()

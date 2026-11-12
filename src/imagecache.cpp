@@ -41,17 +41,19 @@ void ImageCache::fetch(const QString &url)
         spdlog::debug("ImageCache: fetching {}", url);
         QNetworkRequest request = QNetworkRequest(QUrl(url));
         QNetworkReply *reply = m_network_manager.get(request);
-        connect(reply, &QNetworkReply::finished, this, &ImageCache::onFetched);
+        // Key the result on the url that was asked for: reply->url() is the
+        // url after any redirect, which the caller would not recognise.
+        connect(reply, &QNetworkReply::finished, this, [this, reply, url]() {
+            onFetched(reply, url);
+        });
     }
 }
 
-void ImageCache::onFetched()
+void ImageCache::onFetched(QNetworkReply *reply, const QString &url)
 {
-    QNetworkReply *reply = qobject_cast<QNetworkReply *>(sender());
     // The reply is ours to release on every path; it stays readable until
     // control returns to the event loop.
     reply->deleteLater();
-    const QString url = reply->url().toString();
     if (reply->error() != QNetworkReply::NoError) {
         spdlog::error("ImageCache: failed to fetch image: {}: {}", reply->errorString(), url);
     } else {
