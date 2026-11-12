@@ -6,6 +6,7 @@
 #include <QAbstractOAuth>
 #include <QByteArray>
 #include <QDesktopServices>
+#include <QHostAddress>
 #include <QOAuth2AuthorizationCodeFlow>
 #include <QOAuthHttpServerReplyHandler>
 #include <QSet>
@@ -169,8 +170,10 @@ void OAuthManager::receiveGrant()
 
 void OAuthManager::initLogin()
 {
-    if (!m_handler->isListening()) {
-        m_handler->listen();
+    // listen() with no address binds every interface. Listen on loopback,
+    // as the handler's constructor does: IPv4 first, then IPv6.
+    if (!m_handler->isListening() && !m_handler->listen(QHostAddress::LocalHost)) {
+        m_handler->listen(QHostAddress::LocalHostIPv6);
     }
     spdlog::info("OAuth: starting authentication.");
     m_oauth->grant();

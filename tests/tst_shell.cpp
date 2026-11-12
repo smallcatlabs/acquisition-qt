@@ -5,8 +5,10 @@
 
 #include <QApplication>
 #include <QBuffer>
+#include <QDesktopServices>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QOAuthHttpServerReplyHandler>
 #include <QPushButton>
 #include <QSettings>
 #include <QSignalSpy>
@@ -64,6 +66,8 @@ private slots:
     void networkManagerHasNoDiskCache();
     void repeatedGetIsNotServedFromCache();
     void legacyNetworkCacheIsRemoved();
+    void loginListensOnLoopbackAfterClose();
+    void startupRefreshClosesTheListener();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -576,6 +580,97 @@ void ShellTest::legacyNetworkCacheIsRemoved()
     // Idempotent: nothing to remove is not an error.
     NetworkManager::removeLegacyDiskCache(data_dir);
     QVERIFY(!data_dir.exists("network_cache"));
+}
+
+// Receives the URLs QDesktopServices would open, so an OAuth grant() in a
+// test never starts a browser.
+class UrlCatcher : public QObject
+{
+    Q_OBJECT
+
+public:
+    explicit UrlCatcher(const QString &scheme)
+        : m_scheme(scheme)
+    {
+        QDesktopServices::setUrlHandler(m_scheme, this, "open");
+    }
+    ~UrlCatcher() override { QDesktopServices::unsetUrlHandler(m_scheme); }
+
+    QList<QUrl> urls;
+
+public slots:
+    void open(const QUrl &url) { urls.append(url); }
+
+private:
+    QString m_scheme;
+};
+
+// The address the OAuth callback server is bound to, or a null address
+// when it is not listening.
+static QHostAddress callbackAddress(const OAuthManager &oauth)
+{
+    const auto *handler = oauth.findChild<QOAuthHttpServerReplyHandler *>();
+    if (!handler || !handler->isListening()) {
+        return {};
+    }
+    const auto servers = handler->findChildren<QTcpServer *>();
+    for (const QTcpServer *server : servers) {
+        if (server->isListening()) {
+            return server->serverAddress();
+        }
+    }
+    return {};
+}
+
+void ShellTest::loginListensOnLoopbackAfterClose()
+{
+    UrlCatcher browser("https");
+    LoginDialogServices services;
+    QVERIFY(services.dir.isValid());
+    auto *handler = services.oauth.findChild<QOAuthHttpServerReplyHandler *>();
+    QVERIFY(handler);
+
+    // As constructed, the handler listens on loopback.
+    QVERIFY(callbackAddress(services.oauth).isLoopback());
+
+    // A grant closes it (OAuthManager::receiveGrant); the next login must
+    // listen on loopback again, not on every interface.
+    handler->close();
+    QVERIFY(!handler->isListening());
+    services.oauth.initLogin();
+    const QHostAddress address = callbackAddress(services.oauth);
+    QVERIFY2(address.isLoopback(), qPrintable(address.toString()));
+    QCOMPARE(browser.urls.size(), 1);
+}
+
+void ShellTest::startupRefreshClosesTheListener()
+{
+    // A stored token is refreshed when OAuthManager is constructed. A
+    // successful refresh emits granted(), which closes the callback server,
+    // so the login dialog's "Re-authenticate" goes through the re-listen
+    // path in initLogin().
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    FakeNetworkManager network;
+    SqliteDataStore datastore(dir.filePath("data/global.db"));
+    datastore.Set("oauth_token", R"({"username":"TestAccount","refresh_token":"old-refresh"})");
+    OAuthManager oauth(network, datastore);
+    QSignalSpy granted(&oauth, &OAuthManager::grantAccess);
+    QVERIFY(callbackAddress(oauth).isLoopback());
+
+    QTRY_COMPARE_WITH_TIMEOUT(network.count(), 1, 1000);
+    QVERIFY(network.sent(0).request.url().path().endsWith("/oauth/token"));
+    QPointer<InFlightReply> reply = network.sent(0).reply;
+    QVERIFY(reply);
+    reply->finish({{"Content-Type", "application/json"}},
+                  200,
+                  QNetworkReply::NoError,
+                  R"({"access_token":"new-access","expires_in":36000,"token_type":"bearer",)"
+                  R"("scope":"account:leagues account:stashes account:characters",)"
+                  R"("username":"TestAccount","sub":"id","refresh_token":"new-refresh"})");
+
+    QTRY_COMPARE_WITH_TIMEOUT(granted.count(), 1, 1000);
+    QVERIFY(callbackAddress(oauth).isNull());
 }
 
 QTEST_MAIN(ShellTest)
