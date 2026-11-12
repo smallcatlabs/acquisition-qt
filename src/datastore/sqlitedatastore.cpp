@@ -135,7 +135,7 @@ void SqliteDataStore::Set(const QString &key, const QString &value)
     }
 }
 
-void SqliteDataStore::InsertCurrencyUpdate(const CurrencyUpdate &update)
+bool SqliteDataStore::InsertCurrencyUpdate(const CurrencyUpdate &update)
 {
     QSqlDatabase db = getThreadLocalDatabase();
     QSqlQuery query(db);
@@ -145,8 +145,10 @@ void SqliteDataStore::InsertCurrencyUpdate(const CurrencyUpdate &update)
     query.bindValue(0, update.timestamp);
     query.bindValue(1, update.value);
     if (query.exec() == false) {
-        spdlog::error("Error inserting currency update.");
+        spdlog::error("Error inserting currency update: {}", query.lastError().text());
+        return false;
     }
+    return true;
 }
 
 std::vector<CurrencyUpdate> SqliteDataStore::GetAllCurrency()
