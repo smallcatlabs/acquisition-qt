@@ -140,19 +140,12 @@ LoginDialog::~LoginDialog()
 {
     if (!ui->rememberMeCheckBox->isChecked()) {
         if (auto lg = spdlog::default_logger(); lg) {
-            lg->trace("Login: clearing settings");
+            lg->trace("Login: forgetting the user's credentials");
         }
-        // "Remember me" governs credentials only: preserve the league and
-        // realm selections, which are not credentials, across the clear.
-        const QVariant league = m_settings.value("league");
-        const QVariant realm = m_settings.value("realm");
-        m_settings.clear();
-        if (league.isValid()) {
-            m_settings.setValue("league", league);
-        }
-        if (realm.isValid()) {
-            m_settings.setValue("realm", realm);
-        }
+        // "Remember me" governs credentials only. Every other setting (theme,
+        // proxy, log level, crash reporting, the recorded version, ...) stays.
+        m_settings.remove("session_id");
+        m_settings.remove("account");
         m_datastore.Set("oauth_token", "");
     }
     delete ui;

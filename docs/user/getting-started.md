@@ -34,7 +34,7 @@ still needs a POESESSID cookie; see [Forum shop](forum-shop.md).
 
 | Option | Effect |
 |---|---|
-| Remember me | Keep the account and league for the next launch |
+| Remember me | Keep the sign-in (account, OAuth token and POESESSID) for the next launch; unchecked, only those are forgotten on exit |
 | Report crashes | Send crash reports to the developer via [Sentry](https://sentry.io); a change takes effect at the next launch |
 | Use system proxy | Route network traffic through the operating system's proxy settings |
 | Logging Level | Same as the **Settings → Logging** menu in the main window |

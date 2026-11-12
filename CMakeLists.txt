@@ -486,6 +486,8 @@ set(ACQ_UTIL
     src/util/checkmsvc.h
     src/util/crashreporting.cpp
     src/util/crashreporting.h
+    src/util/databackup.cpp
+    src/util/databackup.h
     src/util/fatalerror.cpp
     src/util/fatalerror.h
     src/util/glaze_qt.h
