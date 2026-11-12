@@ -5250,15 +5250,14 @@ void MainWindowTest::priceReadersInTheWindow()
     const auto in_manual = makeMainWindowItem("w-in-manual", "Inherits", "Sword", manual_tab);
     const auto noted = makeMainWindowItemWithNote("w-noted", "Noted", "Sword", plain, "~b/o 5 chaos");
     const auto own = makeMainWindowItem("w-own", "Own", "Sword", plain);
+    const auto own_in_named = makeMainWindowItem("w-own-named", "Owned", "Sword", named);
     auto &manager = *fixture.buyoutFixture.manager;
     QVERIFY(manager.SetTab(manual_tab, makeChaosBuyout(3.0)));
-    fixture.itemsManager->OnItemsRefreshed({in_named, in_manual, noted, own},
-                                           {named, manual_tab, plain},
-                                           false);
+    const Items items{in_named, in_manual, noted, own, own_in_named};
+    fixture.itemsManager->OnItemsRefreshed(items, {named, manual_tab, plain}, false);
     QVERIFY(manager.Set(*own, makeChaosBuyout(7.0)));
-    fixture.itemsManager->OnItemsRefreshed({in_named, in_manual, noted, own},
-                                           {named, manual_tab, plain},
-                                           false);
+    QVERIFY(manager.Set(*own_in_named, makeChaosBuyout(8.0)));
+    fixture.itemsManager->OnItemsRefreshed(items, {named, manual_tab, plain}, false);
 
     auto *model = tree->model();
     QCOMPARE(findBucket(*model, named.GetHeader()).data().toString(),
@@ -5276,7 +5275,10 @@ void MainWindowTest::priceReadersInTheWindow()
     } rows[] = {{named, "Named Sword", "2", false},
                 {manual_tab, "Inherits Sword", "3", true},
                 {plain, "Noted Sword", "5", false},
-                {plain, "Own Sword", "7", true}};
+                {plain, "Own Sword", "7", true},
+                // Shown as editable, though a price edit on it is refused
+                // (its tab is named with a price): today's inconsistency.
+                {named, "Owned Sword", "8", true}};
     for (const auto &row : rows) {
         selectRow(fixture, row.tab.GetHeader(), row.row);
         QCOMPARE(value->text(), QString(row.shown));

@@ -1506,7 +1506,8 @@ void ShopTest::titleFromTheEditPageIsPostedDecoded()
     QCOMPARE(form.value("hash"), QString(kEditPageHash));
 }
 
-// #293 step 1 pin: what the shop captures for posting. A price in an
+// #293 step 1 pin: what the shop captures for posting (the capture, not
+// the rendered pages, which filter game prices again). A price in an
 // item's note, and a price an item takes from its tab's name, are never
 // captured; a price set in Acquisition, on the item or on its tab, is.
 void ShopTest::captureNeverTakesANoteOrTabNamePrice()
@@ -1515,6 +1516,7 @@ void ShopTest::captureNeverTakesANoteOrTabNamePrice()
     armForSubmission(fixture);
     const ItemLocation plain = makeTestStashLocation();
     const ItemLocation named = makeTestStashLocation("stash00002", "~price 3 divine", 1);
+    const ItemLocation manual_tab = makeTestStashLocation("stash00003", "Manual Tab", 2);
     const QByteArray noted_json = R"({"verified": false, "w": 1, "h": 1,
         "icon": "https://web.poecdn.com/image/test.png", "id": "noted", "name": "",
         "typeLine": "Iron Ring", "baseType": "Iron Ring", "identified": true, "ilvl": 1,
@@ -1523,17 +1525,29 @@ void ShopTest::captureNeverTakesANoteOrTabNamePrice()
     const auto manual = makeShopItem("manual", plain, 1);
     const auto in_named = makeShopItem("in-named", named, 0);
     const auto own_in_named = makeShopItem("own-in-named", named, 1);
-    fixture.itemsManager->OnItemsRefreshed({noted, manual, in_named, own_in_named},
-                                           {plain, named},
-                                           false);
+    const auto in_manual_tab = makeShopItem("in-manual-tab", manual_tab, 0);
+    QVERIFY(fixture.buyoutFixture.manager->SetTab(manual_tab,
+                                                  makeBuyout(4, Buyout::BUYOUT_TYPE_BUYOUT)));
+    const Items items{noted, manual, in_named, own_in_named, in_manual_tab};
+    fixture.itemsManager->OnItemsRefreshed(items, {plain, named, manual_tab}, false);
     QVERIFY(fixture.buyoutFixture.manager->Set(*manual, makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)));
     QVERIFY(fixture.buyoutFixture.manager->Set(*own_in_named,
                                                makeBuyout(2, Buyout::BUYOUT_TYPE_BUYOUT)));
 
+    std::map<QString, double> captured;
+    for (const auto &[item, buyout] :
+         fixture.buyoutFixture.manager->PostablePrices(fixture.itemsManager->items())) {
+        captured[item->id()] = buyout.value;
+    }
+    const std::map<QString, double> expected{{"manual", 1.0},
+                                             {"own-in-named", 2.0},
+                                             {"in-manual-tab", 4.0}};
+    QCOMPARE(captured, expected);
+
+    // And what reaches the forum.
     fixture.shop->SubmitShopToForum(true);
     fixture.rateLimiter->resolve(0, kGoldenIndexJson);
     drainEvents();
-
     const QString pages = fixture.shop->shop_data().join("");
     QVERIFY2(pages.contains(" 1 chaos"), qPrintable(pages));
     QVERIFY2(pages.contains(" 2 chaos"), qPrintable(pages));

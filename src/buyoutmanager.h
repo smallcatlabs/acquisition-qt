@@ -53,12 +53,6 @@ struct EffectivePrice
     {
         return (source == PriceSource::Note) || (source == PriceSource::TabName);
     }
-    // The row has a price of its own (a note or one set on it); otherwise
-    // it shows its tab's, or none.
-    bool IsOwn() const
-    {
-        return (source == PriceSource::Note) || (source == PriceSource::ManualItem);
-    }
     // The forum may carry it: set in Acquisition, and a price or "no price".
     bool IsPostable() const
     {
@@ -95,10 +89,9 @@ public:
     // Every reader of a price reads it here.
     EffectivePrice Effective(const Item &item) const;
     EffectivePrice EffectiveTab(const ItemLocation &location) const;
-    // Whether an item's price, or a tab's, needs its tab refreshed to stay
-    // current (refresh locks): a query over the prices in force.
-    bool PriceRequiresRefresh(const Item &item) const;
-    bool TabPriceRequiresRefresh(const ItemLocation &location) const;
+    // The forum shop's input: each item whose price in force may be posted,
+    // with that price, by value (M2 D8).
+    std::vector<std::pair<std::shared_ptr<Item>, Buyout>> PostablePrices(const Items &items) const;
 
     void CompressTabBuyouts();
 

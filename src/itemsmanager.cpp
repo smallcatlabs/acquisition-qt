@@ -139,7 +139,8 @@ void ItemsManager::PropagateTabBuyouts()
     // refreshed too (#148). Remove-only tabs are skipped, as below, and so
     // are folders, which hold no items and cannot be priced (D11).
     for (const auto &tab : m_buyout_manager.GetStashTabLocations()) {
-        if (!tab.removeonly() && !tab.IsFolder() && m_buyout_manager.TabPriceRequiresRefresh(tab)) {
+        if (!tab.removeonly() && !tab.IsFolder()
+            && m_buyout_manager.EffectiveTab(tab).buyout.RequiresRefresh()) {
             m_buyout_manager.SetRefreshLocked(tab);
         }
     }
@@ -163,7 +164,8 @@ void ItemsManager::PropagateTabBuyouts()
         // If any savable bo's are set on an item or the tab then lock the refresh state.
         // Skip remove-only tabs because they are not editable, nor indexed for trade now.
         if (item.location().removeonly() == false) {
-            if (m_buyout_manager.PriceRequiresRefresh(item)) {
+            if (m_buyout_manager.Effective(item).buyout.RequiresRefresh()
+                || tab_bo.RequiresRefresh()) {
                 m_buyout_manager.SetRefreshLocked(item.location());
             }
         }
@@ -293,7 +295,8 @@ void ItemsManager::ApplyScopedPricing(const Items &delta_items)
         //    after a failed update the worst case is one redundant tab in
         //    the next checked refresh, never a priced tab dropped from it.
         if (item->location().removeonly() == false) {
-            if (m_buyout_manager.PriceRequiresRefresh(*item)) {
+            if (m_buyout_manager.Effective(*item).buyout.RequiresRefresh()
+                || tab_bo.RequiresRefresh()) {
                 m_buyout_manager.SetRefreshLocked(item->location());
             }
         }

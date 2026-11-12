@@ -367,8 +367,7 @@ QVariant PriceColumn::value(const Item &item) const
 
 QColor PriceColumn::color(const Item &item) const
 {
-    // Grey when the item shows its tab's price, or none.
-    return !m_bo_manager.Effective(item).IsOwn()
+    return m_bo_manager.Effective(item).buyout.IsInherited()
                ? QColor(0xaa, 0xaa, 0xaa)
                : QApplication::palette().color(QPalette::WindowText);
 }

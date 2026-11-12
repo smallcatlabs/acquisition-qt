@@ -147,44 +147,56 @@ Buyout BuyoutManager::Get(const Item &item) const
     return Buyout();
 }
 
+namespace {
+
+    // Where a stored row's price comes from. A row the game set is the
+    // game's whatever its type (an older build or a legacy import can hold
+    // a game row of type inherit): the editor and the price-edit lock then
+    // agree in refusing it.
+    PriceSource sourceOf(const Buyout &stored, bool item_row)
+    {
+        if (stored.IsGameSet()) {
+            return (stored.inherited || !item_row) ? PriceSource::TabName : PriceSource::Note;
+        }
+        if (stored.IsNull() || (stored.type == Buyout::BUYOUT_TYPE_INHERIT)) {
+            return PriceSource::None;
+        }
+        if (stored.inherited || !item_row) {
+            return PriceSource::ManualTab;
+        }
+        return PriceSource::ManualItem;
+    }
+
+} // namespace
+
 EffectivePrice BuyoutManager::Effective(const Item &item) const
 {
     // The pricing passes store the price in force on the item: a note's
     // price, a price set on the item, or a copy of its tab's price marked
     // inherited.
-    const Buyout stored = Get(item);
-    if (stored.IsNull() || (stored.type == Buyout::BUYOUT_TYPE_INHERIT)) {
-        return EffectivePrice{.buyout = stored, .source = PriceSource::None};
-    }
-    if (stored.inherited) {
-        return EffectivePrice{.buyout = stored,
-                              .source = stored.IsGameSet() ? PriceSource::TabName
-                                                           : PriceSource::ManualTab};
-    }
-    return EffectivePrice{.buyout = stored,
-                          .source = stored.IsGameSet() ? PriceSource::Note
-                                                       : PriceSource::ManualItem};
+    EffectivePrice price{.buyout = Get(item), .source = PriceSource::None};
+    price.source = sourceOf(price.buyout, true);
+    return price;
 }
 
 EffectivePrice BuyoutManager::EffectiveTab(const ItemLocation &location) const
 {
-    const Buyout stored = GetTab(location);
-    if (stored.IsNull() || (stored.type == Buyout::BUYOUT_TYPE_INHERIT)) {
-        return EffectivePrice{.buyout = stored, .source = PriceSource::None};
+    EffectivePrice price{.buyout = GetTab(location), .source = PriceSource::None};
+    price.source = sourceOf(price.buyout, false);
+    return price;
+}
+
+std::vector<std::pair<std::shared_ptr<Item>, Buyout>> BuyoutManager::PostablePrices(
+    const Items &items) const
+{
+    std::vector<std::pair<std::shared_ptr<Item>, Buyout>> postable;
+    for (const auto &item : items) {
+        EffectivePrice price = Effective(*item);
+        if (price.IsPostable()) {
+            postable.emplace_back(item, std::move(price.buyout));
+        }
     }
-    return EffectivePrice{.buyout = stored,
-                          .source = stored.IsGameSet() ? PriceSource::TabName
-                                                       : PriceSource::ManualTab};
-}
-
-bool BuyoutManager::PriceRequiresRefresh(const Item &item) const
-{
-    return Effective(item).buyout.RequiresRefresh() || TabPriceRequiresRefresh(item.location());
-}
-
-bool BuyoutManager::TabPriceRequiresRefresh(const ItemLocation &location) const
-{
-    return EffectiveTab(location).buyout.RequiresRefresh();
+    return postable;
 }
 
 Buyout BuyoutManager::GetTab(const ItemLocation &location) const
