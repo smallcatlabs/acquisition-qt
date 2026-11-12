@@ -22,6 +22,10 @@ checked tabs** whenever at least one of a folder's tabs is ticked.
 Items already on disk are shown immediately at startup; the refresh replaces
 them tab by tab as downloads finish.
 
+If a refresh fails, the status bar reads *Update failed:* followed by the reason,
+for example a network error, an HTTP status, or rate limiting. The tabs that
+arrived before the failure keep their new contents.
+
 ## Rate limiting
 
 The Path of Exile API limits how fast Acquisition may fetch. Acquisition reads the
@@ -82,6 +86,7 @@ sharing either.
 | *Error requesting leagues* on the login window | The API is unreachable; check your connection or proxy |
 | *Acquisition is already running with this data directory* | Another Acquisition, on this or another computer, uses that directory: use it, or start with `--data-dir`. If none is running, delete the lock file the message names |
 | Login button stays disabled | You have not authenticated, or no league is selected |
+| *Update failed: Path of Exile rejected the login (HTTP 401)* | The login has expired or was revoked; restart Acquisition and log in again |
 | Refresh seems stuck | Open the Rate Limit Status Window; the API is probably throttling |
 | *No forum threads have been set* | Set a thread under **Shop → Forum shop thread…** |
 | *POESESSID has not been set* / rejected | Enter a fresh cookie under **Shop → Update shop POESESSID** |

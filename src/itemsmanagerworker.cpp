@@ -396,7 +396,6 @@ void ItemsManagerWorker::Update(TabSelection type, const std::vector<ItemLocatio
     // calls carry a distinct, unstopped token — which is what makes the token
     // the update's sole identity under the post-await check (W-IDENTITY).
     m_stop_source = std::stop_source{};
-    m_request_failures = 0;
     m_update_tab_contents = (type != TabSelection::TabsOnly);
 
     // The terminal vocabulary resets at each accepted update (D4): the
@@ -577,26 +576,24 @@ void ItemsManagerWorker::AbortUpdate()
         return;
     }
     m_stop_source.request_stop();
-    // A failed update aborts on the first failure, so the count is at least one;
-    // a handler that recorded nothing still yields a truthful "1 failed".
-    if (m_request_failures == 0) {
-        ++m_request_failures;
-    }
-    emit StatusUpdate(ProgramState::Ready,
-                      QString("Update failed: %1 requests failed")
-                          .arg(QString::number(m_request_failures)));
+    // Every failure path routes an error through RecordFirstError before
+    // reaching here; the fallback keeps the status line and the terminal
+    // event total even if a new path ever forgets (a bug, surfaced as
+    // Internal).
+    const RateLimit::FetchError error = m_first_error_set
+                                            ? m_first_error
+                                            : MakeInternalError(
+                                                  "the update failed without a recorded error");
+    // The status line names the update's first terminal error (#259). It is
+    // also the user-visible notice the network spec's D4 asks for when an
+    // endpoint's setup fails, since that failure arrives here as this error.
+    emit StatusUpdate(ProgramState::Ready, "Update failed: " + RateLimit::DescribeForUser(error));
     m_state = WorkerState::Idle;
     spdlog::debug("Update failed.");
 
     // The typed terminal event (D4): after the Idle transition, exactly
     // once — the already-terminal guard above keeps later stragglers and
-    // second failures out. Every failure path routes an error through
-    // RecordFirstError before reaching here; the fallback keeps the emit
-    // total even if a new path ever forgets (a bug, surfaced as Internal).
-    const RateLimit::FetchError error = m_first_error_set
-                                            ? m_first_error
-                                            : MakeInternalError(
-                                                  "the update failed without a recorded error");
+    // second failures out.
     m_delivering_terminal = true;
     emit RefreshFinished(RefreshOutcome{FailedRefresh{error}});
     m_delivering_terminal = false;

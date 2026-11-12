@@ -261,8 +261,8 @@ private:
 
     // The single, idempotent terminal transition for a failed update (R5-1):
     // every failure — a list/content error, an exceptional future, or a throw in
-    // orchestration or a handler — routes here. It requests stop, records at
-    // least one request failure, and returns the worker to Idle immediately,
+    // orchestration or a handler — routes here. It requests stop, shows the
+    // first error on the status line, and returns the worker to Idle immediately,
     // abandoning in-flight siblings as stopped stragglers. It
     // is deliberately INDEPENDENT of the completion counters: success reconciles
     // the counters in CheckUpdateFinished(); failure takes this direct path, so
@@ -335,7 +335,6 @@ private:
     bool m_updateRequest{false};
     TabSelection m_type;
     std::vector<ItemLocation> m_locations;
-    size_t m_request_failures{0};
 
     // The update's first terminal error (D4), reset at the next accepted
     // update; AbortUpdate emits it in FailedRefresh. The flag distinguishes
