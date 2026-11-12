@@ -471,14 +471,6 @@ QNetworkReply *RateLimiter::SendRequest(const QNetworkRequest &request)
     return m_network_manager.get(request);
 }
 
-void RateLimiter::OnUpdateRequested()
-{
-    spdlog::trace("RateLimiter::OnUpdateRequested() entered");
-    for (const auto &manager : m_managers) {
-        emit PolicyUpdate(manager->policy());
-    }
-}
-
 void RateLimiter::OnPolicyUpdated(const RateLimitPolicy &policy)
 {
     spdlog::trace("RateLimiter::OnPolicyUpdated() entered");

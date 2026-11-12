@@ -32,41 +32,10 @@ QByteArray RateLimit::ParseHeader(QNetworkReply *const reply, const QByteArray &
     return reply->rawHeader(name);
 }
 
-// Get a header field and split into a list.
-QByteArrayList RateLimit::ParseHeaderList(QNetworkReply *const reply,
-                                          const QByteArray &name,
-                                          const char delim)
-{
-    const QByteArray value = ParseHeader(reply, name);
-    const QByteArrayList items = value.split(delim);
-    if (items.isEmpty()) {
-        spdlog::error("GetHeaderList(): {} is empty", name);
-    }
-    return items;
-}
-
 // Return the name of the policy from a network reply.
 QByteArray RateLimit::ParseRateLimitPolicy(QNetworkReply *const reply)
 {
     return ParseHeader(reply, "X-Rate-Limit-Policy");
-}
-
-// Return the name(s) of the rule(s) from a network reply.
-QByteArrayList RateLimit::ParseRateLimitRules(QNetworkReply *const reply)
-{
-    return ParseHeaderList(reply, "X-Rate-Limit-Rules", ',');
-}
-
-// Return a list of one or more items that define a rule's limits.
-QByteArrayList RateLimit::ParseRateLimit(QNetworkReply *const reply, const QByteArray &rule)
-{
-    return ParseHeaderList(reply, "X-Rate-Limit-" + rule, ',');
-}
-
-// Return a list of one or more items that define a rule's current state.
-QByteArrayList RateLimit::ParseRateLimitState(QNetworkReply *const reply, const QByteArray &rule)
-{
-    return ParseHeaderList(reply, "X-Rate-Limit-" + rule + "-State", ',');
 }
 
 // Return the date from the HTTP reply headers. Date is optional: a reply

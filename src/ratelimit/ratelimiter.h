@@ -73,10 +73,6 @@ public:
     // submission so no manager is created without the capture hook.
     void EnableCapture(const QString &file_path);
 
-public slots:
-    // Used by the GUI to request a manual refresh.
-    void OnUpdateRequested();
-
 signals:
     // Emitted when one of the policy managers has signalled a policy update.
     void PolicyUpdate(const RateLimitPolicy &policy);

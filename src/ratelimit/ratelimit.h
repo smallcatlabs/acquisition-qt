@@ -90,13 +90,7 @@ namespace RateLimit {
     std::optional<int> ParseRetryAfter(QNetworkReply *const reply);
 
     QByteArray ParseHeader(QNetworkReply *const reply, const QByteArray &name);
-    QByteArrayList ParseHeaderList(QNetworkReply *const reply,
-                                   const QByteArray &name,
-                                   const char delim);
     QByteArray ParseRateLimitPolicy(QNetworkReply *const reply);
-    QByteArrayList ParseRateLimitRules(QNetworkReply *const reply);
-    QByteArrayList ParseRateLimit(QNetworkReply *const reply, const QByteArray &rule);
-    QByteArrayList ParseRateLimitState(QNetworkReply *const reply, const QByteArray &rule);
     QDateTime ParseDate(QNetworkReply *const reply);
     int ParseStatus(QNetworkReply *const reply);
 } // namespace RateLimit
