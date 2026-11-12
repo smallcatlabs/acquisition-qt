@@ -69,7 +69,8 @@ next launch. With it turned off, the crash reporter is not started at all.
 See [Getting started](getting-started.md#where-your-data-lives) for the data
 directory. Deleting `data/` forces a full re-download and loses your buyouts;
 deleting `cache/` only loses cached item images; `settings.ini` holds the
-options from the login window and the menus.
+options from the login window and the menus. A leftover `network_cache/` from
+an earlier version is safe to delete.
 
 ## Common problems
 

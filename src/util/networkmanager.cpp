@@ -6,9 +6,7 @@
 #include <QDir>
 #include <QNetworkCookie>
 #include <QNetworkCookieJar>
-#include <QNetworkDiskCache>
 #include <QNetworkReply>
-#include <QStandardPaths>
 
 #include "ratelimit/ratelimit.h"
 #include "ratelimit/ratelimitpolicy.h"
@@ -22,11 +20,7 @@ constexpr const char *POE_COOKIE_NAME = "POESESSID";
 constexpr const char *POE_COOKIE_DOMAIN = ".pathofexile.com";
 constexpr const char *POE_COOKIE_PATH = "/";
 
-// Size of the network disk cache.
-constexpr const int CACHE_SIZE_MEGABYTES = 100;
-
 constexpr const char *POE_API_HOST = "api.pathofexile.com";
-constexpr const char *POE_CDN_HOST = "web.poecdn.com";
 
 // The OAuth token endpoint (TOKEN_URL in oauthmanager.cpp). Its requests are
 // issued internally by QOAuth2AuthorizationCodeFlow, so this is the only
@@ -73,13 +67,17 @@ constexpr std::array<std::pair<QNetworkRequest::Attribute, const char *>, 28> KN
 
 NetworkManager::NetworkManager(QObject *parent)
     : QNetworkAccessManager(parent)
+{}
+
+void NetworkManager::removeLegacyDiskCache(const QDir &dataDir)
 {
-    const auto data_dir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    const auto cache_dir = data_dir + QLatin1StringView("/network_cache/");
-    m_diskCache = new QNetworkDiskCache(this);
-    m_diskCache->setCacheDirectory(cache_dir);
-    m_diskCache->setMaximumCacheSize(CACHE_SIZE_MEGABYTES * 1024 * 1024);
-    setCache(m_diskCache);
+    QDir cache_dir(dataDir.filePath("network_cache"));
+    if (cache_dir.exists()) {
+        spdlog::info("NetworkManager: removing the old HTTP disk cache: {}", cache_dir.path());
+        if (!cache_dir.removeRecursively()) {
+            spdlog::warn("NetworkManager: could not remove all of {}", cache_dir.path());
+        }
+    }
 }
 
 void NetworkManager::clearPoeSessionId()
@@ -132,10 +130,6 @@ QNetworkReply *NetworkManager::createRequest(QNetworkAccessManager::Operation op
             spdlog::trace("NetworkManager: setting bearer token: {} (masked for security)", masked);
             request.setRawHeader("Authorization", m_bearerToken);
         }
-    } else if (host == POE_CDN_HOST) {
-        // Prefer the cache for cdn content.
-        request.setAttribute(QNetworkRequest::CacheLoadControlAttribute,
-                             QNetworkRequest::PreferCache);
     }
 
     spdlog::trace("Network: requesting {}", request.url().toDisplayString());

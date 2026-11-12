@@ -6,7 +6,7 @@
 #include <QNetworkAccessManager>
 #include <QObject>
 
-class QNetworkDiskCache;
+class QDir;
 
 class NetworkManager : public QNetworkAccessManager
 {
@@ -18,6 +18,10 @@ public:
     void clearPoeSessionId();
     void setPoeSessionId(const QString &poesessid);
     void setBearerToken(const QString &token);
+
+    // Removes the HTTP disk cache that earlier versions kept in
+    // <data dir>/network_cache. Idempotent.
+    static void removeLegacyDiskCache(const QDir &dataDir);
 
     static void logRequest(const QNetworkRequest &request);
     static void logReply(const QNetworkReply *reply);
@@ -34,7 +38,6 @@ protected:
                                  QIODevice *outgoingData = nullptr) override;
 
 private:
-    QNetworkDiskCache *m_diskCache;
     QByteArray m_bearerToken;
 
     using AttributeGetter = std::function<QVariant(QNetworkRequest::Attribute)>;

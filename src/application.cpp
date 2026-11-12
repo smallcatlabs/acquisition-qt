@@ -204,6 +204,9 @@ Application::CoreServices::CoreServices(const QDir &appDataDir)
 {
     spdlog::trace("Application: creating NetworkManager");
     network_manager = std::make_unique<NetworkManager>();
+    // The HTTP disk cache is gone; clear what earlier versions left in this
+    // data directory. Never touches any other directory.
+    NetworkManager::removeLegacyDiskCache(dir);
 
     spdlog::trace("Application: creating RePoE");
     repoe = std::make_unique<RePoE>(*network_manager);

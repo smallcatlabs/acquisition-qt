@@ -11,6 +11,8 @@
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStandardPaths>
+#include <QTcpServer>
+#include <QTcpSocket>
 #include <QTemporaryDir>
 #include <QTimer>
 
@@ -30,6 +32,7 @@
 #include "util/crashreporting.h"
 #include "util/databackup.h"
 #include "util/logging.h"
+#include "util/networkmanager.h"
 #include "util/oauthmanager.h"
 #include "util/updatechecker.h"
 
@@ -58,6 +61,9 @@ private slots:
     void imageCacheDeletesReplies();
     void updateCheckerDeletesReplies_data();
     void updateCheckerDeletesReplies();
+    void networkManagerHasNoDiskCache();
+    void repeatedGetIsNotServedFromCache();
+    void legacyNetworkCacheIsRemoved();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -65,7 +71,7 @@ private:
 
 void ShellTest::initTestCase()
 {
-    // NetworkManager creates a disk cache in AppLocalDataLocation.
+    // Keep any QStandardPaths lookup in Qt's test sandbox.
     QStandardPaths::setTestModeEnabled(true);
     // MainWindowFixture needs the 'main' logger, with the dist-sink hub that
     // logging::init installs (F42) for LogPanel to attach to.
@@ -476,6 +482,100 @@ void ShellTest::updateCheckerDeletesReplies()
         reply->finish({}, 200, QNetworkReply::NoError, "[]");
     }
     QTRY_VERIFY_WITH_TIMEOUT(reply.isNull(), 500);
+}
+
+void ShellTest::networkManagerHasNoDiskCache()
+{
+    // The old cache lived under AppLocalDataLocation whatever --data-dir
+    // said (#232). In test mode that location is Qt's test sandbox, never
+    // the user's real data directory.
+    QVERIFY(QStandardPaths::isTestModeEnabled());
+    const QString location = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+    QVERIFY(location.contains(".qttest"));
+    QDir cache_dir(location + "/network_cache");
+    QVERIFY(cache_dir.removeRecursively());
+
+    NetworkManager network;
+    QVERIFY(!cache_dir.exists());
+    QVERIFY(network.cache() == nullptr);
+}
+
+// A one-shot HTTP server on loopback that answers every request with the
+// same cacheable reply and counts the requests it received.
+class CacheableReplyServer : public QTcpServer
+{
+public:
+    int requests = 0;
+
+protected:
+    void incomingConnection(qintptr handle) override
+    {
+        auto *socket = new QTcpSocket(this);
+        socket->setSocketDescriptor(handle);
+        connect(socket, &QTcpSocket::readyRead, socket, [this, socket]() {
+            m_buffer += socket->readAll();
+            if (!m_buffer.contains("\r\n\r\n")) {
+                return;
+            }
+            m_buffer.clear();
+            ++requests;
+            socket->write("HTTP/1.1 200 OK\r\n"
+                          "Content-Type: text/plain\r\n"
+                          "Cache-Control: public, max-age=3600\r\n"
+                          "Last-Modified: Mon, 02 Nov 2026 00:00:00 GMT\r\n"
+                          "Content-Length: 5\r\n"
+                          "Connection: close\r\n"
+                          "\r\n"
+                          "hello");
+            socket->disconnectFromHost();
+        });
+        connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
+    }
+
+private:
+    QByteArray m_buffer;
+};
+
+void ShellTest::repeatedGetIsNotServedFromCache()
+{
+    CacheableReplyServer server;
+    QVERIFY(server.listen(QHostAddress::LocalHost));
+    const QUrl url(QString("http://127.0.0.1:%1/cacheable").arg(server.serverPort()));
+
+    NetworkManager network;
+    for (int i = 0; i < 2; ++i) {
+        QNetworkReply *reply = network.get(QNetworkRequest(url));
+        QSignalSpy finished(reply, &QNetworkReply::finished);
+        QVERIFY(finished.wait(5000));
+        QCOMPARE(reply->error(), QNetworkReply::NoError);
+        QCOMPARE(reply->readAll(), QByteArray("hello"));
+        QVERIFY(!reply->attribute(QNetworkRequest::SourceIsFromCacheAttribute).toBool());
+        reply->deleteLater();
+    }
+    QCOMPARE(server.requests, 2);
+}
+
+void ShellTest::legacyNetworkCacheIsRemoved()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir data_dir(dir.path());
+    QVERIFY(data_dir.mkpath("network_cache/data9/0"));
+    QVERIFY(data_dir.mkpath("cache"));
+    for (const QString name : {"network_cache/data9/0/entry.d", "cache/icon.png", "settings.ini"}) {
+        QFile file(data_dir.filePath(name));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("x");
+    }
+
+    NetworkManager::removeLegacyDiskCache(data_dir);
+    QVERIFY(!data_dir.exists("network_cache"));
+    QVERIFY(data_dir.exists("cache/icon.png"));
+    QVERIFY(data_dir.exists("settings.ini"));
+
+    // Idempotent: nothing to remove is not an error.
+    NetworkManager::removeLegacyDiskCache(data_dir);
+    QVERIFY(!data_dir.exists("network_cache"));
 }
 
 QTEST_MAIN(ShellTest)
