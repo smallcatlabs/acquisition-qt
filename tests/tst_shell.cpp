@@ -252,6 +252,10 @@ void ShellTest::tokenWithoutAccountNameDoesNotLogIn()
 
     QCOMPARE(completions, 0);
     QVERIFY(!error->text().isEmpty());
+    // A refused login saves no part of the identity it refused.
+    QVERIFY(!services.settings.contains("realm"));
+    QVERIFY(!services.settings.contains("league"));
+    QVERIFY(!services.settings.contains("account"));
 }
 
 namespace {
