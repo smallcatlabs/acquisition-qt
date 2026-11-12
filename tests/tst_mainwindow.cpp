@@ -3287,7 +3287,7 @@ void MainWindowTest::buyoutRepaintScopesToAffectedRuns()
     // `everything` is the one shape that repaints the full bucket, as a
     // single rectangle.
     repaints.clear();
-    fixture.buyoutFixture.manager->Clear();
+    fixture.buyoutFixture.manager->ReloadBuyouts();
     QCOMPARE(repaints.count(), 1);
     QCOMPARE(repaints.at(0).at(0).toModelIndex().row(), 0);
     QCOMPARE(repaints.at(0).at(1).toModelIndex().row(), 4);

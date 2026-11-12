@@ -27,8 +27,8 @@ struct BuyoutChangeSet
 {
     std::set<QString> item_ids;
     std::set<QString> tab_ids;
-    // Clear() rewrites the whole lookup state; consumers treat every
-    // visible row as affected.
+    // ReloadBuyouts() rewrites the whole lookup state; consumers treat
+    // every visible row as affected.
     bool everything{false};
 
     bool IsEmpty() const { return !everything && item_ids.empty() && tab_ids.empty(); }
@@ -56,7 +56,6 @@ public:
     Buyout GetTab(const ItemLocation &location) const;
 
     void CompressTabBuyouts();
-    void CompressItemBuyouts(const Items &items);
 
     void SetRefreshChecked(const ItemLocation &tab, bool value);
     bool GetRefreshChecked(const ItemLocation &tab) const;
@@ -67,7 +66,6 @@ public:
 
     void SetStashTabLocations(const std::vector<ItemLocation> &tabs);
     const std::vector<ItemLocation> &GetStashTabLocations() const;
-    void Clear();
 
     Buyout StringToBuyout(QString);
 
@@ -91,9 +89,9 @@ signals:
 private:
     // The single M3 choke point (D1 rule 4, R1-6): every mutation of the
     // buyout lookup state (m_buyouts / m_tab_buyouts) reports here — item
-    // and tab set-and-clear, and the compress/clear
-    // housekeeping the pricing passes run. Refresh-check state is not
-    // buyout lookup state and does not report.
+    // and tab set-and-clear, the tab compression the pricing passes run,
+    // and a reload. Refresh-check state is not buyout lookup state and
+    // does not report.
     enum class ChangeScope { Item, Tab, Everything };
     void RecordChange(ChangeScope scope, const QString &id);
     // Construction-time only (no model exists yet, nothing to notify);
@@ -106,9 +104,6 @@ private:
     void EmitPendingChanges();
 
     BuyoutType StringToBuyoutType(QString bo_str) const;
-
-    QString Serialize(const std::unordered_map<QString, Buyout> &buyouts);
-    void Deserialize(const QString &data, std::unordered_map<QString, Buyout> &buyouts);
 
     QString Serialize(const std::unordered_map<QString, bool> &obj);
     void Deserialize(const QString &data, std::unordered_map<QString, bool> &obj);

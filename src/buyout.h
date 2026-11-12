@@ -63,7 +63,6 @@ public:
     bool IsValid() const;
     bool IsActive() const;
     bool IsInherited() const { return inherited || type == BuyoutType::BUYOUT_TYPE_INHERIT; }
-    bool IsSavable() const { return IsValid() && !(type == BUYOUT_TYPE_INHERIT); }
     bool IsPostable() const;
     bool IsPriced() const;
     bool IsGameSet() const;
