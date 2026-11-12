@@ -28,6 +28,7 @@ private slots:
     void decimalModValueIgnoresProcessLocale();
     void ignoredFirstFormatStillSubstitutesTheRest();
     void resonatorSocketsExportAsResonators();
+    void colourOnlySocketsUseTheColourAlphabet();
     void vestigialAndDesecratedModsAreKept();
     void realRingModTable();
     void templateWithLiteralNumber();
@@ -410,6 +411,27 @@ void ItemTest::vestigialAndDesecratedModsAreKept()
     QVERIFY2(pob.contains("\nImplicits: 2\n+30 to maximum Life\n+12 to maximum Life\n"),
              qPrintable(pob));
     QVERIFY2(pob.contains("\n+80 to maximum Life\n+5 to maximum Life\n"), qPrintable(pob));
+}
+
+// A socket's attribute ("S", "D", "I", "G") and its colour ("R", "G", "B",
+// "W") name the same thing in two alphabets; the API reference, as recorded
+// in poe/types/itemsocket.h, documents both on every PoE1 socket. Where only
+// the colour is present it is read in the colour alphabet: "G" is green,
+// not the attribute "G" (white).
+void ItemTest::colourOnlySocketsUseTheColourAlphabet()
+{
+    const auto item = makeItem("colour-only", R"json(,
+        "sockets": [
+            {"group": 0, "sColour": "R"},
+            {"group": 0, "sColour": "G"},
+            {"group": 0, "sColour": "B"},
+            {"group": 0, "sColour": "W"}
+        ])json");
+    QCOMPARE(item->sockets().r, 1);
+    QCOMPARE(item->sockets().g, 1);
+    QCOMPARE(item->sockets().b, 1);
+    QCOMPARE(item->sockets().w, 1);
+    QVERIFY2(item->POBformat().contains("\nSockets: R-G-B-W\n"), qPrintable(item->POBformat()));
 }
 
 // The whole mod table of a real ring (lines from a forum page the
