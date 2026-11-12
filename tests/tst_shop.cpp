@@ -9,6 +9,10 @@
 #include <QStandardPaths>
 
 #include <memory>
+#include <sstream>
+
+#include <spdlog/sinks/ostream_sink.h>
+#include <spdlog/spdlog.h>
 
 #include "datastore/userstore.h"
 #include "fakenetwork.h"
@@ -102,6 +106,11 @@ private slots:
     // #250: the shop refuses to post while the buyouts did not load.
     void unloadedBuyoutsBlockSubmission();
     void healthyEmptyStoreStillPostsEmpty();
+
+    // #315: a forum reply never reaches the log beyond an error item's
+    // text and the page's length.
+    void forumErrorReplyIsNotLogged_data();
+    void forumErrorReplyIsNotLogged();
 };
 
 namespace {
@@ -224,6 +233,36 @@ namespace {
         fixture.settings->setValue("realm", "pc");
         fixture.settings->setValue("league", "Standard");
     }
+
+    // Swaps the default logger for one writing to a string, the way
+    // tst_securitylogging does (F42: the default logger is replaced, its
+    // sinks are never touched), and restores the previous one.
+    class LogCapture
+    {
+    public:
+        LogCapture()
+            : m_previous(spdlog::default_logger())
+        {
+            auto sink = std::make_shared<spdlog::sinks::ostream_sink_mt>(m_output);
+            auto logger = std::make_shared<spdlog::logger>("shop-log-capture", sink);
+            logger->set_level(spdlog::level::trace);
+            logger->set_pattern("%v");
+            spdlog::set_default_logger(std::move(logger));
+        }
+        ~LogCapture() { spdlog::set_default_logger(std::move(m_previous)); }
+        LogCapture(const LogCapture &) = delete;
+        LogCapture &operator=(const LogCapture &) = delete;
+
+        QString text() const
+        {
+            spdlog::default_logger()->flush();
+            return QString::fromStdString(m_output.str());
+        }
+
+    private:
+        std::ostringstream m_output;
+        std::shared_ptr<spdlog::logger> m_previous;
+    };
 
 } // namespace
 
@@ -964,6 +1003,54 @@ void ShopTest::healthyEmptyStoreStillPostsEmpty()
     QCOMPARE(postedForm(fixture.networkManager->sent(1)).queryItemValue("content"),
              QString("Empty"));
     QCOMPARE(warnings.count(), 0);
+}
+
+// The two replies below are NOT captures of forum pages: none is in the
+// repository. Each is built from the shapes the parsing code documents —
+// Shop::error_regex (an element whose class is "errors" or "input-error",
+// then an <li> holding the message) and Util::GetCsrfToken's comment (the
+// hash input may itself carry class="input-error").
+void ShopTest::forumErrorReplyIsNotLogged_data()
+{
+    QTest::addColumn<QByteArray>("reply");
+
+    // An error marker with no list item: the catch-all that logged the
+    // whole page.
+    QTest::newRow("unrecognised marker")
+        << QByteArray("<form method=\"post\">\n"
+                      "<input type=\"hidden\" name=\"hash\" value=\"leaky-csrf-token\">\n"
+                      "<div class=\"errors\">Something the shop does not know.</div>\n"
+                      "</form>");
+
+    // The hash input carries the error class, so a match starting at the
+    // first marker spans the token before reaching the list item.
+    QTest::newRow("error class on the hash input")
+        << QByteArray("<form method=\"post\">\n"
+                      "<input type=\"hidden\" name=\"hash\" class=\"input-error\" "
+                      "value=\"leaky-csrf-token\">\n"
+                      "<ul class=\"errors\"><li>Something the shop does not know.</li></ul>\n"
+                      "</form>");
+}
+
+void ShopTest::forumErrorReplyIsNotLogged()
+{
+    QFETCH(QByteArray, reply);
+
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    LogCapture log;
+
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+    fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, reply);
+    drainEvents();
+
+    const QString logged = log.text();
+    QVERIFY2(!logged.contains("leaky-csrf-token"), qPrintable(logged));
+    QVERIFY2(!logged.contains("<form"), qPrintable(logged));
 }
 
 QTEST_MAIN(ShopTest)

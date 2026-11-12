@@ -763,7 +763,9 @@ void Shop::OnShopSubmitted(QUrlQuery query, QNetworkReply *reply)
                     spdlog::trace("Shop: setting {} second delay.", seconds);
                 }
             } else {
-                spdlog::error("Shop: unknown error fragment: {}", error_match.captured(0));
+                // Only the list item's text, logged above: the whole match
+                // can start at the hash input and span the CSRF token (#315).
+                spdlog::error("Shop: the forum reported an error the shop does not handle");
                 spdlog::debug("Shop: the query was: {}", reply->request().url().toDisplayString());
                 FailActiveJob();
                 return;
@@ -798,8 +800,9 @@ void Shop::OnShopSubmitted(QUrlQuery query, QNetworkReply *reply)
     // relavent, but that's not certain or documented anywhere, so let's do both.
     QString input_error = Util::FindTextBetween(page, "class=\"input-error\">", "</div>");
     if (!input_error.isEmpty()) {
-        spdlog::error("Shop: (DEPRECATED) Input error while submitting shop to forums: {}",
-                      input_error);
+        spdlog::error("Shop: (DEPRECATED) Input error while submitting shop to forums ({} "
+                      "characters of markup not logged)",
+                      input_error.size());
         FailActiveJob();
         return;
     }
@@ -809,9 +812,9 @@ void Shop::OnShopSubmitted(QUrlQuery query, QNetworkReply *reply)
     for (auto &substr : {"class=\"errors\"", "class=\"input-error\""}) {
         if (page.contains(substr)) {
             spdlog::error("Shop: (DEPRECATED) An error was detected but not handled while "
-                          "submitting shop to forums: {}",
-                          substr);
-            spdlog::error(page);
+                          "submitting shop to forums: {} (the {}-byte reply is not logged)",
+                          substr,
+                          bytes.size());
             FailActiveJob();
             return;
         }
@@ -834,7 +837,8 @@ void Shop::CopyToClipboard()
         spdlog::warn(
             "Shop: you have multiple shops; only the first will be copied to the clipboard");
     }
-    spdlog::trace("Shop: copying shop data to clipboard for thread: {}", m_shop_data[0]);
+    spdlog::trace("Shop: copying {} characters of shop data to the clipboard",
+                  m_shop_data[0].size());
     QClipboard *clipboard = QApplication::clipboard();
     clipboard->setText(m_shop_data[0]);
 }
