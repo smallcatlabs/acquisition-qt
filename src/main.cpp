@@ -154,7 +154,8 @@ int main(int argc, char *argv[])
     } else {
         logging_option = settings.value("log_level", DEFAULT_LOGGING_LEVEL).toString();
     }
-    const auto loglevel = spdlog::level::from_str(logging_option.toStdString());
+    const auto loglevel = logging::parseLevel(logging_option,
+                                              spdlog::level::from_str(DEFAULT_LOGGING_LEVEL));
 
     // Start the log with basic info
     spdlog::flush_every(std::chrono::seconds(2));

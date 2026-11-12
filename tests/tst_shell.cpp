@@ -7,6 +7,7 @@
 #include <QTemporaryDir>
 
 #include "util/crashreporting.h"
+#include "util/logging.h"
 
 class ShellTest : public QObject
 {
@@ -16,6 +17,8 @@ private slots:
     void crashReportingDefaultsOn();
     void crashReportingFollowsSetting_data();
     void crashReportingFollowsSetting();
+    void logLevelParsing_data();
+    void logLevelParsing();
 };
 
 void ShellTest::crashReportingDefaultsOn()
@@ -47,6 +50,27 @@ void ShellTest::crashReportingFollowsSetting()
     // Read back through a fresh object, as main() does at startup.
     const QSettings settings(path, QSettings::IniFormat);
     QCOMPARE(CrashReportingEnabled(settings), stored);
+}
+
+void ShellTest::logLevelParsing_data()
+{
+    QTest::addColumn<QString>("name");
+    QTest::addColumn<int>("expected");
+    // The fallback is 'warn' so that it differs from every parsed case.
+    QTest::newRow("DEBUG") << "DEBUG" << int(spdlog::level::debug);
+    QTest::newRow("Info") << "Info" << int(spdlog::level::info);
+    QTest::newRow("trace") << "trace" << int(spdlog::level::trace);
+    QTest::newRow("nonsense") << "nonsense" << int(spdlog::level::warn);
+    QTest::newRow("empty") << "" << int(spdlog::level::warn);
+    QTest::newRow("off") << "off" << int(spdlog::level::off);
+    QTest::newRow("OFF") << "OFF" << int(spdlog::level::off);
+}
+
+void ShellTest::logLevelParsing()
+{
+    QFETCH(QString, name);
+    QFETCH(int, expected);
+    QCOMPARE(int(logging::parseLevel(name, spdlog::level::warn)), expected);
 }
 
 QTEST_MAIN(ShellTest)
