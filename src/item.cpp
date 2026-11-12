@@ -124,6 +124,11 @@ Item::Item(const poe::Item &item, const ItemLocation &base_location)
     if (item.corrupted) {
         m_corrupted = *item.corrupted;
     }
+    if (item.doubleCorrupted.value_or(false)) {
+        // A double-corrupted item is corrupted for every purpose that reads
+        // corrupted(), whether or not GGG also sends "corrupted" with it.
+        m_corrupted = true;
+    }
     if (item.fractured) {
         m_fractured = *item.fractured;
     }

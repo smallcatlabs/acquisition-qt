@@ -17,8 +17,9 @@ namespace poe {
         std::optional<QString> attr;    // ?string; PoE1 only; S, D, I, G, A, or DV
         std::optional<QString> sColour; // ?string; PoE1 only; R, G, B, W, A, or DV
         std::optional<QString> type;    // ?string; PoE2 only; gem, jewel, or rune
-        std::optional<QString>
-            item; // ?string; PoE2 only; emerald, sapphire, ruby, rune, soulcore, primaltalisman, vividtalisman, wildtalisman, sacredtalisman, activegem, or supportgem
+        // ?string; PoE2 only; emerald, sapphire, ruby, rune, soulcore, primaltalisman,
+        // vividtalisman, wildtalisman, sacredtalisman, activegem, or supportgem
+        std::optional<QString> item;
     };
 
 } // namespace poe

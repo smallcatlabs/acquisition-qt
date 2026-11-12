@@ -21,11 +21,12 @@ namespace poe {
         // itself. Nothing should name this type directly -- use Flags.
         struct FlagFields
         {
-            std::optional<bool> fractured;  // ? bool always true if present
-            std::optional<bool> mutated;    // ? bool always true if present
-            std::optional<bool> crafted;    // ? bool always true if present
-            std::optional<bool> desecrated; // ? bool PoE2 only always true if present
-            std::optional<bool> vestigial;  // ? bool PoE1 only; always true if present
+            std::optional<bool> fractured;  // ?bool; always true if present
+            std::optional<bool> mutated;    // ?bool; always true if present
+            std::optional<bool> crafted;    // ?bool; always true if present
+            std::optional<bool> desecrated; // ?bool; PoE2 only; always true if present
+            std::optional<bool> vestigial;  // ?bool; PoE1 only; always true if present
+            std::optional<bool> rareonly;   // ?bool; PoE1 only; always true if present
         };
 
         struct Flags : FlagFields
@@ -38,6 +39,12 @@ namespace poe {
             //
             // Keep in sync with FlagFields: a flag added there but not here
             // reads as "unflagged" instead of reaching its branch.
+            //
+            // The one deliberate exception is rareonly (3.30): it says which
+            // items a mod can roll on, not what kind of mod it is, so it must
+            // not route a mod out of its ordinary section. Item::LoadModifiers
+            // has no branch for it; adding it here would reach that function's
+            // "flagged with no recognized flag" fallback.
             bool any() const
             {
                 return fractured.value_or(false) || mutated.value_or(false)
@@ -46,8 +53,9 @@ namespace poe {
             }
         };
 
-        QString description;                 // string
-        std::optional<ItemMod::Flags> flags; // ? object, but see the reader below
+        QString description; // string
+        // NOTE: GGG sometimes sends an empty array; see the reader below.
+        std::optional<ItemMod::Flags> flags; // ?object
     };
 
 } // namespace poe
