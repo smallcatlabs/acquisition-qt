@@ -4,6 +4,7 @@
 #include "ui/mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include <QActionGroup>
 #include <QApplication>
 #include <QBuffer>
 #include <QClipboard>
@@ -32,6 +33,7 @@
 #include <QTabBar>
 #include <QVersionNumber>
 
+#include <algorithm>
 #include <set>
 #include <utility>
 #include <vector>
@@ -59,6 +61,7 @@
 #include "ui/currencydialog.h"
 #include "ui/itemtooltip.h"
 #include "ui/logpanel.h"
+#include "ui/mainwindowhelpers.h"
 #include "ui/searchform.h"
 #include "ui/verticalscrollarea.h"
 #include "util/glaze_qt.h" // IWYU pragma: keep
@@ -141,17 +144,6 @@ namespace {
     }
 
 } // namespace
-
-struct ImgurStatus
-{
-    struct Link
-    {
-        QString link;
-    };
-
-    int status;
-    ImgurStatus::Link data;
-};
 
 MainWindow::MainWindow(QSettings &settings,
                        NetworkManager &network_manager,
@@ -477,7 +469,13 @@ void MainWindow::InitializeUi()
             this,
             &MainWindow::OnSetAutomaticShopUpdate);
 
-    // Connect the Theme submenu.
+    // Connect the Theme submenu. The group keeps exactly one theme checked:
+    // clicking the active theme leaves it checked.
+    auto *const theme_group = new QActionGroup(this);
+    theme_group->setExclusionPolicy(QActionGroup::ExclusionPolicy::Exclusive);
+    theme_group->addAction(ui->actionSetDarkTheme);
+    theme_group->addAction(ui->actionSetLightTheme);
+    theme_group->addAction(ui->actionSetDefaultTheme);
     connect(ui->actionSetDarkTheme, &QAction::triggered, this, &MainWindow::OnSetDarkTheme);
     connect(ui->actionSetLightTheme, &QAction::triggered, this, &MainWindow::OnSetLightTheme);
     connect(ui->actionSetDefaultTheme, &QAction::triggered, this, &MainWindow::OnSetDefaultTheme);
@@ -681,9 +679,10 @@ void MainWindow::OnCollapseAll()
 void MainWindow::OnCheckAll()
 {
     spdlog::trace("MainWindow::OnCheckAll() entered");
-    // Every bucket except folders: a folder id is never written (D10).
+    // Every bucket except folders: a folder id is never written (D10). Nor
+    // is the empty id of the By-Item view's header row.
     for (auto const &bucket : m_current_search->buckets()) {
-        if (!bucket.location().IsFolder()) {
+        if (bucket.location().IsValid() && !bucket.location().IsFolder()) {
             m_buyout_manager.SetRefreshChecked(bucket.location(), true);
         }
     }
@@ -694,7 +693,7 @@ void MainWindow::OnUncheckAll()
 {
     spdlog::trace("MainWindow::OnUncheckAll() entered");
     for (auto const &bucket : m_current_search->buckets()) {
-        if (!bucket.location().IsFolder()) {
+        if (bucket.location().IsValid() && !bucket.location().IsFolder()) {
             m_buyout_manager.SetRefreshChecked(bucket.location(), false);
         }
     }
@@ -783,12 +782,12 @@ void MainWindow::ScheduleDeltaResizeTreeColumns()
 void MainWindow::OnBuyoutChange()
 {
     spdlog::trace("MainWindow::OnBuyoutChange() entered");
-    m_shop.ExpireShopData();
 
+    const std::optional<double> value = ParseBuyoutValue(ui->buyoutValueLineEdit->text());
     Buyout bo;
     bo.type = Buyout::IndexAsBuyoutType(ui->buyoutTypeComboBox->currentIndex());
     bo.currency = Currency::FromIndex(ui->buyoutCurrencyComboBox->currentIndex());
-    bo.value = ui->buyoutValueLineEdit->text().replace(',', ".").toDouble();
+    bo.value = value.value_or(0.0);
     bo.last_update = QDateTime::currentDateTime();
 
     if (bo.IsPriced()) {
@@ -804,11 +803,15 @@ void MainWindow::OnBuyoutChange()
         return;
     }
 
-    // Don't assign a zero buyout if nothing is entered in the value textbox
-    if (ui->buyoutValueLineEdit->text().isEmpty() && bo.IsPriced()) {
-        spdlog::trace("MainWindow::OnBuyoutChange() buyout iempty");
+    // A priced buyout needs a number greater than zero in the value box:
+    // empty or unreadable text (a ratio, "1,000", a lone ".") writes nothing
+    // and leaves the box as typed.
+    if (bo.IsPriced() && !value) {
+        spdlog::trace("MainWindow::OnBuyoutChange() the value is not a price");
         return;
     }
+
+    m_shop.ExpireShopData();
 
     // User commands batch at command scope (M3 R2-5): the loop over the
     // selection plus the trailing propagation pass is one outer batch —
@@ -823,6 +826,9 @@ void MainWindow::OnBuyoutChange()
             continue; // no buyouts on folders, no cascade (D11, R7)
         }
         const auto location = m_current_search->GetTabLocation(index);
+        if (ref.isBucket() && !location.IsValid()) {
+            continue; // the By-Item header row has no location to price
+        }
         const auto tab = location.id();
 
         // Don't allow users to manually update locked tabs (game priced)
@@ -1349,6 +1355,7 @@ void MainWindow::ReconcileSelectionIntent()
                                                             QItemSelectionModel::NoUpdate);
             m_applying_delta = false;
             ClearCurrentItem();
+            ResetBuyoutWidgets();
         }
     }
     if (!m_current_item && m_current_bucket_location) {
@@ -1863,6 +1870,8 @@ void MainWindow::NewSearch()
 void MainWindow::ClearCurrentItem()
 {
     spdlog::trace("MainWindow::ClearCurrentItem() entered");
+    // A pending details update belongs to an item that is no longer shown.
+    m_delayed_update_current_item.stop();
     ui->imageLabel->hide();
     ui->minimapLabel->hide();
     ui->locationLabel->hide();
@@ -1878,6 +1887,8 @@ void MainWindow::ClearCurrentItem()
 void MainWindow::UpdateCurrentBucket()
 {
     spdlog::trace("MainWindow::UpdateCurrentBucket() entered");
+    // A pending item details update would overwrite the bucket's.
+    m_delayed_update_current_item.stop();
     ui->imageLabel->hide();
     ui->minimapLabel->hide();
     ui->locationLabel->hide();
@@ -1966,10 +1977,12 @@ void MainWindow::UpdateCurrentBuyout()
     spdlog::trace("MainWindow::UpdateCurrentBuyout() entered");
     if (m_current_item) {
         UpdateBuyoutWidgets(m_buyout_manager.Get(*m_current_item));
-    } else if (m_current_bucket_location && m_current_bucket_location->IsFolder()) {
+    } else if (m_current_bucket_location
+               && (m_current_bucket_location->IsFolder() || !m_current_bucket_location->IsValid())) {
         // No buyouts on folders (D11, R7): the widgets are disabled, and a
         // tab buyout an earlier version stored against the folder id is
-        // not rendered.
+        // not rendered. The By-Item view's single header row has no
+        // location at all and is treated the same way.
         ResetBuyoutWidgets();
     } else if (m_current_bucket_location) {
         UpdateBuyoutWidgets(m_buyout_manager.GetTab(*m_current_bucket_location));
@@ -2115,12 +2128,21 @@ void MainWindow::OnCopyShopToClipboard()
 
 void MainWindow::OnSetTabRefreshInterval()
 {
-    int interval = QInputDialog::getInt(this,
-                                        "Auto refresh items",
-                                        "Refresh items every X minutes",
-                                        QLineEdit::Normal,
-                                        m_settings.value("autoupdate_interval").toInt());
-    if (interval > 0) {
+    // 30 is ItemsManager's default when the setting has never been written.
+    // The maximum is a day, raised to the current value if that is larger so
+    // that accepting the dialog unchanged never lowers it.
+    constexpr int kMaximumMinutes = 24 * 60;
+    const int current = std::max(1, m_settings.value("autoupdate_interval", 30).toInt());
+    bool ok = false;
+    const int interval = QInputDialog::getInt(this,
+                                              "Auto refresh items",
+                                              "Refresh items every X minutes",
+                                              current,
+                                              1,
+                                              std::max(kMaximumMinutes, current),
+                                              1,
+                                              &ok);
+    if (ok) {
         m_items_manager.SetAutoUpdateInterval(interval);
     }
 }
@@ -2173,33 +2195,24 @@ void MainWindow::OnSetDarkTheme(bool toggle)
 {
     if (toggle) {
         emit SetTheme("dark");
-        ui->actionSetLightTheme->setChecked(false);
-        ui->actionSetDefaultTheme->setChecked(false);
         m_settings.setValue("theme", "dark");
     }
-    ui->actionSetDarkTheme->setChecked(toggle);
 }
 
 void MainWindow::OnSetLightTheme(bool toggle)
 {
     if (toggle) {
         emit SetTheme("light");
-        ui->actionSetDarkTheme->setChecked(false);
-        ui->actionSetDefaultTheme->setChecked(false);
         m_settings.setValue("theme", "light");
     }
-    ui->actionSetLightTheme->setChecked(toggle);
 }
 
 void MainWindow::OnSetDefaultTheme(bool toggle)
 {
     if (toggle) {
         emit SetTheme("default");
-        ui->actionSetDarkTheme->setChecked(false);
-        ui->actionSetLightTheme->setChecked(false);
         m_settings.setValue("theme", "default");
     }
-    ui->actionSetDefaultTheme->setChecked(toggle);
 }
 
 void MainWindow::OnSetLogging(spdlog::level::level_enum level)
@@ -2284,26 +2297,21 @@ void MainWindow::OnUploadFinished()
     ui->uploadTooltipButton->setText("Upload to imgur");
 
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(QObject::sender());
-    QByteArray bytes = reply->readAll();
+    const QByteArray bytes = reply->readAll();
     reply->deleteLater();
 
-    ImgurStatus result;
-
-    constexpr const glz::opts permissive{.error_on_unknown_keys = false};
-    const std::string_view sv{bytes, size_t(bytes.size())};
-    const auto ec = glz::read<permissive>(result, sv);
-    if (!ec) {
-        const auto msg = glz::format_error(ec, sv);
-        spdlog::error("Error parsing Imgur result: {}", msg);
+    if (reply->error() != QNetworkReply::NoError) {
+        spdlog::error("Imgur upload failed: {}", reply->errorString());
         return;
     }
 
-    if (result.status != 200) {
-        spdlog::error("Imgur API returned status != 200: {}", bytes);
+    const auto result = ParseImgurUploadReply(bytes);
+    if (!result) {
+        spdlog::error("Imgur upload failed: {}", result.error());
         return;
     }
 
-    const QString url = result.data.link;
+    const QString url = *result;
     QApplication::clipboard()->setText(url);
     spdlog::info("Image uploaded to '{}' and the URL has been copied to your clipboard.", url);
 }

@@ -26,7 +26,9 @@ From top to bottom:
   partly filled box: it is always refreshed so its prices stay current, and
   cannot be cleared.)
   Right-click for **Refresh Selected**, **Check Selected**, **Uncheck Selected**,
-  **Check All**, **Uncheck All**, **Expand All**, and **Collapse All**.
+  **Check All**, **Uncheck All**, **Expand All**, and **Collapse All**. Check
+  All and Uncheck All act on the tab and character rows shown, so they do
+  nothing in *By Item*, whose only header is *All Items*.
 - **Buyout controls** under the list — see [Pricing](pricing.md).
 - **Item panel** on the right: the item's name, an in-game-style **Tooltip** tab,
   a plain **Text** tab, and **Hide**. **Upload to imgur** uploads the rendered

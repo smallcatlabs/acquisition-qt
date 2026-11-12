@@ -8,6 +8,7 @@
 #include <QAction>
 #include <QComboBox>
 #include <QHeaderView>
+#include <QInputDialog>
 #include <QItemSelectionModel>
 #include <QLabel>
 #include <QLineEdit>
@@ -168,6 +169,19 @@ private slots:
     // Items-pipeline M3, S7 review round 1 (finding 2): the delta-path
     // column resize is a non-resetting debounce.
     void deltaResizeDebounceCoalescesBurst();
+
+    // UI papercuts (November 2026).
+    void refreshIntervalDialogEditsCurrentValue();
+    void refreshIntervalDialogCancelChangesNothing();
+    void activeThemeStaysCheckedWhenClicked();
+    void activeLoggingLevelStaysCheckedWhenClicked();
+    void priceBoxIgnoresTextThatIsNotAPrice_data();
+    void priceBoxIgnoresTextThatIsNotAPrice();
+    void priceBoxAcceptsDecimalPointOrComma_data();
+    void priceBoxAcceptsDecimalPointOrComma();
+    void removedSelectionResetsPriceEditor();
+    void byItemHeaderIsNotPriceable();
+    void headerSelectionSurvivesItemDetailsTimer();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -3882,6 +3896,310 @@ void MainWindowTest::deltaResizeDebounceCoalescesBurst()
     QTest::qWait(400); // both timers would fire here without the fix
     QCOMPARE(probes.column_resizes, 3);
     probes.enabled = false;
+}
+
+// Answers the next modal QInputDialog from the event loop: `answer` runs
+// against it, then it is accepted or rejected. The dialog's bounds are
+// reported back for the caller to check.
+struct IntDialogSeen
+{
+    bool seen{false};
+    int value{-1};
+    int minimum{-1};
+    int maximum{-1};
+};
+
+static void answerNextIntDialog(IntDialogSeen &seen, int new_value, bool accept)
+{
+    QTimer::singleShot(0, [&seen, new_value, accept] {
+        auto *dialog = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
+        if (!dialog) {
+            return;
+        }
+        seen.seen = true;
+        seen.value = dialog->intValue();
+        seen.minimum = dialog->intMinimum();
+        seen.maximum = dialog->intMaximum();
+        dialog->setIntValue(new_value);
+        if (accept) {
+            dialog->accept();
+        } else {
+            dialog->reject();
+        }
+    });
+}
+
+// #276: the dialog opens on the current interval with 1 as its minimum, so
+// the interval can be lowered as well as raised.
+void MainWindowTest::refreshIntervalDialogEditsCurrentValue()
+{
+    MainWindowFixture fixture;
+    auto *action = fixture.window->findChild<QAction *>("actionSetTabRefreshInterval");
+    QVERIFY(action);
+    fixture.settings->setValue("autoupdate_interval", 45);
+
+    IntDialogSeen seen;
+    answerNextIntDialog(seen, 12, true);
+    action->trigger();
+
+    QVERIFY(seen.seen);
+    QCOMPARE(seen.value, 45);
+    QCOMPARE(seen.minimum, 1);
+    QVERIFY(seen.maximum >= 45);
+    QCOMPARE(fixture.settings->value("autoupdate_interval").toInt(), 12);
+}
+
+void MainWindowTest::refreshIntervalDialogCancelChangesNothing()
+{
+    MainWindowFixture fixture;
+    auto *action = fixture.window->findChild<QAction *>("actionSetTabRefreshInterval");
+    QVERIFY(action);
+    fixture.settings->setValue("autoupdate_interval", 45);
+
+    IntDialogSeen seen;
+    answerNextIntDialog(seen, 12, false);
+    action->trigger();
+
+    QVERIFY(seen.seen);
+    QCOMPARE(fixture.settings->value("autoupdate_interval").toInt(), 45);
+}
+
+// #284: the theme actions are exclusive; clicking the active one keeps it
+// checked, and choosing another unchecks the rest.
+void MainWindowTest::activeThemeStaysCheckedWhenClicked()
+{
+    MainWindowFixture fixture;
+    auto *dark = fixture.window->findChild<QAction *>("actionSetDarkTheme");
+    auto *light = fixture.window->findChild<QAction *>("actionSetLightTheme");
+    auto *platform = fixture.window->findChild<QAction *>("actionSetDefaultTheme");
+    QVERIFY(dark);
+    QVERIFY(light);
+    QVERIFY(platform);
+
+    QVERIFY(platform->isChecked());
+    platform->trigger();
+    QVERIFY(platform->isChecked());
+    QVERIFY(!dark->isChecked());
+    QVERIFY(!light->isChecked());
+
+    dark->trigger();
+    QVERIFY(dark->isChecked());
+    QVERIFY(!platform->isChecked());
+    QVERIFY(!light->isChecked());
+    QCOMPARE(fixture.settings->value("theme").toString(), QString("dark"));
+    dark->trigger();
+    QVERIFY(dark->isChecked());
+    QCOMPARE(fixture.settings->value("theme").toString(), QString("dark"));
+}
+
+void MainWindowTest::activeLoggingLevelStaysCheckedWhenClicked()
+{
+    MainWindowFixture fixture;
+    const auto level = spdlog::get_level();
+    auto *warn = fixture.window->findChild<QAction *>("actionLoggingWARN");
+    auto *info = fixture.window->findChild<QAction *>("actionLoggingINFO");
+    QVERIFY(warn);
+    QVERIFY(info);
+
+    warn->trigger();
+    QVERIFY(warn->isChecked());
+    warn->trigger();
+    QVERIFY(warn->isChecked());
+    QVERIFY(!info->isChecked());
+    info->trigger();
+    QVERIFY(info->isChecked());
+    QVERIFY(!warn->isChecked());
+    spdlog::set_level(level);
+}
+
+// Selects the one item of a one-tab refresh and sets the buyout type and
+// currency the way a user would, leaving the value box enabled and empty.
+static std::shared_ptr<Item> selectItemForPricing(MainWindowFixture &fixture)
+{
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    if (!tree) {
+        qFatal("selectItemForPricing: treeView not found");
+    }
+    const ItemLocation tab = makeTestStashLocation("stash-price", "Price Tab", 0);
+    auto item = makeMainWindowItem("price-item", "Priced", "Sword", tab);
+    Items items;
+    items.push_back(item);
+    fixture.itemsManager->OnItemsRefreshed(items, {tab}, false);
+    const QModelIndex bucket = findBucket(*tree->model(), tab.GetHeader());
+    const QModelIndex row = findItemRow(*tree->model(), bucket, "Priced Sword");
+    if (!row.isValid()) {
+        qFatal("selectItemForPricing: the item row is missing");
+    }
+    tree->selectionModel()->setCurrentIndex(row,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    auto *type = fixture.window->findChild<QComboBox *>("buyoutTypeComboBox");
+    auto *currency = fixture.window->findChild<QComboBox *>("buyoutCurrencyComboBox");
+    type->setCurrentIndex(Buyout::BUYOUT_TYPE_BUYOUT);
+    currency->setCurrentIndex(Currency::CURRENCY_CHAOS_ORB);
+    emit type->activated(Buyout::BUYOUT_TYPE_BUYOUT);
+    return item;
+}
+
+// #252: text that is not a number greater than zero writes nothing. The box
+// commits on every keystroke, so the text minus its last character is put in
+// place without an edit signal and only the last character is typed: what
+// is checked is the commit of the whole text. (Typed from empty, "79/20"
+// would store 79 at its "79" prefix; that is the per-keystroke commit, which
+// is unchanged.)
+void MainWindowTest::priceBoxIgnoresTextThatIsNotAPrice_data()
+{
+    QTest::addColumn<QString>("text");
+    QTest::newRow("ratio") << "79/20";
+    QTest::newRow("letters") << "abc";
+    QTest::newRow("zero") << "0";
+    QTest::newRow("thousands comma") << "1,000";
+    QTest::newRow("negative") << "-3";
+    QTest::newRow("lone point") << ".";
+}
+
+void MainWindowTest::priceBoxIgnoresTextThatIsNotAPrice()
+{
+    QFETCH(QString, text);
+    MainWindowFixture fixture;
+    const auto item = selectItemForPricing(fixture);
+    auto *value = fixture.window->findChild<QLineEdit *>("buyoutValueLineEdit");
+    QVERIFY(value);
+    QVERIFY(value->isEnabled());
+    QVERIFY(fixture.buyoutFixture.manager->Get(*item).IsNull());
+
+    QSignalSpy changes(fixture.buyoutFixture.manager.get(), &BuyoutManager::BuyoutsChanged);
+    value->setText(text.chopped(1));
+    QTest::keyClicks(value, text.right(1));
+
+    QCOMPARE(value->text(), text);
+    QVERIFY(fixture.buyoutFixture.manager->Get(*item).IsNull());
+    QCOMPARE(changes.count(), 0);
+}
+
+void MainWindowTest::priceBoxAcceptsDecimalPointOrComma_data()
+{
+    QTest::addColumn<QString>("text");
+    QTest::newRow("point") << "2.5";
+    QTest::newRow("comma") << "2,5";
+}
+
+void MainWindowTest::priceBoxAcceptsDecimalPointOrComma()
+{
+    QFETCH(QString, text);
+    MainWindowFixture fixture;
+    const auto item = selectItemForPricing(fixture);
+    auto *value = fixture.window->findChild<QLineEdit *>("buyoutValueLineEdit");
+    QVERIFY(value);
+
+    QTest::keyClicks(value, text);
+
+    const Buyout stored = fixture.buyoutFixture.manager->Get(*item);
+    QCOMPARE(stored.type, Buyout::BUYOUT_TYPE_BUYOUT);
+    QCOMPARE(stored.currency.type, Currency::CURRENCY_CHAOS_ORB);
+    QCOMPARE(stored.value, 2.5);
+    QCOMPARE(value->text(), text);
+}
+
+// #282: when a refresh removes the selected item, the price editor is reset
+// as it is for any lapsed selection, not left enabled on the old price.
+void MainWindowTest::removedSelectionResetsPriceEditor()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    auto *nameLabel = fixture.window->findChild<QLabel *>("nameLabel");
+    auto *buyoutType = fixture.window->findChild<QComboBox *>("buyoutTypeComboBox");
+    auto *buyoutValue = fixture.window->findChild<QLineEdit *>("buyoutValueLineEdit");
+    QVERIFY(tree);
+    QVERIFY(nameLabel);
+    QVERIFY(buyoutType);
+    QVERIFY(buyoutValue);
+
+    const ItemLocation tab = makeTestStashLocation("stash-gone", "Gone", 0);
+    const auto item = makeMainWindowItem("gone-item", "Gone", "Sword", tab);
+    Items items;
+    items.push_back(item);
+    fixture.itemsManager->OnItemsRefreshed(items, {tab}, false);
+    fixture.buyoutFixture.manager->Set(*item, makeChaosBuyout(5));
+
+    const QModelIndex row = findItemRow(*tree->model(),
+                                        findBucket(*tree->model(), tab.GetHeader()),
+                                        "Gone Sword");
+    QVERIFY(row.isValid());
+    tree->selectionModel()->setCurrentIndex(row,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    QCOMPARE(buyoutValue->text(), "5");
+    QVERIFY(buyoutValue->isEnabled());
+
+    fixture.itemsManager->OnTabRefreshed(tab, {});
+
+    QCOMPARE(nameLabel->text(), "Select an item");
+    QCOMPARE(buyoutValue->text(), "");
+    QVERIFY(!buyoutValue->isEnabled());
+    QVERIFY(!buyoutType->isEnabled());
+}
+
+// #282: the single header row of the By-Item view has no location
+// (ItemLocation::IsValid() is false; the model labels it "All Items"). It
+// cannot be priced, and Check All / Uncheck All skip it, so nothing is
+// stored under an empty id.
+void MainWindowTest::byItemHeaderIsNotPriceable()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    auto *buyoutType = fixture.window->findChild<QComboBox *>("buyoutTypeComboBox");
+    QVERIFY(tree);
+    QVERIFY(buyoutType);
+
+    const ItemLocation tab = makeTestStashLocation("stash-flat", "Flat", 0);
+    Items items;
+    items.push_back(makeMainWindowItem("flat-item", "Flat", "Sword", tab));
+    fixture.itemsManager->OnItemsRefreshed(items, {tab}, false);
+    switchToByItemView(fixture);
+
+    const QModelIndex header = tree->model()->index(0, 0);
+    QCOMPARE(header.data().toString(), "All Items");
+    tree->selectionModel()->setCurrentIndex(header,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    QVERIFY(!buyoutType->isEnabled());
+
+    applyBuyoutCommand(fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "5");
+    QVERIFY(fixture.buyoutFixture.manager->GetTab(ItemLocation()).IsNull());
+
+    fixture.window->OnUncheckAll();
+    QVERIFY(fixture.buyoutFixture.manager->GetRefreshChecked(ItemLocation()));
+}
+
+// #282: selecting a tab header after an item stops the item's pending
+// details update, which would otherwise replace the header's details.
+void MainWindowTest::headerSelectionSurvivesItemDetailsTimer()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    auto *nameLabel = fixture.window->findChild<QLabel *>("nameLabel");
+    QVERIFY(tree);
+    QVERIFY(nameLabel);
+
+    const ItemLocation tab = makeTestStashLocation("stash-head", "Head", 0);
+    Items items;
+    items.push_back(makeMainWindowItem("head-item", "Head", "Sword", tab));
+    fixture.itemsManager->OnItemsRefreshed(items, {tab}, false);
+
+    const QModelIndex bucket = findBucket(*tree->model(), tab.GetHeader());
+    const QModelIndex row = findItemRow(*tree->model(), bucket, "Head Sword");
+    QVERIFY(row.isValid());
+    tree->selectionModel()->setCurrentIndex(row,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    tree->selectionModel()->setCurrentIndex(bucket,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    QCOMPARE(nameLabel->text(), tab.GetHeader());
+
+    QTest::qWait(300); // past the 100 ms details timer
+    QCOMPARE(nameLabel->text(), tab.GetHeader());
 }
 
 QTEST_MAIN(MainWindowTest)

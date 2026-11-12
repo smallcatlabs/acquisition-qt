@@ -7,7 +7,9 @@ never in the game, and are what the [forum shop](forum-shop.md) publishes.
 
 Select an item, or a whole stash tab or character, in the item list. Folders
 cannot be priced: with a folder selected the controls are disabled. Price the
-tabs inside it instead. The three controls under the list are:
+tabs inside it instead. The same holds for the *All Items* row at the top of the
+*By Item* view, which is not a tab. If a refresh removes the item you had
+selected, the controls are cleared and disabled until a row is selected again. The three controls under the list are:
 
 1. **Buyout type**
 2. **Currency**
@@ -15,6 +17,13 @@ tabs inside it instead. The three controls under the list are:
 
 Changes apply immediately to the selection. The *Price* and *Last Update* columns
 in the item table show the result.
+
+The value must be a number greater than zero. Use a point or a comma as the
+decimal separator (`2.5` or `2,5`). Text that is not such a number, for example
+`79/20`, `abc` or `0`, is not saved: the selection keeps its previous price
+until the box holds a number. A comma followed by exactly three digits, such as
+`1,000`, is not saved either, because it could mean one thousand or one; type
+`1000` or `1.0` instead.
 
 ### Buyout types
 
