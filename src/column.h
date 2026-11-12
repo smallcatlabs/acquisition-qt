@@ -41,6 +41,10 @@ public:
     virtual ~Column() {}
 
 protected:
+    // The value lt and key sort by. Defaults to the displayed value; a
+    // column that displays only an icon returns its sortable text here.
+    virtual QVariant sortValue(const Item &item) const { return value(item); }
+
     // The D5 tie-break suffix, shared by every key implementation. Takes
     // the already-computed PrettyName so the caller can share its buffer
     // with the head (D1's s2/suffix sharing); uid and hash are CoW copies
@@ -115,6 +119,9 @@ public:
     QString name() const;
     QVariant value(const Item &item) const;
     QVariant icon(const Item &item) const;
+
+protected:
+    QVariant sortValue(const Item &item) const override;
 };
 
 // Returns values from item -> properties

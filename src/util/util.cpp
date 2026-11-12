@@ -174,6 +174,10 @@ bool Util::MatchMod(const char *const match, const char *const mod, double *outp
     auto pmod = mod;
     int cnt = 0;
 
+    // Callers read the output even when the match fails: a failed match
+    // reports 0.
+    *output = 0.0;
+
     while (*pmatch && *pmod) {
         if (*pmatch == '#') {
             ++cnt;
@@ -189,8 +193,12 @@ bool Util::MatchMod(const char *const match, const char *const mod, double *outp
             return false;
         }
     }
-    *output = result / cnt;
-    return !*pmatch && !*pmod;
+    if (*pmatch || *pmod) {
+        return false;
+    }
+    // A mod with no number has no value to average (#265).
+    *output = cnt > 0 ? result / cnt : 0.0;
+    return true;
 }
 
 QString Util::Capitalise(const QString &str)

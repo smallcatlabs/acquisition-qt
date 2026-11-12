@@ -16,13 +16,17 @@ private slots:
     void tabFilter();
     void nameFilter();
     void categoryFilter();
+    void categoryChoiceMatchesExactly();
     void minMaxFilter();
+    void percentPropertyFilters();
     void defaultAndRequiredFilters();
+    void requirementSpellingsAndCatalystQuality();
     void socketColorFilters();
     void booleanFilter();
     void booleanPredicates();
     void rarityFilter();
     void modsFilter();
+    void valuelessModFilter();
 };
 
 static std::shared_ptr<Item> makeFilterItem(
@@ -184,6 +188,58 @@ void FiltersTest::categoryFilter()
     QVERIFY(!MatchesFilter(*unknown, *category, state));
 }
 
+// #269: a category chosen from the list matches that category only; free
+// text typed into the box still matches by substring.
+void FiltersTest::categoryChoiceMatchesExactly()
+{
+    InitItemClasses(R"json({
+        "Jewel": {"name": "Jewels"},
+        "AbyssJewel": {"name": "Abyss Jewels"},
+        "One Hand Sword": {"name": "One Hand Swords"},
+        "Thrusting One Hand Sword": {"name": "Thrusting One Hand Swords"}
+    })json");
+    InitItemBaseTypes(R"json({
+        "Metadata/Items/Jewels/JewelInt": {"item_class": "Jewel", "name": "Cobalt Jewel", "release_state": "released"},
+        "Metadata/Items/Jewels/JewelAbyssCaster": {"item_class": "AbyssJewel", "name": "Hypnotic Eye Jewel", "release_state": "released"},
+        "Metadata/Items/Weapons/OneHandWeapons/OneHandSwords/OneHandSword1": {"item_class": "One Hand Sword", "name": "Rusted Sword", "release_state": "released"},
+        "Metadata/Items/Weapons/OneHandWeapons/OneHandThrustingSwords/Rapier1": {"item_class": "Thrusting One Hand Sword", "name": "Rusted Spike", "release_state": "released"}
+    })json");
+
+    BuyoutManagerFixture buyoutFixture;
+    const FilterCatalog catalog = BuildFilterCatalog(*buyoutFixture.manager);
+    const auto *category = findComboFilterSpec(catalog, "Category");
+    QVERIFY(category);
+
+    const auto jewel = makeFilterItem("jewel", "", 2, "Rare", {}, "Cobalt Jewel");
+    const auto abyss = makeFilterItem("abyss", "", 2, "Rare", {}, "Hypnotic Eye Jewel");
+    const auto sword = makeFilterItem("sword", "", 2, "Rare", {}, "Rusted Sword");
+    const auto rapier = makeFilterItem("rapier", "", 2, "Rare", {}, "Rusted Spike");
+    QCOMPARE(jewel->category(), QString("jewels"));
+    QCOMPARE(abyss->category(), QString("abyss jewels"));
+
+    // The form lower-cases the chosen text before it reaches the matcher.
+    ComboState state{"jewels"};
+    QVERIFY(MatchesFilter(*jewel, *category, state));
+    QVERIFY(!MatchesFilter(*abyss, *category, state));
+
+    state.value = "abyss jewels";
+    QVERIFY(MatchesFilter(*abyss, *category, state));
+    QVERIFY(!MatchesFilter(*jewel, *category, state));
+
+    state.value = "one hand swords";
+    QVERIFY(MatchesFilter(*sword, *category, state));
+    QVERIFY(!MatchesFilter(*rapier, *category, state));
+
+    // Free text that is not a listed choice keeps substring matching.
+    state.value = "jewel";
+    QVERIFY(MatchesFilter(*jewel, *category, state));
+    QVERIFY(MatchesFilter(*abyss, *category, state));
+    state.value = "swords";
+    QVERIFY(MatchesFilter(*sword, *category, state));
+    QVERIFY(MatchesFilter(*rapier, *category, state));
+    QVERIFY(!MatchesFilter(*jewel, *category, state));
+}
+
 void FiltersTest::minMaxFilter()
 {
     BuyoutManagerFixture buyoutFixture;
@@ -237,6 +293,39 @@ void FiltersTest::minMaxFilter()
     QVERIFY(MatchesFilter(*withoutCrit, *crit, state));
 }
 
+// #229: Crit and Block arrive as "8.00%" and "23%". The filters read the
+// number, not the display string.
+void FiltersTest::percentPropertyFilters()
+{
+    BuyoutManagerFixture buyoutFixture;
+    const FilterCatalog catalog = BuildFilterCatalog(*buyoutFixture.manager);
+    const auto item = makeFilterItem("percent",
+                                     R"json(,
+        "properties": [
+            {"displayMode": 0, "name": "Critical Strike Chance", "values": [["8.00%", 1]]},
+            {"displayMode": 0, "name": "Chance to Block", "values": [["23%", 0]]}
+        ])json");
+
+    const auto *crit = findMinMaxFilterSpec(catalog, "Crit.");
+    QVERIFY(crit);
+    MinMaxState state;
+    state.min = 7.5;
+    QVERIFY(MatchesFilter(*item, *crit, state));
+    state.min = 8.5;
+    QVERIFY(!MatchesFilter(*item, *crit, state));
+    state.min.reset();
+    state.max = 5.0;
+    QVERIFY(!MatchesFilter(*item, *crit, state));
+
+    const auto *block = findMinMaxFilterSpec(catalog, "Block");
+    QVERIFY(block);
+    state = MinMaxState{};
+    state.min = 20.0;
+    QVERIFY(MatchesFilter(*item, *block, state));
+    state.min = 24.0;
+    QVERIFY(!MatchesFilter(*item, *block, state));
+}
+
 void FiltersTest::defaultAndRequiredFilters()
 {
     BuyoutManagerFixture buyoutFixture;
@@ -265,6 +354,64 @@ void FiltersTest::defaultAndRequiredFilters()
     requiredState.min.reset();
     requiredState.max = 0.0;
     QVERIFY(MatchesFilter(*withoutRequirement, *required, requiredState));
+}
+
+// #263: requirements arrive as both "Int" and "Intelligence" (likewise Str
+// and Dex), and catalyst quality as "Quality (<kind>)".
+void FiltersTest::requirementSpellingsAndCatalystQuality()
+{
+    BuyoutManagerFixture buyoutFixture;
+    const FilterCatalog catalog = BuildFilterCatalog(*buyoutFixture.manager);
+
+    const auto longForm = makeFilterItem("long-form",
+                                         R"json(,
+        "requirements": [
+            {"displayMode": 0, "name": "Level", "values": [["68", 0]]},
+            {"displayMode": 1, "name": "Strength", "values": [["111", 0]]},
+            {"displayMode": 1, "name": "Dexterity", "values": [["98", 0]]},
+            {"displayMode": 1, "name": "Intelligence", "values": [["242", 0]]}
+        ])json");
+    const auto shortForm = makeFilterItem("short-form",
+                                          R"json(,
+        "requirements": [
+            {"displayMode": 0, "name": "Level", "values": [["68", 0]]},
+            {"displayMode": 1, "name": "Str", "values": [["111", 0]]},
+            {"displayMode": 1, "name": "Dex", "values": [["98", 0]]},
+            {"displayMode": 1, "name": "Int", "values": [["242", 0]]}
+        ])json");
+
+    struct Expected
+    {
+        const char *caption;
+        double value;
+    };
+    for (const auto &[caption, value] :
+         {Expected{"R. Str", 111.0}, Expected{"R. Dex", 98.0}, Expected{"R. Int", 242.0}}) {
+        const auto *spec = findMinMaxFilterSpec(catalog, caption);
+        QVERIFY2(spec, caption);
+        MinMaxState state;
+        state.min = value;
+        state.max = value;
+        QVERIFY2(MatchesFilter(*longForm, *spec, state), caption);
+        QVERIFY2(MatchesFilter(*shortForm, *spec, state), caption);
+        state.min = value + 1;
+        state.max.reset();
+        QVERIFY2(!MatchesFilter(*longForm, *spec, state), caption);
+    }
+
+    const auto catalyst = makeFilterItem("catalyst",
+                                         R"json(,
+        "properties": [
+            {"displayMode": 0, "name": "Stack Size", "values": [["3/10", 0]]},
+            {"displayMode": 0, "name": "Quality (Attribute Modifiers)", "values": [["+20%", 1]]}
+        ])json");
+    const auto *quality = findMinMaxFilterSpec(catalog, "Quality");
+    QVERIFY(quality);
+    MinMaxState qualityState;
+    qualityState.min = 15.0;
+    QVERIFY(MatchesFilter(*catalyst, *quality, qualityState));
+    qualityState.min = 21.0;
+    QVERIFY(!MatchesFilter(*catalyst, *quality, qualityState));
 }
 
 void FiltersTest::socketColorFilters()
@@ -501,6 +648,32 @@ void FiltersTest::modsFilter()
     QVERIFY(!MatchesFilter(*item, *mods, state));
     state.rows.back().max = 45.0;
     state.rows.push_back(ModRow{"+# to missing stat", std::nullopt, std::nullopt});
+    QVERIFY(!MatchesFilter(*item, *mods, state));
+}
+
+// #265: a mod with no number is present, with value 0; a minimum above 0
+// rejects it instead of passing a NaN.
+void FiltersTest::valuelessModFilter()
+{
+    InitStatTranslations();
+    AddStatTranslations(R"json([
+        {"English":[{"format":["ignore"],"string":"Cannot be Frozen"}]}
+    ])json");
+    InitModList();
+
+    const auto item = makeFilterItem("valueless",
+                                     R"json(,
+        "explicitMods": [{"description": "Cannot be Frozen"}]
+    )json");
+    BuyoutManagerFixture buyoutFixture;
+    const FilterCatalog catalog = BuildFilterCatalog(*buyoutFixture.manager);
+    const auto *mods = findFilterSpec(catalog, "Mods");
+    QVERIFY(mods);
+
+    ModsState state;
+    state.rows.push_back(ModRow{"Cannot be Frozen", std::nullopt, std::nullopt});
+    QVERIFY(MatchesFilter(*item, *mods, state));
+    state.rows.back().min = 1.0;
     QVERIFY(!MatchesFilter(*item, *mods, state));
 }
 

@@ -442,6 +442,7 @@ void Item::LoadModifiers(const poe::Item &item)
 
 void Item::LoadProperties(const std::vector<poe::ItemProperty> &properties)
 {
+    bool seen_plain_quality = false;
     for (const auto &prop : properties) {
         const QString name = prop.name;
         const auto &values = prop.values;
@@ -472,10 +473,36 @@ void Item::LoadProperties(const std::vector<poe::ItemProperty> &properties)
                     strval.chop(6);
                 }
             } else if (name == "Stack Size") {
+                // "123/5000": the count is the part before the slash.
                 const auto n = strval.indexOf("/");
-                m_count = strval.first(n).toInt();
+                m_count = (n >= 0 ? strval.first(n) : strval).toInt();
             }
             m_properties[name] = strval;
+
+            // The filters need numbers, but values arrive in display form:
+            // "8.00%", "+20%". Keep the display string above and store the
+            // number separately when the value is a single number.
+            QString numeric = strval.trimmed();
+            if (numeric.startsWith("+")) {
+                numeric.removeFirst();
+            }
+            if (numeric.endsWith("%")) {
+                numeric.chop(1);
+            }
+            bool ok = false;
+            const double number = numeric.toDouble(&ok);
+            if (ok) {
+                m_numeric_properties[name] = number;
+                if (name.startsWith("Quality (")) {
+                    // Catalyst quality: "Quality (Attribute Modifiers)". It
+                    // counts as Quality unless the item has plain Quality.
+                    if (!seen_plain_quality) {
+                        m_numeric_properties["Quality"] = number;
+                    }
+                } else if (name == "Quality") {
+                    seen_plain_quality = true;
+                }
+            }
         }
 
         ItemProperty property;
@@ -498,7 +525,18 @@ void Item::LoadRequirements(const std::vector<poe::ItemProperty> &requirements)
         }
         const auto &name = req.name;
         const auto &[str, type] = values[0];
-        m_requirements[name] = str.toInt();
+        // The game spells stat requirements both ways ("Int" and
+        // "Intelligence"); the numeric map uses the short form. The display
+        // list keeps the name as sent.
+        QString key = name;
+        if (name == "Strength") {
+            key = QStringLiteral("Str");
+        } else if (name == "Dexterity") {
+            key = QStringLiteral("Dex");
+        } else if (name == "Intelligence") {
+            key = QStringLiteral("Int");
+        }
+        m_requirements[key] = str.toInt();
         m_text_requirements.push_back({name, ItemPropertyValue{str, type}});
     }
 }
@@ -510,16 +548,18 @@ void Item::LoadSockets(const std::vector<poe::ItemSocket> &sockets)
     int counter = 0;
     int prev_group = -1;
     for (const auto &socket : sockets) {
-        char attr = '\0';
+        QString code;
         if (socket.attr) {
-            attr = (*socket.attr)[0].toLatin1();
+            code = *socket.attr;
         } else if (socket.sColour) {
-            attr = (*socket.sColour)[0].toLatin1();
+            code = *socket.sColour;
         }
 
-        if (!attr) {
+        if (code.isEmpty()) {
             continue;
         }
+        // The tooltip and the POB export still read the first letter.
+        const char attr = code[0].toLatin1();
 
         const int group = socket.group;
         ItemSocket current_socket = {static_cast<unsigned char>(group), attr};
@@ -532,23 +572,20 @@ void Item::LoadSockets(const std::vector<poe::ItemSocket> &sockets)
         prev_group = current_socket.group;
         ++counter;
         m_links_cnt = std::max(m_links_cnt, counter);
-        switch (current_socket.attr) {
-        case 'S':
+        // Decided on the whole code: "DV" (Delve resonator) is not "D", and
+        // "DV" and "A" (abyss) sockets have no colour.
+        if (code == "S") {
             m_sockets.r++;
             current_group.r++;
-            break;
-        case 'D':
+        } else if (code == "D") {
             m_sockets.g++;
             current_group.g++;
-            break;
-        case 'I':
+        } else if (code == "I") {
             m_sockets.b++;
             current_group.b++;
-            break;
-        case 'G':
+        } else if (code == "G") {
             m_sockets.w++;
             current_group.w++;
-            break;
         }
     }
     m_socket_groups.push_back(current_group);

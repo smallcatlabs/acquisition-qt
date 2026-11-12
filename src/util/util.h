@@ -59,7 +59,8 @@ namespace Util {
     /*
         Example usage:
             MatchMod("+# to Life", "+12.3 to Life", &result);
-        Will return true if matches and save average value to output.
+        Will return true if matches and save average value to output; on no match
+        the output is 0.
     */
     bool MatchMod(const char *const match, const char *const mod, double *output);
 

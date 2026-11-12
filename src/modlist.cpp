@@ -344,7 +344,9 @@ void SumModGenerator::Generate(const QString &mod, ModTable &output)
 {
     double result;
     if (Match(mod.toStdString().c_str(), result)) {
-        output[m_name] = result;
+        // The same mod can appear in several sections (implicit and explicit,
+        // say); the item's value is the sum of its lines (#262).
+        output[m_name] += result;
     }
 }
 

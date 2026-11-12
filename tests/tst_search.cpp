@@ -28,6 +28,9 @@ private slots:
     void probeCountersTrackRefilterAndSort();
     void keyedOrderMatchesComparatorOrder();
     void intendedTieBreakRestored();
+    // #269: the Inf column sorts by influence, through both the keyed sort
+    // and the comparator, and still displays icons only.
+    void influenceColumnSortsByInfluence();
     // M3 S6 (R1-2/R1-7): the final reconciliation is authoritative at the
     // row grain, which is what licenses clearing the fail-safe dirty flag
     // a skipped delta left behind — the
@@ -543,6 +546,67 @@ void SearchTest::keyedOrderMatchesComparatorOrder()
             QCOMPARE(keyed, comparator);
         }
     }
+}
+
+void SearchTest::influenceColumnSortsByInfluence()
+{
+    BuyoutManagerFixture buyoutFixture;
+    const ItemLocation tab = makeTestStashLocation("stash-inf", "Inf Tab", 0);
+    buyoutFixture.manager->SetStashTabLocations({tab});
+
+    // Names in a different order from the influences, so a column that
+    // falls back to the name cannot produce the expected order.
+    Items items;
+    items.push_back(makeKeyedItem("none", "Alpha Ward", "Belt", tab));
+    items.push_back(makeKeyedItem("shaper",
+                                  "Bravo Ward",
+                                  "Belt",
+                                  tab,
+                                  R"json(, "influences": {"shaper": true})json"));
+    items.push_back(makeKeyedItem("elder",
+                                  "Charlie Ward",
+                                  "Belt",
+                                  tab,
+                                  R"json(, "influences": {"elder": true})json"));
+    items.push_back(makeKeyedItem("hunter-warlord",
+                                  "Delta Ward",
+                                  "Belt",
+                                  tab,
+                                  R"json(, "influences": {"hunter": true, "warlord": true})json"));
+
+    const FilterCatalog catalog = BuildFilterCatalog(*buyoutFixture.manager);
+    Search search(*buyoutFixture.manager, "Inf", catalog);
+    const Column *inf = nullptr;
+    for (const auto &column : search.columns()) {
+        if (column->name() == "Inf") {
+            inf = column.get();
+        }
+    }
+    QVERIFY(inf);
+
+    // The cell shows the influence icons and no text.
+    QVERIFY(inf->value(*items[1]).toString().isEmpty());
+
+    const QStringList expected{"none", "elder", "hunter-warlord", "shaper"};
+
+    Bucket bucket(tab);
+    bucket.AddItems(items);
+    bucket.Sort(*inf, Qt::AscendingOrder);
+    QStringList keyed;
+    for (const auto &item : bucket.items()) {
+        keyed.push_back(item->id());
+    }
+    QCOMPARE(keyed, expected);
+
+    Items byComparator = items;
+    std::sort(byComparator.begin(), byComparator.end(), [inf](const auto &lhs, const auto &rhs) {
+        return inf->lt(lhs.get(), rhs.get());
+    });
+    QStringList compared;
+    for (const auto &item : byComparator) {
+        compared.push_back(item->id());
+    }
+    QCOMPARE(compared, expected);
 }
 
 // S1 pin (items-pipeline-m3.md, sort-correctness): id-less items tying on

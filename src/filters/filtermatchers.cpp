@@ -169,8 +169,21 @@ bool matches(const Item &item, const ComboState &state, const ComboPayload &payl
     }
 
     switch (payload.matchKind) {
-    case ComboMatchKind::CategoryContains:
-        return item.category().contains(state.value);
+    case ComboMatchKind::CategoryContains: {
+        // A category chosen from the list matches that category only, so
+        // "Jewels" does not also return "Abyss Jewels". The box is editable;
+        // text that is not a listed choice still matches by substring.
+        const QString &category = item.category();
+        if (category == state.value) {
+            return true;
+        }
+        if (!category.contains(state.value)) {
+            return false;
+        }
+        // Substring but not equal: only reached for items in a longer
+        // category, so the choice list is consulted rarely.
+        return !payload.choices().contains(state.value, Qt::CaseInsensitive);
+    }
     case ComboMatchKind::Rarity: {
         const QString &query = state.value;
         const QStringList &choices = RarityChoices();

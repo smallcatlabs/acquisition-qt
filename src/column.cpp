@@ -34,7 +34,7 @@ Column::MultivalueParts Column::parts(const Item *item, const QString &pretty) c
 
     MultivalueParts result;
 
-    QString str = value(*item).toString();
+    QString str = sortValue(*item).toString();
     QRegularExpressionMatch match;
 
     if (str.contains(sort_double_match, &match)) {
@@ -165,7 +165,15 @@ QString InfluncedColumn::name() const
     return "Inf";
 }
 
-QVariant InfluncedColumn::value(const Item &item) const
+QVariant InfluncedColumn::value(const Item & /* item */) const
+{
+    // The cell shows the influence icons only (icon()); sorting reads the
+    // letters from sortValue().
+    //TODO maybe add an option to toggle whether to send an icon or text for an influence?
+    return "";
+}
+
+QVariant InfluncedColumn::sortValue(const Item &item) const
 {
     QString influencesString = "";
 
@@ -187,9 +195,7 @@ QVariant InfluncedColumn::value(const Item &item) const
     if (item.hasInfluence(Item::REDEEMER)) {
         influencesString += "R";
     }
-
-    //TODO maybe add an option to toggle whether to send an icon or text for an influence?
-    return "";
+    return influencesString;
 }
 
 QVariant InfluncedColumn::icon(const Item &item) const
