@@ -22,8 +22,21 @@
 #include "poe/types/character.h"
 #include "poe/types/item.h"
 #include "poe/types/stashtab.h"
+#include "sessionidentity.h"
 #include "util/glaze_qt.h" // IWYU pragma: keep
 #include "util/json_writers.h"
+
+// A session identity for a test; every field must be non-empty.
+inline SessionIdentity makeTestIdentity(const QString &account,
+                                        const QString &realm,
+                                        const QString &league)
+{
+    auto identity = SessionIdentity::Make(account, realm, league);
+    if (!identity) {
+        qFatal("makeTestIdentity: every field of a session identity must be set");
+    }
+    return *identity;
+}
 
 class BuyoutManagerFixture
 {

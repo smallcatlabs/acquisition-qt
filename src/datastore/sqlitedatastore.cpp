@@ -135,16 +135,20 @@ void SqliteDataStore::Set(const QString &key, const QString &value)
     }
 }
 
-void SqliteDataStore::InsertCurrencyUpdate(const CurrencyUpdate &update)
+bool SqliteDataStore::InsertCurrencyUpdate(const CurrencyUpdate &update)
 {
     QSqlDatabase db = getThreadLocalDatabase();
     QSqlQuery query(db);
-    query.prepare("INSERT INTO currency (timestamp, value) VALUES (?, ?)");
+    // The key is a time in seconds, so two updates in the same second would
+    // collide; the later one replaces the earlier (#285).
+    query.prepare("INSERT OR REPLACE INTO currency (timestamp, value) VALUES (?, ?)");
     query.bindValue(0, update.timestamp);
     query.bindValue(1, update.value);
     if (query.exec() == false) {
-        spdlog::error("Error inserting currency update.");
+        spdlog::error("Error inserting currency update: {}", query.lastError().text());
+        return false;
     }
+    return true;
 }
 
 std::vector<CurrencyUpdate> SqliteDataStore::GetAllCurrency()

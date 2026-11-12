@@ -6,11 +6,9 @@
 #include <QCoroTask>
 
 #include <QObject>
-#include <QPointer>
 #include <QString>
 #include <QStringList>
 
-#include <atomic>
 #include <expected>
 #include <functional>
 #include <set>
@@ -18,25 +16,25 @@
 #include <variant>
 #include <vector>
 
+#include "cacheload.h"
 #include "fetchsourcekey.h"
 #include "item.h"
 #include "poe/types/character.h"
 #include "poe/types/stashtab.h"
 #include "ratelimit/fetcherror.h"
 #include "refreshoutcome.h"
+#include "sessionidentity.h"
 #include "sourcekeyeditems.h"
 #include "util/programstate.h"
 #include "util/util.h"
 
 class QSettings;
-class QThread;
 
 class BuyoutManager;
 class DataStore;
 class ItemLocation;
 class NetworkManager;
 class PoeApiClient;
-class RePoE;
 
 // What a content fetch asks the API for. The worker names the resource; the
 // facade builds the request (phase 4b) — above this line nothing sees a
@@ -63,13 +61,6 @@ struct ItemsRequest
     ItemLocation location;
 };
 
-struct ParseResult
-{
-    std::vector<ItemLocation> tabs;
-    Items items;
-    std::set<QString> tab_id_index;
-};
-
 // Read-only observation of the deferred task sweep (network-redesign phase 5,
 // verification §2). Injected by the worker suite; null in production. The
 // worker only ever writes to it — the seam observes lifecycle, it never drives
@@ -87,7 +78,10 @@ class ItemsManagerWorker : public QObject
 {
     Q_OBJECT
 public:
-    explicit ItemsManagerWorker(QSettings &m_settings,
+    // `identity` is who the session runs as, decided at login (#299). The
+    // settings are read only for the per-reply child-fetching choices.
+    explicit ItemsManagerWorker(QSettings &settings,
+                                const SessionIdentity &identity,
                                 BuyoutManager &buyout_manager,
                                 PoeApiClient &api,
                                 QObject *parent = nullptr);
@@ -102,10 +96,11 @@ public:
     // and the worker's public API carries no standing *ForTest / Set* methods.
     friend class WorkerTestAccess;
 
-    // Runs on the parser thread and must not touch m_settings (QSettings is
-    // not thread-safe for one shared instance the UI writes concurrently); it
-    // reads only the datastore and the realm/league captured at construction.
-    ParseResult ParseCachedItems(const QString &dataDir) const;
+    // Start from the cached tabs and items (#294): the worker leaves
+    // Initializing, publishes them as the initial snapshot, and runs a
+    // refresh the user asked for while it was loading. Called once, on the
+    // worker's thread (StartCacheLoad posts it there).
+    void Seed(CachedItems cached);
 
 signals:
     void ItemsRefreshed(const Items &items,
@@ -185,7 +180,6 @@ signals:
                                const QString &league);
 
 public slots:
-    void OnRePoEReady();
     void Update(Util::TabSelection type, const std::vector<ItemLocation> &tab_names = {});
     // The auto-refresh timer's entry: refresh the checked tabs if the worker
     // is idle; otherwise do nothing. It never queues and never notifies, so a
@@ -211,12 +205,6 @@ private:
 
     bool isInitialized() const { return m_state != WorkerState::Initializing; }
     bool isUpdating() const { return m_state == WorkerState::Updating; }
-    void StartParseThread();
-    void OnParseCompleted(ParseResult result);
-    void LoadItems(const poe::Character &character,
-                   ItemLocation location,
-                   ParseResult &result) const;
-    void LoadItems(const poe::StashTab &stash, ItemLocation location, ParseResult &result) const;
     void RebaseItemLocations(ItemLocationType type);
     void SubmitStashListRequest();
     void SubmitCharacterListRequest();
@@ -314,9 +302,7 @@ private:
     BuyoutManager &m_buyout_manager;
     PoeApiClient &m_api;
 
-    QString m_realm;
-    QString m_league;
-    QString m_account;
+    const SessionIdentity m_identity;
 
     std::vector<ItemLocation> m_tabs;
 
@@ -336,8 +322,6 @@ private:
     std::set<QString> m_tab_id_index;
 
     WorkerState m_state{WorkerState::Initializing};
-    QPointer<QThread> m_parser_thread;
-    std::atomic<bool> m_shutdown{false};
 
     bool m_updateRequest{false};
     TabSelection m_type;

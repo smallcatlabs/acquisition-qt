@@ -276,6 +276,10 @@ void TabRefreshed(const ItemLocation &location, const Items &items);
 - **The cached initial load does not stream.** `OnParseCompleted`
   publishes one `ItemsRefreshed(..., true)` snapshot as today: it is a
   single in-memory atomic load with nothing incremental about it.
+  *(Post-freeze amendment, November 12, 2026 — #294: the load is now
+  `LoadCachedItems` in `src/cacheload.cpp`, and
+  `ItemsManagerWorker::Seed` publishes the snapshot `OnParseCompleted`
+  did.)*
 - **Two-lane split, confirmed.** Persistence signals
   (`stashReceived`/`characterReceived` + list signals) carry API-domain
   payloads plus, post-F62, wire bytes, and fire **before** the atomic

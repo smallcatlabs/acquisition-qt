@@ -46,6 +46,13 @@ private slots:
     // #257: when the buyouts did not load, the manager writes nothing —
     // a refresh must not overwrite a price it could not read.
     void failedItemReadKeepsManualRowThroughRefresh();
+
+    // #148: a tab whose own price requires a refresh is locked from the tab
+    // list, whether or not any of its items are loaded.
+    void gamePricedEmptyTabIsLocked();
+    void manuallyPricedEmptyTabIsLocked();
+    void removeOnlyPricedTabStaysUnlocked();
+    void priceNamedFolderStaysUnlocked();
 };
 
 namespace {
@@ -555,6 +562,69 @@ void BuyoutManagerTest::failedItemReadKeepsManualRowThroughRefresh()
     QVERIFY(rows->contains("item-257"));
     QCOMPARE(rows->at("item-257").value, 9.0);
     QVERIFY(!rows->at("item-257").inherited);
+}
+
+// #148: a tab named with a price but holding no loaded items (empty, or not
+// fetched yet) is still locked, so the refresh keeps its price current.
+void BuyoutManagerTest::gamePricedEmptyTabIsLocked()
+{
+    PricingFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-148a", "~price 5 chaos", 0);
+
+    fixture.items.OnItemsRefreshed({}, {tab}, false);
+
+    QVERIFY(fixture.buyouts.manager->GetTab(tab).IsGameSet());
+    QVERIFY(fixture.buyouts.manager->GetRefreshLocked(tab));
+    QVERIFY(fixture.buyouts.manager->GetRefreshChecked(tab));
+}
+
+// #148: the same for a price set on the tab by hand.
+void BuyoutManagerTest::manuallyPricedEmptyTabIsLocked()
+{
+    PricingFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-148b", "Dump", 0);
+    QVERIFY(fixture.buyouts.manager->SetTab(tab, makeChaosBuyout(5.0)));
+    fixture.buyouts.manager->SetRefreshChecked(tab, false);
+
+    fixture.items.OnItemsRefreshed({}, {tab}, false);
+
+    QVERIFY(fixture.buyouts.manager->GetRefreshLocked(tab));
+    QVERIFY(fixture.buyouts.manager->GetRefreshChecked(tab));
+}
+
+// Remove-only tabs are skipped, with or without items, as before #148:
+// whether they should lock is a separate question.
+void BuyoutManagerTest::removeOnlyPricedTabStaysUnlocked()
+{
+    PricingFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-148c", "~price 20 chaos (Remove-only)", 0);
+    QVERIFY(tab.removeonly());
+    const auto item = makeNotedItem("item-148c", tab);
+
+    fixture.items.OnItemsRefreshed({}, {tab}, false);
+    QVERIFY(!fixture.buyouts.manager->GetRefreshLocked(tab));
+
+    fixture.items.OnItemsRefreshed({item}, {tab}, false);
+    QVERIFY(fixture.buyouts.manager->Get(*item).IsActive());
+    QVERIFY(!fixture.buyouts.manager->GetRefreshLocked(tab));
+}
+
+// A folder can be named with a price in game, which lists nothing at that
+// price (trade-ground-truth T30), and holds no items to refresh.
+void BuyoutManagerTest::priceNamedFolderStaysUnlocked()
+{
+    PricingFixture fixture;
+    poe::StashTab stash;
+    stash.id = "folder-148d";
+    stash.name = "~price 3333 chaos";
+    stash.type = "Folder";
+    stash.index = 0;
+    const ItemLocation folder(stash);
+    QVERIFY(folder.IsFolder());
+
+    fixture.items.OnItemsRefreshed({}, {folder}, false);
+
+    QVERIFY(!fixture.buyouts.manager->GetRefreshLocked(folder));
 }
 
 QTEST_GUILESS_MAIN(BuyoutManagerTest)

@@ -7,14 +7,17 @@
 #include <QEventLoop>
 #include <QSettings>
 
+#include <atomic>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <stop_token>
+#include <thread>
 
 #include <spdlog/sinks/ostream_sink.h>
 #include <spdlog/spdlog.h>
 
+#include "cacheload.h"
 #include "datastore/characterrepo.h"
 #include "datastore/stashrepo.h"
 #include "datastore/userstore.h"
@@ -151,6 +154,14 @@ private slots:
 
     // #260: the cache load and a live refresh build the same items.
     void cacheLoadAndLiveRefreshBuildTheSameItems();
+
+    // #299: the worker fetches as the session's identity.
+    void updateUsesTheSessionIdentity();
+
+    // #294: how the start-up cache load seeds the worker.
+    void unusableStoreSeedsAnEmptyResultAndSaysSo();
+    void seedRefusesASecondLoad();
+    void stoppedLoadSeedsNothing();
 
     // #259: a failed update's status line names what went wrong, through the
     // real facade and hub.
@@ -387,6 +398,7 @@ namespace {
     {
         explicit WorkerFixture(const QString &account)
             : settings(bm.tempDir.filePath("settings.ini"), QSettings::IniFormat)
+            , account_name(account)
             , unused_limiter(network)
             , api(unused_limiter)
         {
@@ -426,11 +438,12 @@ namespace {
         // *ForTest / Set* methods on the worker's production API.
         WorkerTestAccess access() const { return WorkerTestAccess(*worker); }
 
-        // Call after seeding the datastore: the worker reads the cache on
-        // construction paths keyed off the settings file's directory.
+        // Call after seeding the datastore: the cache load reads it the way
+        // the application starts it.
         void start()
         {
-            worker = std::make_unique<ItemsManagerWorker>(settings, *bm.manager, api);
+            const SessionIdentity identity = makeTestIdentity(account_name, kRealm, kLeague);
+            worker = std::make_unique<ItemsManagerWorker>(settings, identity, *bm.manager, api);
             access().setSweepObserver(&sweep);
             QObject::connect(worker.get(),
                              &ItemsManagerWorker::ItemsRefreshed,
@@ -520,7 +533,7 @@ namespace {
                              [this](const RefreshOutcome &outcome) {
                                  terminals.push_back({outcome, refresh_count, signal_seq++});
                              });
-            worker->OnRePoEReady();
+            cache_load = StartCacheLoad(*worker, QDir(dataDir()), identity, true);
         }
 
         // Attach an ItemsManager wired the way Application does (M2 stage 2):
@@ -726,6 +739,7 @@ namespace {
 
         BuyoutManagerFixture bm;
         QSettings settings;
+        QString account_name;
         NetworkManager network;
         // Never called: FakePoeApiClient overrides every method. It exists
         // only to satisfy the facade's base constructor.
@@ -735,6 +749,9 @@ namespace {
         // pointer to it and writes sweep counts through it (W-SWEEP).
         WorkerSweepObserver sweep;
         std::unique_ptr<ItemsManagerWorker> worker;
+        // The cache load that seeds `worker`; declared after it so it is
+        // stopped and joined before the worker goes.
+        std::jthread cache_load;
 
         Items last_items;
         std::vector<ItemLocation> last_tabs;
@@ -1014,7 +1031,7 @@ void WorkerUpdateTest::partialUpdateDoesNotDuplicateCharacters()
 
     // Refresh only CharOne. The fresh list mentions both characters, with
     // CharTwo renamed in-game (same id, new name).
-    f.worker->Update(TabSelection::Selected, {ItemLocation(*char_1, 0)});
+    f.worker->Update(TabSelection::Selected, {ItemLocation(*char_1)});
     QCOMPARE(f.callCount(), size_t(1));
     QVERIFY(f.hasPendingCharacterList());
     f.deliverCharacterList(characterList(
@@ -1457,7 +1474,7 @@ void WorkerUpdateTest::datastoreFollowsCharacterDeletions()
     connectPersistence(f.worker.get(), store);
 
     // Server-side, CharTwo was deleted; the fresh list omits it.
-    f.worker->Update(TabSelection::Selected, {ItemLocation(*char_1, 0)});
+    f.worker->Update(TabSelection::Selected, {ItemLocation(*char_1)});
     QCOMPARE(f.callCount(), size_t(1));
     f.deliverCharacterList(characterList({characterJson("charid0001", "CharOne")}));
 
@@ -2581,7 +2598,7 @@ void WorkerUpdateTest::oldSuccessfulCharacterStragglerDoesNotCorruptASubsequentU
 
     // Update 2 (Selected CharOne): a fresh, unstopped token2. Only CharOne is
     // fetched — CharTwo is a known character and unselected.
-    f.worker->Update(TabSelection::Selected, {ItemLocation(*char_1, 0)});
+    f.worker->Update(TabSelection::Selected, {ItemLocation(*char_1)});
     f.deliverCharacterList(fresh);
     QVERIFY(f.hasPendingCharacter("CharOne")); // the NEW fetch (token2), deliverable
     const std::stop_token token2 = f.api.tokenForCharacter("CharOne");
@@ -4065,7 +4082,8 @@ namespace {
         FakeNetworkManager network;
         RateLimiter limiter(network, &scheduler);
         PoeApiClient api(limiter);
-        ItemsManagerWorker worker(settings, *bm.manager, api);
+        const SessionIdentity identity = makeTestIdentity("status-text", kRealm, kLeague);
+        ItemsManagerWorker worker(settings, identity, *bm.manager, api);
 
         int initial = 0;
         QStringList ready;
@@ -4083,7 +4101,10 @@ namespace {
                                  ready.append(message);
                              }
                          });
-        worker.OnRePoEReady();
+        const std::jthread cache_load = StartCacheLoad(worker,
+                                                       QDir(bm.tempDir.filePath("data")),
+                                                       identity,
+                                                       true);
         if (!QTest::qWaitFor([&] { return initial == 1; }, 10000)) {
             qFatal("readyMessagesForFailure: the cache load never finished");
         }
@@ -4272,6 +4293,147 @@ void WorkerUpdateTest::timerTickWhenIdleRefreshesCheckedTabs()
     QCOMPARE(f.terminals.size(), size_t(1));
     QVERIFY(std::holds_alternative<CompletedRefresh>(f.terminals[0].outcome));
     QVERIFY(f.notify_messages.isEmpty());
+}
+
+// #299: the worker runs as the identity decided at login. A league in the
+// settings that differs from it does not change what the worker asks for.
+void WorkerUpdateTest::updateUsesTheSessionIdentity()
+{
+    WorkerFixture f("identity");
+    f.settings.setValue("realm", "xbox");
+    f.settings.setValue("league", "Not The Session League");
+    f.start();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+
+    f.worker->Update(TabSelection::All);
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    QVERIFY(f.hasPendingStashList());     // kRealm, kLeague
+    QVERIFY(f.hasPendingCharacterList()); // kRealm
+    f.deliverStashList({});
+    f.deliverCharacterList({});
+    QCOMPARE(f.terminals.size(), size_t(1));
+}
+
+namespace {
+
+    // A worker with no cache load of its own, its initial snapshots counted
+    // and its Ready status lines kept.
+    struct BareWorker
+    {
+        BareWorker()
+            : settings(bm.tempDir.filePath("settings.ini"), QSettings::IniFormat)
+            , limiter(network)
+            , api(limiter)
+            , worker(settings, identity, *bm.manager, api)
+        {
+            QObject::connect(&worker,
+                             &ItemsManagerWorker::ItemsRefreshed,
+                             &worker,
+                             [this](const Items &, const std::vector<ItemLocation> &, bool first) {
+                                 initial_refreshes += first ? 1 : 0;
+                             });
+            QObject::connect(&worker,
+                             &ItemsManagerWorker::StatusUpdate,
+                             &worker,
+                             [this](ProgramState state, const QString &message) {
+                                 if (state == ProgramState::Ready) {
+                                     ready.append(message);
+                                 }
+                             });
+        }
+
+        QString dataDir() const { return bm.tempDir.filePath("data"); }
+
+        BuyoutManagerFixture bm;
+        QSettings settings;
+        const SessionIdentity identity = makeTestIdentity("bare-worker", kRealm, kLeague);
+        NetworkManager network;
+        RateLimiter limiter;
+        FakePoeApiClient api;
+        ItemsManagerWorker worker;
+        int initial_refreshes = 0;
+        QStringList ready;
+    };
+
+} // namespace
+
+// When the session's user store did not open, no load thread starts: the
+// worker is seeded with an empty result, says so on the status line, and is
+// ready for a refresh.
+void WorkerUpdateTest::unusableStoreSeedsAnEmptyResultAndSaysSo()
+{
+    BareWorker b;
+    std::jthread load = StartCacheLoad(b.worker, QDir(b.dataDir()), b.identity, false);
+    QVERIFY(!load.joinable());
+
+    QTRY_COMPARE_WITH_TIMEOUT(b.initial_refreshes, 1, 10000);
+    QCOMPARE(b.ready, QStringList{"Could not read the cached items; see the log"});
+
+    b.worker.Update(TabSelection::All);
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    QVERIFY(b.api.hasPendingStashList(kRealm, kLeague));
+    b.api.resolveStashList(b.api.pendingStashList(kRealm, kLeague), {});
+    b.api.resolveCharacterList(b.api.pendingCharacterList(kRealm), {});
+    QVERIFY(WorkerFixture::drainUntilIdle());
+}
+
+// The worker starts from one cache load; a second is refused, and the
+// first one's snapshot stands.
+void WorkerUpdateTest::seedRefusesASecondLoad()
+{
+    BareWorker b;
+    CachedItems first;
+    first.status = CachedItems::Status::Complete;
+    b.worker.Seed(first);
+    QCOMPARE(b.initial_refreshes, 1);
+    QCOMPARE(b.ready, QStringList{"Parsed 0 items from 0 tabs"});
+
+    b.worker.Seed(CachedItems{});
+    QCOMPARE(b.initial_refreshes, 1);
+    QCOMPARE(b.ready.size(), 1);
+}
+
+// A load stopped while it runs (the session closing during start-up) hands
+// nothing to the worker.
+void WorkerUpdateTest::stoppedLoadSeedsNothing()
+{
+    BareWorker b;
+    const auto tab = json::readStash(stashJson("stashaaaa1", "Tab A", 0, QStringList{"a1"}));
+    QVERIFY(tab);
+    {
+        UserStore store(QDir(b.dataDir()), b.identity.account());
+        QVERIFY(store.stashes().saveStashList({*tab}, kRealm, kLeague));
+        QVERIFY(saveStashFixture(store.stashes(), *tab, kRealm, kLeague));
+    }
+
+    // The load's first progress line, emitted on the load thread, stops it.
+    std::jthread load;
+    std::atomic<std::jthread *> owner{nullptr};
+    std::atomic<int> progress{0};
+    QObject::connect(
+        &b.worker,
+        &ItemsManagerWorker::StatusUpdate,
+        &b.worker,
+        [&](ProgramState state, const QString &) {
+            if (state == ProgramState::Initializing) {
+                ++progress;
+                while (owner.load() == nullptr) {
+                    std::this_thread::yield();
+                }
+                owner.load()->request_stop();
+            }
+        },
+        Qt::DirectConnection);
+    load = StartCacheLoad(b.worker, QDir(b.dataDir()), b.identity, true);
+    owner.store(&load);
+    load.join();
+    for (int i = 0; i < 20; ++i) {
+        QCoreApplication::processEvents();
+    }
+
+    QCOMPARE(progress.load(), 1);
+    QCOMPARE(b.initial_refreshes, 0);
+    QVERIFY(b.ready.isEmpty());
 }
 
 QTEST_GUILESS_MAIN(WorkerUpdateTest)
