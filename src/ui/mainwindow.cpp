@@ -4,6 +4,7 @@
 #include "ui/mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include <QActionGroup>
 #include <QApplication>
 #include <QBuffer>
 #include <QClipboard>
@@ -468,7 +469,13 @@ void MainWindow::InitializeUi()
             this,
             &MainWindow::OnSetAutomaticShopUpdate);
 
-    // Connect the Theme submenu.
+    // Connect the Theme submenu. The group keeps exactly one theme checked:
+    // clicking the active theme leaves it checked.
+    auto *const theme_group = new QActionGroup(this);
+    theme_group->setExclusionPolicy(QActionGroup::ExclusionPolicy::Exclusive);
+    theme_group->addAction(ui->actionSetDarkTheme);
+    theme_group->addAction(ui->actionSetLightTheme);
+    theme_group->addAction(ui->actionSetDefaultTheme);
     connect(ui->actionSetDarkTheme, &QAction::triggered, this, &MainWindow::OnSetDarkTheme);
     connect(ui->actionSetLightTheme, &QAction::triggered, this, &MainWindow::OnSetLightTheme);
     connect(ui->actionSetDefaultTheme, &QAction::triggered, this, &MainWindow::OnSetDefaultTheme);
@@ -2173,33 +2180,24 @@ void MainWindow::OnSetDarkTheme(bool toggle)
 {
     if (toggle) {
         emit SetTheme("dark");
-        ui->actionSetLightTheme->setChecked(false);
-        ui->actionSetDefaultTheme->setChecked(false);
         m_settings.setValue("theme", "dark");
     }
-    ui->actionSetDarkTheme->setChecked(toggle);
 }
 
 void MainWindow::OnSetLightTheme(bool toggle)
 {
     if (toggle) {
         emit SetTheme("light");
-        ui->actionSetDarkTheme->setChecked(false);
-        ui->actionSetDefaultTheme->setChecked(false);
         m_settings.setValue("theme", "light");
     }
-    ui->actionSetLightTheme->setChecked(toggle);
 }
 
 void MainWindow::OnSetDefaultTheme(bool toggle)
 {
     if (toggle) {
         emit SetTheme("default");
-        ui->actionSetDarkTheme->setChecked(false);
-        ui->actionSetLightTheme->setChecked(false);
         m_settings.setValue("theme", "default");
     }
-    ui->actionSetDefaultTheme->setChecked(toggle);
 }
 
 void MainWindow::OnSetLogging(spdlog::level::level_enum level)

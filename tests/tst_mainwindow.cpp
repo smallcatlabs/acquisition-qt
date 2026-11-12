@@ -173,6 +173,8 @@ private slots:
     // UI papercuts (November 2026).
     void refreshIntervalDialogEditsCurrentValue();
     void refreshIntervalDialogCancelChangesNothing();
+    void activeThemeStaysCheckedWhenClicked();
+    void activeLoggingLevelStaysCheckedWhenClicked();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -3953,6 +3955,54 @@ void MainWindowTest::refreshIntervalDialogCancelChangesNothing()
 
     QVERIFY(seen.seen);
     QCOMPARE(fixture.settings->value("autoupdate_interval").toInt(), 45);
+}
+
+// #284: the theme actions are exclusive; clicking the active one keeps it
+// checked, and choosing another unchecks the rest.
+void MainWindowTest::activeThemeStaysCheckedWhenClicked()
+{
+    MainWindowFixture fixture;
+    auto *dark = fixture.window->findChild<QAction *>("actionSetDarkTheme");
+    auto *light = fixture.window->findChild<QAction *>("actionSetLightTheme");
+    auto *platform = fixture.window->findChild<QAction *>("actionSetDefaultTheme");
+    QVERIFY(dark);
+    QVERIFY(light);
+    QVERIFY(platform);
+
+    QVERIFY(platform->isChecked());
+    platform->trigger();
+    QVERIFY(platform->isChecked());
+    QVERIFY(!dark->isChecked());
+    QVERIFY(!light->isChecked());
+
+    dark->trigger();
+    QVERIFY(dark->isChecked());
+    QVERIFY(!platform->isChecked());
+    QVERIFY(!light->isChecked());
+    QCOMPARE(fixture.settings->value("theme").toString(), QString("dark"));
+    dark->trigger();
+    QVERIFY(dark->isChecked());
+    QCOMPARE(fixture.settings->value("theme").toString(), QString("dark"));
+}
+
+void MainWindowTest::activeLoggingLevelStaysCheckedWhenClicked()
+{
+    MainWindowFixture fixture;
+    const auto level = spdlog::get_level();
+    auto *warn = fixture.window->findChild<QAction *>("actionLoggingWARN");
+    auto *info = fixture.window->findChild<QAction *>("actionLoggingINFO");
+    QVERIFY(warn);
+    QVERIFY(info);
+
+    warn->trigger();
+    QVERIFY(warn->isChecked());
+    warn->trigger();
+    QVERIFY(warn->isChecked());
+    QVERIFY(!info->isChecked());
+    info->trigger();
+    QVERIFY(info->isChecked());
+    QVERIFY(!warn->isChecked());
+    spdlog::set_level(level);
 }
 
 QTEST_MAIN(MainWindowTest)
