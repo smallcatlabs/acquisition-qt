@@ -19,10 +19,12 @@
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QUrlQuery>
+#include <QVersionNumber>
 
 #include <functional>
 #include <memory>
 
+#include <semver/semver.hpp>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/dist_sink.h>
 #include <spdlog/spdlog.h>
@@ -65,6 +67,8 @@ private slots:
     void backupTakenOnNewVersion();
     void updateButtonOpensUpdatePrompt();
     void skippedReleaseIsNotOfferedAgain();
+    void declinedUpdateBeforeLoginOpensOnePrompt();
+    void prereleaseOfADeclinedReleaseIsNotOffered();
     void imageCacheDeletesReplies_data();
     void imageCacheDeletesReplies();
     void updateCheckerDeletesReplies_data();
@@ -375,6 +379,8 @@ void ShellTest::updateButtonOpensUpdatePrompt()
     QVERIFY(prompt.contains("99.0.0"));
     // The click asks the user; it does not start another check.
     QCOMPARE(network.count(), checks);
+    // "Ignore" asks again later, so the button stays.
+    QVERIFY(!button->isHidden());
 }
 
 void ShellTest::skippedReleaseIsNotOfferedAgain()
@@ -394,11 +400,114 @@ void ShellTest::skippedReleaseIsNotOfferedAgain()
     const QString prompt = answerUpdatePrompt(*button, "Ignore, and don't ask again");
     QVERIFY2(!prompt.isNull(), "clicking 'Update available' opened no prompt");
     QCOMPARE(fixture.settings->value("skip_release").toString(), QString("99.0.0"));
+    // #284: nothing newer is left to offer, so the button goes.
+    QVERIFY(button->isHidden());
+
+    QCOMPARE(available.count(), 2);
+    QCOMPARE(available.last().at(0).toBool(), false);
 
     // The periodic check finds the same release: it is not offered again.
     checker.CheckForUpdates();
     answerUpdateCheck(network, NEWER_RELEASES);
-    QCOMPARE(available.count(), 1);
+    QCOMPARE(available.count(), 2);
+    QVERIFY(button->isHidden());
+}
+
+// Before login, Application connects UpdateAvailable straight to the prompt.
+// Declining with "don't ask again" reports that nothing is left to offer,
+// which must not open a second prompt.
+void ShellTest::declinedUpdateBeforeLoginOpensOnePrompt()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
+    FakeNetworkManager network;
+    UpdateChecker checker(settings, network);
+    QObject::connect(&checker,
+                     &UpdateChecker::UpdateAvailable,
+                     &checker,
+                     &UpdateChecker::AskUserToUpdate);
+
+    // Answer every modal that opens: the first with "don't ask again", any
+    // later one by closing it.
+    int prompts = 0;
+    QTimer poll;
+    poll.setInterval(10);
+    QObject::connect(&poll, &QTimer::timeout, [&] {
+        auto *modal = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+        if (!modal) {
+            return;
+        }
+        if (++prompts == 1) {
+            for (auto *option : modal->buttons()) {
+                if (option->text().trimmed() == "Ignore, and don't ask again") {
+                    option->click();
+                    return;
+                }
+            }
+        }
+        modal->reject();
+    });
+    poll.start();
+    checker.CheckForUpdates();
+    answerUpdateCheck(network, NEWER_RELEASES);
+    poll.stop();
+
+    QCOMPARE(prompts, 1);
+    QCOMPARE(settings.value("skip_release").toString(), QString("99.0.0"));
+}
+
+// The button and the prompt agree on what there is to offer. Running R, the
+// user declined release R+1 for good before any prerelease existed; then
+// R+1-beta.1 is listed. It is older than the declined release, so it is not
+// offered: no button, and before login no prompt at all (it used to open
+// "No updates appear to be available").
+void ShellTest::prereleaseOfADeclinedReleaseIsNotOffered()
+{
+    const QVersionNumber running = QVersionNumber::fromString(APP_VERSION_STRING);
+    const QString next = QString("%1.%2.%3")
+                             .arg(running.majorVersion())
+                             .arg(running.minorVersion())
+                             .arg(running.microVersion() + 1);
+    const QByteArray releases = QString(R"json([
+        {"tag_name":"v%1","draft":false,"prerelease":false},
+        {"tag_name":"v%1-beta.1","draft":false,"prerelease":true}])json")
+                                    .arg(next)
+                                    .toUtf8();
+
+    MainWindowFixture fixture;
+    // What "Ignore, and don't ask again" stores when no prerelease exists.
+    fixture.settings->setValue("skip_release", next);
+    fixture.settings->setValue("skip_prerelease", QString::fromStdString(semver::version().str()));
+    FakeNetworkManager network;
+    UpdateChecker checker(*fixture.settings, network);
+    ConnectUpdateChecker(*fixture.window, checker);
+    // The connection Application makes before login.
+    QObject::connect(&checker,
+                     &UpdateChecker::UpdateAvailable,
+                     &checker,
+                     &UpdateChecker::AskUserToUpdate);
+    QSignalSpy available(&checker, &UpdateChecker::UpdateAvailable);
+
+    int prompts = 0;
+    QTimer poll;
+    poll.setInterval(10);
+    QObject::connect(&poll, &QTimer::timeout, [&] {
+        if (auto *modal = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+            ++prompts;
+            modal->reject();
+        }
+    });
+    poll.start();
+    checker.CheckForUpdates();
+    answerUpdateCheck(network, releases);
+    poll.stop();
+
+    QCOMPARE(prompts, 0);
+    QCOMPARE(available.count(), 0);
+    auto *button = findUpdateButton(*fixture.window);
+    QVERIFY(button);
+    QVERIFY(button->isHidden());
 }
 
 void ShellTest::imageCacheDeletesReplies_data()

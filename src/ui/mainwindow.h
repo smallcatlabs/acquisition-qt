@@ -128,7 +128,7 @@ public slots:
     void OnRenameTabClicked(int index);
     void OnDeleteTabClicked(int index);
     void OnRefreshSelected();
-    void OnUpdateAvailable();
+    void OnUpdateAvailable(bool available);
     void OnUploadFinished();
 
 private slots:
