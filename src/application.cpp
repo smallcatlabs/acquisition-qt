@@ -227,8 +227,8 @@ Application::CoreServices::CoreServices(const QDir &appDataDir)
 }
 
 Application::UserSession::UserSession(const Application::CoreServices &core,
-                                      const SessionIdentity &identity)
-    : identity(identity)
+                                      const SessionIdentity &login_identity)
+    : identity(login_identity)
     , data_dir(core.dir.filePath("data"))
 {
     spdlog::trace("Application::UserSession::UserSession() entered");

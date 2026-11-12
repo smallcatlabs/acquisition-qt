@@ -79,7 +79,7 @@ private:
 
     struct UserSession
     {
-        UserSession(const Application::CoreServices &core, const SessionIdentity &identity);
+        UserSession(const Application::CoreServices &core, const SessionIdentity &login_identity);
 
         const SessionIdentity identity;
         const QDir data_dir;
