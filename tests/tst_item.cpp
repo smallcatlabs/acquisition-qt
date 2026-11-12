@@ -28,6 +28,7 @@ private slots:
     void decimalModValueIgnoresProcessLocale();
     void ignoredFirstFormatStillSubstitutesTheRest();
     void resonatorSocketsExportAsResonators();
+    void vestigialAndDesecratedModsAreKept();
 };
 
 // Real RePoE stat translations, cut from the game data (see
@@ -370,6 +371,39 @@ void ItemTest::resonatorSocketsExportAsResonators()
             {"group": 2, "attr": "A", "sColour": "A"}
         ])json");
     QVERIFY2(gear->POBformat().contains("\nSockets: R-G B-W A\n"), qPrintable(gear->POBformat()));
+}
+
+// #266: a mod flagged vestigial or desecrated stays in the section of the
+// array it arrived in, and is searchable there. Both were dropped.
+void ItemTest::vestigialAndDesecratedModsAreKept()
+{
+    loadRealStatTranslations();
+
+    const auto item = makeItem("flagged", R"json(,
+        "implicitMods": [
+            {"description": "+30 to maximum Life", "flags": {"vestigial": true}},
+            {"description": "+12 to maximum Life", "flags": {"desecrated": true}}
+        ],
+        "explicitMods": [
+            {"description": "+80 to maximum Life", "flags": {"desecrated": true}},
+            {"description": "+5 to maximum Life", "flags": {"vestigial": true}},
+            {"description": "0.26% of Physical Attack Damage Leeched as Life"}
+        ]
+    )json");
+
+    const auto &text = item->text_mods();
+    QCOMPARE(text.at("implicitMods"),
+             (std::vector<QString>{"+30 to maximum Life", "+12 to maximum Life"}));
+    QCOMPARE(text.at("explicitMods"),
+             (std::vector<QString>{"+80 to maximum Life",
+                                   "+5 to maximum Life",
+                                   "0.26% of Physical Attack Damage Leeched as Life"}));
+    QCOMPARE(item->mod_table().at("+# to maximum Life"), 127.0);
+
+    const QString pob = item->POBformat();
+    QVERIFY2(pob.contains("\nImplicits: 2\n+30 to maximum Life\n+12 to maximum Life\n"),
+             qPrintable(pob));
+    QVERIFY2(pob.contains("\n+80 to maximum Life\n+5 to maximum Life\n"), qPrintable(pob));
 }
 
 QTEST_GUILESS_MAIN(ItemTest)
