@@ -7,15 +7,15 @@
 #include "buyoutmanager.h"
 #include "itemlocation.h"
 #include "locationinventory.h"
+#include "modelprobes.h"
 #include "search.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "util/util.h"
 
-#include <algorithm>
-#include <iterator>
 #include <map>
 #include <memory>
 #include <set>
+#include <unordered_map>
 #include <vector>
 
 ItemsModel::ItemsModel(BuyoutManager &bo_manager, Search &search)
@@ -474,22 +474,32 @@ void ItemsModel::ApplySort(int column, Qt::SortOrder order, int only_bucket)
     QModelIndexList to;
     from.reserve(snapshots.size());
     to.reserve(snapshots.size());
-    for (const ItemIndexSnapshot &snapshot : snapshots) {
-        if (!m_search.has_bucket(snapshot.bucket_row)) {
+    // Each bucket holding a snapshot is walked once (#272): its snapshots
+    // are found by item as the walk meets them, at their item's first
+    // row, and the walk stops when none is left.
+    std::map<int, std::unordered_multimap<const Item *, size_t>> pending_by_bucket;
+    for (size_t n = 0; n < snapshots.size(); ++n) {
+        pending_by_bucket[snapshots[n].bucket_row].emplace(snapshots[n].item.get(), n);
+    }
+    auto &probes = ModelProbes::instance();
+    for (auto &[bucket_row, pending] : pending_by_bucket) {
+        if (!m_search.has_bucket(bucket_row)) {
             continue;
         }
-
-        const Bucket &bucket = m_search.bucket(snapshot.bucket_row);
-        const auto &items = bucket.items();
-        const auto item = std::find(items.begin(), items.end(), snapshot.item);
-        if (item == items.end()) {
-            continue;
+        const auto &items = m_search.bucket(bucket_row).items();
+        const QModelIndex parent_index = BucketIndex(bucket_row);
+        for (size_t row = 0; (row < items.size()) && !pending.empty(); ++row) {
+            if (probes.enabled) {
+                ++probes.sort_remap_steps;
+            }
+            const auto [first, last] = pending.equal_range(items[row].get());
+            for (auto it = first; it != last; ++it) {
+                const ItemIndexSnapshot &snapshot = snapshots[it->second];
+                from.push_back(snapshot.from);
+                to.push_back(index(static_cast<int>(row), snapshot.column, parent_index));
+            }
+            pending.erase(first, last);
         }
-
-        const int item_row = static_cast<int>(std::distance(items.begin(), item));
-        const QModelIndex parent_index = BucketIndex(snapshot.bucket_row);
-        from.push_back(snapshot.from);
-        to.push_back(index(item_row, snapshot.column, parent_index));
     }
     changePersistentIndexList(from, to);
     emit layoutChanged(parents, QAbstractItemModel::VerticalSortHint);
