@@ -50,8 +50,10 @@ cmake --preset dev && cmake --build --preset dev && ctest --preset dev
   topic per pull request. The maintainer merges and decides which release a
   change rides in; do not bump the version unless asked.
 - When UI behaviour changes, update `docs/user/`.
-- Use `.clang-format` on the lines you touch, respect existing
-  `// clang-format off/on` blocks, and keep nearby naming and organization.
+- The C++ tree is checked against `.clang-format` in CI with a pinned
+  clang-format version (`BUILD.md`, "Formatting"); format with that
+  version, respect existing `// clang-format off/on` blocks, and keep
+  nearby naming and organization.
 - Prefer existing Qt and local helper patterns over new abstractions.
 - Keep generated logs, `settings.ini`, OAuth tokens, and other user-local
   state out of commits.
