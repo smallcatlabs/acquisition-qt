@@ -176,6 +176,7 @@ private slots:
     // UI papercuts (November 2026).
     void refreshIntervalDialogEditsCurrentValue();
     void refreshIntervalDialogCancelChangesNothing();
+    void rateLimitButtonReturnsToItsLabelAfterAPause();
     void activeThemeStaysCheckedWhenClicked();
     void activeLoggingLevelStaysCheckedWhenClicked();
     void priceBoxIgnoresTextThatIsNotAPrice_data();
@@ -4028,6 +4029,25 @@ void MainWindowTest::refreshIntervalDialogCancelChangesNothing()
 
     QVERIFY(seen.seen);
     QCOMPARE(fixture.settings->value("autoupdate_interval").toInt(), 45);
+}
+
+// #284: once a pause ends, the rate-limit button reads as it did before it.
+void MainWindowTest::rateLimitButtonReturnsToItsLabelAfterAPause()
+{
+    MainWindowFixture fixture;
+    QPushButton *button = nullptr;
+    for (auto *candidate : fixture.window->findChildren<QPushButton *>()) {
+        if (candidate->text() == "Rate Limit Status") {
+            button = candidate;
+        }
+    }
+    QVERIFY(button);
+
+    emit fixture.rateLimiter->Paused(30, "test-request-limit");
+    QCOMPARE(button->text(), QString("Rate limited for 30 seconds"));
+    emit fixture.rateLimiter->Paused(0, QString());
+    QCOMPARE(button->text(), QString("Rate Limit Status"));
+    QVERIFY(button->styleSheet().isEmpty());
 }
 
 // #284: the theme actions are exclusive; clicking the active one keeps it

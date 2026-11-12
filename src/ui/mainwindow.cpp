@@ -236,15 +236,13 @@ void MainWindow::InitializeRateLimitDialog()
     button->setFlat(false);
     button->setText("Rate Limit Status");
     connect(button, &QPushButton::clicked, m_rate_limit_dialog, &RateLimitDialog::show);
+    // The limiter reports 0 once when the last pause ends (#284).
     connect(&m_rate_limiter, &RateLimiter::Paused, this, [=](int pause) {
         if (pause > 0) {
             button->setText("Rate limited for " + QString::number(pause) + " seconds");
             button->setStyleSheet("font-weight: bold; color: red");
-        } else if (pause == 0) {
-            button->setText("Rate limiting is OFF");
-            button->setStyleSheet("");
         } else {
-            button->setText("ERROR: pause is " + QString::number(pause));
+            button->setText("Rate Limit Status");
             button->setStyleSheet("");
         }
     });

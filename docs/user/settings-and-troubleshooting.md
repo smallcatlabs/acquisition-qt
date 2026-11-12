@@ -31,7 +31,8 @@ arrived before the failure keep their new contents.
 The Path of Exile API limits how fast Acquisition may fetch. Acquisition reads the
 limits the API sends back and paces itself, so a large account simply takes a
 while. The status bar button reads **Rate Limit Status** normally, or
-*Rate limited for N seconds* while waiting. Clicking it opens the
+*Rate limited for N seconds* while a wait of a second or more is under way, and
+returns to **Rate Limit Status** when the wait ends or the refresh is stopped. Clicking it opens the
 **Rate Limit Status Window**, which lists each policy and rule with its current
 hits, limit, period, and timeout. Nothing here needs configuring; it exists so
 you can see why a refresh is paused.

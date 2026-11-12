@@ -82,7 +82,9 @@ signals:
     // policy name.
     void QueueUpdate(const QString &policy_name, int queued_requests);
 
-    // Signal sent to the UI so the user can see what's going on.
+    // The soonest-ending pause of a second or more, in whole seconds rounded
+    // up, once a second while one lasts; then 0 (with no policy name) once
+    // when none is left.
     void Paused(int seconds, const QString &policy_name);
 
 private slots:
@@ -95,8 +97,8 @@ private slots:
     // Received from individual policy managers.
     void OnQueueUpdated(const QString &policy_name, int queued_requests);
 
-    // Received from individual policy managers.
-    void OnManagerPaused(const QString &policy_name, const QDateTime &until);
+    // Received from individual policy managers: starts the status timer.
+    void OnManagerPaused();
 
     // Recieved from indivual policy managers.
     void OnViolation(const QString &policy_name);
@@ -199,7 +201,9 @@ private:
 
     QTimer m_update_timer;
 
-    std::map<QDateTime, QString> m_pauses;
+    // Whether the last Paused emitted reported a pause, so that its end is
+    // reported once.
+    bool m_reporting_pause{false};
 
     // Probing endpoints and their parked entries, in submission order.
     std::map<QString, std::deque<ParkedEntry>> m_probing;
