@@ -8,6 +8,7 @@
 #include <QDesktopServices>
 #include <QMessageBox>
 #include <QOAuthHttpServerReplyHandler>
+#include <QProcess>
 #include <QPushButton>
 #include <QSettings>
 #include <QSignalSpy>
@@ -35,6 +36,7 @@
 #include "util/checkmsvc.h"
 #include "util/crashreporting.h"
 #include "util/databackup.h"
+#include "util/datadirlock.h"
 #include "util/logging.h"
 #include "util/networkmanager.h"
 #include "util/oauthmanager.h"
@@ -76,6 +78,8 @@ private slots:
     void legacyStoreVersionNamesTheBackup();
     void imageCacheSignalsFailedFetch();
     void imageCacheKeepsNoFileForUndecodableBody();
+    void dataDirLockRefusesSecondHolder();
+    void dataDirLockTakesOverStaleLock();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -765,6 +769,66 @@ void ShellTest::imageCacheKeepsNoFileForUndecodableBody()
     QVERIFY(!cache.contains(url));
     const QStringList files = QDir(dir.filePath("cache")).entryList(QDir::Files);
     QVERIFY2(files.isEmpty(), qPrintable(files.join(", ")));
+}
+
+void ShellTest::dataDirLockRefusesSecondHolder()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir data_dir(dir.filePath("fresh")); // not created yet
+
+    auto first = LockDataDirectory(data_dir);
+    QVERIFY(first);
+    QVERIFY(first->isLocked());
+    QVERIFY(LockDataDirectory(data_dir) == nullptr);
+
+    first.reset();
+    auto again = LockDataDirectory(data_dir);
+    QVERIFY(again);
+    QVERIFY(again->isLocked());
+}
+
+void ShellTest::dataDirLockTakesOverStaleLock()
+{
+    // A crashed instance leaves its lock file behind. Build that file from
+    // a real lock file's content with the PID of a process that has exited.
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir data_dir(dir.path());
+
+    QProcess child;
+    child.start("/bin/sh", {"-c", "exit 0"});
+    QVERIFY(child.waitForStarted());
+    const qint64 dead_pid = child.processId();
+    QVERIFY(child.waitForFinished());
+    {
+        QLockFile probe(data_dir.filePath("probe.lock"));
+        QVERIFY(probe.lock());
+        qint64 pid = 0;
+        QString host;
+        QString app;
+        QVERIFY(probe.getLockInfo(&pid, &host, &app));
+        QFile file(data_dir.filePath("probe.lock"));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QByteArray content = file.readAll();
+        file.close();
+        // Control: the same file naming a live process is not stale.
+        {
+            QFile live(data_dir.filePath("acquisition.lock"));
+            QVERIFY(live.open(QIODevice::WriteOnly));
+            live.write(content);
+        }
+        QVERIFY(LockDataDirectory(data_dir) == nullptr);
+
+        content.replace(QByteArray::number(pid), QByteArray::number(dead_pid));
+        QFile stale(data_dir.filePath("acquisition.lock"));
+        QVERIFY(stale.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        stale.write(content);
+    }
+
+    auto lock = LockDataDirectory(data_dir);
+    QVERIFY(lock);
+    QVERIFY(lock->isLocked());
 }
 
 QTEST_MAIN(ShellTest)

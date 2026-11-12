@@ -84,5 +84,10 @@ without touching your real data:
 acquisition --data-dir /path/to/other/dir
 ```
 
+Only one Acquisition at a time can use a data directory. A second one started
+on the same directory says so and exits. The running one keeps a lock file,
+`acquisition.lock`, which is removed when it closes; one left behind by a crash
+is taken over at the next start.
+
 The other command-line option is `--log-level <level>`; see
 [Settings and troubleshooting](settings-and-troubleshooting.md#logging).

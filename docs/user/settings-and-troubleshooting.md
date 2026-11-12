@@ -80,6 +80,7 @@ sharing either.
 | Symptom | Likely cause |
 |---|---|
 | *Error requesting leagues* on the login window | The API is unreachable; check your connection or proxy |
+| *Acquisition is already running with this data directory* | Another Acquisition uses that directory; use its window, or start with `--data-dir` |
 | Login button stays disabled | You have not authenticated, or no league is selected |
 | Refresh seems stuck | Open the Rate Limit Status Window; the API is probably throttling |
 | *No forum threads have been set* | Set a thread under **Shop → Forum shop thread…** |
