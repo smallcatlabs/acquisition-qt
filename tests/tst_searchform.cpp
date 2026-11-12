@@ -37,6 +37,7 @@ private slots:
     void modsEditSurvivesTabSwitchBeforeDebouncedRefresh();
     void modsFormAdapterRoundTrip();
     void modsFormAdapterFreeTextPersistsAndRestoresIndex();
+    void modsFormAdapterBlankTextChoosesNoMod();
     void modsFormAdapterDoesNotArmCompleterOnProgrammaticRows();
     void modsFormAdapterRepacksRows();
     void modsFormAdapterDisconnectsOnDestruction();
@@ -679,6 +680,41 @@ void SearchTest::modsFormAdapterFreeTextPersistsAndRestoresIndex()
 
     modCombo->setCurrentIndex(firstModIndex);
     QCOMPARE(std::get<ModsState>(searchA.filterStateAt(modsIndex)).rows.front().mod, "First mod");
+}
+
+// #271: a mods row whose text is only whitespace is the same as a row with
+// no mod chosen — inactive, and it rejects nothing. Text that names no mod
+// still filters.
+void SearchTest::modsFormAdapterBlankTextChoosesNoMod()
+{
+    mod_list_model().setStringList({"First mod"});
+    SearchHarness harness;
+    const qsizetype modsIndex = findModsFilterIndex(harness.catalog);
+    QVERIFY(modsIndex >= 0);
+
+    Search search(*harness.buyoutFixture.manager, "A", harness.catalog);
+    harness.form.saveTo(search);
+    auto *addButton = harness.host.findChild<QPushButton *>("modsAddButton");
+    QVERIFY(addButton);
+    addButton->click();
+    auto *modCombo = harness.host.findChild<QComboBox *>("modsRowCombo");
+    QVERIFY(modCombo);
+    auto *lineEdit = modCombo->lineEdit();
+    QVERIFY(lineEdit);
+    lineEdit->setFocus();
+
+    QTest::keyClicks(lineEdit, "   ");
+    {
+        const auto &state = std::get<ModsState>(search.filterStateAt(modsIndex));
+        QCOMPARE(state.rows.size(), 1);
+        QVERIFY(state.rows.front().mod.isEmpty());
+        QVERIFY(!state.isActive());
+    }
+
+    QTest::keyClicks(lineEdit, "not a mod");
+    const auto &state = std::get<ModsState>(search.filterStateAt(modsIndex));
+    QCOMPARE(state.rows.front().mod, "not a mod");
+    QVERIFY(state.isActive());
 }
 
 void SearchTest::modsFormAdapterDoesNotArmCompleterOnProgrammaticRows()
