@@ -194,6 +194,8 @@ private slots:
     void typedPriceCommitsOnceToMultiSelection();
     void clickOnAnotherRowCommitsToTheRowsTypedFor();
     void gamePricedRowsLeftAloneAreNamedInStatusLine();
+    void refreshOfSelectedItemsTabKeepsTypedPrice();
+    void renameOfSelectedTabKeepsTypedPrice();
     void headerSelectionSurvivesItemDetailsTimer();
 
 private:
@@ -4459,6 +4461,81 @@ void MainWindowTest::gamePricedRowsLeftAloneAreNamedInStatusLine()
     const QString status = statusText(fixture);
     QVERIFY2(status.contains("in the game"), qPrintable(status));
     QVERIFY2(!status.contains("Price not saved"), qPrintable(status));
+}
+
+// Shows the window, makes it active, and gives the price box focus, as a
+// user typing into it would leave things.
+static QLineEdit *focusPriceBox(MainWindowFixture &fixture)
+{
+    auto *value = fixture.window->findChild<QLineEdit *>("buyoutValueLineEdit");
+    if (!value) {
+        qFatal("focusPriceBox: the value box is missing");
+    }
+    fixture.window->resize(900, 500);
+    fixture.window->show();
+    if (!QTest::qWaitForWindowActive(fixture.window.get())) {
+        qFatal("focusPriceBox: the window did not become active");
+    }
+    value->setFocus();
+    if (!QTest::qWaitFor([value] { return value->hasFocus(); })) {
+        qFatal("focusPriceBox: the value box did not take focus");
+    }
+    return value;
+}
+
+// A refresh delta for the selected item's tab, landing while a price is
+// being typed, leaves the typed text alone, and finishing the edit then
+// prices the item.
+void MainWindowTest::refreshOfSelectedItemsTabKeepsTypedPrice()
+{
+    MainWindowFixture fixture;
+    const auto item = selectItemForPricing(fixture);
+    auto *value = focusPriceBox(fixture);
+    QTest::keyClicks(value, "150");
+
+    const ItemLocation tab = item->location();
+    fixture.itemsManager->OnTabRefreshed(tab,
+                                         {makeMainWindowItem("price-item", "Priced", "Sword", tab),
+                                          makeMainWindowItem("new-item", "Newer", "Sword", tab)});
+    QCOMPARE(value->text(), "150");
+
+    QTest::keyClick(value, Qt::Key_Return);
+    QCOMPARE(fixture.buyoutFixture.manager->Get(*item).value, 150.0);
+}
+
+// A metadata delta that renames the selected tab redraws the editor (the
+// header follows its stable key); a price being typed for the tab survives
+// it, and finishing the edit prices the tab.
+void MainWindowTest::renameOfSelectedTabKeepsTypedPrice()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tree);
+    const ItemLocation tab = makeTestStashLocation("stash-rename", "Before", 0);
+    fixture.itemsManager->OnItemsRefreshed({makeMainWindowItem("r-item", "Kept", "Sword", tab)},
+                                           {tab},
+                                           false);
+    const QModelIndex bucket = findBucket(*tree->model(), tab.GetHeader());
+    QVERIFY(bucket.isValid());
+    tree->selectionModel()->setCurrentIndex(bucket,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    auto *type = fixture.window->findChild<QComboBox *>("buyoutTypeComboBox");
+    auto *currency = fixture.window->findChild<QComboBox *>("buyoutCurrencyComboBox");
+    type->setCurrentIndex(Buyout::BUYOUT_TYPE_BUYOUT);
+    currency->setCurrentIndex(Currency::CURRENCY_CHAOS_ORB);
+    emit type->activated(Buyout::BUYOUT_TYPE_BUYOUT);
+    auto *value = focusPriceBox(fixture);
+    QTest::keyClicks(value, "150");
+
+    const ItemLocation renamed = makeTestStashLocation("stash-rename", "After", 0);
+    fixture.itemsManager->OnTabRefreshed(renamed,
+                                         {makeMainWindowItem("r-item", "Kept", "Sword", renamed)});
+    QVERIFY(findBucket(*tree->model(), renamed.GetHeader()).isValid());
+    QCOMPARE(value->text(), "150");
+
+    QTest::keyClick(value, Qt::Key_Return);
+    QCOMPARE(fixture.buyoutFixture.manager->GetTab(renamed).value, 150.0);
 }
 
 // #282: selecting a tab header after an item stops the item's pending

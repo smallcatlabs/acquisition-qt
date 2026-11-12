@@ -20,7 +20,11 @@ public:
     explicit BuyoutPanel(QWidget *parent = nullptr);
 
     // Shows a price. The controls are editable unless the game set it.
-    // Showing a price never commits it.
+    // Showing a price never commits it. Neither this nor clear() changes
+    // anything while the user is typing a value (see editing()): a redraw
+    // the user did not cause, such as a refresh, must not throw the typed
+    // value away. A selection the user changes ends the typing first, since
+    // the value box then loses focus and commits.
     void setBuyout(const Buyout &buyout);
     // Shows no price and disables the controls: nothing is selected that
     // can be priced.
@@ -35,6 +39,9 @@ signals:
     void committed(const Buyout &buyout);
 
 private:
+    // The value box holds an edit not yet committed: the user changed it
+    // and it still has focus.
+    bool editing() const;
     // Marks the value box when its text is not a price.
     void showValueValidity();
     void setPricedControlsEnabled(bool enabled);

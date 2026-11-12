@@ -18,6 +18,7 @@ private slots:
     void showingAPriceCommitsNothing();
     void textThatIsNotAPriceCommitsNothingAndShows();
     void comboChoiceCommitsAtOnce();
+    void redrawWhileTypingKeepsTheTypedValue();
 };
 
 namespace {
@@ -129,6 +130,35 @@ void BuyoutPanelTest::comboChoiceCommitsAtOnce()
     const auto bo = committed.front().front().value<Buyout>();
     QCOMPARE(bo.currency.type, Currency::CURRENCY_DIVINE_ORB);
     QCOMPARE(bo.value, 5.0);
+}
+
+// A redraw the user did not cause (setBuyout or clear while the value box
+// has focus and an edit) leaves the typed value in place, and finishing
+// the edit commits it. Without focus, or once committed, a redraw shows
+// the new price as usual.
+void BuyoutPanelTest::redrawWhileTypingKeepsTheTypedValue()
+{
+    Panel p;
+    p.panel.show();
+    QVERIFY(QTest::qWaitForWindowActive(&p.panel));
+    p.value->setFocus();
+    QTRY_VERIFY(p.value->hasFocus());
+    QSignalSpy committed(&p.panel, &BuyoutPanel::committed);
+
+    p.value->clear();
+    QTest::keyClicks(p.value, "150");
+    p.panel.setBuyout(makeChaosBuyout(12.0));
+    p.panel.clear();
+    QCOMPARE(p.value->text(), "150");
+    QVERIFY(p.value->isEnabled());
+
+    QTest::keyClick(p.value, Qt::Key_Return);
+    QCOMPARE(committed.count(), 1);
+    QCOMPARE(committed.front().front().value<Buyout>().value, 150.0);
+
+    // Committed: the next redraw is not held back.
+    p.panel.setBuyout(makeChaosBuyout(12.0));
+    QCOMPARE(p.value->text(), "12");
 }
 
 QTEST_MAIN(BuyoutPanelTest)

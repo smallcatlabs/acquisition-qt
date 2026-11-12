@@ -74,6 +74,9 @@ BuyoutPanel::BuyoutPanel(QWidget *parent)
 
 void BuyoutPanel::setBuyout(const Buyout &buyout)
 {
+    if (editing()) {
+        return;
+    }
     m_type->setCurrentIndex(buyout.type);
     m_type->setEnabled(!buyout.IsGameSet());
     setPricedControlsEnabled(false);
@@ -91,6 +94,9 @@ void BuyoutPanel::setBuyout(const Buyout &buyout)
 
 void BuyoutPanel::clear()
 {
+    if (editing()) {
+        return;
+    }
     setBuyout(Buyout());
     m_type->setEnabled(false);
     m_currency->setCurrentIndex(Currency::CURRENCY_NONE);
@@ -118,6 +124,11 @@ void BuyoutPanel::commit()
         return;
     }
     emit committed(bo);
+}
+
+bool BuyoutPanel::editing() const
+{
+    return m_value->isModified() && m_value->hasFocus();
 }
 
 void BuyoutPanel::showValueValidity()

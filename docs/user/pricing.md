@@ -19,6 +19,8 @@ A choice of buyout type or currency applies to the selection at once. A value
 applies when you finish typing it: press Enter, or move on (click another row
 or control). Everything that was selected while you typed takes the price, so
 you can select several rows, type one value and press Enter to price them all.
+A refresh that arrives while you are typing a value leaves what you typed in
+the box.
 The *Price* and *Last Update* columns in the item table show the result.
 
 The value must be a number greater than zero. Use a point or a comma as the
