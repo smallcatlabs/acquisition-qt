@@ -35,18 +35,12 @@ SqliteDataStore::SqliteDataStore(const QString &filename)
 
     // Open the database and make sure tables are created if they don't exist.
     // Old databases may also contain "tabs" and "items" tables from before
-    // the December 2025 move to StashRepo/CharacterRepo; they are ignored.
-    QSqlDatabase db = getThreadLocalDatabase();
+    // the December 2025 move to StashRepo/CharacterRepo; they are ignored,
+    // and kept: such a file is valid input for the legacy buyout importer.
+    // The file is not vacuumed on open (#292): that rewrote all of it, on
+    // the main thread at login, and reclaimed almost nothing.
     CreateTable("data", "key TEXT PRIMARY KEY, value BLOB");
     CreateTable("currency", "timestamp INTEGER PRIMARY KEY, value TEXT");
-
-    QSqlQuery query(db);
-    query.prepare("VACUUM");
-    if (query.exec() == false) {
-        spdlog::error("SqliteDataStore: failed to vacuum QSQLITE database: {}: {}",
-                      filename,
-                      db.lastError().text());
-    }
 }
 
 SqliteDataStore::~SqliteDataStore()
