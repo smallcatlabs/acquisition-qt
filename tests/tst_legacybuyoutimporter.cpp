@@ -254,9 +254,12 @@ namespace {
         return rows;
     }
 
-    const QHash<QString, QVariant> &findPlanRow(const PlanRows &rows,
-                                                const QString &column,
-                                                const QString &value)
+    // Returns a copy (QHash is implicitly shared, so this is cheap): the
+    // column and value arguments are usually temporaries, and a returned
+    // reference would leave GCC unable to tell that it points into rows.
+    QHash<QString, QVariant> findPlanRow(const PlanRows &rows,
+                                         const QString &column,
+                                         const QString &value)
     {
         const auto found = std::ranges::find_if(rows, [&](const auto &row) {
             return row.value(column).toString() == value;
