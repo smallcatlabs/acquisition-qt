@@ -1,3 +1,8 @@
+# Every executable that ctest runs, and nothing else: the sanitizer job
+# (.github/workflows/sanitizers.yml) builds this target so that the
+# `acquisition` app, which must never be built sanitized, is not built at all.
+add_custom_target(acq_tests)
+
 function(_acq_test_environment out_var)
     set(test_environment "QT_QPA_PLATFORM=offscreen")
     if(TARGET Qt6::QSQLiteDriverPlugin)
@@ -22,6 +27,7 @@ function(acq_add_test name)
     qt_add_executable(${name} ${name}.cpp)
     target_include_directories(${name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(${name} PRIVATE acquisition_core Qt6::Test)
+    add_dependencies(acq_tests ${name})
     add_test(NAME ${name} COMMAND ${name})
     _acq_test_environment(test_environment)
     set_tests_properties(${name} PROPERTIES
@@ -40,6 +46,7 @@ function(acq_add_scenario_test name)
     qt_add_executable(${name} ${name}.cpp)
     target_include_directories(${name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(${name} PRIVATE acquisition_core Qt6::Test)
+    add_dependencies(acq_tests ${name})
     _acq_test_environment(test_environment)
     foreach(scenario ${ARGN})
         add_test(NAME ${name}.${scenario} COMMAND ${name} ${scenario})
@@ -79,6 +86,7 @@ add_test(NAME filters_boundary
         -D "FILTERS_DIR=${acquisition_SOURCE_DIR}/src/filters"
         -D "FILTERS_ARCHIVE=$<TARGET_FILE:acquisition_filters>"
         -P "${acquisition_SOURCE_DIR}/cmake/filters_boundary_check.cmake")
+add_dependencies(acq_tests acquisition_filters)
 
 acq_add_test(tst_buyout)
 acq_add_test(tst_buyoutmanager)

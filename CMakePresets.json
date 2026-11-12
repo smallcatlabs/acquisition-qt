@@ -31,12 +31,12 @@
         },
         {
             "name": "asan",
-            "displayName": "AddressSanitizer",
-            "description": "Test suite under AddressSanitizer (Clang/GCC only). Never run the app target from this tree.",
+            "displayName": "AddressSanitizer + UndefinedBehaviorSanitizer",
+            "description": "Test suite under AddressSanitizer and UndefinedBehaviorSanitizer (Clang/GCC only). Build the acq_tests target; never build or run the app target from this tree.",
             "inherits": "base",
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-                "ACQ_SANITIZE": "address"
+                "ACQ_SANITIZE": "address,undefined"
             }
         }
     ],
@@ -51,7 +51,8 @@
         },
         {
             "name": "asan",
-            "configurePreset": "asan"
+            "configurePreset": "asan",
+            "targets": ["acq_tests"]
         }
     ],
     "testPresets": [
