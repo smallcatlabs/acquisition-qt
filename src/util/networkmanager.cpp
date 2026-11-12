@@ -120,11 +120,10 @@ QNetworkReply *NetworkManager::createRequest(QNetworkAccessManager::Operation op
     const auto host = request.url().host();
 
     if (host == POE_API_HOST) {
-        // Add a bearer token for api calls.
-        if (m_bearerToken.isEmpty()) {
-            spdlog::error("API call may fail because the bearer token is empty: {}",
-                          request.url().toString());
-        } else {
+        // Add a bearer token for api calls. Without one (the league list at
+        // login needs none), a call that needs it fails with a 401 that its
+        // caller reports.
+        if (!m_bearerToken.isEmpty()) {
             QString masked{QString::fromUtf8(m_bearerToken)};
             masked.fill('*');
             spdlog::trace("NetworkManager: setting bearer token: {} (masked for security)", masked);
