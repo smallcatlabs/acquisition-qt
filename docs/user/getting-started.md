@@ -25,6 +25,11 @@ Acquisition keeps the OAuth token, so on later launches you only need to click
 *The OAuth token needs to be refreshed* or *The OAuth token is not valid* — click
 **Authenticate** again.
 
+Login is also refused, with a message under the button, when it cannot tell
+who the session is for: *The OAuth token does not name an account; please
+authenticate again.* (click **Authenticate** again), or *Please select a realm and
+a league before logging in.* A refused login does not save the realm.
+
 OAuth covers reading your stashes and characters. Posting to forum shop threads
 still needs a POESESSID cookie; see [Forum shop](forum-shop.md).
 
@@ -45,7 +50,9 @@ still needs a POESESSID cookie; see [Forum shop](forum-shop.md).
 The main window title reads `Acquisition [version] - <League> League [<account>]`.
 
 Acquisition first loads any items it cached from a previous session, so a large
-account is searchable within seconds of logging in. Then you can use it to fetch
+account is searchable within seconds of logging in. If the cache cannot be read,
+the status bar says *Could not read the cached items; see the log*; the window
+starts empty until a refresh fetches the tabs again. Then you can use it to fetch
 the stash tab list from the API. You can refresh **all tabs**, **checked tabs**,
 or **selected tabs** using the right click context menu and/or menubar. See
 [Settings and troubleshooting](settings-and-troubleshooting.md#refreshing-items)

@@ -309,6 +309,8 @@ set(ACQ_CORE
     src/buyout.h
     src/buyoutmanager.cpp
     src/buyoutmanager.h
+    src/cacheload.cpp
+    src/cacheload.h
     src/column.cpp
     src/column.h
     src/sortkey.h
@@ -347,6 +349,7 @@ set(ACQ_CORE
     src/replytimeout.h
     src/search.cpp
     src/search.h
+    src/sessionidentity.h
     src/shop.cpp
     src/shop.h
     src/shoprender.cpp
