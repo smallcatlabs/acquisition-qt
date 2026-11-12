@@ -3,6 +3,8 @@
 
 #include "ui/mainwindowhelpers.h"
 
+#include <algorithm>
+#include <cmath>
 #include <string_view>
 
 #include "util/glaze_qt.h" // IWYU pragma: keep
@@ -42,4 +44,30 @@ std::expected<QString, QString> ParseImgurUploadReply(const QByteArray &bytes)
         return std::unexpected(QString("the reply has no link: %1").arg(QString::fromUtf8(bytes)));
     }
     return result.data.link;
+}
+
+std::optional<double> ParseBuyoutValue(const QString &text)
+{
+    QString number = text.trimmed();
+    const qsizetype comma = number.indexOf(',');
+    if (comma >= 0) {
+        if (number.count(',') > 1 || number.contains('.')) {
+            return std::nullopt;
+        }
+        const QString after = number.mid(comma + 1);
+        const bool three_digits = (after.size() == 3)
+                                  && std::all_of(after.cbegin(), after.cend(), [](QChar c) {
+                                         return c.isDigit();
+                                     });
+        if (three_digits) {
+            return std::nullopt; // "1,000": a thousands separator or a decimal?
+        }
+        number[comma] = '.';
+    }
+    bool ok = false;
+    const double value = number.toDouble(&ok);
+    if (!ok || !std::isfinite(value) || value <= 0.0) {
+        return std::nullopt;
+    }
+    return value;
 }

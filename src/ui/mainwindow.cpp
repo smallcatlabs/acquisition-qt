@@ -781,12 +781,12 @@ void MainWindow::ScheduleDeltaResizeTreeColumns()
 void MainWindow::OnBuyoutChange()
 {
     spdlog::trace("MainWindow::OnBuyoutChange() entered");
-    m_shop.ExpireShopData();
 
+    const std::optional<double> value = ParseBuyoutValue(ui->buyoutValueLineEdit->text());
     Buyout bo;
     bo.type = Buyout::IndexAsBuyoutType(ui->buyoutTypeComboBox->currentIndex());
     bo.currency = Currency::FromIndex(ui->buyoutCurrencyComboBox->currentIndex());
-    bo.value = ui->buyoutValueLineEdit->text().replace(',', ".").toDouble();
+    bo.value = value.value_or(0.0);
     bo.last_update = QDateTime::currentDateTime();
 
     if (bo.IsPriced()) {
@@ -802,11 +802,15 @@ void MainWindow::OnBuyoutChange()
         return;
     }
 
-    // Don't assign a zero buyout if nothing is entered in the value textbox
-    if (ui->buyoutValueLineEdit->text().isEmpty() && bo.IsPriced()) {
-        spdlog::trace("MainWindow::OnBuyoutChange() buyout iempty");
+    // A priced buyout needs a number greater than zero in the value box:
+    // empty or unreadable text (a ratio, "1,000", a lone ".") writes nothing
+    // and leaves the box as typed.
+    if (bo.IsPriced() && !value) {
+        spdlog::trace("MainWindow::OnBuyoutChange() the value is not a price");
         return;
     }
+
+    m_shop.ExpireShopData();
 
     // User commands batch at command scope (M3 R2-5): the loop over the
     // selection plus the trailing propagation pass is one outer batch —

@@ -25,6 +25,10 @@ private slots:
     void influencedSizesWithoutArtGetNoBackground();
     void frameTypeStyle_data();
     void frameTypeStyle();
+
+    // #252
+    void buyoutValue_data();
+    void buyoutValue();
 };
 
 void UiSmallTest::imgurSuccessReplyYieldsLink()
@@ -167,6 +171,47 @@ void UiSmallTest::frameTypeStyle()
     }
     const QString separator_path = ":/separators/Separator" + style.separator_key + ".png";
     QVERIFY2(QFile::exists(separator_path), qPrintable(separator_path));
+}
+
+void UiSmallTest::buyoutValue_data()
+{
+    QTest::addColumn<QString>("text");
+    QTest::addColumn<bool>("valid");
+    QTest::addColumn<double>("value");
+
+    QTest::newRow("integer") << "150" << true << 150.0;
+    QTest::newRow("point") << "2.5" << true << 2.5;
+    QTest::newRow("comma") << "2,5" << true << 2.5;
+    QTest::newRow("two decimals by comma") << "0,25" << true << 0.25;
+    QTest::newRow("four digits after comma") << "1,0005" << true << 1.0005;
+    QTest::newRow("surrounding spaces") << " 3 " << true << 3.0;
+    QTest::newRow("trailing point") << "1." << true << 1.0;
+    QTest::newRow("trailing comma") << "1," << true << 1.0;
+    QTest::newRow("empty") << "" << false << 0.0;
+    QTest::newRow("zero") << "0" << false << 0.0;
+    QTest::newRow("negative") << "-3" << false << 0.0;
+    QTest::newRow("ratio") << "79/20" << false << 0.0;
+    QTest::newRow("letters") << "abc" << false << 0.0;
+    QTest::newRow("lone point") << "." << false << 0.0;
+    QTest::newRow("thousands comma") << "1,000" << false << 0.0;
+    QTest::newRow("thousands comma, zero lead") << "0,500" << false << 0.0;
+    QTest::newRow("two commas") << "1,000,000" << false << 0.0;
+    QTest::newRow("comma and point") << "1,000.5" << false << 0.0;
+    QTest::newRow("infinity") << "inf" << false << 0.0;
+    QTest::newRow("not a number") << "nan" << false << 0.0;
+}
+
+void UiSmallTest::buyoutValue()
+{
+    QFETCH(QString, text);
+    QFETCH(bool, valid);
+    QFETCH(double, value);
+
+    const auto parsed = ParseBuyoutValue(text);
+    QCOMPARE(parsed.has_value(), valid);
+    if (valid) {
+        QCOMPARE(*parsed, value);
+    }
 }
 
 QTEST_GUILESS_MAIN(UiSmallTest)

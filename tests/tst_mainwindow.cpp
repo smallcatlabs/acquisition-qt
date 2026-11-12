@@ -175,6 +175,10 @@ private slots:
     void refreshIntervalDialogCancelChangesNothing();
     void activeThemeStaysCheckedWhenClicked();
     void activeLoggingLevelStaysCheckedWhenClicked();
+    void priceBoxIgnoresTextThatIsNotAPrice_data();
+    void priceBoxIgnoresTextThatIsNotAPrice();
+    void priceBoxAcceptsDecimalPointOrComma_data();
+    void priceBoxAcceptsDecimalPointOrComma();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -4003,6 +4007,95 @@ void MainWindowTest::activeLoggingLevelStaysCheckedWhenClicked()
     QVERIFY(info->isChecked());
     QVERIFY(!warn->isChecked());
     spdlog::set_level(level);
+}
+
+// Selects the one item of a one-tab refresh and sets the buyout type and
+// currency the way a user would, leaving the value box enabled and empty.
+static std::shared_ptr<Item> selectItemForPricing(MainWindowFixture &fixture)
+{
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    if (!tree) {
+        qFatal("selectItemForPricing: treeView not found");
+    }
+    const ItemLocation tab = makeTestStashLocation("stash-price", "Price Tab", 0);
+    auto item = makeMainWindowItem("price-item", "Priced", "Sword", tab);
+    Items items;
+    items.push_back(item);
+    fixture.itemsManager->OnItemsRefreshed(items, {tab}, false);
+    const QModelIndex bucket = findBucket(*tree->model(), tab.GetHeader());
+    const QModelIndex row = findItemRow(*tree->model(), bucket, "Priced Sword");
+    if (!row.isValid()) {
+        qFatal("selectItemForPricing: the item row is missing");
+    }
+    tree->selectionModel()->setCurrentIndex(row,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    auto *type = fixture.window->findChild<QComboBox *>("buyoutTypeComboBox");
+    auto *currency = fixture.window->findChild<QComboBox *>("buyoutCurrencyComboBox");
+    type->setCurrentIndex(Buyout::BUYOUT_TYPE_BUYOUT);
+    currency->setCurrentIndex(Currency::CURRENCY_CHAOS_ORB);
+    emit type->activated(Buyout::BUYOUT_TYPE_BUYOUT);
+    return item;
+}
+
+// #252: text that is not a number greater than zero writes nothing. The box
+// commits on every keystroke, so the text minus its last character is put in
+// place without an edit signal and only the last character is typed: what
+// is checked is the commit of the whole text. (Typed from empty, "79/20"
+// would store 79 at its "79" prefix; that is the per-keystroke commit, which
+// is unchanged.)
+void MainWindowTest::priceBoxIgnoresTextThatIsNotAPrice_data()
+{
+    QTest::addColumn<QString>("text");
+    QTest::newRow("ratio") << "79/20";
+    QTest::newRow("letters") << "abc";
+    QTest::newRow("zero") << "0";
+    QTest::newRow("thousands comma") << "1,000";
+    QTest::newRow("negative") << "-3";
+    QTest::newRow("lone point") << ".";
+}
+
+void MainWindowTest::priceBoxIgnoresTextThatIsNotAPrice()
+{
+    QFETCH(QString, text);
+    MainWindowFixture fixture;
+    const auto item = selectItemForPricing(fixture);
+    auto *value = fixture.window->findChild<QLineEdit *>("buyoutValueLineEdit");
+    QVERIFY(value);
+    QVERIFY(value->isEnabled());
+    QVERIFY(fixture.buyoutFixture.manager->Get(*item).IsNull());
+
+    QSignalSpy changes(fixture.buyoutFixture.manager.get(), &BuyoutManager::BuyoutsChanged);
+    value->setText(text.chopped(1));
+    QTest::keyClicks(value, text.right(1));
+
+    QCOMPARE(value->text(), text);
+    QVERIFY(fixture.buyoutFixture.manager->Get(*item).IsNull());
+    QCOMPARE(changes.count(), 0);
+}
+
+void MainWindowTest::priceBoxAcceptsDecimalPointOrComma_data()
+{
+    QTest::addColumn<QString>("text");
+    QTest::newRow("point") << "2.5";
+    QTest::newRow("comma") << "2,5";
+}
+
+void MainWindowTest::priceBoxAcceptsDecimalPointOrComma()
+{
+    QFETCH(QString, text);
+    MainWindowFixture fixture;
+    const auto item = selectItemForPricing(fixture);
+    auto *value = fixture.window->findChild<QLineEdit *>("buyoutValueLineEdit");
+    QVERIFY(value);
+
+    QTest::keyClicks(value, text);
+
+    const Buyout stored = fixture.buyoutFixture.manager->Get(*item);
+    QCOMPARE(stored.type, Buyout::BUYOUT_TYPE_BUYOUT);
+    QCOMPARE(stored.currency.type, Currency::CURRENCY_CHAOS_ORB);
+    QCOMPARE(stored.value, 2.5);
+    QCOMPARE(value->text(), text);
 }
 
 QTEST_MAIN(MainWindowTest)

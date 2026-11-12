@@ -16,6 +16,13 @@ tabs inside it instead. The three controls under the list are:
 Changes apply immediately to the selection. The *Price* and *Last Update* columns
 in the item table show the result.
 
+The value must be a number greater than zero. Use a point or a comma as the
+decimal separator (`2.5` or `2,5`). Text that is not such a number, for example
+`79/20`, `abc` or `0`, is not saved: the selection keeps its previous price
+until the box holds a number. A comma followed by exactly three digits, such as
+`1,000`, is not saved either, because it could mean one thousand or one; type
+`1000` or `1.0` instead.
+
 ### Buyout types
 
 | Type | Forum tag | Meaning |
