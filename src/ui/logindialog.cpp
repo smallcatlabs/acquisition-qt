@@ -295,20 +295,15 @@ void LoginDialog::OnLoginButtonClicked()
     ui->loginButton->setEnabled(false);
     ui->loginButton->setText("Logging in...");
 
-    const QString realm = ui->realmComboBox->currentText();
-    const QString league = ui->leagueComboBox->currentText();
-
     // Refuse the login here: a session only starts from a complete identity
-    // (LoginWithOAuth builds it), and once a session exists it cannot be
-    // replaced (the shutdown invariant in network-redesign.md), so a failure
-    // after that point would leave no way back to this dialog.
-    if (league.isEmpty()) {
+    // (LoginWithOAuth builds it, and writes it to the settings only once it
+    // is valid), and once a session exists it cannot be replaced (the
+    // shutdown invariant in network-redesign.md), so a failure after that
+    // point would leave no way back to this dialog.
+    if (ui->leagueComboBox->currentText().isEmpty()) {
         DisplayError("Please select a league before logging in.");
         return;
     }
-
-    m_settings.setValue("realm", realm);
-    m_settings.setValue("league", league);
 
     LoginWithOAuth();
 }
