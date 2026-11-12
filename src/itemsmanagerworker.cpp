@@ -350,6 +350,16 @@ void ItemsManagerWorker::LoadItems(const poe::Character &character,
     });
 }
 
+void ItemsManagerWorker::AutoUpdate()
+{
+    if (!isInitialized() || isUpdating() || m_delivering_terminal) {
+        spdlog::debug("ItemsManagerWorker: skipping an automatic refresh because the worker is "
+                      "busy");
+        return;
+    }
+    Update(TabSelection::Checked);
+}
+
 void ItemsManagerWorker::Update(TabSelection type, const std::vector<ItemLocation> &locations)
 {
     if (!isInitialized()) {

@@ -105,6 +105,7 @@ void Application::InitUserSession()
     auto worker = &items_worker();
 
     connect(item_mgr, &ItemsManager::UpdateSignal, worker, &ItemsManagerWorker::Update);
+    connect(item_mgr, &ItemsManager::AutoUpdateSignal, worker, &ItemsManagerWorker::AutoUpdate);
     connect(worker, &ItemsManagerWorker::StatusUpdate, item_mgr, &ItemsManager::OnStatusUpdate);
     connect(worker, &ItemsManagerWorker::ItemsRefreshed, item_mgr, &ItemsManager::OnItemsRefreshed);
     // Presentation-lane deltas (items-pipeline M2, D3): the manager streams

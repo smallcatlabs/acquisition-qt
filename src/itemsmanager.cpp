@@ -312,5 +312,5 @@ void ItemsManager::SetAutoUpdateInterval(int minutes)
 void ItemsManager::OnAutoRefreshTimer()
 {
     spdlog::trace("ItemsManager::OnAutoRefreshTimer() entered");
-    Update(TabSelection::Checked);
+    emit AutoUpdateSignal();
 }

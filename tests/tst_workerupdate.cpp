@@ -153,6 +153,11 @@ private slots:
     // #259: a failed update's status line names what went wrong, through the
     // real facade and hub.
     void failedUpdateStatusNamesTheError();
+
+    // #279: the auto-refresh timer never notifies and never queues.
+    void timerTickDuringUpdateIsDroppedQuietly();
+    void timerTickWhileInitializingKeepsTheUsersQueuedRequest();
+    void timerTickWhenIdleRefreshesCheckedTabs();
 };
 
 namespace {
@@ -548,6 +553,20 @@ namespace {
                              [this](const ItemLocation &, const std::vector<FetchSourceKey> &) {
                                  ++manager_reconcile_reemits;
                              });
+        }
+
+        // Route the manager's refresh requests to the worker the way
+        // Application does. Call after attachManager().
+        void connectRefreshRequests()
+        {
+            QObject::connect(manager.get(),
+                             &ItemsManager::UpdateSignal,
+                             worker.get(),
+                             &ItemsManagerWorker::Update);
+            QObject::connect(manager.get(),
+                             &ItemsManager::AutoUpdateSignal,
+                             worker.get(),
+                             &ItemsManagerWorker::AutoUpdate);
         }
 
         QString dataDir() const { return bm.tempDir.filePath("data"); }
@@ -4158,6 +4177,82 @@ void WorkerUpdateTest::failedUpdateStatusNamesTheError()
     }
     // An expired or revoked login points the user at logging in again.
     QVERIFY2(seen.front().contains("log in again"), qPrintable(seen.front()));
+}
+
+// #279: a timer tick that finds an update running does nothing: no notice
+// (a modal per tick would stack while the user is away), no request, and the
+// running update is left alone.
+void WorkerUpdateTest::timerTickDuringUpdateIsDroppedQuietly()
+{
+    WorkerFixture f("timer-busy");
+    f.start();
+    f.attachManager();
+    f.connectRefreshRequests();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+
+    f.worker->Update(TabSelection::All);
+    f.deliverStashList(stashList({stashJson("stashaaaa1", "Tab A", 0)}));
+    f.deliverCharacterList({});
+    QVERIFY(f.hasPendingStash("stashaaaa1"));
+    const std::stop_token token = f.api.tokenForStash("stashaaaa1");
+    const size_t calls_before = f.callCount();
+    const auto notifies_before = f.notify_messages.size();
+
+    f.manager->OnAutoRefreshTimer();
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    QCOMPARE(f.notify_messages.size(), notifies_before);
+    QCOMPARE(f.callCount(), calls_before);
+    QVERIFY(!token.stop_requested());
+
+    f.deliverStash("stashaaaa1", stashOf(stashJson("stashaaaa1", "Tab A", 0, QStringList{"a1"})));
+    QCOMPARE(f.refresh_count, 2);
+    QCOMPARE(f.terminals.size(), size_t(1));
+}
+
+// #279: while the cache is still loading, a user's refresh is queued; a timer
+// tick in that window is dropped and must not replace it.
+void WorkerUpdateTest::timerTickWhileInitializingKeepsTheUsersQueuedRequest()
+{
+    WorkerFixture f("timer-init");
+    f.start();
+    f.attachManager();
+    f.connectRefreshRequests();
+    // The cache load completes on a later event-loop turn, so the worker is
+    // still initializing here.
+    QCOMPARE(f.refresh_count, 0);
+
+    f.worker->Update(TabSelection::All);
+    QCOMPARE(f.notify_messages.size(), 1); // the user is told it is queued
+    f.manager->OnAutoRefreshTimer();
+    QCOMPARE(f.notify_messages.size(), 1);
+
+    // The queued run is the user's "All": both lists are requested.
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    QVERIFY(f.hasPendingStashList());
+    QVERIFY(f.hasPendingCharacterList());
+
+    f.deliverStashList({});
+    f.deliverCharacterList({});
+    QCOMPARE(f.refresh_count, 2);
+    QCOMPARE(f.terminals.size(), size_t(1));
+}
+
+// The timer's own job: an idle worker refreshes the checked tabs.
+void WorkerUpdateTest::timerTickWhenIdleRefreshesCheckedTabs()
+{
+    WorkerFixture f("timer-idle");
+    f.start();
+    f.attachManager();
+    f.connectRefreshRequests();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+
+    // Nothing is checked, so the update needs no list and completes at once.
+    f.manager->OnAutoRefreshTimer();
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    QCOMPARE(f.terminals.size(), size_t(1));
+    QVERIFY(std::holds_alternative<CompletedRefresh>(f.terminals[0].outcome));
+    QVERIFY(f.notify_messages.isEmpty());
 }
 
 QTEST_GUILESS_MAIN(WorkerUpdateTest)
