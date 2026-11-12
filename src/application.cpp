@@ -161,18 +161,6 @@ void Application::InitUserSession()
             stashes,
             &StashRepo::reconcileStashChildren);
 
-    auto buyout_mgr = &buyout_manager();
-    auto buyouts = &userstore().buyouts();
-
-    connect(buyout_mgr,
-            &BuyoutManager::SetItemBuyout,
-            buyouts,
-            qOverload<const Buyout &, const Item &>(&BuyoutRepo::saveItemBuyout));
-    connect(buyout_mgr,
-            &BuyoutManager::SetLocationBuyout,
-            buyouts,
-            qOverload<const Buyout &, const ItemLocation &>(&BuyoutRepo::saveLocationBuyout));
-
     auto updater = &update_checker();
     auto cache = &image_cache();
 

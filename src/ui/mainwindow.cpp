@@ -28,6 +28,7 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QSettings>
+#include <QStatusBar>
 #include <QString>
 #include <QStringList>
 #include <QTabBar>
@@ -80,6 +81,8 @@ constexpr int SEARCH_UPDATE_DELAY_MS = 350;
 // applied delta. Non-resetting, so a sustained burst still resizes
 // this often (bounded staleness AND bounded work).
 constexpr int DELTA_RESIZE_DEBOUNCE_MS = 250;
+// How long a "Price not saved" notice covers the status line (#257).
+constexpr int PRICE_NOT_SAVED_TIMEOUT_MS = 10000;
 
 namespace {
 
@@ -139,6 +142,22 @@ namespace {
         dialog.setDefaultButton(cancel);
         dialog.exec();
         return dialog.clickedButton() == accept;
+    }
+
+    // An import writes buyouts, which nothing may do while they are not
+    // loaded (#257). Returns true, after telling the user, when it must not
+    // start.
+    bool refuseImportWithoutBuyouts(QWidget *parent, const BuyoutManager &buyout_manager)
+    {
+        if (buyout_manager.BuyoutsLoaded()) {
+            return false;
+        }
+        QMessageBox::warning(parent,
+                             QObject::tr("Legacy buyout import"),
+                             QObject::tr("Acquisition cannot save prices in this session, so "
+                                         "it cannot import buyouts.\n\nThe log file says why."),
+                             QMessageBox::Ok);
+        return true;
     }
 
 } // namespace
@@ -212,6 +231,25 @@ MainWindow::MainWindow(QSettings &settings,
 
     LoadSettings();
     NewSearch();
+
+    // A session that starts without its prices says so once (#257). Posted,
+    // so the box opens over the shown window rather than before it.
+    if (!m_buyout_manager.BuyoutsLoaded()) {
+        QTimer::singleShot(0, this, [this] {
+            auto *box = new QMessageBox(QMessageBox::Warning,
+                                        tr("Acquisition"),
+                                        tr("Acquisition cannot save prices in this session."),
+                                        QMessageBox::Ok,
+                                        this);
+            box->setInformativeText(
+                tr("Its price database could not be fully used; the log file says why. Prices "
+                   "may still be shown, but changes are not saved and the forum shop will not "
+                   "be updated.\n\nThe log file is:\n%1")
+                    .arg(QDir::toNativeSeparators(m_app_data_dir.filePath("log.txt"))));
+            box->setAttribute(Qt::WA_DeleteOnClose);
+            box->open();
+        });
+    }
 }
 
 MainWindow::~MainWindow()
@@ -814,6 +852,7 @@ void MainWindow::OnBuyoutChange()
     // one model update at command end, never one per Set. The propagation
     // pass's own boundary nests inside this one and emits nothing (R3-3).
     const BuyoutBatch batch(m_buyout_manager);
+    bool saved = true;
 
     const auto &selected_rows = ui->treeView->selectionModel()->selectedRows();
     for (const auto &index : selected_rows) {
@@ -833,7 +872,7 @@ void MainWindow::OnBuyoutChange()
             continue;
         }
         if (ref.isBucket()) {
-            m_buyout_manager.SetTab(location, bo);
+            saved = m_buyout_manager.SetTab(location, bo) && saved;
         } else {
             const int bucket_row = ref.bucket_row;
             if (ref.isItem()) {
@@ -848,7 +887,7 @@ void MainWindow::OnBuyoutChange()
                             item.name());
                         continue;
                     }
-                    m_buyout_manager.Set(item, bo);
+                    saved = m_buyout_manager.Set(item, bo) && saved;
                 } else {
                     spdlog::error("OnBuyoutChange(): bucket {} does not have {} items",
                                   bucket_row,
@@ -861,6 +900,21 @@ void MainWindow::OnBuyoutChange()
     }
     m_items_manager.PropagateTabBuyouts();
     ScheduleResizeTreeColumns();
+    // Refused (the buyouts did not load, #257) or rejected by the database:
+    // the old price stays, so the edit must not look applied. Only a
+    // rejection is logged per edit (as an error), so only then does the
+    // notice point at the log. It is a temporary status message, so it
+    // never replaces refresh progress for long, and the next edit that
+    // saves clears it.
+    if (saved) {
+        statusBar()->clearMessage();
+    } else {
+        statusBar()
+            ->showMessage(m_buyout_manager.BuyoutsLoaded()
+                              ? tr("Price not saved. Check the log file for details.")
+                              : tr("Price not saved: prices cannot be saved in this session."),
+                          PRICE_NOT_SAVED_TIMEOUT_MS);
+    }
 }
 
 void MainWindow::OnBuyoutsChanged(const BuyoutChangeSet &changes)
@@ -994,6 +1048,9 @@ bool MainWindow::ConfirmLegacyBuyoutWrite()
 
 void MainWindow::OnImportLegacyBuyouts()
 {
+    if (refuseImportWithoutBuyouts(this, m_buyout_manager)) {
+        return;
+    }
     if (!showActionPrompt(
             this,
             QMessageBox::Information,
@@ -1108,6 +1165,9 @@ void MainWindow::OnImportLegacyBuyouts()
 
 void MainWindow::OnImportLegacyBuyoutPlan()
 {
+    if (refuseImportWithoutBuyouts(this, m_buyout_manager)) {
+        return;
+    }
     if (!showActionPrompt(this,
                           QMessageBox::Information,
                           tr("Import buyout plan"),
