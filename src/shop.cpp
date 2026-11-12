@@ -12,7 +12,6 @@
 #include <QTextDocumentFragment>
 #include <QTimer>
 #include <QUrl>
-#include <QUrlQuery>
 
 #include "buyoutmanager.h"
 #include "datastore/datastore.h"
@@ -664,24 +663,21 @@ void Shop::SubmitNextShop(const QString &title, const QString &hash)
                                 ? job.shop_data[job.requests_completed]
                                 : "Empty";
 
-    QUrlQuery query;
-    query.addQueryItem("title", Util::Decode(title));
-    query.addQueryItem("content", content);
-    query.addQueryItem("notify_owner", "0");
-    query.addQueryItem("hash", hash);
-    query.addQueryItem("submit", "Submit");
-
-    QByteArray data(query.query().toUtf8());
+    const QByteArray data = Util::EncodeForm({{"title", Util::Decode(title)},
+                                              {"content", content},
+                                              {"notify_owner", "0"},
+                                              {"hash", hash},
+                                              {"submit", "Submit"}});
     QNetworkRequest request((QUrl(ShopEditUrl(job.requests_completed))));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
     request.setRawHeader("Cache-Control", "max-age=0");
     request.setTransferTimeout(kEditThreadTimeout);
 
     QNetworkReply *reply = m_network_manager.post(request, data);
-    connect(reply, &QNetworkReply::finished, this, [=, this]() { OnShopSubmitted(query, reply); });
+    connect(reply, &QNetworkReply::finished, this, [=, this]() { OnShopSubmitted(title, reply); });
 }
 
-void Shop::OnShopSubmitted(QUrlQuery query, QNetworkReply *reply)
+void Shop::OnShopSubmitted(const QString &title, QNetworkReply *reply)
 {
     spdlog::debug("Shop: shop submission reply received.");
 
@@ -774,7 +770,6 @@ void Shop::OnShopSubmitted(QUrlQuery query, QNetworkReply *reply)
         if (seconds > 0) {
             // Resubmit if the errors indicate we only have to try again later.
             const int ms = seconds * 1000;
-            const QString title = query.queryItemValue("title");
             const QString hash = Util::GetCsrfToken(bytes, "hash");
             spdlog::warn("Shop: resubmitting shop after {} seconds.", seconds);
             QTimer::singleShot(ms, this, [=, this]() { SubmitNextShop(title, hash); });

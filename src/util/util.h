@@ -3,12 +3,15 @@
 
 #pragma once
 
+#include <QByteArray>
 #include <QDateTime>
 #include <QDebug>
 #include <QMetaEnum>
 #include <QObject>
 #include <QString>
-#include <QUrlQuery>
+
+#include <utility>
+#include <vector>
 
 #include "util/spdlog_qt.h"
 
@@ -67,7 +70,9 @@ namespace Util {
 
     QString Decode(const QString &entity);
 
-    QUrlQuery EncodeQueryItems(const std::vector<std::pair<QString, QString>> &items);
+    // An application/x-www-form-urlencoded body: each key and value
+    // percent-encoded as UTF-8, joined with '=' and '&'.
+    QByteArray EncodeForm(const std::vector<std::pair<QString, QString>> &fields);
 
     QByteArray FixTimezone(const QByteArray &rfc2822_date);
 

@@ -4,6 +4,7 @@
 #include <QtTest/QtTest>
 
 #include <QBuffer>
+#include <QMap>
 #include <QSettings>
 #include <QSqlQuery>
 #include <QStandardPaths>
@@ -111,6 +112,9 @@ private slots:
     // text and the page's length.
     void forumErrorReplyIsNotLogged_data();
     void forumErrorReplyIsNotLogged();
+
+    // #258: every form value reaches the forum as the user wrote it.
+    void formValuesArePercentEncoded();
 };
 
 namespace {
@@ -175,12 +179,32 @@ namespace {
         drainEvents();
     }
 
-    // The form body of a forum POST. QNetworkAccessManager::post(request,
-    // QByteArray) wraps the body in a QBuffer parented to the reply.
-    QUrlQuery postedForm(const FakeNetworkManager::Sent &sent)
+    // The form fields of a forum POST, decoded the way a server decodes
+    // application/x-www-form-urlencoded (the WHATWG URL standard's form
+    // parser): '+' is a space, then percent-decoding as UTF-8. Deliberately
+    // not QUrlQuery, which keeps '+' as itself and so cannot see the encoder
+    // sending one. QNetworkAccessManager::post(request, QByteArray) wraps the
+    // body in a QBuffer parented to the reply.
+    QMap<QString, QString> postedForm(const FakeNetworkManager::Sent &sent)
     {
+        QMap<QString, QString> fields;
         const auto *buffer = sent.reply ? sent.reply->findChild<QBuffer *>() : nullptr;
-        return buffer ? QUrlQuery(QString::fromUtf8(buffer->data())) : QUrlQuery();
+        if (!buffer) {
+            return fields;
+        }
+        const auto decode = [](QByteArray part) {
+            part.replace('+', ' ');
+            return QString::fromUtf8(QByteArray::fromPercentEncoding(part));
+        };
+        for (const QByteArray &pair : buffer->data().split('&')) {
+            const qsizetype equals = pair.indexOf('=');
+            if (equals < 0) {
+                fields.insert(decode(pair), QString());
+            } else {
+                fields.insert(decode(pair.left(equals)), decode(pair.mid(equals + 1)));
+            }
+        }
+        return fields;
     }
 
     // A Shop over a real per-account UserStore instead of the in-memory
@@ -883,8 +907,7 @@ void ShopTest::morePagesThanThreadsWarnsWithoutReposting()
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
     QCOMPARE(fixture.networkManager->sent(1).request.url().toString(),
              QString("https://www.pathofexile.com/forum/edit-thread/123"));
-    QCOMPARE(postedForm(fixture.networkManager->sent(1))
-                 .queryItemValue("content", QUrl::FullyDecoded),
+    QCOMPARE(postedForm(fixture.networkManager->sent(1)).value("content"),
              fixture.shop->shop_data().first());
     fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, QByteArray("ok"));
     drainEvents();
@@ -1000,8 +1023,7 @@ void ShopTest::healthyEmptyStoreStillPostsEmpty()
     QCOMPARE(fixture.networkManager->count(), 1);
     fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
-    QCOMPARE(postedForm(fixture.networkManager->sent(1)).queryItemValue("content"),
-             QString("Empty"));
+    QCOMPARE(postedForm(fixture.networkManager->sent(1)).value("content"), QString("Empty"));
     QCOMPARE(warnings.count(), 0);
 }
 
@@ -1051,6 +1073,33 @@ void ShopTest::forumErrorReplyIsNotLogged()
     const QString logged = log.text();
     QVERIFY2(!logged.contains("leaky-csrf-token"), qPrintable(logged));
     QVERIFY2(!logged.contains("<form"), qPrintable(logged));
+}
+
+// The forum decodes the POST body as a form: a '+' the encoder leaves
+// alone arrives as a space, and a "%41" it leaves alone arrives as "A".
+// The title comes from the edit page, HTML-escaped as the page carries it.
+void ShopTest::formValuesArePercentEncoded()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    publishPricedItem(fixture, "item-a", 1);
+    fixture.shop->SetShopTemplate("[items] +1 & 50% %41 é");
+
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    QByteArray edit_page = kEditThreadPage;
+    edit_page.replace("value=\"My Shop\"", "value=\"WTS +1 gems &amp; 50% off\"");
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, edit_page);
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+
+    const auto form = postedForm(fixture.networkManager->sent(1));
+    QCOMPARE(form.value("content"), fixture.shop->shop_data().first());
+    QVERIFY(form.value("content").endsWith("[/spoiler] +1 & 50% %41 é"));
+    QCOMPARE(form.value("title"), QString("WTS +1 gems & 50% off"));
+    QCOMPARE(form.value("hash"), QString("fakecsrfhash"));
+    QCOMPARE(form.value("notify_owner"), QString("0"));
+    QCOMPARE(form.value("submit"), QString("Submit"));
 }
 
 QTEST_MAIN(ShopTest)

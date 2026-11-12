@@ -5,7 +5,6 @@
 
 #include <QNetworkReply>
 #include <QObject>
-#include <QUrlQuery>
 
 #include <expected>
 #include <map>
@@ -66,7 +65,8 @@ public:
 
 public slots:
     void OnEditPageFinished();
-    void OnShopSubmitted(QUrlQuery query, QNetworkReply *reply);
+    // `title` is the edit page's raw, HTML-escaped title.
+    void OnShopSubmitted(const QString &title, QNetworkReply *reply);
     // The automatic-submission gate (items-pipeline M2, D8/R1-1): auto
     // update fires only on a CLEAN completed refresh. A completed-with-skips
     // outcome must never auto-post — the skipped tabs' stale contents would
