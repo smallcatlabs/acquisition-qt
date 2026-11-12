@@ -417,8 +417,16 @@ void Shop::OnStashIndexUpdated()
     }
 
     if (job.threads.size() < job.shop_data.size()) {
-        spdlog::warn("Shop: need {} more shops defined to fit all your items.",
-                     job.shop_data.size() - job.threads.size());
+        const qsizetype missing = job.shop_data.size() - job.threads.size();
+        spdlog::warn("Shop: need {} more shops defined to fit all your items.", missing);
+        job.pages_dropped = true;
+        emit UserWarning(QString("Your forum shop needs %1 more thread(s) to list all of your "
+                                 "priced items. Only the first %2 page(s) will be posted."
+                                 "\n\n"
+                                 "Use the Shop --> 'Forum shop thread...' menu item to add "
+                                 "threads.")
+                             .arg(missing)
+                             .arg(job.threads.size()));
     }
 
     job.requests_completed = 0;
@@ -547,7 +555,11 @@ void Shop::SubmitSingleShop()
     if (job.requests_completed == job.threads.size()) {
         spdlog::debug("Shop: updated {} threads", job.threads.size());
         emit StatusUpdate(ProgramState::Ready, "Shop threads updated");
-        m_datastore.Set("shop_hash", job.shop_hash);
+        // An incomplete post keeps the previous hash (#253), so the next
+        // submission is not skipped as unchanged and warns again.
+        if (!job.pages_dropped) {
+            m_datastore.Set("shop_hash", job.shop_hash);
+        }
         CompleteActiveJob();
         return;
     }

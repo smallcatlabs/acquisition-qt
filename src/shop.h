@@ -111,6 +111,10 @@ private:
         QStringList shop_data;
         QString shop_hash;
         qsizetype requests_completed{0};
+        // True when the rendered pages outnumber the threads (#253): the
+        // pages that fit are posted, but the run is not a complete post, so
+        // its hash is not persisted.
+        bool pages_dropped{false};
     };
 
     std::unique_ptr<ShopJob> CaptureJob(bool force) const;

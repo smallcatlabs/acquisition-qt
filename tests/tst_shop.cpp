@@ -3,6 +3,7 @@
 
 #include <QtTest/QtTest>
 
+#include <QBuffer>
 #include <QSettings>
 #include <QStandardPaths>
 
@@ -93,6 +94,9 @@ private slots:
     void disablingAutoUpdateDropsWaitingCapture();
     void skippedRefreshDoesNotInvalidateWaitingCapture();
     void expireDropsWaitingCapture();
+
+    // #253: pages beyond the configured threads.
+    void morePagesThanThreadsWarnsAndKeepsHash();
 };
 
 namespace {
@@ -155,6 +159,14 @@ namespace {
         fixture.networkManager->sent(get_index + 1)
             .reply->finish({}, 200, QNetworkReply::NoError, QByteArray("ok"));
         drainEvents();
+    }
+
+    // The form body of a forum POST. QNetworkAccessManager::post(request,
+    // QByteArray) wraps the body in a QBuffer parented to the reply.
+    QUrlQuery postedForm(const FakeNetworkManager::Sent &sent)
+    {
+        const auto *buffer = sent.reply ? sent.reply->findChild<QBuffer *>() : nullptr;
+        return buffer ? QUrlQuery(QString::fromUtf8(buffer->data())) : QUrlQuery();
     }
 
 } // namespace
@@ -718,6 +730,63 @@ void ShopTest::expireDropsWaitingCapture()
     QVERIFY(fixture.shop->shop_data().first().contains(" 1 chaos"));
     completeForumSubmission(fixture, 0);
     QCOMPARE(fixture.rateLimiter->futureCount(), size_t(1)); // no drain
+}
+
+// #253: a shop that renders more pages than there are threads posts the
+// pages that fit, tells the user how many more threads are needed, and does
+// not persist the hash — so the next submission reports it again instead of
+// seeing an unchanged hash and doing nothing.
+void ShopTest::morePagesThanThreadsWarnsAndKeepsHash()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    fixture.buyoutFixture.data->Set("shop_hash", "previous-hash");
+
+    // Two priced items in one tab, and a template padded so that one item
+    // fits a 50000-character post and two do not: two pages.
+    const ItemLocation tab = makeTestStashLocation();
+    const QByteArray json_a = R"({"verified": false, "w": 1, "h": 1,
+        "icon": "https://web.poecdn.com/image/test.png", "id": "page-a", "name": "",
+        "typeLine": "Iron Ring", "baseType": "Iron Ring", "identified": true, "ilvl": 1,
+        "x": 0, "y": 0})";
+    QByteArray json_b = json_a;
+    json_b.replace("page-a", "page-b").replace(R"("x": 0)", R"("x": 1)");
+    const auto item_a = std::make_shared<Item>(makeTestItem(json_a.constData(), tab));
+    const auto item_b = std::make_shared<Item>(makeTestItem(json_b.constData(), tab));
+    fixture.itemsManager->OnItemsRefreshed({item_a, item_b}, {tab}, false);
+    fixture.buyoutFixture.manager->Set(*item_a, makeChaosBuyout(1));
+    fixture.buyoutFixture.manager->Set(*item_b, makeChaosBuyout(1));
+
+    const qsizetype item_length = tab.GetForumCode("pc", "Standard", 0).size();
+    const qsizetype header_length = QStringLiteral(R"([spoiler="~b/o 1 chaos"])").size();
+    const qsizetype overhead = 19 + QStringLiteral("[/spoiler]").size();
+    const qsizetype padding = 50000 - overhead - header_length - item_length - item_length / 2
+                              - QStringLiteral("[items]").size();
+    fixture.shop->SetShopTemplate("[items]" + QString(padding, 'x'));
+
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    fixture.shop->SubmitShopToForum();
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    QCOMPARE(fixture.shop->shop_data().size(), 2);
+
+    // The one thread receives page one. Read the POST body before its reply
+    // finishes and is released.
+    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, kEditThreadPage);
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
+    QCOMPARE(fixture.networkManager->sent(1).request.url().toString(),
+             QString("https://www.pathofexile.com/forum/edit-thread/123"));
+    QCOMPARE(postedForm(fixture.networkManager->sent(1))
+                 .queryItemValue("content", QUrl::FullyDecoded),
+             fixture.shop->shop_data().first());
+    fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, QByteArray("ok"));
+    drainEvents();
+
+    // Nothing else was sent, the user was told once, and the hash was kept.
+    QCOMPARE(fixture.networkManager->count(), 2);
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY(warnings.first().first().toString().contains("1 more"));
+    QCOMPARE(fixture.buyoutFixture.data->Get("shop_hash"), QString("previous-hash"));
 }
 
 QTEST_MAIN(ShopTest)
