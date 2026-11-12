@@ -16,9 +16,10 @@ Mod names use `#` as the placeholder for the number, exactly as the trade site
 does. Unlike the trade site, Acquisition does **not** separate implicit,
 explicit, crafted, enchant, or fractured lines: they all go into one table
 keyed by mod name, so a single row matches the line wherever it appears on the
-item. If the same line occurs twice on one item (for example as both an implicit
-and an explicit), only one value is kept for that name; use the
-`… total …` pseudomods below when you need lines added together.
+item. If the same mod occurs more than once on one item (for example as both an
+implicit and an explicit), its values add up: `+30 to maximum Life` and
+`+80 to maximum Life` make `+# to maximum Life` 110. Use the `… total …`
+pseudomods below when you need different mods added together.
 
 ## Pseudomods
 
