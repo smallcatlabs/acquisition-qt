@@ -18,6 +18,7 @@
 #include <QStringList>
 #include <QTextStream>
 
+#include <algorithm>
 #include <cstdio>
 #include <map>
 #include <set>
