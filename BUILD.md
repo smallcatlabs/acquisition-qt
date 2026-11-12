@@ -51,7 +51,7 @@ desktop kit, and build the `acquisition` target.
 |---|---|---|
 | `dev` | Debug | day-to-day development |
 | `release` | Release | what the pull-request test job builds |
-| `asan` | RelWithDebInfo + AddressSanitizer | test suite only; see below |
+| `asan` | RelWithDebInfo + AddressSanitizer + UndefinedBehaviorSanitizer | test suite only; see below |
 
 CMake has to be able to find Qt. Either export `CMAKE_PREFIX_PATH` or put it in
 a `CMakeUserPresets.json` (ignored by git):
@@ -101,13 +101,20 @@ The `ACQ_SANITIZE` CMake option builds the checked-in test suite with a runtime
 sanitizer. It is a test/CI-only knob: it is OFF by default and release packaging
 never sets it, so shipped binaries are never sanitized. Use a throwaway build
 tree so the normal results stay untouched; the `asan` preset is that tree
-(`build/asan`). Build only test targets:
+(`build/asan`):
 
 ```sh
 cmake --preset asan
-cmake --build --preset asan --target tst_workerintegration
-ASAN_OPTIONS=abort_on_error=1 ctest --preset asan -R tst_workerintegration
+cmake --build --preset asan
+ASAN_OPTIONS=abort_on_error=1 ctest --preset asan
 ```
+
+The build preset builds only `acq_tests`, every executable `ctest` runs, and
+leaves out the app. The
+preset sets `ACQ_SANITIZE=address,undefined`, the same as CI, and the knob
+builds with `-fno-sanitize-recover=all`, so an UndefinedBehaviorSanitizer
+report aborts its test and fails it; no `UBSAN_OPTIONS` setting is needed for
+that.
 
 This gives the phase-5 shutdown pins (`I-SHUT-*`, `I-LEAK-BOUND` in
 `tst_workerintegration.cpp`) use-after-free teeth: if any event-loop turn ran
@@ -120,11 +127,15 @@ links crashpad, whose signal handlers are installed only by `sentry_init()` in
 the sanitizer's own handlers. The test binaries do not run crashpad and are safe.
 
 On macOS, ASAN performs no leak detection (LSAN is unavailable there), so this
-knob covers use-after-free only. Leak-boundedness (`I-LEAK-BOUND`, see
+knob covers use-after-free and undefined behaviour only. On Linux, ASAN turns
+LeakSanitizer on by default; only the integration runner's leaks are bounded,
+so run the rest of the suite with `ASAN_OPTIONS=abort_on_error=1:detect_leaks=0`
+as CI does. Leak-boundedness (`I-LEAK-BOUND`, see
 `docs/design/network-redesign-phase5-verification.md` §6) is enforced on Linux CI
-by `.github/workflows/sanitizers.yml`, which builds only the `tst_workerintegration`
-runner with `-DACQ_SANITIZE=address` and runs each scenario as its own process
-under LeakSanitizer. The accepted detached-QCoro-frame leaks of the shutdown
+by `.github/workflows/sanitizers.yml`, which builds `acq_tests` with
+`-DACQ_SANITIZE=address,undefined`, runs the whole suite with leak detection
+off, and runs each `tst_workerintegration` scenario as its own process under
+LeakSanitizer. The accepted detached-QCoro-frame leaks of the shutdown
 scenarios are matched by a tight, CI-tuned suppression in `tests/lsan.supp` that
 names only those known detached roots; any leak with a stack outside that closure
 is a real defect and fails the job.

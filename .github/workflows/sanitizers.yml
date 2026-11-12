@@ -1,9 +1,12 @@
 name: Sanitizers
 
-# Runs the phase-5 network-redesign full-chain integration runner
-# (tst_workerintegration) under AddressSanitizer + LeakSanitizer on Linux to
-# enforce I-LEAK-BOUND leak-boundedness
-# (docs/design/network-redesign-phase5-verification.md §6). On Linux,
+# Runs the whole test suite under AddressSanitizer + UndefinedBehaviorSanitizer
+# on Linux, and the phase-5 network-redesign full-chain integration runner
+# (tst_workerintegration) under LeakSanitizer as well, to enforce I-LEAK-BOUND
+# leak-boundedness (docs/design/network-redesign-phase5-verification.md §6).
+# ACQ_SANITIZE builds with -fno-sanitize-recover=all, so any UBSan report fails
+# its test. Leak detection is off for the rest of the suite: only the runner's
+# leaks have been measured and bounded. On Linux,
 # -fsanitize=address turns on LeakSanitizer, which runs a leak check at each
 # process exit. Every scenario is its own process (acq_add_scenario_test). The
 # run is split in two: the shutdown scenarios (i_shut_*, i_leak_bound) leave
@@ -54,14 +57,13 @@ permissions:
 
 jobs:
   asan-lsan:
-    name: ASan + LSan (integration runner)
+    name: ASan + UBSan (suite), LSan (integration runner)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
-          submodules: recursive
           fetch-depth: 0
 
       - name: Setup Qt
@@ -69,7 +71,7 @@ jobs:
         # resolve the Ubuntu package hosts retries for about 47 minutes
         # (November 2026, PR 235: an upstream DNS failure for ubuntu.com).
         timeout-minutes: 5
-        uses: jurplel/install-qt-action@v4
+        uses: jurplel/install-qt-action@b344308e4483fc892e0d27b3cd1b173ebdd95f06 # v4.5.0
         with:
           version: '6.12.0'
           modules: 'qtnetworkauth'
@@ -90,20 +92,22 @@ jobs:
             zlib1g-dev \
             llvm
 
-      - name: Configure CMake (ASan)
-        run: cmake -B build-asan -S . -DACQ_SANITIZE=address -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      - name: Configure CMake (ASan + UBSan)
+        run: cmake -B build-asan -S . -DACQ_SANITIZE=address,undefined -DCMAKE_BUILD_TYPE=RelWithDebInfo
 
-      # Build ONLY the integration runner. acquisition_core + sentry/crashpad
-      # compile under ASan (a heavy from-scratch build), but the `acquisition`
-      # app target must never be sanitized. Allow generous build time.
+      # Build ONLY the test targets (acq_tests: every executable ctest runs).
+      # acquisition_core + sentry/crashpad compile under the sanitizers (a
+      # heavy from-scratch build), but the `acquisition` app target must never
+      # be sanitized. Allow generous build time.
       #
       # Cap at --parallel 2 (matching codeql.yml / build-linux.yml): ASan cc1plus
       # uses far more memory per translation unit than a plain build, so building
       # the heavy C++23/Qt TUs at full runner width (4 cores) exhausts RAM and
       # systemd-oomd kills the build cgroup with SIGTERM (exit 143). Two-wide
       # keeps peak memory well under the runner's limit.
-      - name: Build integration runner
-        run: cmake --build build-asan --target tst_workerintegration --parallel 2
+      - name: Build test targets
+        id: build
+        run: cmake --build build-asan --target acq_tests --parallel 2
 
       # The scenarios split into two leak regimes, and they are run as two
       # separate steps so the suppression file only ever applies where it is
@@ -143,3 +147,15 @@ jobs:
           LSAN_OPTIONS: suppressions=${{ github.workspace }}/tests/lsan.supp:print_suppressions=1
         run: |
           ctest --test-dir build-asan --no-tests=error -R 'tst_workerintegration\.(i_shut_|i_leak_bound)' -V
+
+      # Every other test, under ASan + UBSan with leak detection off: their
+      # leaks have not been measured, and the suppression file must never be
+      # applied to them. Runs even when a leak step above failed (but not
+      # when the build did), so one run reports both.
+      - name: Run the rest of the suite (no leak detection)
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        env:
+          ASAN_OPTIONS: abort_on_error=1:detect_leaks=0
+          UBSAN_OPTIONS: print_stacktrace=1
+        run: |
+          ctest --test-dir build-asan --no-tests=error -E '^tst_workerintegration\.' --output-on-failure
