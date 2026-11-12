@@ -118,7 +118,10 @@ since:
   (search/model/view).
 - **Initial cached load**: the parse thread publishes one snapshot
   (`ItemsRefreshed(..., true)`); the first population of a search's
-  model has no view state to preserve.
+  model has no view state to preserve. *(Post-freeze amendment,
+  November 12, 2026 — #294: the load is now `LoadCachedItems` in
+  `src/cacheload.cpp`, and `ItemsManagerWorker::Seed` publishes the
+  snapshot.)*
 
 ## Scope
 

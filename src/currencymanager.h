@@ -81,6 +81,8 @@ signals:
 
 public slots:
     void SaveCurrencyValue();
+    // Saves the ratios, which the currency dialog edits in place (#285).
+    void SaveCurrencyItems();
 
 private:
     QSettings &m_settings;
@@ -88,14 +90,14 @@ private:
     ItemsManager &m_items_manager;
 
     std::vector<std::shared_ptr<CurrencyItem>> m_currencies;
-    // We only need the "count" of a CurrencyItem so int will be enough
-    std::vector<int> m_wisdoms;
+    // The count of each currency in CurrencyForWisdom, sized with it so
+    // that no start-up path can leave it empty (#285).
+    std::array<int, CurrencyWisdomValue.size()> m_wisdoms{};
     // Used only the first time we launch the app
     void FirstInitCurrency();
     //Migrate from old storage (csv-like serializing) to new one (using json)
     void MigrateCurrency();
     void InitCurrency();
-    void SaveCurrencyItems();
     QString Serialize(const std::vector<std::shared_ptr<CurrencyItem>> &currencies);
     void Deserialize(const QString &data, std::vector<std::shared_ptr<CurrencyItem>> &currencies);
     void Save();

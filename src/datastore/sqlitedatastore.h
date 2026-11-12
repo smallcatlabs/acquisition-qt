@@ -18,7 +18,7 @@ public:
     ~SqliteDataStore();
     void Set(const QString &key, const QString &value);
     QString Get(const QString &key, const QString &default_value = "");
-    void InsertCurrencyUpdate(const CurrencyUpdate &update);
+    bool InsertCurrencyUpdate(const CurrencyUpdate &update);
     std::vector<CurrencyUpdate> GetAllCurrency();
     static QString MakeFilename(const QString &name, const QString &league);
 

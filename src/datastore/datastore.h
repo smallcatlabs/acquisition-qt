@@ -21,7 +21,8 @@ public:
     virtual ~DataStore() {};
     virtual void Set(const QString &key, const QString &value) = 0;
     virtual QString Get(const QString &key, const QString &default_value = "") = 0;
-    virtual void InsertCurrencyUpdate(const CurrencyUpdate &update) = 0;
+    // False when the update was not written.
+    virtual bool InsertCurrencyUpdate(const CurrencyUpdate &update) = 0;
     virtual std::vector<CurrencyUpdate> GetAllCurrency() = 0;
     void SetInt(const QString &key, int value);
     int GetInt(const QString &key, int default_value = 0);
