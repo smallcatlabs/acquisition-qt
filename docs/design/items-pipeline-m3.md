@@ -564,15 +564,22 @@ a removal keeps it alive, any delta showing it again re-adopts it as
 the current row, a user selection overwrites it, R2-1 closes the
 window), with one change: lapsing and re-adoption no longer clear or
 replace the rest of the selection, and the re-adopted row is selected
-only if it was selected when it left. **Every other selected row stays
-selected across a refresh while its item stays in its tab**: immediately
+only if it was selected when it last left (whether the current row is
+selected is recorded before every pass that can remove it — a delta,
+the final snapshot, a refilter — so the record describes the latest
+lapse; switching search tabs records it as selected). **Every other
+selected row stays selected across a refresh while its item stays
+where it is**: immediately
 before a delta, the items selected in the bucket it touches are read
 from the selection as (stable id, tab) pairs (every bucket for the final
 snapshot); immediately after, one walk of that bucket selects again
 those it still holds from the same tab. Nothing is kept for those rows
 from one delta to the next, so **they do not follow a move**: an item
 that leaves its tab (sold, or moved to another tab) loses its selection,
-whichever tab's delta arrives first. Cost: the delta reads no row
+whichever tab's delta arrives first. The grain is the delta's: a
+Map/Unique child source is its own delta, so an item moved between
+child sources of one tab loses its selection too when the removal
+arrives first. Cost: the delta reads no row
 selected in another bucket and walks only its own bucket, but finding
 that bucket's rows scans the selection's range list once (and each row
 re-selected asks Qt once), so it grows with the number of selection
@@ -584,11 +591,11 @@ the tree makes its first row current, which overwrites the intent.
 Known limitation: every content delta removes and inserts its rows
 (D3's source-scoped replace), so the restore calls select() without the
 Current flag. A Shift+click, Shift+arrow or Ctrl+drag range in progress
-when such a delta lands is frozen as it stood, and the user's next
-Shift gesture extends from the restored rows instead of the range: rows
-the user shrank away from can stay selected, or the restored rows be
-replaced. The selection is always shown, and the price editor acts on
-the selection shown. Removing this needs an in-place replacement for a
+when such a delta lands is frozen as it stood: the frozen range stays
+selected, and the user's next Shift gesture replaces the rows the
+restore had just re-selected instead of the range. The price editor
+acts on the selection as it then is, which may include rows in a
+collapsed or scrolled-away tab. Removing this needs an in-place replacement for a
 delta that leaves a tab's items unchanged, an item-level diff within a
 source that D3's "source-scoped replace is the delta's native grain"
 rejects; it would need its own decision to amend D3. Pinned by
@@ -600,7 +607,10 @@ rejects; it would need its own decision to amend D3. Pinned by
 `moverLosesSelectionWhicheverDeltaComesFirst`,
 `currentMoverFollowsWithoutCollapsingSelection`,
 `emptySpaceClickIsNotUndoneByALaterDelta`,
-`userInputWhileCurrentItemIsAway` and
+`userInputWhileCurrentItemIsAway`,
+`readoptionUsesSelectionAtTheLatestLapse`,
+`byItemMoverArrivingFirstLosesSelection`,
+`deltaElsewhereLeavesUnselectedCurrentRowUnselected` and
 `deltaWorkIgnoresSelectionInOtherTabs` (rows read and walked).)*
 
 **Where resets remain legitimate**: initial population (nothing to

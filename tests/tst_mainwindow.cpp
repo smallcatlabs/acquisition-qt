@@ -207,6 +207,9 @@ private slots:
     void emptySpaceClickIsNotUndoneByALaterDelta();
     void userInputWhileCurrentItemIsAway_data();
     void userInputWhileCurrentItemIsAway();
+    void readoptionUsesSelectionAtTheLatestLapse();
+    void byItemMoverArrivingFirstLosesSelection();
+    void deltaElsewhereLeavesUnselectedCurrentRowUnselected();
     void deltaWorkIgnoresSelectionInOtherTabs();
     void byItemMultiSelectionSurvivesDelta();
     void currentItemLeavingKeepsOtherSelectedRows();
@@ -4883,6 +4886,130 @@ void MainWindowTest::userInputWhileCurrentItemIsAway()
     const bool moverCurrent = (tree->selectionModel()->currentIndex().data().toString()
                                == "Mover Shield");
     QCOMPARE(moverCurrent, readopted);
+}
+
+// The M3 R1-3 amendment (#282): a re-adopted current row is selected only
+// if it was selected when it last left. Refresh 1 re-adopts it unselected;
+// the user then selects it; in refresh 2 a filter removes it and brings it
+// back, and it must come back selected, as on master.
+void MainWindowTest::readoptionUsesSelectionAtTheLatestLapse()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    auto *name = findNameFilter(*fixture.window);
+    QVERIFY(tree && name);
+
+    const ItemLocation tabA = makeTestStashLocation("stash-aaaa", "Alpha", 0);
+    const ItemLocation tabB = makeTestStashLocation("stash-bbbb", "Beta", 1);
+    Items items;
+    items.push_back(makeMainWindowItem("item-a1", "First", "Sword", tabA));
+    items.push_back(makeMainWindowItem("item-b1", "Other", "Shield", tabB));
+    fixture.itemsManager->OnItemsRefreshed(items, {tabA, tabB}, false);
+
+    auto *model = tree->model();
+    tree->expand(findBucket(*model, tabA.GetHeader()));
+    const QModelIndex first = findItemRow(*model,
+                                          findBucket(*model, tabA.GetHeader()),
+                                          "First Sword");
+    tree->selectionModel()->setCurrentIndex(first,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    tree->selectionModel()->select(first, QItemSelectionModel::Toggle | QItemSelectionModel::Rows);
+    QCOMPARE(selectedNames(*tree), QStringList());
+
+    // Refresh 1 replaces the unselected current row: re-adopted, unselected.
+    fixture.itemsManager->OnTabRefreshed(tabA,
+                                         {makeMainWindowItem("item-a1", "First", "Sword", tabA)});
+    fixture.window->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+    QCOMPARE(tree->selectionModel()->currentIndex().data().toString(), "First Sword");
+    QCOMPARE(selectedNames(*tree), QStringList());
+
+    // The user selects the current row (no current-row change).
+    tree->selectionModel()->select(tree->selectionModel()->currentIndex(),
+                                   QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    QCOMPARE(selectedNames(*tree), QStringList({"First Sword"}));
+
+    // Refresh 2 opens; the user filters the row out and back in.
+    fixture.itemsManager->OnTabRefreshed(tabB,
+                                         {makeMainWindowItem("item-b1", "Other", "Shield", tabB)});
+    name->setFocus();
+    QTest::keyClicks(name, "Other");
+    fixture.window->OnSearchFormChange();
+    QVERIFY(!findItemRow(*tree->model(), findBucket(*tree->model(), tabA.GetHeader()), "First Sword")
+                 .isValid());
+    name->clear();
+    fixture.window->OnSearchFormChange();
+
+    QCOMPARE(tree->selectionModel()->currentIndex().data().toString(), "First Sword");
+    QCOMPARE(selectedNames(*tree), QStringList({"First Sword"}));
+}
+
+// The M3 R1-3 amendment (#282), By-Item: a selected item that moves tabs
+// loses its selection even when the delta for its new tab arrives first and
+// both objects sit in the flat list for a moment. The restore matches by
+// stable id and tab, not by id alone.
+void MainWindowTest::byItemMoverArrivingFirstLosesSelection()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tree);
+
+    const ItemLocation tabA = makeTestStashLocation("stash-aaaa", "Alpha", 0);
+    const ItemLocation tabB = makeTestStashLocation("stash-bbbb", "Beta", 1);
+    const ItemLocation tabC = makeTestStashLocation("stash-cccc", "Gamma", 2);
+    Items items;
+    items.push_back(makeMainWindowItem("item-a1", "First", "Sword", tabA));
+    items.push_back(makeMainWindowItem("item-m", "Mover", "Shield", tabB));
+    fixture.itemsManager->OnItemsRefreshed(items, {tabA, tabB, tabC}, false);
+    switchToByItemView(fixture);
+
+    auto *model = tree->model();
+    const QModelIndex header = model->index(0, 0);
+    tree->selectionModel()->setCurrentIndex(findItemRow(*model, header, "First Sword"),
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    tree->selectionModel()->select(findItemRow(*model, header, "Mover Shield"),
+                                   QItemSelectionModel::Select | QItemSelectionModel::Rows);
+
+    fixture.itemsManager->OnTabRefreshed(tabC,
+                                         {makeMainWindowItem("item-m", "Mover", "Shield", tabC)});
+    fixture.itemsManager->OnTabRefreshed(tabB, {});
+    QCOMPARE(selectedNames(*tree), QStringList({"First Sword"}));
+}
+
+// The M3 R1-3 amendment (#282): a delta to another tab does not select a
+// current row the user had deselected.
+void MainWindowTest::deltaElsewhereLeavesUnselectedCurrentRowUnselected()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tree);
+
+    const ItemLocation tabA = makeTestStashLocation("stash-aaaa", "Alpha", 0);
+    const ItemLocation tabB = makeTestStashLocation("stash-bbbb", "Beta", 1);
+    Items items;
+    items.push_back(makeMainWindowItem("item-a1", "First", "Sword", tabA));
+    items.push_back(makeMainWindowItem("item-b1", "Other", "Shield", tabB));
+    fixture.itemsManager->OnItemsRefreshed(items, {tabA, tabB}, false);
+
+    auto *model = tree->model();
+    const QModelIndex bucketA = findBucket(*model, tabA.GetHeader());
+    const QModelIndex bucketB = findBucket(*model, tabB.GetHeader());
+    tree->expand(bucketA);
+    tree->expand(bucketB);
+    const QModelIndex first = findItemRow(*model, bucketA, "First Sword");
+    tree->selectionModel()->setCurrentIndex(first,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    tree->selectionModel()->select(findItemRow(*model, bucketB, "Other Shield"),
+                                   QItemSelectionModel::Select | QItemSelectionModel::Rows);
+    tree->selectionModel()->select(first, QItemSelectionModel::Deselect | QItemSelectionModel::Rows);
+    QCOMPARE(selectedNames(*tree), QStringList({"Other Shield"}));
+
+    fixture.itemsManager->OnTabRefreshed(tabB,
+                                         {makeMainWindowItem("item-b1", "Other", "Shield", tabB)});
+    QCOMPARE(tree->selectionModel()->currentIndex().data().toString(), "First Sword");
+    QCOMPARE(selectedNames(*tree), QStringList({"Other Shield"}));
 }
 
 // M3 D3: carrying the selection through a delta to one tab reads no row
