@@ -112,6 +112,8 @@ signals:
                         const std::vector<ItemLocation> &tabs,
                         bool initial_refresh);
     void StatusUpdate(ProgramState state, const QString &status);
+    // Why a refresh the user asked for (Update) was refused or queued.
+    // Never emitted for the timer's AutoUpdate (#279).
     void NotifyUser(const QString &message);
 
     // Presentation-lane delta signals (items-pipeline M2, D3). Both carry
@@ -185,6 +187,11 @@ signals:
 public slots:
     void OnRePoEReady();
     void Update(Util::TabSelection type, const std::vector<ItemLocation> &tab_names = {});
+    // The auto-refresh timer's entry: refresh the checked tabs if the worker
+    // is idle; otherwise do nothing. It never queues and never notifies, so a
+    // tick during an update or the cache load cannot open a dialog or replace
+    // a refresh the user queued (#279).
+    void AutoUpdate();
 
 private:
     // Every handler takes one already-classified result (phase 4b): the

@@ -62,7 +62,12 @@ public slots:
     void OnChildrenReconciled(const ItemLocation &parent,
                               const std::vector<FetchSourceKey> &expected);
 signals:
+    // A refresh the user asked for; the worker may tell them it is refused
+    // or queued.
     void UpdateSignal(Util::TabSelection type, const std::vector<ItemLocation> &tab_names = {});
+    // A refresh the auto-refresh timer asked for; the worker runs it only
+    // when idle and otherwise drops it without a word (#279).
+    void AutoUpdateSignal();
     void ItemsRefreshed(bool initial_refresh);
     void TabRefreshed(const ItemLocation &location, const Items &items);
     void ChildrenReconciled(const ItemLocation &parent, const std::vector<FetchSourceKey> &expected);
@@ -87,3 +92,9 @@ private:
     SourceKeyedItems m_items;
     LocationInventory m_location_inventory;
 };
+
+// Route the manager's refresh requests to the worker: the user's through
+// Update, which may notify, and the timer's through AutoUpdate, which never
+// does (#279). The one place these connections are made, for Application and
+// the tests alike.
+void ConnectRefreshRequests(ItemsManager &manager, ItemsManagerWorker &worker);
