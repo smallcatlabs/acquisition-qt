@@ -1449,7 +1449,7 @@ void ShopTest::renderCharacterItem()
     poe::Character character;
     character.id = "character-0001";
     character.name = "I_Exist";
-    const ItemLocation inventory(character, 0);
+    const ItemLocation inventory(character);
     const QStringList pages = renderedPages(fixture,
                                             {{makeShopItem("armour", inventory, 0, "BodyArmour"),
                                               makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)}},

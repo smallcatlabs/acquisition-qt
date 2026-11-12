@@ -214,7 +214,7 @@ ParseResult ItemsManagerWorker::ParseCachedItems(const QString &dataDir) const
         }
     }
     for (const auto &character : characters) {
-        result.tabs.push_back(ItemLocation(character, int(result.tabs.size())));
+        result.tabs.push_back(ItemLocation(character));
     }
     result.tabs.shrink_to_fit();
 
@@ -289,7 +289,7 @@ ParseResult ItemsManagerWorker::ParseCachedItems(const QString &dataDir) const
                              .arg(i)
                              .arg(characters.size())
                              .arg(name));
-        ItemLocation tab{*character, int(stashes.size() + i)};
+        ItemLocation tab{*character};
         LoadItems(*character, tab, result);
     }
 
@@ -939,7 +939,7 @@ void ItemsManagerWorker::OnCharacterListReceived(const Result<poe::CharacterList
                           m_identity.league());
             continue;
         }
-        ItemLocation location(character, int(m_tabs.size()));
+        ItemLocation location(character);
         if (m_tab_id_index.count(location.id()) > 0) {
             spdlog::trace("Skipping {} because it appears twice in the character list.", name);
             continue;

@@ -1025,7 +1025,7 @@ void WorkerUpdateTest::partialUpdateDoesNotDuplicateCharacters()
 
     // Refresh only CharOne. The fresh list mentions both characters, with
     // CharTwo renamed in-game (same id, new name).
-    f.worker->Update(TabSelection::Selected, {ItemLocation(*char_1, 0)});
+    f.worker->Update(TabSelection::Selected, {ItemLocation(*char_1)});
     QCOMPARE(f.callCount(), size_t(1));
     QVERIFY(f.hasPendingCharacterList());
     f.deliverCharacterList(characterList(
@@ -1468,7 +1468,7 @@ void WorkerUpdateTest::datastoreFollowsCharacterDeletions()
     connectPersistence(f.worker.get(), store);
 
     // Server-side, CharTwo was deleted; the fresh list omits it.
-    f.worker->Update(TabSelection::Selected, {ItemLocation(*char_1, 0)});
+    f.worker->Update(TabSelection::Selected, {ItemLocation(*char_1)});
     QCOMPARE(f.callCount(), size_t(1));
     f.deliverCharacterList(characterList({characterJson("charid0001", "CharOne")}));
 
@@ -2592,7 +2592,7 @@ void WorkerUpdateTest::oldSuccessfulCharacterStragglerDoesNotCorruptASubsequentU
 
     // Update 2 (Selected CharOne): a fresh, unstopped token2. Only CharOne is
     // fetched — CharTwo is a known character and unselected.
-    f.worker->Update(TabSelection::Selected, {ItemLocation(*char_1, 0)});
+    f.worker->Update(TabSelection::Selected, {ItemLocation(*char_1)});
     f.deliverCharacterList(fresh);
     QVERIFY(f.hasPendingCharacter("CharOne")); // the NEW fetch (token2), deliverable
     const std::stop_token token2 = f.api.tokenForCharacter("CharOne");
