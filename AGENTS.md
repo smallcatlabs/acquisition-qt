@@ -43,8 +43,10 @@ cmake --preset dev && cmake --build --preset dev && ctest --preset dev
   `8.00%` and `20 (Max)`; item classes are named `rings` and
   `one hand swords`; requirements arrive as both `Int` and `Intelligence`.
   Tests built on invented formats have hidden real defects here.
-- **Pull requests** must pass the Tests, CodeQL and sanitizer checks. Keep
-  one topic per pull request. The maintainer merges and decides which release
+- **Pull requests** must pass the Tests check. CodeQL and the sanitizer run
+  follow the merge on `master` (the sanitizer job also runs on a pull request
+  that touches the refresh or network code); a failure there is yours to fix
+  first. Keep one topic per pull request. The maintainer merges and decides which release
   a change rides in; do not bump the version unless asked.
 - When UI behaviour changes, update `docs/user/`.
 - Use `.clang-format` on the lines you touch, respect existing

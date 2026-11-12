@@ -135,16 +135,27 @@ Static analysis is run by `.github/workflows/codeql.yml` using GitHub CodeQL.
 The workflow performs a manual Linux CMake build so CodeQL sees the same Qt,
 compiler, generated sources, and include paths used by the application build.
 
-The CodeQL, sanitizer and test workflows run on pushes and pull requests to `master`
-and by `workflow_dispatch`. Each workflow groups runs by pull request or ref and
-cancels an in-progress run when a newer commit supersedes it.
+When each check runs:
+
+| Workflow | Pull request | Push to `master` | Other |
+|---|---|---|---|
+| Tests (`tests.yml`) | always | yes | on demand |
+| Sanitizers (`sanitizers.yml`) | only when the change touches the worker, the API client, `src/ratelimit/`, the network manager, or the runner and its build | yes | on demand |
+| CodeQL (`codeql.yml`) | no | yes | weekly, on demand |
+
+A pull request waits on the test suite; CodeQL and the full sanitizer run
+follow the merge, so a finding appears within the hour and points at one
+merge. `master` carries a `-dev` version, and a release is tagged only from a
+`master` commit on which all three have passed, so nothing is released
+unscanned. On
+a pull request a newer commit supersedes a run in progress; on `master` a run
+in progress is allowed to finish.
 
 ## Protected Branch
 
 The repository's `Protect default branch` ruleset applies to `master`. Changes
-must arrive through a pull request, the CodeQL and ASan + LSan checks must pass,
-and all review conversations must be resolved. CodeQL security alerts at high
-severity or above and code-quality errors block the merge. No approval is
+must arrive through a pull request, the `Build + CTest (Linux)` check must pass,
+and all review conversations must be resolved. No approval is
 required while the repository has a single maintainer, and a branch need not be
 rebased onto the latest `master` before merging. Force pushes and deletion of
 the default branch are blocked.
