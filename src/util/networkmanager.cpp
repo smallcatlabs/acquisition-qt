@@ -4,6 +4,8 @@
 #include "util/networkmanager.h"
 
 #include <QDir>
+#include <QFile>
+#include <QFileInfo>
 #include <QNetworkCookie>
 #include <QNetworkCookieJar>
 #include <QNetworkReply>
@@ -71,7 +73,18 @@ NetworkManager::NetworkManager(QObject *parent)
 
 void NetworkManager::removeLegacyDiskCache(const QDir &dataDir)
 {
-    QDir cache_dir(dataDir.filePath("network_cache"));
+    const QString path = dataDir.filePath("network_cache");
+    const QFileInfo info(path);
+    if (info.isSymbolicLink() || info.isJunction()) {
+        // Never follow a link: removing its contents would delete whatever it
+        // points at. Remove the link itself, which leaves the target alone.
+        spdlog::info("NetworkManager: removing the link {}", path);
+        if (!QFile::remove(path) && !QDir().rmdir(path)) {
+            spdlog::warn("NetworkManager: could not remove the link {}", path);
+        }
+        return;
+    }
+    QDir cache_dir(path);
     if (cache_dir.exists()) {
         spdlog::info("NetworkManager: removing the old HTTP disk cache: {}", cache_dir.path());
         if (!cache_dir.removeRecursively()) {
