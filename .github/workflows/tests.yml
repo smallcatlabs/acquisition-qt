@@ -39,6 +39,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
+      # Formatting depends on the clang-format version, so the version is
+      # pinned (BUILD.md, "Formatting"). Runs first so a formatting slip fails
+      # in seconds, before the build.
+      - name: Check formatting
+        env:
+          CLANG_FORMAT_VERSION: 23.1.5
+        run: |
+          pipx install "clang-format==${CLANG_FORMAT_VERSION}"
+          clang-format --version | grep -F "version ${CLANG_FORMAT_VERSION}"
+          git ls-files -z 'src/*.cpp' 'src/*.h' 'tests/*.cpp' 'tests/*.h' \
+            | xargs -0 clang-format --dry-run -Werror
+
       - name: Setup Qt
         # Normally 30 to 75 seconds; see sanitizers.yml for why this is capped.
         timeout-minutes: 5
