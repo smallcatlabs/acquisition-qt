@@ -59,6 +59,7 @@
 #include "ui/currencydialog.h"
 #include "ui/itemtooltip.h"
 #include "ui/logpanel.h"
+#include "ui/mainwindowhelpers.h"
 #include "ui/searchform.h"
 #include "ui/verticalscrollarea.h"
 #include "util/glaze_qt.h" // IWYU pragma: keep
@@ -141,17 +142,6 @@ namespace {
     }
 
 } // namespace
-
-struct ImgurStatus
-{
-    struct Link
-    {
-        QString link;
-    };
-
-    int status;
-    ImgurStatus::Link data;
-};
 
 MainWindow::MainWindow(QSettings &settings,
                        NetworkManager &network_manager,
@@ -2284,26 +2274,21 @@ void MainWindow::OnUploadFinished()
     ui->uploadTooltipButton->setText("Upload to imgur");
 
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(QObject::sender());
-    QByteArray bytes = reply->readAll();
+    const QByteArray bytes = reply->readAll();
     reply->deleteLater();
 
-    ImgurStatus result;
-
-    constexpr const glz::opts permissive{.error_on_unknown_keys = false};
-    const std::string_view sv{bytes, size_t(bytes.size())};
-    const auto ec = glz::read<permissive>(result, sv);
-    if (!ec) {
-        const auto msg = glz::format_error(ec, sv);
-        spdlog::error("Error parsing Imgur result: {}", msg);
+    if (reply->error() != QNetworkReply::NoError) {
+        spdlog::error("Imgur upload failed: {}", reply->errorString());
         return;
     }
 
-    if (result.status != 200) {
-        spdlog::error("Imgur API returned status != 200: {}", bytes);
+    const auto result = ParseImgurUploadReply(bytes);
+    if (!result) {
+        spdlog::error("Imgur upload failed: {}", result.error());
         return;
     }
 
-    const QString url = result.data.link;
+    const QString url = *result;
     QApplication::clipboard()->setText(url);
     spdlog::info("Image uploaded to '{}' and the URL has been copied to your clipboard.", url);
 }

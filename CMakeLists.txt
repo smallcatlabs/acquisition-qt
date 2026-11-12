@@ -468,6 +468,8 @@ set(ACQ_UI
     src/ui/mainwindow_bridge.h
     src/ui/mainwindow.cpp
     src/ui/mainwindow.h
+    src/ui/mainwindowhelpers.cpp
+    src/ui/mainwindowhelpers.h
     src/ui/modsfilterform.cpp
     src/ui/modsfilterform.h
     src/ui/searchcombobox.cpp
