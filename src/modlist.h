@@ -48,27 +48,3 @@ typedef std::shared_ptr<SumModGenerator> SumModGen;
 void InitStatTranslations();
 void AddStatTranslations(const QByteArray &statTranslations);
 void AddModToTable(const QString &mod, ModTable &output);
-
-//------------------------------
-/*
-
-struct NormalizedModifier
-{
-    QString normalized;
-    std::vector<int32_t> values_x100;
-};
-
-struct InternedModifier
-{
-    uint32_t id;
-    std::vector<int32_t> values_x100;
-};
-
-static std::unordered_map<QString, uint32_t> modifier_ids;
-static std::vector<QStringView> modifier_strings;
-
-NormalizedModifier normalize_modifier(QStringView s);
-
-InternedModifier intern_modifier(QStringView &modifier);
-
-*/

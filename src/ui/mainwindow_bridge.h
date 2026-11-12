@@ -12,7 +12,6 @@ class BuyoutManager;
 class BuyoutRepo;
 class CharacterRepo;
 class CurrencyManager;
-class DataStore;
 class ImageCache;
 class ItemsManager;
 class ItemsManagerWorker;
@@ -26,7 +25,6 @@ class UpdateChecker;
 MainWindow *CreateMainWindow(QSettings &settings,
                              NetworkManager &network_manager,
                              RateLimiter &rate_limiter,
-                             DataStore &datastore,
                              ItemsManager &items_manager,
                              BuyoutManager &buyout_manager,
                              BuyoutRepo &buyout_repo,

@@ -7,14 +7,8 @@
 
 #include <QDir>
 #include <QFileInfo>
-#include <QNetworkCookie>
-#include <QNetworkCookieJar>
-#include <QNetworkReply>
 #include <QSettings>
-#include <QSignalMapper>
 #include <QThread>
-#include <QTimer>
-#include <QUrlQuery>
 
 #include <algorithm>
 #include <unordered_map>

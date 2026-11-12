@@ -48,5 +48,4 @@ private:
 
     std::atomic_uint m_num_errors{0};
     std::atomic_uint m_num_warnings{0};
-    std::atomic_uint m_num_messages{0};
 };

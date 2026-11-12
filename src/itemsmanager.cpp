@@ -3,7 +3,6 @@
 
 #include "itemsmanager.h"
 
-#include <QNetworkCookie>
 #include <QSettings>
 
 #include <optional>
@@ -11,9 +10,6 @@
 
 #include "buyoutmanager.h"
 #include "item.h"
-#include "modlist.h"
-#include "repoe/repoe.h"
-#include "shop.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "util/util.h"
 
@@ -116,10 +112,9 @@ void ItemsManager::ApplyAutoItemBuyouts()
         }
     }
 
-    // Commenting this out for robustness (iss381) to make it as unlikely as possible that users
-    // pricing data will be removed.  Side effect is that stale pricing data will pile up and
-    // could be applied to future items with the same hash (which includes tab name).
-    // bo.CompressItemBuyouts(m_items);
+    // Buyouts of items that are gone are deliberately kept, not pruned
+    // (iss381), so that a user's prices are as hard as possible to lose;
+    // stale entries pile up as a result.
 }
 
 void ItemsManager::PropagateTabBuyouts()

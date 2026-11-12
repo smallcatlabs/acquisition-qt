@@ -131,13 +131,6 @@ void OAuthManager::onServerError(const QString &error,
                   uri.toDisplayString());
 }
 
-void OAuthManager::onOAuthError(const QString &error,
-                                const QString &errorDescription,
-                                const QUrl &uri)
-{
-    spdlog::error("Oauth: error: '{}' ({}): {}", error, errorDescription, uri.toDisplayString());
-}
-
 void OAuthManager::receiveToken(const QVariantMap &tokens)
 {
     m_token = OAuthToken::fromTokens(tokens);
@@ -172,17 +165,6 @@ void OAuthManager::receiveGrant()
     }
     spdlog::info("OAuth: access was granted.");
     emit grantAccess(m_token);
-}
-
-void OAuthManager::setToken(const OAuthToken &token)
-{
-    if (token.refresh_token.isEmpty()) {
-        spdlog::error("OAuth: trying to refresh with an empty refresh token");
-    } else {
-        spdlog::info("OAuth: refreshing token for '{}'", token.username);
-        m_oauth->setRefreshToken(token.refresh_token);
-        m_oauth->refreshTokens();
-    }
 }
 
 void OAuthManager::initLogin()

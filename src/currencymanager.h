@@ -69,7 +69,6 @@ public:
     void ClearCurrency();
     // Called from CurrencyManager::Update.
     void ParseSingleItem(const Item &item);
-    //void UpdateBaseValue(int ind, double value);
     const std::vector<std::shared_ptr<CurrencyItem>> &currencies() const { return m_currencies; }
     double TotalExaltedValue();
     double TotalChaosValue();

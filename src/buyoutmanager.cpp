@@ -15,16 +15,6 @@
 #include "util/glaze_qt.h"  // IWYU pragma: keep
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 
-struct SerializedBuyout
-{
-    QString currency;
-    bool inherited;
-    quint64 last_update;
-    QString source;
-    QString type;
-    double value;
-};
-
 const std::unordered_map<QString, BuyoutType> BuyoutManager::m_string_to_buyout_type = {
     {"~gb/o", Buyout::BUYOUT_TYPE_BUYOUT},
     {"~b/o", Buyout::BUYOUT_TYPE_BUYOUT},
@@ -104,10 +94,9 @@ void BuyoutManager::Set(const Item &item, const Buyout &buyout)
     if (buyout.IsNull()) {
         // Only touch the database when the manager holds an entry to clear:
         // PropagateTabBuyouts clears nearly every item on every refresh, which
-        // used to issue one no-op DELETE per item (F52). CompressItemBuyouts
-        // drifts the map from the repo only toward orphan repo rows, which
-        // this guard leaves alone. A failed save leaves a rowless map entry;
-        // clearing a rowless entry is just a harmless zero-row DELETE.
+        // used to issue one no-op DELETE per item (F52). A failed save
+        // leaves a rowless map entry; clearing a rowless entry is just a
+        // harmless zero-row DELETE.
         // The map entry is erased only after a successful delete so that a
         // failed delete is retried the next time this entry is cleared,
         // instead of leaving the row to resurrect at the next Load().
@@ -220,30 +209,6 @@ void BuyoutManager::CompressTabBuyouts()
     }
 }
 
-void BuyoutManager::CompressItemBuyouts(const Items &items)
-{
-    // When items are moved between tabs or deleted their buyouts entries remain
-    // This function looks at buyouts and makes sure there is an associated item
-    // that exists
-    std::set<QString> tmp;
-    for (const auto &item_sp : items) {
-        const Item &item = *item_sp;
-        tmp.insert(item.id());
-    }
-
-    // Same single-batch, record-after-erase rule as CompressTabBuyouts.
-    const BuyoutBatch batch(*this);
-    for (auto it = m_buyouts.cbegin(); it != m_buyouts.cend();) {
-        if (tmp.count(it->first) == 0) {
-            const QString id = it->first;
-            it = m_buyouts.erase(it);
-            RecordChange(ChangeScope::Item, id);
-        } else {
-            ++it;
-        }
-    }
-}
-
 void BuyoutManager::SetRefreshChecked(const ItemLocation &loc, bool value)
 {
     m_save_needed = true;
@@ -270,79 +235,6 @@ void BuyoutManager::SetRefreshLocked(const ItemLocation &loc)
 void BuyoutManager::ClearRefreshLocks()
 {
     m_refresh_locked.clear();
-}
-
-void BuyoutManager::Clear()
-{
-    m_save_needed = true;
-    m_buyouts.clear();
-    m_tab_buyouts.clear();
-    m_refresh_locked.clear();
-    m_refresh_checked.clear();
-    m_tabs.clear();
-    RecordChange(ChangeScope::Everything, QString());
-}
-
-QString BuyoutManager::Serialize(const std::unordered_map<QString, Buyout> &buyouts)
-{
-    std::unordered_map<QString, SerializedBuyout> output;
-
-    for (const auto &[key, buyout] : buyouts) {
-        const quint64 last_update = buyout.last_update.isNull()
-                                        ? QDateTime::currentSecsSinceEpoch()
-                                        : buyout.last_update.toSecsSinceEpoch();
-
-        output[key] = SerializedBuyout{.currency = buyout.CurrencyAsTag(),
-                                       .inherited = buyout.inherited,
-                                       .last_update = last_update,
-                                       .source = buyout.BuyoutSourceAsTag(),
-                                       .type = buyout.BuyoutTypeAsTag(),
-                                       .value = buyout.value};
-    }
-
-    const auto result = glz::write_json(output);
-    if (!result) {
-        const auto msg = glz::format_error(result.error());
-        spdlog::error("Error serializing buyouts: {}", msg);
-        return QString();
-    }
-    return QString::fromStdString(*result);
-}
-
-void BuyoutManager::Deserialize(const QString &data, std::unordered_map<QString, Buyout> &buyouts)
-{
-    buyouts.clear();
-
-    // if data is empty (on first use) we shouldn't make user panic by showing ERROR messages
-    if (data.isEmpty()) {
-        return;
-    }
-
-    const QByteArray bytes{data.toUtf8()};
-    const std::string_view sv{bytes.constData(), size_t(bytes.size())};
-    const auto result = glz::read_json<std::unordered_map<QString, SerializedBuyout>>(sv);
-    if (!result) {
-        const auto msg = glz::format_error(result.error());
-        spdlog::error("Error deserializing buyouts: {}", msg);
-        return;
-    }
-
-    for (const auto &[name, obj] : *result) {
-        Buyout bo;
-        bo.currency = Currency::FromTag(obj.currency);
-        bo.type = Buyout::TagAsBuyoutType(obj.type);
-        bo.value = obj.value;
-        bo.last_update = QDateTime::fromSecsSinceEpoch(obj.last_update);
-        bo.source = Buyout::TagAsBuyoutSource(obj.source);
-        bo.inherited = obj.inherited;
-
-        if (bo.type == Buyout::BUYOUT_TYPE_CURRENT_OFFER) {
-            spdlog::warn(
-                "BuyoutManager::Deserialize() obsolete 'current offer' buyout detected: {}", name);
-        }
-
-        buyouts[name] = bo;
-    }
 }
 
 QString BuyoutManager::Serialize(const std::unordered_map<QString, bool> &obj)

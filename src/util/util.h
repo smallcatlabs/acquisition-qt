@@ -47,7 +47,6 @@ namespace Util {
 
     int TextWidth(TextWidthId id);
 
-    //void ParseJson(QNetworkReply *reply, rapidjson::Document *doc);
     QString GetCsrfToken(const QByteArray &page, const QString &name);
     QString FindTextBetween(const QString &page, const QString &left, const QString &right);
 
@@ -64,8 +63,6 @@ namespace Util {
     */
     bool MatchMod(const char *const match, const char *const mod, double *output);
 
-    QString Capitalise(const QString &str);
-
     QString TimeAgoInWords(const QDateTime &buyout_time);
 
     QString Decode(const QString &entity);
@@ -73,8 +70,6 @@ namespace Util {
     QUrlQuery EncodeQueryItems(const std::vector<std::pair<QString, QString>> &items);
 
     QByteArray FixTimezone(const QByteArray &rfc2822_date);
-
-    QString numbers_to_hash(const QStringView s);
 
     // Convert Q_ENUM and Q_ENUM_NS objects to their string value.
     template<typename T>

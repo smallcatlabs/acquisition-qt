@@ -29,17 +29,8 @@ QByteArray json::writeCharacter(const poe::Character &character)
     return write_json(character);
 }
 
-QByteArray json::writeCharacterList(const std::vector<poe::Character> &characters)
-{
-    return write_json(characters);
-}
-
 QByteArray json::writeStash(const poe::StashTab &stash)
 {
     return write_json(stash);
 }
 
-QByteArray json::writeStashList(const std::vector<poe::StashTab> &stashes)
-{
-    return write_json(stashes);
-}

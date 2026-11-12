@@ -26,7 +26,6 @@ private slots:
     // for mutations outside any caller batch — one boundary per operation,
     // emitted only after the mutation completes.
     void unbatchedTabCompressionEmitsOnceAfterErase();
-    void unbatchedItemCompressionEmitsOnceAfterErase();
 
     // #251: a price read from an in-game note or tab name is cleared when
     // the note or name stops yielding one, on the snapshot and delta paths.
@@ -328,30 +327,6 @@ void BuyoutManagerTest::unbatchedTabCompressionEmitsOnceAfterErase()
     const std::set<QString> expected{"s2-gone-one", "s2-gone-two"};
     QCOMPARE(reportedTabs, expected);
     QVERIFY(fixture.manager->GetTab(keep).IsActive());
-}
-
-void BuyoutManagerTest::unbatchedItemCompressionEmitsOnceAfterErase()
-{
-    BuyoutManagerFixture fixture;
-    const Item goneOne = makeTestItem("s2-compress-one");
-    const Item goneTwo = makeTestItem("s2-compress-two");
-    fixture.manager->Set(goneOne, makeChaosBuyout(1.0));
-    fixture.manager->Set(goneTwo, makeChaosBuyout(2.0));
-
-    int emissions = 0;
-    bool observedPostEraseState = false;
-    QObject::connect(fixture.manager.get(),
-                     &BuyoutManager::BuyoutsChanged,
-                     [&](const BuyoutChangeSet &changes) {
-                         ++emissions;
-                         observedPostEraseState = fixture.manager->Get(goneOne).IsNull()
-                                                  && fixture.manager->Get(goneTwo).IsNull()
-                                                  && (changes.item_ids.size() == 2);
-                     });
-    fixture.manager->CompressItemBuyouts(Items());
-
-    QCOMPARE(emissions, 1);
-    QVERIFY(observedPostEraseState);
 }
 
 // #251: deleting an item's in-game note clears the price it set — the

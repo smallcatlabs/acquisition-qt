@@ -27,7 +27,6 @@ constexpr const char* GITHUB_DOWNLOADS_URL = "https://github.com/smallcatlabs/ac
 struct GitHubReleaseTag
 {
     QString tag_name;
-    bool draft;
     bool prerelease;
 };
 
@@ -170,7 +169,6 @@ std::vector<UpdateChecker::ReleaseTag> UpdateChecker::ParseReleaseTags(const QBy
         }
 
         // Parse the release flags
-        release.draft = github_release.draft;
         release.prerelease = github_release.prerelease;
 
         // Add this release to the list.

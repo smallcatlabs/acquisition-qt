@@ -6,8 +6,6 @@
 #include <QDir>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QRegularExpression>
-#include <QRegularExpressionMatch>
 #include <QSaveFile>
 #include <QString>
 
@@ -272,17 +270,5 @@ QByteArray RePoE::ReadFile(const QString &filename)
     } else {
         const QByteArray data = file.readAll();
         return data;
-    }
-}
-
-QString RePoE::ParseVersion(const QString &contents)
-{
-    static const QRegularExpression versionRegex(R"(<title>.*?([\d.]+)</title>)");
-    const QRegularExpressionMatch match = versionRegex.match(contents);
-    if (match.hasMatch()) {
-        return match.captured(1);
-    } else {
-        spdlog::error("RePoE: cannot parse version: {}", contents);
-        return QString();
     }
 }

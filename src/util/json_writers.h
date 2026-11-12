@@ -52,9 +52,7 @@ namespace json {
     // must be faithful.
 
     QByteArray writeCharacter(const poe::Character &character);
-    QByteArray writeCharacterList(const std::vector<poe::Character> &json);
 
     QByteArray writeStash(const poe::StashTab &stash);
-    QByteArray writeStashList(const std::vector<poe::StashTab> &json);
 
 } // namespace json

@@ -33,7 +33,6 @@ class BuyoutRepo;
 class CharacterRepo;
 class CurrencyDialog;
 class CurrencyManager;
-class DataStore;
 class ImageCache;
 class Item;
 class ItemLocation;
@@ -62,7 +61,6 @@ public:
     explicit MainWindow(QSettings &m_settings,
                         NetworkManager &network_manager,
                         RateLimiter &rate_limiter,
-                        DataStore &datastore,
                         ItemsManager &items_mangaer,
                         BuyoutManager &buyout_manager,
                         BuyoutRepo &buyout_repo,
@@ -227,7 +225,6 @@ private:
     QSettings &m_settings;
     NetworkManager &m_network_manager;
     RateLimiter &m_rate_limiter;
-    DataStore &m_datastore;
     ItemsManager &m_items_manager;
     BuyoutManager &m_buyout_manager;
     BuyoutRepo &m_buyout_repo;
@@ -270,7 +267,6 @@ private:
     QVBoxLayout *m_search_form_layout;
     QMenu m_context_menu;
     QPushButton m_update_button;
-    QPushButton m_refresh_button;
     QTimer m_delayed_update_current_item;
     QTimer m_delayed_search_form_change;
     QTimer m_delayed_resize_columns;

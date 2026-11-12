@@ -36,7 +36,5 @@ public slots:
     bool reconcileCharacterList(const std::vector<poe::Character> &characters, const QString &realm);
 
 private:
-    bool saveListTransaction(const std::vector<poe::Character> &characters);
-
     QSqlDatabase &m_db;
 };

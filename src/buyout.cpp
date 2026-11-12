@@ -37,7 +37,6 @@ bool Buyout::IsValid() const
         return (currency != Currency::CURRENCY_NONE) && (source != BUYOUT_SOURCE_NONE);
     default:
         spdlog::error("Invalid buyout type: {}", static_cast<int>(type));
-        spdlog::error("{}", QString("hello"));
         return false;
     }
 }

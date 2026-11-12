@@ -236,7 +236,7 @@ Application::CoreServices::CoreServices(const QDir &appDataDir)
 
 Application::UserSession::UserSession(const Application::CoreServices &core)
 {
-    spdlog::trace("Application::InitLogin() entered");
+    spdlog::trace("Application::UserSession::UserSession() entered");
 
     const auto &dir = core.dir;
     auto &settings = *core.settings;
@@ -251,19 +251,19 @@ Application::UserSession::UserSession(const Application::CoreServices &core)
     if (account.isEmpty()) {
         FatalError("Login failure: the account has not been set.");
     }
-    spdlog::trace("Application::InitLogin() league = {}", league);
-    spdlog::trace("Application::InitLogin() account = {}", account);
+    spdlog::trace("Application::UserSession::UserSession() league = {}", league);
+    spdlog::trace("Application::UserSession::UserSession() account = {}", account);
 
     QDir data_dir = dir.filePath("data");
     const QString data_file = SqliteDataStore::MakeFilename(account, league);
     const QString data_path = data_dir.absoluteFilePath(data_file);
-    spdlog::trace("Application::InitLogin() data_path = {}", data_path);
+    spdlog::trace("Application::UserSession::UserSession() data_path = {}", data_path);
     data = std::make_unique<SqliteDataStore>(data_path);
 
-    spdlog::trace("Application::InitLogin() creating user datastore");
+    spdlog::trace("Application::UserSession::UserSession() creating user datastore");
     userstore = std::make_unique<UserStore>(data_dir, account);
 
-    spdlog::trace("Application::InitLogin() creating rate limiter");
+    spdlog::trace("Application::UserSession::UserSession() creating rate limiter");
     rate_limiter = std::make_unique<RateLimiter>(network_manager);
     if (settings.value("network_capture_enabled", false).toBool()) {
         // One file per session, stamped at enable time: a fixed name would
@@ -275,19 +275,19 @@ Application::UserSession::UserSession(const Application::CoreServices &core)
         rate_limiter->EnableCapture(dir.filePath(capture_name));
     }
 
-    spdlog::trace("Application::InitLogin() creating the api client");
+    spdlog::trace("Application::UserSession::UserSession() creating the api client");
     api = std::make_unique<PoeApiClient>(*rate_limiter);
 
-    spdlog::trace("Application::InitLogin() creating buyout manager");
+    spdlog::trace("Application::UserSession::UserSession() creating buyout manager");
     buyout_manager = std::make_unique<BuyoutManager>(*data, userstore->buyouts());
 
-    spdlog::trace("Application::InitLogin() creating items manager");
+    spdlog::trace("Application::UserSession::UserSession() creating items manager");
     items_manager = std::make_unique<ItemsManager>(settings, *buyout_manager);
 
-    spdlog::trace("Application::InitLogin() creating items worker");
+    spdlog::trace("Application::UserSession::UserSession() creating items worker");
     items_worker = std::make_unique<ItemsManagerWorker>(settings, *buyout_manager, *api);
 
-    spdlog::trace("Application::InitLogin() creating shop");
+    spdlog::trace("Application::UserSession::UserSession() creating shop");
     shop = std::make_unique<Shop>(settings,
                                   network_manager,
                                   *api,
@@ -295,7 +295,7 @@ Application::UserSession::UserSession(const Application::CoreServices &core)
                                   *items_manager,
                                   *buyout_manager);
 
-    spdlog::trace("Application::InitLogin() creating currency manager");
+    spdlog::trace("Application::UserSession::UserSession() creating currency manager");
     currency_manager = std::make_unique<CurrencyManager>(settings, *data, *items_manager);
 
     // Prepare to show the main window now that everything is initialized.
@@ -303,7 +303,6 @@ Application::UserSession::UserSession(const Application::CoreServices &core)
     main_window.reset(CreateMainWindow(settings,
                                        network_manager,
                                        *rate_limiter,
-                                       *data,
                                        *items_manager,
                                        *buyout_manager,
                                        userstore->buyouts(),
@@ -333,7 +332,6 @@ void Application::OnLogin()
     if (repoe().IsInitialized()) {
         spdlog::debug("Application: RePoE data is available.");
         items_worker().OnRePoEReady();
-        emit repoe().finished();
     } else {
         spdlog::debug("Application: Waiting for RePoE data.");
         connect(&repoe(), &RePoE::finished, &items_worker(), &ItemsManagerWorker::OnRePoEReady);
@@ -364,12 +362,7 @@ void Application::SetSessionId(const QString &poesessid)
 
 void Application::SetTheme(const QString &theme)
 {
-    spdlog::trace("Application::OnSetTheme() entered");
-
-    if (0 == theme.compare(m_active_theme, Qt::CaseInsensitive)) {
-        spdlog::debug("Theme is already set: {}", theme);
-        return;
-    }
+    spdlog::trace("Application::SetTheme() entered");
 
     QString stylesheet;
     QColor text_color;
@@ -388,12 +381,12 @@ void Application::SetTheme(const QString &theme)
         return;
     }
 
-    spdlog::trace("Application::OnSetTheme() setting theme: {}", theme);
+    spdlog::trace("Application::SetTheme() setting theme: {}", theme);
     settings().setValue("theme", theme);
 
     QString style_data;
     if (!stylesheet.isEmpty()) {
-        spdlog::trace("Application::OnSetTheme() loading stylesheet: {}", stylesheet);
+        spdlog::trace("Application::SetTheme() loading stylesheet: {}", stylesheet);
         QFile f(stylesheet);
         if (f.exists()) {
             if (!f.open(QFile::ReadOnly | QFile::Text)) {
@@ -407,7 +400,7 @@ void Application::SetTheme(const QString &theme)
         }
     }
 
-    spdlog::trace("Application::OnSetTheme() setting stylesheet");
+    spdlog::trace("Application::SetTheme() setting stylesheet");
     qApp->setStyleSheet(style_data);
 }
 

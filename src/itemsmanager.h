@@ -20,23 +20,16 @@
 class QSettings;
 
 class BuyoutManager;
-class Shop;
 
-/*
- * ItemsManager manages an ItemsManagerWorker (which lives in a separate thread)
- * and glues it to the rest of Acquisition.
- * (No longer true as of v0.10.0, but we will see if this causes performance issues).
- */
+// ItemsManager holds the published item collection: it applies the
+// worker's snapshots and deltas, runs the pricing passes over them, and
+// re-emits them for the UI. It and the worker live on the main thread.
 class ItemsManager : public QObject
 {
     Q_OBJECT
 public:
     explicit ItemsManager(QSettings &settings, BuyoutManager &buyout_manager);
     ~ItemsManager();
-    //bool isInitialized() const { return m_worker ? m_worker->isInitialized() : false; }
-    //bool isUpdating() const { return m_worker ? m_worker->isUpdating() : false; }
-    // Creates and starts the worker
-    void Start();
     void Update(TabSelection type, const std::vector<ItemLocation> &tab_names = {});
     void SetAutoUpdateInterval(int minutes);
     void SetAutoUpdate(bool update);
@@ -77,7 +70,6 @@ signals:
     // exactly once per accepted update, after every delta of that update.
     void RefreshFinished(const RefreshOutcome &outcome);
     void StatusUpdate(ProgramState state, const QString &status);
-    void UpdateModListSignal();
 
 private:
     // Scoped per-delta pricing (M2 D7): item-local, fail-safe on both

@@ -59,8 +59,6 @@ typedef std::unordered_map<QString, double> ModTable;
 class Item
 {
 public:
-    typedef const std::unordered_map<QString, QString> CategoryReplaceMap;
-
     enum INFLUENCE_TYPES {
         NONE,
         SHAPER,
@@ -152,8 +150,6 @@ public:
     bool operator<(const Item &other) const;
     bool Wearable() const;
     QString POBformat() const;
-    static const size_t k_CategoryLevels = 3;
-    static const std::array<CategoryReplaceMap, k_CategoryLevels> m_replace_map;
 
 private:
     void LoadInfluences(const poe::Item &item);
@@ -181,7 +177,6 @@ private:
     int m_w{0};
     int m_h{0};
     int m_frameType{-1};
-    QString m_frameTypeId;
     QString m_icon;
     std::map<QString, QString> m_properties;
     std::map<QString, double> m_numeric_properties;

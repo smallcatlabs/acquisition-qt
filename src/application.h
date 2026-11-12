@@ -119,5 +119,4 @@ private:
     std::unique_ptr<UserSession> m_session;
 
     QDir m_data_dir;
-    QString m_active_theme;
 };

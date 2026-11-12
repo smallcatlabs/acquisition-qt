@@ -168,7 +168,6 @@ public:
     // Collapse/deactivation eviction (D1/R2-3/R2-4): keys leave, order and
     // flag persist.
     void EvictKeys() { m_keys.Release(); }
-    bool hasResidentKeys() const { return m_keys.resident(); }
 
     // The buyout key effect (R3-2): rebuild the resident entries of the
     // affected items — every entry when `everything` — so a batch's
