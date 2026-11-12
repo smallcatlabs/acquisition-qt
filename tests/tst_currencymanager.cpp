@@ -1,6 +1,8 @@
 #include <QDoubleSpinBox>
 #include <QLabel>
 #include <QSettings>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QtTest/QtTest>
 
 #include "currencymanager.h"
@@ -19,6 +21,7 @@ private slots:
     void ratioEditIsSavedAtOnce();
     void historyKeepsTwoUpdatesInOneSecond();
     void dialogOwnsItsRowsAndSkipsNone();
+    void failedHistoryInsertKeepsLastValue();
 };
 
 namespace {
@@ -140,6 +143,43 @@ void CurrencyManagerTest::dialogOwnsItsRowsAndSkipsNone()
     for (const CurrencyWidget *row : rows) {
         QVERIFY(!row->name->text().isEmpty());
     }
+}
+
+// #285: when the history insert failed, the last recorded value still
+// advanced, so the update was never written: the next one compared equal
+// and was skipped too. The value now advances only with its history row.
+void CurrencyManagerTest::failedHistoryInsertKeepsLastValue()
+{
+    CurrencyFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-285e", "Currency", 0);
+    fixture.items.OnItemsRefreshed({makeStack("chaos-285e", "Chaos Orb", 3, 20, tab)}, {tab}, false);
+    CurrencyManager currency(fixture.settings, *fixture.buyouts.data, fixture.items);
+    const QString before = fixture.buyouts.data->Get("currency_last_value");
+
+    // A second connection to the same file blocks the insert.
+    const QString connection = "currency-285e";
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connection);
+        db.setDatabaseName(fixture.buyouts.tempDir.filePath("acquisition.sqlite"));
+        QVERIFY(db.open());
+        QSqlQuery q(db);
+        QVERIFY(q.exec("CREATE TRIGGER block_currency BEFORE INSERT ON currency "
+                       "BEGIN SELECT RAISE(FAIL, 'test: insert blocked'); END"));
+    }
+    currency.Update();
+    QCOMPARE(fixture.buyouts.data->Get("currency_last_value"), before);
+    QVERIFY(fixture.buyouts.data->GetAllCurrency().empty());
+
+    {
+        QSqlDatabase db = QSqlDatabase::database(connection);
+        QSqlQuery q(db);
+        QVERIFY(q.exec("DROP TRIGGER block_currency"));
+        db.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+    currency.Update();
+    QVERIFY(fixture.buyouts.data->Get("currency_last_value") != before);
+    QCOMPARE(fixture.buyouts.data->GetAllCurrency().size(), size_t(1));
 }
 
 QTEST_MAIN(CurrencyManagerTest)

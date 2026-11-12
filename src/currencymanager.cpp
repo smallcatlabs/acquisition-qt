@@ -219,8 +219,11 @@ void CurrencyManager::SaveCurrencyValue()
         CurrencyUpdate update = CurrencyUpdate();
         update.timestamp = QDateTime::currentSecsSinceEpoch();
         update.value = value;
-        m_data.InsertCurrencyUpdate(update);
-        m_data.Set("currency_last_value", value);
+        // The last value advances only with its history row (#285), so an
+        // update that was not written is tried again next time.
+        if (m_data.InsertCurrencyUpdate(update)) {
+            m_data.Set("currency_last_value", value);
+        }
     }
 }
 
