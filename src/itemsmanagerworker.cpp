@@ -6,7 +6,6 @@
 #include <QCoroFuture>
 
 #include <QDir>
-#include <QFileInfo>
 #include <QSettings>
 #include <QThread>
 
@@ -109,6 +108,8 @@ namespace {
 } // namespace
 
 ItemsManagerWorker::ItemsManagerWorker(QSettings &settings,
+                                       const SessionIdentity &identity,
+                                       const QDir &data_dir,
                                        BuyoutManager &buyout_manager,
                                        PoeApiClient &api,
                                        QObject *parent)
@@ -116,6 +117,8 @@ ItemsManagerWorker::ItemsManagerWorker(QSettings &settings,
     , m_settings(settings)
     , m_buyout_manager(buyout_manager)
     , m_api(api)
+    , m_identity(identity)
+    , m_data_dir(data_dir)
     , m_type(TabSelection::Checked)
     , m_update_all(false)
     , m_need_stash_list(false)
@@ -125,12 +128,8 @@ ItemsManagerWorker::ItemsManagerWorker(QSettings &settings,
     , m_update_tab_contents(true)
 {
     spdlog::trace("ItemsManagerWorker::ItemsManagerWorker() entered");
-
-    m_realm = m_settings.value("realm").toString();
-    m_league = m_settings.value("league").toString();
-    m_account = m_settings.value("account").toString();
-    spdlog::trace("ItemsManagerWorker: league = {}", m_league);
-    spdlog::trace("ItemsManagerWorker: account = {}", m_account);
+    spdlog::trace("ItemsManagerWorker: league = {}", m_identity.league());
+    spdlog::trace("ItemsManagerWorker: account = {}", m_identity.account());
 }
 
 ItemsManagerWorker::~ItemsManagerWorker()
@@ -161,8 +160,7 @@ void ItemsManagerWorker::StartParseThread()
     // update the status bar while items are being parsed. This operation
     // can take tens of seconds or longer depending on the nubmer of tabs
     // and items.
-    const QFileInfo info(m_settings.fileName());
-    const QString dataDir = info.absolutePath() + "/data/";
+    const QString dataDir = m_data_dir.absolutePath();
     m_shutdown.store(false);
     m_parser_thread = QThread::create([this, dataDir]() {
         auto result = ParseCachedItems(dataDir);
@@ -197,11 +195,12 @@ ParseResult ItemsManagerWorker::ParseCachedItems(const QString &dataDir) const
     // Create a datastore to get a connection to the database.
     // NOTE: we only need read access, but this isn't enforced or checked.
     QDir data_dir{dataDir};
-    UserStore userstore{data_dir, m_account};
+    UserStore userstore{data_dir, m_identity.account()};
 
     // Get cached characters and stash tabs.
-    const auto stashes = userstore.stashes().getStashList(m_realm, m_league);
-    const auto characters = userstore.characters().getCharacterList(m_realm, m_league);
+    const auto stashes = userstore.stashes().getStashList(m_identity.realm(), m_identity.league());
+    const auto characters = userstore.characters().getCharacterList(m_identity.realm(),
+                                                                    m_identity.league());
 
     // Do not process children from unique and map stashers.
     auto special = [](const poe::StashTab &stash) {
@@ -237,7 +236,7 @@ ParseResult ItemsManagerWorker::ParseCachedItems(const QString &dataDir) const
             QThread::msleep(parse_delay_ms);
         }
         const auto id = stashes[i].id;
-        const auto stash = userstore.stashes().getStash(id, m_realm, m_league);
+        const auto stash = userstore.stashes().getStash(id, m_identity.realm(), m_identity.league());
         if (!stash) {
             // The row was listed but its contents were never fetched, so
             // there is nothing cached to load for it here.
@@ -280,7 +279,7 @@ ParseResult ItemsManagerWorker::ParseCachedItems(const QString &dataDir) const
             QThread::msleep(parse_delay_ms);
         }
         const auto name = characters[i].name;
-        const auto character = userstore.characters().getCharacter(name, m_realm);
+        const auto character = userstore.characters().getCharacter(name, m_identity.realm());
         if (!character) {
             // Listed but never fetched: nothing cached to load here.
             continue;
@@ -673,7 +672,7 @@ QCoro::Task<> ItemsManagerWorker::FetchStashList(std::stop_token token)
         Result<poe::StashListWrapper> result;
         try {
             // Move the payload out (S1-7): the worker is the single consumer.
-            auto future = m_api.listStashes(m_realm, m_league, token);
+            auto future = m_api.listStashes(m_identity.realm(), m_identity.league(), token);
             result = co_await qCoro(future).takeResult();
         } catch (...) {
             result = std::unexpected(MakeInternalError("the stash list fetch threw"));
@@ -700,7 +699,7 @@ QCoro::Task<> ItemsManagerWorker::FetchCharacterList(std::stop_token token)
     try {
         Result<poe::CharacterListWrapper> result;
         try {
-            auto future = m_api.listCharacters(m_realm, token);
+            auto future = m_api.listCharacters(m_identity.realm(), token);
             result = co_await qCoro(future).takeResult();
         } catch (...) {
             result = std::unexpected(MakeInternalError("the character list fetch threw"));
@@ -723,7 +722,11 @@ QCoro::Task<> ItemsManagerWorker::FetchStash(ItemLocation location,
     try {
         Result<poe::StashPayload> result;
         try {
-            auto future = m_api.getStash(m_realm, m_league, stash_id, substash_id, token);
+            auto future = m_api.getStash(m_identity.realm(),
+                                         m_identity.league(),
+                                         stash_id,
+                                         substash_id,
+                                         token);
             result = co_await qCoro(future).takeResult();
         } catch (...) {
             result = std::unexpected(MakeInternalError("the stash fetch threw"));
@@ -744,7 +747,7 @@ QCoro::Task<> ItemsManagerWorker::FetchCharacter(ItemLocation location,
     try {
         Result<poe::CharacterPayload> result;
         try {
-            auto future = m_api.getCharacter(m_realm, name, token);
+            auto future = m_api.getCharacter(m_identity.realm(), name, token);
             result = co_await qCoro(future).takeResult();
         } catch (...) {
             result = std::unexpected(MakeInternalError("the character fetch threw"));
@@ -792,7 +795,7 @@ void ItemsManagerWorker::ProcessTab(const poe::StashTab &tab, std::vector<ItemsR
     if (tab.children) {
         // These children need to be added to the database, since they weren't included
         // in the original list.
-        emit stashListReceived(*tab.children, m_realm, m_league);
+        emit stashListReceived(*tab.children, m_identity.realm(), m_identity.league());
         for (const auto &child : *tab.children) {
             ProcessTab(child, batch);
         }
@@ -819,11 +822,11 @@ void ItemsManagerWorker::OnStashListReceived(const Result<poe::StashListWrapper>
 
     const auto &stashes = result->stashes;
 
-    emit stashListReceived(stashes, m_realm, m_league);
+    emit stashListReceived(stashes, m_identity.realm(), m_identity.league());
     // Only a fresh top-level list may drive datastore deletion — never the
     // partial stashListReceived re-emits ProcessTab makes for folder
     // children (F53).
-    emit stashListReplaced(stashes, m_realm, m_league);
+    emit stashListReplaced(stashes, m_identity.realm(), m_identity.league());
 
     spdlog::debug("Received stash list, there are {} stash tabs", stashes.size());
 
@@ -896,9 +899,9 @@ void ItemsManagerWorker::OnCharacterListReceived(const Result<poe::CharacterList
 
     const auto &characters = result->characters;
 
-    emit characterListReceived(characters, m_realm);
+    emit characterListReceived(characters, m_identity.realm());
     // The fresh list is authoritative for the datastore too (F53).
-    emit characterListReplaced(characters, m_realm);
+    emit characterListReplaced(characters, m_identity.realm());
 
     // The fresh list is authoritative for characters: rebuild the character
     // entries of m_tabs from it, keeping stash entries untouched. This also
@@ -924,12 +927,16 @@ void ItemsManagerWorker::OnCharacterListReceived(const Result<poe::CharacterList
         const QString name = character.name;
         const QString realm = character.realm;
         const QString league = character.league.value_or("");
-        if (realm != m_realm) {
-            spdlog::trace("Skipping {} because this character is not in realm {}", name, m_realm);
+        if (realm != m_identity.realm()) {
+            spdlog::trace("Skipping {} because this character is not in realm {}",
+                          name,
+                          m_identity.realm());
             continue;
         }
-        if (league != m_league) {
-            spdlog::trace("Skipping {} because this character is not in league {}", name, m_league);
+        if (league != m_identity.league()) {
+            spdlog::trace("Skipping {} because this character is not in league {}",
+                          name,
+                          m_identity.league());
             continue;
         }
         ItemLocation location(character, int(m_tabs.size()));
@@ -948,7 +955,7 @@ void ItemsManagerWorker::OnCharacterListReceived(const Result<poe::CharacterList
             batch.push_back(ItemsRequest{CharacterFetch{name}, location});
         }
     }
-    spdlog::debug("There are {} characters to update in '{}'", batch.size(), m_league);
+    spdlog::debug("There are {} characters to update in '{}'", batch.size(), m_identity.league());
 
     // Drop items belonging to characters the server no longer lists.
     const size_t dropped = m_items.EraseSourcesIf(
@@ -1011,7 +1018,7 @@ void ItemsManagerWorker::OnStashReceived(const Result<poe::StashPayload> &result
 
     // The bytes ride along untouched (F62): the facade parsed this stash
     // from exactly this substring of the reply, and the datastore stores it.
-    emit stashReceived(stash, result->bytes, m_realm, m_league);
+    emit stashReceived(stash, result->bytes, m_identity.realm(), m_identity.league());
 
     // Atomically replace whatever this request fetched last time: for a
     // normal tab that is the tab's items, for a child of a special tab it
@@ -1118,7 +1125,10 @@ void ItemsManagerWorker::OnStashReceived(const Result<poe::StashPayload> &result
         // folder's own reply carries no children in the live API (F49), so
         // keying off a folder reply would wipe its legitimate child rows.
         if ((stash.type == "MapStash") || (stash.type == "UniqueStash")) {
-            emit stashChildrenReplaced(location.id(), child_ids, m_realm, m_league);
+            emit stashChildrenReplaced(location.id(),
+                                       child_ids,
+                                       m_identity.realm(),
+                                       m_identity.league());
         }
         const std::set<FetchSourceKey> expected_keys(expected.begin(), expected.end());
         const size_t dropped = m_items.EraseSourcesIf(
@@ -1182,7 +1192,7 @@ void ItemsManagerWorker::OnCharacterReceived(const Result<poe::CharacterPayload>
 
     const auto &character = result->character;
 
-    emit characterReceived(character, result->bytes, m_realm);
+    emit characterReceived(character, result->bytes, m_identity.realm());
 
     // Atomically replace this character's items: one bucket swap, as in
     // OnStashReceived.

@@ -258,7 +258,11 @@ namespace {
             } else {
                 api = std::make_unique<PoeApiClient>(*limiter);
             }
-            worker = std::make_unique<ItemsManagerWorker>(settings, *bm.manager, *api);
+            worker = std::make_unique<ItemsManagerWorker>(settings,
+                                                          makeTestIdentity(account, kRealm, kLeague),
+                                                          QDir(dataDir()),
+                                                          *bm.manager,
+                                                          *api);
             WorkerTestAccess(*worker).setSweepObserver(&sweep);
 
             QObject::connect(worker.get(),

@@ -12,6 +12,8 @@
 
 #include <memory>
 
+#include "sessionidentity.h"
+
 class QNetworkReply;
 class QSettings;
 
@@ -55,7 +57,7 @@ public slots:
     void ClearSessionId();
     void SetSessionId(const QString &poesessid);
     void SetTheme(const QString &theme);
-    void OnLogin();
+    void OnLogin(const SessionIdentity &identity);
     void OnItemsRefreshed(bool initial_refresh);
 
 private:
@@ -76,7 +78,7 @@ private:
 
     struct UserSession
     {
-        UserSession(const Application::CoreServices &core);
+        UserSession(const Application::CoreServices &core, const SessionIdentity &identity);
 
         std::unique_ptr<DataStore> data;
         std::unique_ptr<UserStore> userstore;
@@ -116,7 +118,7 @@ private:
     inline MainWindow &main_window() const { return *session().main_window; }
 
     void InitCoreServices();
-    void InitUserSession();
+    void InitUserSession(const SessionIdentity &identity);
 
     std::unique_ptr<CoreServices> m_core;
     std::unique_ptr<UserSession> m_session;
