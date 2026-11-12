@@ -98,20 +98,6 @@ public:
     const QImage socket_s{":/sockets/Socket_S.png"};
     const QImage link_h{":/sockets/Socket_Link_Horizontal.png"};
     const QImage link_v{":/sockets/Socket_Link_Vertical.png"};
-    const QImage elder_1x1{":/backgrounds/ElderBackground_1x1.png"};
-    const QImage elder_1x3{":/backgrounds/ElderBackground_1x3.png"};
-    const QImage elder_1x4{":/backgrounds/ElderBackground_1x4.png"};
-    const QImage elder_2x1{":/backgrounds/ElderBackground_2x1.png"};
-    const QImage elder_2x2{":/backgrounds/ElderBackground_2x2.png"};
-    const QImage elder_2x3{":/backgrounds/ElderBackground_2x3.png"};
-    const QImage elder_2x4{":/backgrounds/ElderBackground_2x4.png"};
-    const QImage shaper_1x1{":/backgrounds/ShaperBackground_1x1.png"};
-    const QImage shaper_1x3{":/backgrounds/ShaperBackground_1x3.png"};
-    const QImage shaper_1x4{":/backgrounds/ShaperBackground_1x4.png"};
-    const QImage shaper_2x1{":/backgrounds/ShaperBackground_2x1.png"};
-    const QImage shaper_2x2{":/backgrounds/ShaperBackground_2x2.png"};
-    const QImage shaper_2x3{":/backgrounds/ShaperBackground_2x3.png"};
-    const QImage shaper_2x4{":/backgrounds/ShaperBackground_2x4.png"};
     const QImage shaper_icon{":/symbols/ShaperSymbol.png"};
     const QImage elder_icon{":/symbols/ElderSymbol.png"};
     const QImage crusader_icon{":/symbols/CrusaderSymbol.png"};
@@ -124,9 +110,85 @@ public:
     const QImage eater_of_worlds_icon{":/symbols/EaterOfWorldsSymbol.png"};
 };
 
-static std::array FrameToKey = {"White", "Magic", "Rare", "Unique", "Gem", "Currency"};
+ItemFrameStyle ItemFrameStyleFor(int frame_type, bool singleline)
+{
+    // Header and separator art exists for White, Magic, Rare, Unique, Gem
+    // and Currency (headers for Rare and Unique also in a single-line form).
+    // A frame type without art of its own borrows the closest.
+    struct Style
+    {
+        const char *header;
+        const char *separator;
+        const char *color;
+    };
+    static constexpr Style normal{"White", "White", "#c8c8c8"};
+    Style style = normal;
+    switch (frame_type) {
+    case FrameType::FRAME_TYPE_NORMAL:
+        break;
+    case FrameType::FRAME_TYPE_MAGIC:
+        style = {"Magic", "Magic", "#88f"};
+        break;
+    case FrameType::FRAME_TYPE_RARE:
+        style = {"Rare", "Rare", "#ff7"};
+        break;
+    case FrameType::FRAME_TYPE_UNIQUE:
+        style = {"Unique", "Unique", "#af6025"};
+        break;
+    case FrameType::FRAME_TYPE_GEM:
+        style = {"Gem", "Gem", "#1ba29b"};
+        break;
+    case FrameType::FRAME_TYPE_CURRENCY:
+        style = {"Currency", "Currency", "#aa9e82"};
+        break;
+    case FrameType::FRAME_TYPE_DIVINATION_CARD:
+        // No divination card header art: borrow Currency's.
+        style = {"Currency", "Currency", "#0ebaff"};
+        break;
+    case FrameType::FRAME_TYPE_QUEST_ITEM:
+        // No quest art in the resources: borrow Gem's. (assets/separators
+        // has SeparatorQuest.png, but it is not compiled in.)
+        style = {"Gem", "Gem", "#4ae63a"};
+        break;
+    case FrameType::FRAME_TYPE_PROPHECY:
+        // No prophecy header or separator art: borrow Magic's.
+        style = {"Magic", "Magic", "#b54bff"};
+        break;
+    case FrameType::FRAME_TYPE_FOIL:
+    case FrameType::FRAME_TYPE_SUPPORTER_FOIL:
+        // Foil (relic) uniques: the Unique art in the relic colour.
+        style = {"Unique", "Unique", "#82ad6a"};
+        break;
+    case FrameType::FRAME_TYPE_NECROPOLIS:
+    case FrameType::FRAME_TYPE_GOLD:
+    case FrameType::FRAME_TYPE_BREACH_SKILL:
+    default:
+        // Art and colour not known here: drawn as a normal item.
+        break;
+    }
+    const QString header(style.header);
+    const bool has_single_line_art = (header == "Rare") || (header == "Unique");
+    const QString suffix = (singleline && has_single_line_art) ? "SingleLine" : "";
+    return {":/headers/" + header + suffix, style.separator, style.color};
+}
 
-static std::array FrameToColor = {"#c8c8c8", "#88f", "#ff7", "#af6025", "#1ba29b", "#aa9e82"};
+QString InfluenceBackgroundFor(const Item &item)
+{
+    // An item with both influences keeps the Elder art, as before.
+    const char *art = item.hasInfluence(Item::ELDER)    ? "Elder"
+                      : item.hasInfluence(Item::SHAPER) ? "Shaper"
+                                                        : nullptr;
+    if (!art) {
+        return {};
+    }
+    const int width = item.w();
+    const int height = item.h();
+    // Art exists for widths 1-2 and heights 1-4, except 1x2.
+    if (width < 1 || width > 2 || height < 1 || height > 4 || (width == 1 && height == 2)) {
+        return {};
+    }
+    return QString(":/backgrounds/%1Background_%2x%3.png").arg(art).arg(width).arg(height);
+}
 
 static void UpdateMinimap(const Item &item, Ui::MainWindow *ui)
 {
@@ -177,17 +239,14 @@ void GenerateItemHeaderSide(QLabel *itemHeader,
 
 void UpdateItemTooltip(const Item &item, Ui::MainWindow *ui)
 {
-    size_t frame = item.frameType();
-    if (frame >= FrameToKey.size()) {
-        frame = 0;
-    }
-    QString key = FrameToKey[frame];
+    const bool singleline = item.name().isEmpty();
+    const ItemFrameStyle style = ItemFrameStyleFor(item.frameType(), singleline);
+    const QString &key = style.separator_key;
 
     ui->propertiesLabel->setText(GenerateItemInfo(item, key, true));
     ui->itemTextTooltip->setText(GenerateItemInfo(item, key, false));
     UpdateMinimap(item, ui);
 
-    bool singleline = item.name().isEmpty();
     if (singleline) {
         ui->itemNameFirstLine->hide();
         ui->itemNameSecondLine->setAlignment(Qt::AlignCenter);
@@ -198,12 +257,7 @@ void UpdateItemTooltip(const Item &item, Ui::MainWindow *ui)
         ui->itemNameSecondLine->setAlignment(Qt::AlignTop | Qt::AlignHCenter);
         ui->itemNameContainerWidget->setFixedSize(16777215, HEADER_DOUBLELINE_HEIGHT);
     }
-    QString suffix = (singleline
-                      && (frame == FrameType::FRAME_TYPE_RARE
-                          || frame == FrameType::FRAME_TYPE_UNIQUE))
-                         ? "SingleLine"
-                         : "";
-    QString header_path_prefix = ":/headers/" + key + suffix;
+    const QString &header_path_prefix = style.header_prefix;
 
     GenerateItemHeaderSide(ui->itemHeaderLeft,
                            true,
@@ -223,7 +277,7 @@ void UpdateItemTooltip(const Item &item, Ui::MainWindow *ui)
     ui->itemNameFirstLine->setText(item.name());
     ui->itemNameSecondLine->setText(item.typeLine());
 
-    const QString color = FrameToColor[frame];
+    const QString &color = style.color;
     const QString css
         = "border-image: none; background-color: transparent; font-size: 20px; color: " + color;
     ui->itemNameFirstLine->setStyleSheet(css);
@@ -314,7 +368,6 @@ QPixmap GenerateItemSockets(const int width,
 
 QPixmap GenerateItemIcon(const Item &item, const QImage &image)
 {
-    static const auto &images = IMAGES::instance();
     const int height = item.h();
     const int width = item.w();
 
@@ -322,49 +375,11 @@ QPixmap GenerateItemIcon(const Item &item, const QImage &image)
     layered.fill(Qt::transparent);
     QPainter layered_painter(&layered);
 
-    if (item.hasInfluence(Item::SHAPER) || item.hasInfluence(Item::ELDER)) {
-        // Assumes width <= 2
-        const QImage *background_image = nullptr;
-        if (item.hasInfluence(Item::ELDER)) {
-            switch (height) {
-            case 1:
-                background_image = width == 1 ? &images.shaper_1x1 : &images.shaper_2x1;
-                break;
-            case 2:
-                background_image = width == 1 ? nullptr : &images.shaper_2x2;
-                break;
-            case 3:
-                background_image = width == 1 ? &images.shaper_1x3 : &images.shaper_2x3;
-                break;
-            case 4:
-                background_image = width == 1 ? &images.shaper_1x4 : &images.shaper_2x4;
-                break;
-            default:
-                break;
-            }
-        } else { // Elder
-            switch (height) {
-            case 1:
-                background_image = width == 1 ? &images.elder_1x1 : &images.elder_2x1;
-                break;
-            case 2:
-                background_image = width == 1 ? nullptr : &images.elder_2x2;
-                break;
-            case 3:
-                background_image = width == 1 ? &images.elder_1x3 : &images.elder_2x3;
-                break;
-            case 4:
-                background_image = width == 1 ? &images.elder_1x4 : &images.elder_2x4;
-                break;
-            default:
-                break;
-            }
-        }
-        if (background_image) {
-            layered_painter.drawImage(0, 0, *background_image);
-        } else {
-            spdlog::error("Problem drawing background for {}", item.PrettyName());
-        }
+    // No background is drawn where no art exists (1x2, or a size wider or
+    // taller than the art).
+    const QString background = InfluenceBackgroundFor(item);
+    if (!background.isEmpty()) {
+        layered_painter.drawImage(0, 0, QImage(background));
     }
 
     layered_painter.drawImage(0, 0, image);
