@@ -69,9 +69,15 @@ QByteArrayList RateLimit::ParseRateLimitState(QNetworkReply *const reply, const 
     return ParseHeaderList(reply, "X-Rate-Limit-" + rule + "-State", ',');
 }
 
-// Return the date from the HTTP reply headers.
+// Return the date from the HTTP reply headers. Date is optional: a reply
+// without one (a transport failure has no headers at all) yields an invalid
+// date without logging; only a Date that is present but unparseable is an
+// error.
 QDateTime RateLimit::ParseDate(QNetworkReply *const reply)
 {
+    if (!reply->hasRawHeader("Date")) {
+        return QDateTime();
+    }
     const QString timestamp = QString(Util::FixTimezone(ParseHeader(reply, "Date")));
     const QDateTime date = QDateTime::fromString(timestamp, Qt::RFC2822Date).toLocalTime();
     if (!date.isValid()) {

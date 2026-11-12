@@ -14,7 +14,11 @@
 #include <QTemporaryDir>
 
 #include <chrono>
+#include <sstream>
 #include <stdexcept>
+
+#include <spdlog/logger.h>
+#include <spdlog/sinks/ostream_sink.h>
 
 #include "fakenetwork.h"
 #include "fakescheduler.h"
@@ -93,6 +97,9 @@ private slots:
     void cancelInFlightLetsReplyLandAndRecordsViolation();
     void awaitingCoroutineResumesSafelyOnCancel();
     void siblingResumesCanceledWhenSharedSourceStops();
+    // #281: Date is optional.
+    void headerlessReplyLogsNoDateError();
+    void unparseableDateIsStillAnError();
 };
 
 namespace {
@@ -1404,6 +1411,106 @@ void RateLimitManagerTest::siblingResumesCanceledWhenSharedSourceStops()
     QVERIFY(resumed);
     QCOMPARE(kind, RateLimit::FetchError::Kind::Canceled);
     QCOMPARE(rig.sender.count(), 1); // the sibling never sent
+}
+
+namespace {
+
+    // Captures the error-level lines the default logger writes while in
+    // scope, then restores the previous default logger.
+    class ErrorLogCapture
+    {
+    public:
+        ErrorLogCapture()
+            : m_previous(spdlog::default_logger())
+        {
+            auto sink = std::make_shared<spdlog::sinks::ostream_sink_mt>(m_stream);
+            sink->set_pattern("%v");
+            auto logger = std::make_shared<spdlog::logger>("ratelimit-date-capture", sink);
+            logger->set_level(spdlog::level::err);
+            spdlog::set_default_logger(logger);
+        }
+        ~ErrorLogCapture() { spdlog::set_default_logger(m_previous); }
+        ErrorLogCapture(const ErrorLogCapture &) = delete;
+        ErrorLogCapture &operator=(const ErrorLogCapture &) = delete;
+
+        QStringList lines() const
+        {
+            return QString::fromStdString(m_stream.str()).split('\n', Qt::SkipEmptyParts);
+        }
+
+    private:
+        std::ostringstream m_stream;
+        std::shared_ptr<spdlog::logger> m_previous;
+    };
+
+    QStringList dateLines(const QStringList &lines)
+    {
+        QStringList matched;
+        for (const QString &line : lines) {
+            if (line.contains("date", Qt::CaseInsensitive)) {
+                matched.append(line);
+            }
+        }
+        return matched;
+    }
+
+} // namespace
+
+// #281: a transport failure lands with no headers at all. Its missing Date
+// is not an error of its own: no error-level line about the date is logged
+// on top of the real failure.
+void RateLimitManagerTest::headerlessReplyLogsNoDateError()
+{
+    Rig rig;
+    installPolicy(rig.manager, "10:60:60", "0:60:0");
+
+    Caller caller;
+    caller.attach(rig.manager.QueueRequest(kEndpoint, request("one"), caller.token()));
+    advanceAndSettle(rig.scheduler, std::chrono::milliseconds(kNormalBufferMsec));
+    QCOMPARE(rig.sender.count(), 1);
+
+    QStringList errors;
+    {
+        ErrorLogCapture capture;
+        rig.sender.sent(0).reply->finish({}, 0, QNetworkReply::ConnectionRefusedError);
+        drainEvents();
+        errors = capture.lines();
+    }
+    QCOMPARE(caller.completions, 1);
+    QCOMPARE(caller.kind(), RateLimit::FetchError::Kind::Network);
+    QCOMPARE(dateLines(errors), QStringList());
+    // Only the real failure is reported.
+    QCOMPARE(errors.size(), 1);
+}
+
+// A Date that is present but unparseable is still reported at error level,
+// and parses to an invalid time, as before.
+void RateLimitManagerTest::unparseableDateIsStillAnError()
+{
+    FakeNetworkReply reply(request("date"),
+                           "",
+                           QNetworkReply::NoError,
+                           nullptr,
+                           {{"Date", "not a date"}},
+                           200);
+    QDateTime date;
+    QStringList errors;
+    {
+        ErrorLogCapture capture;
+        date = RateLimit::ParseDate(&reply);
+        errors = capture.lines();
+    }
+    QVERIFY(!date.isValid());
+    QCOMPARE(dateLines(errors).size(), 1);
+
+    FakeNetworkReply good(request("date"),
+                          "",
+                          QNetworkReply::NoError,
+                          nullptr,
+                          {{"Date", "Wed, 11 Nov 2026 12:00:00 GMT"}},
+                          200);
+    QCOMPARE(RateLimit::ParseDate(&good),
+             QDateTime(QDate(2026, 11, 11), QTime(12, 0), QTimeZone::UTC).toLocalTime());
 }
 
 QTEST_GUILESS_MAIN(RateLimitManagerTest)
