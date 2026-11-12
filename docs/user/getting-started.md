@@ -50,7 +50,9 @@ still needs a POESESSID cookie; see [Forum shop](forum-shop.md).
 The main window title reads `Acquisition [version] - <League> League [<account>]`.
 
 Acquisition first loads any items it cached from a previous session, so a large
-account is searchable within seconds of logging in. Then you can use it to fetch
+account is searchable within seconds of logging in. If the cache cannot be read,
+the status bar says *Could not read the cached items; see the log*; the window
+starts empty and a refresh fetches everything again. Then you can use it to fetch
 the stash tab list from the API. You can refresh **all tabs**, **checked tabs**,
 or **selected tabs** using the right click context menu and/or menubar. See
 [Settings and troubleshooting](settings-and-troubleshooting.md#refreshing-items)
