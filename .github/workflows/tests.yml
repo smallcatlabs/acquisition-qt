@@ -87,9 +87,12 @@ jobs:
           restore-keys: |
             ccache-tests-${{ runner.os }}-
 
+      # ACQ_WERROR makes a warning in first-party code fail the pull request.
+      # Release builds leave it off, so a newer compiler there only warns.
       - name: Configure
         run: >
           cmake --preset release
+          -DACQ_WERROR=ON
           -DCMAKE_C_COMPILER_LAUNCHER=ccache
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
