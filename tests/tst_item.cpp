@@ -27,6 +27,7 @@ private slots:
     void valuelessModStoresZero();
     void decimalModValueIgnoresProcessLocale();
     void ignoredFirstFormatStillSubstitutesTheRest();
+    void resonatorSocketsExportAsResonators();
 };
 
 // Real RePoE stat translations, cut from the game data (see
@@ -344,6 +345,31 @@ void ItemTest::ignoredFirstFormatStillSubstitutesTheRest()
         "explicitMods": [{"description": "Projectiles have 30% chance to Return to you"}]
     )json");
     QCOMPARE(item->mod_table().at("Projectiles have #% chance to Return to you"), 30.0);
+}
+
+// #267: a Delve resonator socket ("DV") is exported to Path of Building as
+// itself, not as a green socket; abyss and coloured sockets keep their
+// letters.
+void ItemTest::resonatorSocketsExportAsResonators()
+{
+    const auto resonator = makeItem("resonator", R"json(,
+        "sockets": [
+            {"group": 0, "attr": "DV", "sColour": "DV"},
+            {"group": 0, "attr": "DV", "sColour": "DV"},
+            {"group": 1, "attr": "DV", "sColour": "DV"}
+        ])json");
+    QVERIFY2(resonator->POBformat().contains("\nSockets: DV-DV DV\n"),
+             qPrintable(resonator->POBformat()));
+
+    const auto gear = makeItem("gear", R"json(,
+        "sockets": [
+            {"group": 0, "attr": "S", "sColour": "R"},
+            {"group": 0, "attr": "D", "sColour": "G"},
+            {"group": 1, "attr": "I", "sColour": "B"},
+            {"group": 1, "attr": "G", "sColour": "W"},
+            {"group": 2, "attr": "A", "sColour": "A"}
+        ])json");
+    QVERIFY2(gear->POBformat().contains("\nSockets: R-G B-W A\n"), qPrintable(gear->POBformat()));
 }
 
 QTEST_GUILESS_MAIN(ItemTest)

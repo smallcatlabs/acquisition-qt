@@ -9,6 +9,7 @@
 #include <QString>
 
 #include "utility"
+#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
@@ -534,6 +535,47 @@ void Item::LoadRequirements(const std::vector<poe::ItemProperty> &requirements)
     }
 }
 
+static std::optional<SocketKind> socket_kind(const poe::ItemSocket &socket)
+{
+    // The attribute and the colour name the same thing in two alphabets; PoE2
+    // sockets carry neither.
+    if (socket.attr) {
+        const QString &attr = *socket.attr;
+        if (attr == "S") {
+            return SocketKind::Red;
+        } else if (attr == "D") {
+            return SocketKind::Green;
+        } else if (attr == "I") {
+            return SocketKind::Blue;
+        } else if (attr == "G") {
+            return SocketKind::White;
+        } else if (attr == "A") {
+            return SocketKind::Abyss;
+        } else if (attr == "DV") {
+            return SocketKind::Resonator;
+        }
+        return SocketKind::Unknown;
+    }
+    if (socket.sColour) {
+        const QString &colour = *socket.sColour;
+        if (colour == "R") {
+            return SocketKind::Red;
+        } else if (colour == "G") {
+            return SocketKind::Green;
+        } else if (colour == "B") {
+            return SocketKind::Blue;
+        } else if (colour == "W") {
+            return SocketKind::White;
+        } else if (colour == "A") {
+            return SocketKind::Abyss;
+        } else if (colour == "DV") {
+            return SocketKind::Resonator;
+        }
+        return SocketKind::Unknown;
+    }
+    return std::nullopt;
+}
+
 void Item::LoadSockets(const std::vector<poe::ItemSocket> &sockets)
 {
     ItemSocketGroup current_group = {0, 0, 0, 0};
@@ -541,21 +583,12 @@ void Item::LoadSockets(const std::vector<poe::ItemSocket> &sockets)
     int counter = 0;
     int prev_group = -1;
     for (const auto &socket : sockets) {
-        QString code;
-        if (socket.attr) {
-            code = *socket.attr;
-        } else if (socket.sColour) {
-            code = *socket.sColour;
-        }
-
-        if (code.isEmpty()) {
+        const auto kind = socket_kind(socket);
+        if (!kind) {
             continue;
         }
-        // The tooltip and the POB export still read the first letter.
-        const char attr = code[0].toLatin1();
 
-        const int group = socket.group;
-        ItemSocket current_socket = {static_cast<unsigned char>(group), attr};
+        const ItemSocket current_socket = {static_cast<unsigned char>(socket.group), *kind};
         m_text_sockets.push_back(current_socket);
         if (prev_group != current_socket.group) {
             counter = 0;
@@ -565,20 +598,29 @@ void Item::LoadSockets(const std::vector<poe::ItemSocket> &sockets)
         prev_group = current_socket.group;
         ++counter;
         m_links_cnt = std::max(m_links_cnt, counter);
-        // Decided on the whole code: "DV" (Delve resonator) is not "D", and
-        // "DV" and "A" (abyss) sockets have no colour.
-        if (code == "S") {
+        // Abyss and resonator sockets count as sockets and links, with no
+        // colour.
+        switch (*kind) {
+        case SocketKind::Red:
             m_sockets.r++;
             current_group.r++;
-        } else if (code == "D") {
+            break;
+        case SocketKind::Green:
             m_sockets.g++;
             current_group.g++;
-        } else if (code == "I") {
+            break;
+        case SocketKind::Blue:
             m_sockets.b++;
             current_group.b++;
-        } else if (code == "G") {
+            break;
+        case SocketKind::White:
             m_sockets.w++;
             current_group.w++;
+            break;
+        case SocketKind::Abyss:
+        case SocketKind::Resonator:
+        case SocketKind::Unknown:
+            break;
         }
     }
     m_socket_groups.push_back(current_group);
@@ -749,28 +791,34 @@ QString Item::POBformat() const
     const auto &sockets = text_sockets();
     if (sockets.size() > 0) {
         pob << "\nSockets: ";
-        ItemSocket prev = {255, '-'};
+        ItemSocket prev = {255, SocketKind::Unknown};
         size_t i = 0;
         for (const auto &socket : sockets) {
             bool link = socket.group == prev.group;
             if (i > 0) {
                 pob << (link ? "-" : " ");
             }
-            switch (socket.attr) {
-            case 'S':
+            switch (socket.kind) {
+            case SocketKind::Red:
                 pob << "R";
                 break;
-            case 'D':
+            case SocketKind::Green:
                 pob << "G";
                 break;
-            case 'I':
+            case SocketKind::Blue:
                 pob << "B";
                 break;
-            case 'G':
+            case SocketKind::White:
                 pob << "W";
                 break;
-            default:
-                pob << socket.attr;
+            case SocketKind::Abyss:
+                pob << "A";
+                break;
+            case SocketKind::Resonator:
+                pob << "DV";
+                break;
+            case SocketKind::Unknown:
+                pob << "?";
                 break;
             }
             prev = socket;

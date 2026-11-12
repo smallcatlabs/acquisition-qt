@@ -43,21 +43,26 @@ public:
 
     const QImage getSocketImage(const ItemSocket &socket) const
     {
-        switch (socket.attr) {
-        case 'A':
-            return socket_a;
-        case 'D':
-            return socket_d;
-        case 'G':
-            return socket_g;
-        case 'I':
-            return socket_i;
-        case 'S':
+        switch (socket.kind) {
+        case SocketKind::Red:
             return socket_s;
-        default:
-            spdlog::error("ItemTooltip: invalid socket attr: {}", socket.attr);
+        case SocketKind::Green:
+            return socket_d;
+        case SocketKind::Blue:
+            return socket_i;
+        case SocketKind::White:
+            return socket_g;
+        case SocketKind::Abyss:
+            return socket_a;
+        case SocketKind::Resonator:
+            // There is no resonator socket art; draw nothing rather than
+            // another kind's.
+            return {};
+        case SocketKind::Unknown:
+            spdlog::error("ItemTooltip: unrecognised socket attribute");
             return {};
         }
+        return {};
     }
 
     const QImage getSymbol(Item::INFLUENCE_TYPES influence) const
@@ -298,7 +303,7 @@ QPixmap GenerateItemSockets(const int width,
 
     int socket_rows = 0;
     int socket_columns = 0;
-    ItemSocket prev = {255, '-'};
+    ItemSocket prev = {255, SocketKind::Unknown};
     int i = 0;
 
     if (sockets.size() == 0) {

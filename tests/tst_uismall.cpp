@@ -29,6 +29,9 @@ private slots:
     // #252
     void buyoutValue_data();
     void buyoutValue();
+
+    // #267
+    void resonatorSocketIsNotDrawnGreen();
 };
 
 void UiSmallTest::imgurSuccessReplyYieldsLink()
@@ -214,5 +217,57 @@ void UiSmallTest::buyoutValue()
     }
 }
 
-QTEST_GUILESS_MAIN(UiSmallTest)
+static Item makeSocketedItem(const char *attr, const char *colour)
+{
+    const QByteArray json = QString(R"json({
+        "baseType": "Primitive Chaotic Resonator",
+        "frameType": 5,
+        "frameTypeId": "Currency",
+        "h": 1,
+        "icon": "https://web.poecdn.com/image/test.png",
+        "id": "socketed-%1",
+        "identified": true,
+        "ilvl": 0,
+        "inventoryId": "Stash1",
+        "name": "",
+        "sockets": [{"group": 0, "attr": "%1", "sColour": "%2"}],
+        "typeLine": "Primitive Chaotic Resonator",
+        "verified": false,
+        "w": 1,
+        "x": 0,
+        "y": 0
+    })json")
+                                .arg(attr, colour)
+                                .toUtf8();
+    return makeTestItem(json.constData(), ItemLocation());
+}
+
+static bool fullyTransparent(const QImage &image)
+{
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            if (qAlpha(image.pixel(x, y)) != 0) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+// #267: a Delve resonator socket ("DV") has no art of its own; it was drawn
+// with the green socket's art because only its first letter was read.
+void UiSmallTest::resonatorSocketIsNotDrawnGreen()
+{
+    QImage blank(47, 47, QImage::Format_ARGB32);
+    blank.fill(Qt::transparent);
+
+    const QImage green = GenerateItemIcon(makeSocketedItem("D", "G"), blank).toImage();
+    QVERIFY(!fullyTransparent(green));
+
+    const QImage resonator = GenerateItemIcon(makeSocketedItem("DV", "DV"), blank).toImage();
+    QVERIFY(fullyTransparent(resonator));
+}
+
+// GenerateItemIcon paints on a QPixmap, which needs a GUI application.
+QTEST_MAIN(UiSmallTest)
 #include "tst_uismall.moc"
