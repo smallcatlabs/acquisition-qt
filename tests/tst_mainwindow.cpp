@@ -197,6 +197,10 @@ private slots:
     void headerSelectionSurvivesItemDetailsTimer();
     void byItemHeaderSelectionWritesNoRefreshState();
     void refreshSelectedWithoutTabsStartsNoUpdate();
+    void multiSelectionSurvivesDeltaToItsTab();
+    void multiSelectionAcrossTabsSurvivesDeltas();
+    void multiSelectionKeepsSelectedHeaders();
+    void newSelectionDropsRowsARefreshRemoved();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -4511,6 +4515,169 @@ void MainWindowTest::refreshSelectedWithoutTabsStartsNoUpdate()
     QCOMPARE(updates.size(), size_t(1));
     QCOMPARE(updates.front().size(), size_t(1));
     QCOMPARE(updates.front().front().id(), tab.id());
+}
+
+static QStringList selectedNames(const QTreeView &tree)
+{
+    QStringList names;
+    for (const QModelIndex &row : tree.selectionModel()->selectedRows()) {
+        names.append(row.data().toString());
+    }
+    names.sort();
+    return names;
+}
+
+// #282: a delta that replaces the rows of a tab holding several selected
+// items keeps every one of them selected, not just the current item, so
+// the next price edit still applies to the whole selection.
+void MainWindowTest::multiSelectionSurvivesDeltaToItsTab()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tree);
+
+    const ItemLocation tabA = makeTestStashLocation("stash-aaaa", "Alpha", 0);
+    Items items;
+    items.push_back(makeMainWindowItem("item-a1", "First", "Sword", tabA));
+    items.push_back(makeMainWindowItem("item-a2", "Second", "Sword", tabA));
+    items.push_back(makeMainWindowItem("item-a3", "Third", "Sword", tabA));
+    fixture.itemsManager->OnItemsRefreshed(items, {tabA}, false);
+
+    auto *model = tree->model();
+    const QModelIndex bucketA = findBucket(*model, tabA.GetHeader());
+    QVERIFY(bucketA.isValid());
+    tree->expand(bucketA);
+    tree->selectionModel()->setCurrentIndex(findItemRow(*model, bucketA, "First Sword"),
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    tree->selectionModel()->select(findItemRow(*model, bucketA, "Second Sword"),
+                                   QItemSelectionModel::Select | QItemSelectionModel::Rows);
+    QCOMPARE(selectedNames(*tree), QStringList({"First Sword", "Second Sword"}));
+
+    QSignalSpy resets(model, &QAbstractItemModel::modelReset);
+    fixture.itemsManager->OnTabRefreshed(tabA,
+                                         {makeMainWindowItem("item-a1", "First", "Sword", tabA),
+                                          makeMainWindowItem("item-a2", "Second", "Sword", tabA),
+                                          makeMainWindowItem("item-a3", "Third", "Sword", tabA)});
+    QCOMPARE(resets.count(), 0);
+    QCOMPARE(selectedNames(*tree), QStringList({"First Sword", "Second Sword"}));
+    QCOMPARE(tree->selectionModel()->currentIndex().data().toString(), "First Sword");
+}
+
+// #282: the current item in one tab and another selected item in a second
+// tab both stay selected whichever tab a delta replaces.
+void MainWindowTest::multiSelectionAcrossTabsSurvivesDeltas()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tree);
+
+    const ItemLocation tabA = makeTestStashLocation("stash-aaaa", "Alpha", 0);
+    const ItemLocation tabB = makeTestStashLocation("stash-bbbb", "Beta", 1);
+    Items items;
+    items.push_back(makeMainWindowItem("item-a1", "First", "Sword", tabA));
+    items.push_back(makeMainWindowItem("item-b1", "Other", "Shield", tabB));
+    fixture.itemsManager->OnItemsRefreshed(items, {tabA, tabB}, false);
+
+    auto *model = tree->model();
+    const QModelIndex bucketA = findBucket(*model, tabA.GetHeader());
+    const QModelIndex bucketB = findBucket(*model, tabB.GetHeader());
+    QVERIFY(bucketA.isValid());
+    QVERIFY(bucketB.isValid());
+    tree->expand(bucketA);
+    tree->expand(bucketB);
+    tree->selectionModel()->setCurrentIndex(findItemRow(*model, bucketA, "First Sword"),
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    tree->selectionModel()->select(findItemRow(*model, bucketB, "Other Shield"),
+                                   QItemSelectionModel::Select | QItemSelectionModel::Rows);
+    const QStringList both({"First Sword", "Other Shield"});
+    QCOMPARE(selectedNames(*tree), both);
+
+    QSignalSpy resets(model, &QAbstractItemModel::modelReset);
+    // The other tab's rows are replaced.
+    fixture.itemsManager->OnTabRefreshed(tabB,
+                                         {makeMainWindowItem("item-b1", "Other", "Shield", tabB)});
+    QCOMPARE(selectedNames(*tree), both);
+    // The current item's rows are replaced.
+    fixture.itemsManager->OnTabRefreshed(tabA,
+                                         {makeMainWindowItem("item-a1", "First", "Sword", tabA)});
+    QCOMPARE(selectedNames(*tree), both);
+    QCOMPARE(tree->selectionModel()->currentIndex().data().toString(), "First Sword");
+    QCOMPARE(resets.count(), 0);
+}
+
+// #282: a selected tab header stays selected with the items when a delta
+// clears and rebuilds the selection around the current item.
+void MainWindowTest::multiSelectionKeepsSelectedHeaders()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tree);
+
+    const ItemLocation tabA = makeTestStashLocation("stash-aaaa", "Alpha", 0);
+    const ItemLocation tabB = makeTestStashLocation("stash-bbbb", "Beta", 1);
+    Items items;
+    items.push_back(makeMainWindowItem("item-a1", "First", "Sword", tabA));
+    items.push_back(makeMainWindowItem("item-b1", "Other", "Shield", tabB));
+    fixture.itemsManager->OnItemsRefreshed(items, {tabA, tabB}, false);
+
+    auto *model = tree->model();
+    const QModelIndex bucketA = findBucket(*model, tabA.GetHeader());
+    const QModelIndex bucketB = findBucket(*model, tabB.GetHeader());
+    tree->expand(bucketA);
+    tree->selectionModel()->setCurrentIndex(findItemRow(*model, bucketA, "First Sword"),
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    tree->selectionModel()->select(bucketB, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+    const QStringList selected = selectedNames(*tree);
+    QCOMPARE(selected.size(), 2);
+
+    // The current item's row is replaced: the view's selection is cleared
+    // and rebuilt around the re-adopted item.
+    fixture.itemsManager->OnTabRefreshed(tabA,
+                                         {makeMainWindowItem("item-a1", "First", "Sword", tabA)});
+    QCOMPARE(selectedNames(*tree), selected);
+}
+
+// R1-3: a user's selection wins. A selected row that a delta removed is not
+// selected again by a later delta once the user has selected another row.
+void MainWindowTest::newSelectionDropsRowsARefreshRemoved()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tree);
+
+    const ItemLocation tabA = makeTestStashLocation("stash-aaaa", "Alpha", 0);
+    const ItemLocation tabB = makeTestStashLocation("stash-bbbb", "Beta", 1);
+    Items items;
+    items.push_back(makeMainWindowItem("item-a1", "First", "Sword", tabA));
+    items.push_back(makeMainWindowItem("item-a2", "Second", "Sword", tabA));
+    items.push_back(makeMainWindowItem("item-b1", "Other", "Shield", tabB));
+    fixture.itemsManager->OnItemsRefreshed(items, {tabA, tabB}, false);
+
+    auto *model = tree->model();
+    const QModelIndex bucketA = findBucket(*model, tabA.GetHeader());
+    const QModelIndex bucketB = findBucket(*model, tabB.GetHeader());
+    tree->expand(bucketA);
+    tree->expand(bucketB);
+    tree->selectionModel()->setCurrentIndex(findItemRow(*model, bucketA, "First Sword"),
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    tree->selectionModel()->select(findItemRow(*model, bucketB, "Other Shield"),
+                                   QItemSelectionModel::Select | QItemSelectionModel::Rows);
+
+    // Beta's item leaves; the user then selects another item.
+    fixture.itemsManager->OnTabRefreshed(tabB, {});
+    QCOMPARE(selectedNames(*tree), QStringList({"First Sword"}));
+    tree->selectionModel()->setCurrentIndex(findItemRow(*model, bucketA, "Second Sword"),
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+
+    // Beta's item comes back: the user's selection stands.
+    fixture.itemsManager->OnTabRefreshed(tabB,
+                                         {makeMainWindowItem("item-b1", "Other", "Shield", tabB)});
+    QCOMPARE(selectedNames(*tree), QStringList({"Second Sword"}));
 }
 
 QTEST_MAIN(MainWindowTest)

@@ -22,7 +22,9 @@ bound (out of the S8 external review — see the marker at the
 design-review criteria: ordinary deltas pay an O(log tab-count)
 ordered-map bucket-row lookup and structural ops an O(tab-count)
 remap, both chosen and accepted at S4 implementation review
-round 1). Review rounds 1–3 (external; R1-1…R1-8, R2-1…R2-6, and
+round 1). A fourth is recorded November 12, 2026: the selection
+intent covers every selected row, not only the current item (#282 —
+see the marker after R1-3). Review rounds 1–3 (external; R1-1…R1-8, R2-1…R2-6, and
 R3-1…R3-4, all eighteen verified and accepted) are incorporated
 throughout. Round 1's largest changes: D3's source-scoped
 replacement grain (R1-1), the final snapshot's row reconciliation
@@ -551,6 +553,22 @@ immediately, as today. Pinned by
 `selectionIntentSurvivesCrossTabMoveAcrossDeltas` — the successor of
 M2's pin under no-reset machinery — and
 `selectionIntentClearsOnTerminalFailure`.
+*(Post-freeze amendment, November 12, 2026 — #282: the intent is
+the set of selected rows, not one id. A delta that replaced the rows
+of a tab holding several selected items left only the current item
+selected, so the next price edit applied to one row. The stable ids
+of every selected item and the stable keys of every selected header
+are now captured before each delta and before the final snapshot's
+reconciliation, and every one of them that is visible afterwards is
+selected again, by one walk per bucket holding an intended item. The
+current item's id keeps its role above: it alone decides the current
+row, the details pane and the price editor. A row that is not
+visible stays in the set until the window closes, and a user's
+selection of a new current row drops those rows. R1-3 and R2-1 are
+otherwise unchanged. Pinned by `multiSelectionSurvivesDeltaToItsTab`,
+`multiSelectionAcrossTabsSurvivesDeltas`,
+`multiSelectionKeepsSelectedHeaders` and
+`newSelectionDropsRowsARefreshRemoved`.)*
 
 **Where resets remain legitimate**: initial population (nothing to
 preserve) and user-initiated structural changes — filter edits, view-

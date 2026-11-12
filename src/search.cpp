@@ -597,6 +597,14 @@ int Search::rowForKey(const LocationInventory::Key &key) const
     return FindBucketRow(key);
 }
 
+int Search::bucketRowFor(const Item &item) const
+{
+    if (m_current_mode == ViewMode::ByItem) {
+        return m_bucket_by_item.empty() ? -1 : 0;
+    }
+    return FindBucketRow(LocationInventory::KeyFor(item.location()));
+}
+
 void Search::AssignSerials()
 {
     for (auto &bucket : m_bucket_by_tab) {

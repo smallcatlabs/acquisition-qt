@@ -30,7 +30,8 @@ From top to bottom:
   All and Uncheck All act on the tab and character rows shown, so they do
   nothing in *By Item*, whose only header is *All Items*. Tabs hidden by the
   current search keep their check state and are still refreshed by **Refresh
-  checked tabs**.
+  checked tabs**. A refresh keeps every row you have selected, so a price set
+  after it still applies to the whole selection.
 - **Buyout controls** under the list — see [Pricing](pricing.md).
 - **Item panel** on the right: the item's name, an in-game-style **Tooltip** tab,
   a plain **Text** tab, and **Hide**. **Upload to imgur** uploads the rendered

@@ -13,6 +13,7 @@
 
 #include <memory>
 #include <optional>
+#include <set>
 #include <vector>
 
 #include <spdlog/spdlog.h>
@@ -21,6 +22,7 @@
 #include "filters/filterspec.h"
 #include "item.h"
 #include "itemlocation.h"
+#include "locationinventory.h"
 #include "refreshoutcome.h"
 #include "util/programstate.h"
 
@@ -189,6 +191,11 @@ private:
     // keeps the intent; a visible item with the intent's id re-adopts the
     // selection through the global identity index.
     void ReconcileSelectionIntent();
+    // R1-3 as amended (#282): records the selected rows before row
+    // operations run, and selects again afterwards every one of them that
+    // is visible — one walk per bucket that holds an intended item.
+    void CaptureSelectedRows();
+    void ReselectCapturedRows();
     // Makes `index` the current, selected row without the view expanding
     // its collapsed ancestors: a reselection made for the user never undoes
     // the user's collapse (folder-tree D9).
@@ -251,6 +258,17 @@ private:
     // insertion re-adopts it; every RefreshFinished outcome closes the
     // window (R2-1). A user selection overwrites it at any time.
     QString m_selection_intent_id;
+    // The rest of the selection intent (R1-3 as amended, #282): the stable
+    // ids of every selected item and the stable keys of every selected
+    // header, captured before each row-operation pass of a refresh and
+    // re-applied after it. An entry whose row is not visible stays until
+    // the refresh ends; a user's selection of a new current row drops the
+    // entries that are not visible.
+    std::set<QString> m_selected_item_ids;
+    std::set<LocationInventory::Key> m_selected_bucket_keys;
+    // Set while the refresh selects a row on the user's behalf, so that
+    // OnCurrentItemChanged can tell it from the user's own selection.
+    bool m_reselecting{false};
     bool m_refresh_active{false};
     // Row operations make the view shuffle its current index (Qt moves
     // current off a removed row); while set, OnCurrentItemChanged ignores

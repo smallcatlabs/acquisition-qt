@@ -315,6 +315,11 @@ public:
     // bucket reconcile) off O(tabs) scans.
     int rowForKey(const LocationInventory::Key &key) const;
 
+    // The active-mode bucket row that holds a visible item: its tab's
+    // bucket by stable key in By-Tab, the flat bucket in By-Item. -1 when
+    // no such bucket is present.
+    int bucketRowFor(const Item &item) const;
+
 private:
     std::vector<Bucket> &active_buckets();
     const ItemLocation &canonicalLocation(const ItemLocation &embedded) const;
