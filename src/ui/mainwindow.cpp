@@ -1524,7 +1524,13 @@ void MainWindow::ModelViewRefresh()
     m_current_search->FilterItems(m_items_manager.items());
     ui->treeView->setSortingEnabled(false);
     if (ui->treeView->model() != &model) {
+        // setModel() creates a new selection model and leaves the old one to
+        // the caller (QAbstractItemView docs); nothing else shares it.
+        QItemSelectionModel *old_selection = ui->treeView->selectionModel();
         ui->treeView->setModel(&model);
+        if (old_selection) {
+            old_selection->deleteLater();
+        }
     }
     ui->treeView->header()->setSortIndicator(model.GetSortColumn(), model.GetSortOrder());
     ui->treeView->setSortingEnabled(true);
@@ -1934,7 +1940,9 @@ void MainWindow::OnImageFetched(const QString &url)
         const QString icon = m_current_item->icon();
         if (url == icon) {
             const QImage image = m_image_cache.load(url);
-            if (!image.isNull()) {
+            if (image.isNull()) {
+                ui->imageLabel->setText("No image");
+            } else {
                 const QPixmap pixmap = GenerateItemIcon(*m_current_item, image);
                 ui->imageLabel->setPixmap(pixmap);
             }

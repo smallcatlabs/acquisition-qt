@@ -9,6 +9,7 @@
 #include <QImageReader>
 #include <QNetworkReply>
 #include <QNetworkRequest>
+#include <QSaveFile>
 #include <QString>
 
 #include "util/networkmanager.h"
@@ -53,13 +54,26 @@ void ImageCache::onFetched()
     const QString url = reply->url().toString();
     if (reply->error() != QNetworkReply::NoError) {
         spdlog::error("ImageCache: failed to fetch image: {}: {}", reply->errorString(), url);
+    } else {
+        spdlog::debug("ImageCache: fetched {}", url);
+        save(url, QImageReader(reply).read());
+    }
+    // Every outcome is reported; load() gives a null image when there is none.
+    emit imageReady(url);
+}
+
+void ImageCache::save(const QString &url, const QImage &image) const
+{
+    if (image.isNull()) {
+        spdlog::error("ImageCache: the reply is not an image: {}", url);
         return;
     }
-    spdlog::debug("ImageCatch: fetched {}", url);
-    QImageReader image_reader(reply);
-    const QImage image = image_reader.read();
-    image.save(getImagePath(url));
-    emit imageReady(url);
+    // Write through a temporary file so a crash mid-write never leaves a
+    // truncated image under the final name, where contains() would keep it.
+    QSaveFile file(getImagePath(url));
+    if (!file.open(QIODevice::WriteOnly) || !image.save(&file, "PNG") || !file.commit()) {
+        spdlog::error("ImageCache: failed to save {}: {}", url, file.errorString());
+    }
 }
 
 QImage ImageCache::load(const QString &url) const

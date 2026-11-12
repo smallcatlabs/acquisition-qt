@@ -39,6 +39,8 @@ private slots:
     void fixtureConstructsOffline();
     void legacyImportPropagationRefreshesPricingState();
     void tabChangeActivatesSelectedSearch();
+    void searchTabSwitchReleasesOldSelectionModel();
+    void missingItemImageShowsNoImage();
     // Renegotiated in M3 S6 from `itemsRefreshRefiltersBackgroundSearches`
     // (the F33-era eager background refilter rode the final-snapshot reset
     // seam): the snapshot now flags background searches items-dirty and
@@ -473,6 +475,56 @@ void MainWindowTest::tabChangeActivatesSelectedSearch()
     QCOMPARE(tabs->tabText(1), "Search 2 [1]");
     QCOMPARE(name->text(), "beta");
     QCOMPARE(visibleItemNames(*tree), QStringList({"Beta Shield"}));
+}
+
+void MainWindowTest::searchTabSwitchReleasesOldSelectionModel()
+{
+    // QAbstractItemView::setModel creates a new selection model and does
+    // not delete the old one; every search-tab switch left one behind.
+    MainWindowFixture fixture;
+    auto *tabs = findSearchTabs(*fixture.window);
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tabs);
+    QVERIFY(tree);
+    QCOMPARE(tabs->currentIndex(), 0);
+
+    QPointer<QItemSelectionModel> first = tree->selectionModel();
+    QVERIFY(first);
+    tabs->setCurrentIndex(1);
+    QVERIFY(tree->selectionModel() != first);
+    QTRY_VERIFY_WITH_TIMEOUT(first.isNull(), 500);
+
+    QPointer<QItemSelectionModel> second = tree->selectionModel();
+    tabs->setCurrentIndex(0);
+    QTRY_VERIFY_WITH_TIMEOUT(second.isNull(), 500);
+    QVERIFY(tree->selectionModel());
+}
+
+void MainWindowTest::missingItemImageShowsNoImage()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    auto *label = fixture.window->findChild<QLabel *>("imageLabel");
+    QVERIFY(tree);
+    QVERIFY(label);
+    QSignalSpy requested(fixture.window.get(), &MainWindow::GetImage);
+
+    const ItemLocation tab = makeTestStashLocation("stash-image", "Image Tab", 0);
+    Items items;
+    items.push_back(makeMainWindowItem("image-item", "Pictured", "Sword", tab));
+    fixture.itemsManager->OnItemsRefreshed(items, {tab}, false);
+    const QModelIndex bucket = findBucket(*tree->model(), tab.GetHeader());
+    const QModelIndex row = findItemRow(*tree->model(), bucket, "Pictured Sword");
+    QVERIFY(row.isValid());
+    tree->selectionModel()->setCurrentIndex(row,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    QTRY_COMPARE_WITH_TIMEOUT(requested.count(), 1, 1000);
+    QCOMPARE(label->text(), QString("Loading..."));
+
+    // The cache finished without an image (a failed or undecodable fetch).
+    fixture.window->OnImageFetched(requested.at(0).at(0).toString());
+    QCOMPARE(label->text(), QString("No image"));
 }
 
 void MainWindowTest::itemsRefreshDefersBackgroundSearchesToActivation()

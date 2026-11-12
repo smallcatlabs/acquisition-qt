@@ -22,10 +22,13 @@ public slots:
     void fetch(const QString &url);
     void onFetched();
 signals:
+    // Emitted when a fetch finishes, whatever the outcome: load() returns a
+    // null image when there is no image for the url.
     void imageReady(const QString &url);
 
 private:
     QString getImagePath(const QString &url) const;
+    void save(const QString &url, const QImage &image) const;
     NetworkManager &m_network_manager;
     QString m_directory;
 };
