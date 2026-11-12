@@ -194,7 +194,10 @@ bool UpdateChecker::has_newer_release() const
 
 bool UpdateChecker::has_newer_prerelease() const
 {
-    return (m_latest_prerelease > m_previous_prerelease)
+    // A prerelease is offered only when it is newer than the latest release
+    // too: one older than that release (its beta, say) is not worth asking
+    // about, whether or not the release itself was declined.
+    return (m_latest_prerelease > m_previous_prerelease) && (m_latest_prerelease > m_latest_release)
            && (m_running_version < m_latest_prerelease);
 }
 
@@ -215,20 +218,11 @@ void UpdateChecker::AskUserToUpdate()
         lines.append("   " + QString::fromStdString(m_latest_release.str()));
     }
     if (has_newer_prerelease()) {
-        if (m_latest_prerelease > m_latest_release) {
-            if (!lines.isEmpty()) {
-                lines.append("");
-            }
-            lines.append("A newer prerelease is available:");
-            lines.append("   " + QString::fromStdString(m_latest_prerelease.str()));
+        if (!lines.isEmpty()) {
+            lines.append("");
         }
-    }
-    if (lines.isEmpty()) {
-        QMessageBox::information(nullptr,
-                                 "Acquisition Update Checker",
-                                 "No updates appear to be available",
-                                 QMessageBox::StandardButton::Ok);
-        return;
+        lines.append("A newer prerelease is available:");
+        lines.append("   " + QString::fromStdString(m_latest_prerelease.str()));
     }
     const QString message = lines.join("\n");
 
