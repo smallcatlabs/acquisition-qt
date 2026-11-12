@@ -190,6 +190,7 @@ private slots:
     void priceBoxAcceptsDecimalPointOrComma();
     void removedSelectionResetsPriceEditor();
     void byItemHeaderIsNotPriceable();
+    void priceEditSkipsGamePricedRows();
     void headerSelectionSurvivesItemDetailsTimer();
 
 private:
@@ -4283,6 +4284,53 @@ void MainWindowTest::byItemHeaderIsNotPriceable()
 
     fixture.window->OnUncheckAll();
     QVERIFY(fixture.buyoutFixture.manager->GetRefreshChecked(ItemLocation()));
+}
+
+// A price edit over a selection leaves every row priced in the game alone:
+// an item whose note holds a price, and a tab whose name does, together
+// with the items in that tab. The other rows take the price.
+void MainWindowTest::priceEditSkipsGamePricedRows()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tree);
+
+    const ItemLocation dump = makeTestStashLocation("stash-dump", "Dump", 0);
+    const ItemLocation priced = makeTestStashLocation("stash-priced", "~price 2 chaos", 1);
+    const auto noted = makeMainWindowItemWithNote("noted", "Noted", "Sword", dump, "~b/o 5 chaos");
+    const auto plain = makeMainWindowItem("plain", "Plain", "Sword", dump);
+    const auto inside = makeMainWindowItem("inside", "Inside", "Sword", priced);
+    fixture.itemsManager->OnItemsRefreshed({noted, plain, inside}, {dump, priced}, false);
+
+    auto *model = tree->model();
+    const QModelIndex dumpBucket = findBucket(*model, dump.GetHeader());
+    const QModelIndex pricedBucket = findBucket(*model, priced.GetHeader());
+    QVERIFY(dumpBucket.isValid());
+    QVERIFY(pricedBucket.isValid());
+    tree->expand(dumpBucket);
+    tree->expand(pricedBucket);
+    auto *selection = tree->selectionModel();
+    selection->setCurrentIndex(findItemRow(*model, dumpBucket, "Plain Sword"),
+                               QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    for (const QModelIndex &row : {findItemRow(*model, dumpBucket, "Noted Sword"),
+                                   findItemRow(*model, pricedBucket, "Inside Sword"),
+                                   pricedBucket}) {
+        QVERIFY(row.isValid());
+        selection->select(row, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+    }
+    QCOMPARE(selection->selectedRows().size(), 4);
+
+    applyBuyoutCommand(fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "7");
+
+    const auto &manager = *fixture.buyoutFixture.manager;
+    QCOMPARE(manager.Get(*plain).value, 7.0);
+    QVERIFY(!manager.Get(*plain).IsGameSet());
+    QCOMPARE(manager.Get(*noted).value, 5.0);
+    QVERIFY(manager.Get(*noted).IsGameSet());
+    QCOMPARE(manager.GetTab(priced).value, 2.0);
+    QVERIFY(manager.GetTab(priced).IsGameSet());
+    QCOMPARE(manager.Get(*inside).value, 2.0);
+    QVERIFY(manager.Get(*inside).IsInherited());
 }
 
 // #282: selecting a tab header after an item stops the item's pending
