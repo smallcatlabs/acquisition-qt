@@ -1308,6 +1308,7 @@ void MainWindow::OnTabRefreshed(const ItemLocation &location, const Items &items
     }
     // The first delta opens the selection-intent window (R1-3).
     m_refresh_active = true;
+    NoteCurrentRowSelection();
     const SelectionCapture capture = CaptureSelection(TouchedBucket(location));
     // The active search applies the delta now: bucket-scoped row
     // operations in By-Tab (D3), the flat sorted merge in By-Item (D4,
@@ -1336,6 +1337,7 @@ void MainWindow::OnChildrenReconciled(const ItemLocation &parent,
         return;
     }
     m_refresh_active = true; // the intent window covers every delta form
+    NoteCurrentRowSelection();
     const SelectionCapture capture = CaptureSelection(TouchedBucket(parent));
     m_applying_delta = true;
     const auto result = m_current_search->ApplyChildReconciliation(parent, expected);
@@ -1488,6 +1490,19 @@ void MainWindow::SelectWithoutExpanding(const QModelIndex &index,
     ui->treeView->setItemsExpandable(expandable);
 }
 
+void MainWindow::NoteCurrentRowSelection()
+{
+    // Called before every pass that can remove the current row (a delta,
+    // the final snapshot, a refilter): while the row is present, the flag
+    // follows its selection, so once the row lapses the flag describes it
+    // at that moment and nothing older.
+    if (m_current_item && m_current_search
+        && (ui->treeView->model() == &m_current_search->model())) {
+        const QItemSelectionModel &selection = *ui->treeView->selectionModel();
+        m_selection_intent_selected = selection.isSelected(selection.currentIndex());
+    }
+}
+
 void MainWindow::ReconcileSelectionIntent(const SelectionCapture *capture)
 {
     if (!m_current_search) {
@@ -1520,11 +1535,7 @@ void MainWindow::ReconcileSelectionIntent(const SelectionCapture *capture)
             // the visual selection lapses (R1-3). The view may have moved
             // current to a neighbor when the row was removed — clear that
             // under the guard so it cannot overwrite the intent. The other
-            // selected rows keep their selection (#282); whether this row
-            // was selected is kept for its re-adoption.
-            if (capture) {
-                m_selection_intent_selected = capture->current_selected;
-            }
+            // selected rows keep their selection (#282).
             m_current_item = nullptr;
             m_current_bucket_location.reset();
             m_applying_delta = true;
@@ -1705,6 +1716,7 @@ void MainWindow::ModelViewRefresh()
         SaveViewExpansion(*m_current_search);
         SaveViewScroll(*m_current_search);
     }
+    NoteCurrentRowSelection();
 
     spdlog::trace("MainWindow::ModelViewRefresh() activating current search");
     m_search_form->saveTo(*m_current_search);
@@ -1990,6 +2002,8 @@ void MainWindow::OnTabChange(int index)
         // The intent follows the window's visible selection: it re-anchors
         // to the incoming search's saved selection (R1-3).
         m_selection_intent_id = m_current_item ? m_current_item->id() : QString();
+        // The incoming search's saved current row is shown selected again.
+        m_selection_intent_selected = true;
         m_current_search->SetRefreshReason(RefreshReason::TabChanged);
         m_search_form->loadFrom(*m_current_search);
         ModelViewRefresh();
@@ -2217,6 +2231,7 @@ void MainWindow::OnItemsRefreshed(bool initial_refresh)
     // R1-2 (S6): the active search performs one authoritative row
     // reconciliation against the post-snapshot published state — row
     // operations only, never a reset (noModelResetDuringRefresh).
+    NoteCurrentRowSelection();
     const SelectionCapture capture = CaptureSelection(std::nullopt);
     m_applying_delta = true;
     const auto result = m_current_search->ReconcileFinalSnapshot(m_items_manager.items());
