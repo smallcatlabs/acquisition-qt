@@ -313,6 +313,7 @@ private slots:
     void importsVersion5StampedFiles();
     void appliesEditedPlanTransactionallyAndIsIdempotent();
     void manualPricesSetAfterPlanningAreProtected();
+    void inheritedCopyDoesNotBlockTheImport();
     void importedInheritedBuyoutsLoseTheFlag();
     void skipRowEditsDoNotAbortTheImport();
     void blankPlanRowsAreIgnored();
@@ -657,6 +658,58 @@ void LegacyBuyoutImporterTest::manualPricesSetAfterPlanningAreProtected()
     QVERIFY2(second.success, qPrintable(second.error));
     QCOMPARE(second.protected_manual, 0);
     QCOMPARE(destination.buyouts.repo->loadItemBuyouts().value().at("item-a").value, 5.0);
+}
+
+// #293: a copy of a tab's price that an older build stored on an item,
+// with a manual source, is not a price the user set on the item. The plan
+// does not count it as an existing manual price and proposes the import,
+// and applying the plan writes the legacy price over it; a real manual
+// price written after planning is still protected.
+void LegacyBuyoutImporterTest::inheritedCopyDoesNotBlockTheImport()
+{
+    QTemporaryDir source_dir;
+    QVERIFY(source_dir.isValid());
+    const QString source_path = source_dir.filePath("legacy-v4.db");
+    const QString plan_path = source_dir.filePath("buyout-plan.xlsx");
+    createLegacyDatabase(source_path, "4");
+    reviseLegacyDatabaseForPlan(source_path);
+
+    PlanningFixture destination;
+    destination.seedStash("0123456789", "Renamed Priced", 0);
+    destination.seedCharacter("character-id-bob", "Bob");
+    Buyout copy = makeChaosBuyout(42.0);
+    copy.source = Buyout::BUYOUT_SOURCE_MANUAL;
+    copy.inherited = true;
+    QCOMPARE(destination.buyouts.repo
+                 ->saveItemBuyout(copy, "item-a", "0123456789", ItemLocationType::STASH, true),
+             BuyoutSaveResult::Saved);
+
+    LegacyBuyoutImporter importer(*destination.buyouts.repo,
+                                  *destination.stashes,
+                                  *destination.characters,
+                                  "pc",
+                                  "Standard");
+    QVERIFY(importer.createPlan(source_path, plan_path).success);
+    const PlanRows rows = readPlanRows(plan_path);
+    const auto &row = findPlanRow(rows, "item_id", "item-a");
+    QCOMPARE(row.value("action").toString(), QString("import"));
+    QVERIFY(row.value("existing_source").toString().isEmpty());
+
+    // A real manual price on another matched item, set after planning, is
+    // still protected at write time.
+    Buyout manual = makeChaosBuyout(99.0);
+    manual.source = Buyout::BUYOUT_SOURCE_MANUAL;
+    QCOMPARE(destination.buyouts.repo
+                 ->saveItemBuyout(manual, "item-b", "0123456789", ItemLocationType::STASH, true),
+             BuyoutSaveResult::Saved);
+
+    const LegacyBuyoutApplyReport report = importer.applyPlan(plan_path);
+    QVERIFY2(report.success, qPrintable(report.error));
+    QCOMPARE(report.protected_manual, 1);
+    const auto stored = destination.buyouts.repo->loadItemBuyouts().value();
+    QCOMPARE(stored.at("item-a").value, 5.0);
+    QVERIFY(!stored.at("item-a").inherited);
+    QCOMPARE(stored.at("item-b").value, 99.0);
 }
 
 void LegacyBuyoutImporterTest::importedInheritedBuyoutsLoseTheFlag()
