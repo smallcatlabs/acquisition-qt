@@ -1093,11 +1093,12 @@ void ShopTest::healthyEmptyStoreStillPostsEmpty()
     QCOMPARE(warnings.count(), 0);
 }
 
-// The two replies below are NOT captures of forum pages: none is in the
-// repository. Each is built from the shapes the parsing code documents —
-// Shop::error_regex (an element whose class is "errors" or "input-error",
-// then an <li> holding the message) and Util::GetCsrfToken's comment (the
-// hash input may itself carry class="input-error").
+// The two replies below are NOT captures: no forum error page has been
+// captured (tests/fixtures/forum/ holds only the edit page and the page a
+// successful edit returns). Each is built from the shapes the parsing code
+// documents — an error list (<ul class="errors"> holding the message in an
+// <li>), a bare error class, and Util::GetCsrfToken's comment that the
+// hash input may itself carry class="input-error".
 void ShopTest::forumErrorReplyIsNotLogged_data()
 {
     QTest::addColumn<QByteArray>("reply");

@@ -54,9 +54,9 @@ These situations stop or limit a post, and Acquisition tells you about each:
   that run keep their new content; the next update starts again from the
   first thread.
 - **The forum asks you to wait.** For a wait of a minute or less, Acquisition
-  waits and tries that thread again, starting from a fresh edit page, up to
-  three times. A longer wait stops the update, and the message says how long
-  to wait before updating again.
+  waits and tries that thread again, starting from a fresh edit page; each
+  thread gets at most three attempts in all. A longer wait stops the update,
+  and the message says how long to wait before updating again.
 
 ## The template
 
