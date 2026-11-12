@@ -153,6 +153,8 @@ private slots:
     // #259: a failed update's status line names what went wrong, through the
     // real facade and hub.
     void failedUpdateStatusNamesTheError();
+    void timedOutRequestSaysTheServerDidNotAnswer();
+    void rateLimitedSetupDoesNotClaimNoRetryTime();
 };
 
 namespace {
@@ -4158,6 +4160,30 @@ void WorkerUpdateTest::failedUpdateStatusNamesTheError()
     }
     // An expired or revoked login points the user at logging in again.
     QVERIFY2(seen.front().contains("log in again"), qPrintable(seen.front()));
+}
+
+// Every API request carries a transfer timeout; when it runs out Qt aborts
+// the reply with OperationCanceledError. Acquisition never aborts an API
+// reply itself (network-redesign D2), so that code means "no answer in
+// time", not that anyone cancelled.
+void WorkerUpdateTest::timedOutRequestSaysTheServerDidNotAnswer()
+{
+    for (const auto error : {QNetworkReply::OperationCanceledError, QNetworkReply::TimeoutError}) {
+        const QStringList ready = readyMessagesForFailure({"timed out", false, {}, 0, error, {}});
+        QCOMPARE(ready.size(), 1);
+        QCOMPARE(ready.front(), QString("Update failed: the server did not answer in time"));
+    }
+}
+
+// A setup HEAD answered 429 with an acceptable Retry-After but incomplete
+// rate-limit headers fails the update as RateLimited, without the retry
+// details a pump-side 429 carries. The text claims nothing it cannot know.
+void WorkerUpdateTest::rateLimitedSetupDoesNotClaimNoRetryTime()
+{
+    const QStringList ready = readyMessagesForFailure(
+        {"setup 429", true, {{"Retry-After", "120"}}, 429, QNetworkReply::UnknownContentError, {}});
+    QCOMPARE(ready.size(), 1);
+    QCOMPARE(ready.front(), QString("Update failed: rate limited by the server"));
 }
 
 QTEST_GUILESS_MAIN(WorkerUpdateTest)
