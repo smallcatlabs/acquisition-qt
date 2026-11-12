@@ -7,14 +7,17 @@
 #include <QEventLoop>
 #include <QSettings>
 
+#include <atomic>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <stop_token>
+#include <thread>
 
 #include <spdlog/sinks/ostream_sink.h>
 #include <spdlog/spdlog.h>
 
+#include "cacheload.h"
 #include "datastore/characterrepo.h"
 #include "datastore/stashrepo.h"
 #include "datastore/userstore.h"
@@ -154,6 +157,11 @@ private slots:
 
     // #299: the worker fetches as the session's identity.
     void updateUsesTheSessionIdentity();
+
+    // #294: how the start-up cache load seeds the worker.
+    void unusableStoreSeedsAnEmptyResultAndSaysSo();
+    void seedRefusesASecondLoad();
+    void stoppedLoadSeedsNothing();
 
     // #259: a failed update's status line names what went wrong, through the
     // real facade and hub.
@@ -4304,6 +4312,128 @@ void WorkerUpdateTest::updateUsesTheSessionIdentity()
     f.deliverStashList({});
     f.deliverCharacterList({});
     QCOMPARE(f.terminals.size(), size_t(1));
+}
+
+namespace {
+
+    // A worker with no cache load of its own, its initial snapshots counted
+    // and its Ready status lines kept.
+    struct BareWorker
+    {
+        BareWorker()
+            : settings(bm.tempDir.filePath("settings.ini"), QSettings::IniFormat)
+            , limiter(network)
+            , api(limiter)
+            , worker(settings, identity, *bm.manager, api)
+        {
+            QObject::connect(&worker,
+                             &ItemsManagerWorker::ItemsRefreshed,
+                             &worker,
+                             [this](const Items &, const std::vector<ItemLocation> &, bool first) {
+                                 initial_refreshes += first ? 1 : 0;
+                             });
+            QObject::connect(&worker,
+                             &ItemsManagerWorker::StatusUpdate,
+                             &worker,
+                             [this](ProgramState state, const QString &message) {
+                                 if (state == ProgramState::Ready) {
+                                     ready.append(message);
+                                 }
+                             });
+        }
+
+        QString dataDir() const { return bm.tempDir.filePath("data"); }
+
+        BuyoutManagerFixture bm;
+        QSettings settings;
+        const SessionIdentity identity = makeTestIdentity("bare-worker", kRealm, kLeague);
+        NetworkManager network;
+        RateLimiter limiter;
+        FakePoeApiClient api;
+        ItemsManagerWorker worker;
+        int initial_refreshes = 0;
+        QStringList ready;
+    };
+
+} // namespace
+
+// When the session's user store did not open, no load thread starts: the
+// worker is seeded with an empty result, says so on the status line, and is
+// ready for a refresh.
+void WorkerUpdateTest::unusableStoreSeedsAnEmptyResultAndSaysSo()
+{
+    BareWorker b;
+    std::jthread load = StartCacheLoad(b.worker, QDir(b.dataDir()), b.identity, false);
+    QVERIFY(!load.joinable());
+
+    QTRY_COMPARE_WITH_TIMEOUT(b.initial_refreshes, 1, 10000);
+    QCOMPARE(b.ready, QStringList{"Could not read the cached items; see the log"});
+
+    b.worker.Update(TabSelection::All);
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    QVERIFY(b.api.hasPendingStashList(kRealm, kLeague));
+    b.api.resolveStashList(b.api.pendingStashList(kRealm, kLeague), {});
+    b.api.resolveCharacterList(b.api.pendingCharacterList(kRealm), {});
+    QVERIFY(WorkerFixture::drainUntilIdle());
+}
+
+// The worker starts from one cache load; a second is refused, and the
+// first one's snapshot stands.
+void WorkerUpdateTest::seedRefusesASecondLoad()
+{
+    BareWorker b;
+    CachedItems first;
+    first.status = CachedItems::Status::Complete;
+    b.worker.Seed(first);
+    QCOMPARE(b.initial_refreshes, 1);
+    QCOMPARE(b.ready, QStringList{"Parsed 0 items from 0 tabs"});
+
+    b.worker.Seed(CachedItems{});
+    QCOMPARE(b.initial_refreshes, 1);
+    QCOMPARE(b.ready.size(), 1);
+}
+
+// A load stopped while it runs (the session closing during start-up) hands
+// nothing to the worker.
+void WorkerUpdateTest::stoppedLoadSeedsNothing()
+{
+    BareWorker b;
+    const auto tab = json::readStash(stashJson("stashaaaa1", "Tab A", 0, QStringList{"a1"}));
+    QVERIFY(tab);
+    {
+        UserStore store(QDir(b.dataDir()), b.identity.account());
+        QVERIFY(store.stashes().saveStashList({*tab}, kRealm, kLeague));
+        QVERIFY(saveStashFixture(store.stashes(), *tab, kRealm, kLeague));
+    }
+
+    // The load's first progress line, emitted on the load thread, stops it.
+    std::jthread load;
+    std::atomic<std::jthread *> owner{nullptr};
+    std::atomic<int> progress{0};
+    QObject::connect(
+        &b.worker,
+        &ItemsManagerWorker::StatusUpdate,
+        &b.worker,
+        [&](ProgramState state, const QString &) {
+            if (state == ProgramState::Initializing) {
+                ++progress;
+                while (owner.load() == nullptr) {
+                    std::this_thread::yield();
+                }
+                owner.load()->request_stop();
+            }
+        },
+        Qt::DirectConnection);
+    load = StartCacheLoad(b.worker, QDir(b.dataDir()), b.identity, true);
+    owner.store(&load);
+    load.join();
+    for (int i = 0; i < 20; ++i) {
+        QCoreApplication::processEvents();
+    }
+
+    QCOMPARE(progress.load(), 1);
+    QCOMPARE(b.initial_refreshes, 0);
+    QVERIFY(b.ready.isEmpty());
 }
 
 QTEST_GUILESS_MAIN(WorkerUpdateTest)
