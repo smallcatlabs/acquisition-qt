@@ -168,13 +168,17 @@ void OAuthManager::receiveGrant()
     emit grantAccess(m_token);
 }
 
-void OAuthManager::initLogin()
+bool OAuthManager::initLogin()
 {
-    // listen() with no address binds every interface. Listen on loopback,
-    // as the handler's constructor does: IPv4 first, then IPv6.
+    // listen() with no address binds every interface. Listen on IPv4
+    // loopback only: the redirect goes to CALLBACK_HOST (127.0.0.1), so a
+    // listener anywhere else could never receive it.
     if (!m_handler->isListening() && !m_handler->listen(QHostAddress::LocalHost)) {
-        m_handler->listen(QHostAddress::LocalHostIPv6);
+        spdlog::error("OAuth: cannot listen for the login callback on {}: not starting the login",
+                      CALLBACK_HOST);
+        return false;
     }
     spdlog::info("OAuth: starting authentication.");
     m_oauth->grant();
+    return true;
 }

@@ -6,6 +6,7 @@
 #include <QApplication>
 #include <QBuffer>
 #include <QDesktopServices>
+#include <QFileInfo>
 #include <QMessageBox>
 #include <QOAuthHttpServerReplyHandler>
 #include <QProcess>
@@ -37,6 +38,7 @@
 #include "util/crashreporting.h"
 #include "util/databackup.h"
 #include "util/datadirlock.h"
+#include "util/fatalerror.h"
 #include "util/logging.h"
 #include "util/networkmanager.h"
 #include "util/oauthmanager.h"
@@ -69,15 +71,18 @@ private slots:
     void networkManagerHasNoDiskCache();
     void repeatedGetIsNotServedFromCache();
     void legacyNetworkCacheIsRemoved();
+    void legacyNetworkCacheLinkIsNotFollowed();
     void loginListensOnLoopbackAfterClose();
     void startupRefreshClosesTheListener();
     void msvcCheckPassesWithoutLibraries();
     void msvcCheckAnswer_data();
     void msvcCheckAnswer();
+    void fatalErrorReportsWithLoggingOff();
     void freshDataDirTakesNoBackup();
     void legacyStoreVersionNamesTheBackup();
     void imageCacheSignalsFailedFetch();
     void imageCacheKeepsNoFileForUndecodableBody();
+    void imageCacheKeysOnRequestedUrl();
     void dataDirLockRefusesSecondHolder();
     void dataDirLockTakesOverStaleLock();
 
@@ -463,7 +468,10 @@ void ShellTest::networkManagerHasNoDiskCache()
     // the user's real data directory.
     QVERIFY(QStandardPaths::isTestModeEnabled());
     const QString location = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
-    QVERIFY(location.contains(".qttest"));
+    // Qt's test directory: ~/.qttest on Unix and macOS, a "qttest" directory
+    // under %APPDATA% on Windows. Refuse to delete anything outside it.
+    const QStringList segments = QDir::fromNativeSeparators(location).split('/');
+    QVERIFY2(segments.contains(".qttest") || segments.contains("qttest"), qPrintable(location));
     QDir cache_dir(location + "/network_cache");
     QVERIFY(cache_dir.removeRecursively());
 
@@ -590,6 +598,31 @@ static QHostAddress callbackAddress(const OAuthManager &oauth)
     return {};
 }
 
+void ShellTest::legacyNetworkCacheLinkIsNotFollowed()
+{
+    // A network_cache that is a link to a directory elsewhere: the clean-up
+    // must not delete what the link points at.
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir root(dir.path());
+    QVERIFY(root.mkpath("elsewhere"));
+    QVERIFY(root.mkpath("data"));
+    {
+        QFile keep(root.filePath("elsewhere/keep.txt"));
+        QVERIFY(keep.open(QIODevice::WriteOnly));
+        keep.write("x");
+    }
+    const QString link = root.filePath("data/network_cache");
+    if (!QFile::link(root.filePath("elsewhere"), link) || !QFileInfo(link).isSymbolicLink()) {
+        QSKIP("symbolic links to directories cannot be created here");
+    }
+
+    NetworkManager::removeLegacyDiskCache(QDir(root.filePath("data")));
+    QVERIFY(root.exists("elsewhere/keep.txt"));
+    QVERIFY(!QFileInfo(link).isSymbolicLink());
+    QVERIFY(!QFileInfo::exists(link));
+}
+
 void ShellTest::loginListensOnLoopbackAfterClose()
 {
     UrlCatcher browser("https");
@@ -605,7 +638,7 @@ void ShellTest::loginListensOnLoopbackAfterClose()
     // listen on loopback again, not on every interface.
     handler->close();
     QVERIFY(!handler->isListening());
-    services.oauth.initLogin();
+    QVERIFY(services.oauth.initLogin());
     const QHostAddress address = callbackAddress(services.oauth);
     QVERIFY2(address.isLoopback(), qPrintable(address.toString()));
     QCOMPARE(browser.urls.size(), 1);
@@ -698,6 +731,24 @@ void ShellTest::msvcCheckAnswer()
     QCOMPARE(folder.urls.size(), opensFolder ? 1 : 0);
 }
 
+void ShellTest::fatalErrorReportsWithLoggingOff()
+{
+    // "off" is a selectable log level; the report must not depend on it.
+    const auto level = spdlog::get_level();
+    spdlog::set_level(spdlog::level::off);
+    std::FILE *out = std::tmpfile();
+    QVERIFY(out);
+    ReportFatalError("invariant broken: test", out);
+    spdlog::set_level(level);
+
+    std::fflush(out);
+    std::rewind(out);
+    char buffer[256] = {};
+    const size_t n = std::fread(buffer, 1, sizeof(buffer) - 1, out);
+    std::fclose(out);
+    QVERIFY2(QByteArray(buffer, qsizetype(n)).contains("invariant broken: test"), buffer);
+}
+
 void ShellTest::freshDataDirTakesNoBackup()
 {
     // A first run has nothing to back up: opening the global store must not
@@ -750,6 +801,64 @@ void ShellTest::imageCacheSignalsFailedFetch()
     QCOMPARE(ready.at(0).at(0).toString(), url);
     QVERIFY(!cache.contains(url));
     QVERIFY(cache.load(url).isNull());
+}
+
+// A reply whose url() is not the one requested, as after a redirect.
+class RedirectedReply : public InFlightReply
+{
+public:
+    RedirectedReply(const QNetworkRequest &request, const QUrl &final_url, QObject *parent)
+        : InFlightReply(request, parent)
+    {
+        setUrl(final_url);
+    }
+};
+
+class RedirectingNetworkManager : public NetworkManager
+{
+public:
+    QList<QPointer<InFlightReply>> replies;
+
+protected:
+    QNetworkReply *createRequest(QNetworkAccessManager::Operation,
+                                 const QNetworkRequest &request,
+                                 QIODevice *) override
+    {
+        auto *reply = new RedirectedReply(request,
+                                          QUrl("https://web.poecdn.com/redirected/Ring1.png"),
+                                          this);
+        replies.append(reply);
+        return reply;
+    }
+};
+
+void ShellTest::imageCacheKeysOnRequestedUrl()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    RedirectingNetworkManager network;
+    ImageCache cache(network, dir.filePath("cache"));
+    QSignalSpy ready(&cache, &ImageCache::imageReady);
+
+    QByteArray png;
+    {
+        QImage image(1, 1, QImage::Format_ARGB32);
+        image.fill(Qt::red);
+        QBuffer buffer(&png);
+        QVERIFY(buffer.open(QIODevice::WriteOnly));
+        QVERIFY(image.save(&buffer, "PNG"));
+    }
+
+    const QString url = "https://web.poecdn.com/image/Art/2DItems/Rings/Ring1.png";
+    cache.fetch(url);
+    QCOMPARE(network.replies.size(), 1);
+    QVERIFY(network.replies.at(0)->url() != QUrl(url));
+    network.replies.at(0)->finish({}, 200, QNetworkReply::NoError, png);
+
+    QCOMPARE(ready.count(), 1);
+    QCOMPARE(ready.at(0).at(0).toString(), url);
+    QVERIFY(cache.contains(url));
+    QVERIFY(!cache.load(url).isNull());
 }
 
 void ShellTest::imageCacheKeepsNoFileForUndecodableBody()
