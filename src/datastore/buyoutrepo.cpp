@@ -199,11 +199,6 @@ bool BuyoutRepo::ensureSchema()
     return true;
 }
 
-std::unordered_map<QString, Buyout> BuyoutRepo::getItemBuyouts()
-{
-    return loadItemBuyouts().value_or(std::unordered_map<QString, Buyout>{});
-}
-
 std::optional<std::unordered_map<QString, Buyout>> BuyoutRepo::loadItemBuyouts()
 {
     spdlog::debug("BuyoutRepo: getting item buyouts");
@@ -218,7 +213,7 @@ std::optional<std::unordered_map<QString, Buyout>> BuyoutRepo::loadItemBuyouts()
     }
 
     if (!q.exec()) {
-        ds::logQueryError("BuyoutRepo::getItemBuyouts()", q);
+        ds::logQueryError("BuyoutRepo::loadItemBuyouts()", q);
         return std::nullopt;
     }
 
@@ -236,15 +231,10 @@ std::optional<std::unordered_map<QString, Buyout>> BuyoutRepo::loadItemBuyouts()
         buyouts[item_id] = buyout;
     }
     if (q.lastError().isValid()) {
-        ds::logQueryError("BuyoutRepo::getItemBuyouts()", q);
+        ds::logQueryError("BuyoutRepo::loadItemBuyouts()", q);
         return std::nullopt;
     }
     return buyouts;
-}
-
-std::unordered_map<QString, Buyout> BuyoutRepo::getLocationBuyouts()
-{
-    return loadLocationBuyouts().value_or(std::unordered_map<QString, Buyout>{});
 }
 
 std::optional<std::unordered_map<QString, Buyout>> BuyoutRepo::loadLocationBuyouts()
@@ -261,7 +251,7 @@ std::optional<std::unordered_map<QString, Buyout>> BuyoutRepo::loadLocationBuyou
     }
 
     if (!q.exec()) {
-        ds::logQueryError("BuyoutRepo::getLocationBuyouts()", q);
+        ds::logQueryError("BuyoutRepo::loadLocationBuyouts()", q);
         return std::nullopt;
     }
 
@@ -279,7 +269,7 @@ std::optional<std::unordered_map<QString, Buyout>> BuyoutRepo::loadLocationBuyou
         buyouts[location_id] = buyout;
     }
     if (q.lastError().isValid()) {
-        ds::logQueryError("BuyoutRepo::getLocationBuyouts()", q);
+        ds::logQueryError("BuyoutRepo::loadLocationBuyouts()", q);
         return std::nullopt;
     }
     return buyouts;
