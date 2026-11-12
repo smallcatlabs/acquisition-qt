@@ -6,7 +6,6 @@
 #include <QApplication>
 #include <QBuffer>
 #include <QDesktopServices>
-#include <QFileDialog>
 #include <QMessageBox>
 #include <QOAuthHttpServerReplyHandler>
 #include <QPushButton>
@@ -59,8 +58,6 @@ private slots:
     void backupSkippedWithoutDataDirRecordsVersion();
     void backupSkippedForEmptyDataDirRecordsVersion();
     void backupTakenOnNewVersion();
-    void cancellingDataDirPickerChangesNothing();
-    void choosingDataDirEmitsIt();
     void updateButtonOpensUpdatePrompt();
     void skippedReleaseIsNotOfferedAgain();
     void imageCacheDeletesReplies_data();
@@ -164,7 +161,7 @@ struct LoginDialogServices
 
     std::unique_ptr<LoginDialog> makeDialog()
     {
-        return std::make_unique<LoginDialog>(QDir(dir.path()), settings, network, oauth, datastore);
+        return std::make_unique<LoginDialog>(settings, network, oauth, datastore);
     }
 
     QTemporaryDir dir;
@@ -301,50 +298,6 @@ namespace {
         trigger();
         return answered;
     }
-
-    // Press the login dialog's data-directory button and answer the file
-    // dialog it opens with `answer` once that dialog is showing.
-    bool pressUserDirButton(LoginDialog &dialog, const std::function<void(QFileDialog &)> &answer)
-    {
-        auto *button = dialog.findChild<QPushButton *>("userDirButton");
-        if (!button) {
-            return false;
-        }
-        return answerModal<QFileDialog>([button] { emit button->pressed(); }, answer);
-    }
-
-} // namespace
-
-void ShellTest::cancellingDataDirPickerChangesNothing()
-{
-    LoginDialogServices services;
-    QVERIFY(services.dir.isValid());
-    auto dialog = services.makeDialog();
-    QSignalSpy changed(dialog.get(), &LoginDialog::ChangeUserDir);
-
-    QVERIFY(pressUserDirButton(*dialog, [](QFileDialog &picker) { picker.reject(); }));
-    QCOMPARE(changed.count(), 0);
-}
-
-void ShellTest::choosingDataDirEmitsIt()
-{
-    LoginDialogServices services;
-    QVERIFY(services.dir.isValid());
-    QTemporaryDir other;
-    QVERIFY(other.isValid());
-    auto dialog = services.makeDialog();
-    QSignalSpy changed(dialog.get(), &LoginDialog::ChangeUserDir);
-
-    QVERIFY(pressUserDirButton(*dialog, [&](QFileDialog &picker) {
-        picker.setDirectory(other.path());
-        static_cast<QDialog &>(picker).accept(); // QFileDialog::accept is protected
-    }));
-    QCOMPARE(changed.count(), 1);
-    QCOMPARE(QFileInfo(changed.at(0).at(0).toString()).canonicalFilePath(),
-             QFileInfo(other.path()).canonicalFilePath());
-}
-
-namespace {
 
     constexpr const char *NEWER_RELEASES
         = R"json([{"tag_name":"v99.0.0","draft":false,"prerelease":false}])json";
