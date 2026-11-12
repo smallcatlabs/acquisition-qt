@@ -21,11 +21,11 @@ namespace poe {
         // itself. Nothing should name this type directly -- use Flags.
         struct FlagFields
         {
-            std::optional<bool> fractured;  // ? bool always true if present
-            std::optional<bool> mutated;    // ? bool always true if present
-            std::optional<bool> crafted;    // ? bool always true if present
-            std::optional<bool> desecrated; // ? bool PoE2 only always true if present
-            std::optional<bool> vestigial;  // ? bool PoE1 only; always true if present
+            std::optional<bool> fractured;  // ?bool; always true if present
+            std::optional<bool> mutated;    // ?bool; always true if present
+            std::optional<bool> crafted;    // ?bool; always true if present
+            std::optional<bool> desecrated; // ?bool; PoE2 only; always true if present
+            std::optional<bool> vestigial;  // ?bool; PoE1 only; always true if present
             std::optional<bool> rareonly;   // ?bool; PoE1 only; always true if present
         };
 
@@ -53,8 +53,9 @@ namespace poe {
             }
         };
 
-        QString description;                 // string
-        std::optional<ItemMod::Flags> flags; // ? object, but see the reader below
+        QString description; // string
+        // NOTE: GGG sometimes sends an empty array; see the reader below.
+        std::optional<ItemMod::Flags> flags; // ?object
     };
 
 } // namespace poe

@@ -19,17 +19,17 @@ namespace poe {
     {
         struct Character
         {
-            QString id;                    // string a unique 64 digit hexadecimal string
+            QString id;                    // string; a unique 64 digit hexadecimal string
             QString name;                  // string
             unsigned level;                // uint
             QString class_;                // string
-            std::optional<QString> league; // ? string
-            std::optional<unsigned> score; // ? uint count of league objective completions
+            std::optional<QString> league; // ?string
+            std::optional<unsigned> score; // ?uint; count of league objective completions
         };
 
         poe::Account account;                          // Account
         poe::PvPLadderTeamMember::Character character; // object
-        std::optional<bool> public_;                   // ? bool always true if present
+        std::optional<bool> public_;                   // ?bool; always true if present
     };
 
 } // namespace poe

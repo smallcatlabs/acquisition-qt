@@ -17,7 +17,7 @@ namespace poe {
     {
         struct Challenges
         {
-            QString set;        // string the challenge set
+            QString set;        // string; the challenge set
             unsigned completed; // uint
             unsigned max;       // uint
         };
@@ -32,13 +32,13 @@ namespace poe {
         struct Twitch
         {
             QString name;                                     // string
-            std::optional<poe::Account::TwitchStream> stream; // ? object
+            std::optional<poe::Account::TwitchStream> stream; // ?object
         };
 
         QString name;                                       // string
-        std::optional<QString> realm;                       // ? string pc, xbox, or sony
-        std::optional<poe::Guild> guild;                    // ? Guild
-        std::optional<poe::Account::Challenges> challenges; // ? object
-        std::optional<poe::Account::Twitch> twitch;         // ? object
+        std::optional<QString> realm;                       // ?string; pc, xbox, or sony
+        std::optional<poe::Guild> guild;                    // ?Guild
+        std::optional<poe::Account::Challenges> challenges; // ?object
+        std::optional<poe::Account::Twitch> twitch;         // ?object
     };
 } // namespace poe

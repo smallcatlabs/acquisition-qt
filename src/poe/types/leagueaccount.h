@@ -29,11 +29,11 @@ namespace poe {
 
         struct Mercenaries
         {
-            unsigned index; // uint
-            QString name;
-            unsigned level;
-            QString build;
-            unsigned build_hash;
+            unsigned index;                          // uint
+            QString name;                            // string
+            unsigned level;                          // uint
+            QString build;                           // string
+            unsigned build_hash;                     // uint
             std::vector<poe::MercenarySkill> skills; // array of MercenarySkill
             std::vector<poe::Item> items;            // array of Item
         };

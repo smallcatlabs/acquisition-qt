@@ -26,30 +26,33 @@ namespace poe {
         struct Passives
         {
             std::vector<unsigned> hashes;    // array of uint
-            std::vector<unsigned> hashes_ex; // array of uint
-            std::optional<std::unordered_map<QString, int>>
-                mastery_effects; // dictionary of int; PoE1 only; the key is the string value of the mastery node skill hash and the value is the selected effect hash
-            std::optional<std::unordered_map<QString, std::vector<int>>>
-                specialisations; // dictionary of array of int; PoE2 only; the keys are set1, set2, and set3
-            std::unordered_map<QString, poe::PassiveNode>
-                skill_overrides; // dictionary of PassiveNode; the key is the string value of the node identifier being replaced
-            std::optional<QString>
-                bandit_choice; // ?string; PoE1 only; one of Kraityn, Alira, Oak, or Eramir
-            std::optional<QString>
-                pantheon_major; // ?string; PoE1 only; one of TheBrineKing, Arakaali, Solaris, or Lunaris
-            std::optional<QString>
-                pantheon_minor; // ?string; PoE1 only; one of Abberath, Gruthkul, Yugul, Shakari, Tukohama, Ralakesh, Garukhan, or Ryslatha
-            std::unordered_map<QString, poe::ItemJewelData>
-                jewel_data; // dictionary of ItemJewelData the key is the string value of the x property of an item from the jewels array in this request
-            std::vector<QString>
-                quest_stats; // ?array of string; PoE2 only; passives granted via quests
-            std::optional<QString>
-                alternate_ascendancy; // ?string; PoE1 only; Warden, Warlock, or Primalist (deprecated)
+            std::vector<unsigned> hashes_ex; // array of uint; PoE1 only
+            // dictionary of int; PoE1 only; the key is the string value of the mastery node skill
+            // hash and the value is the selected effect hash
+            std::optional<std::unordered_map<QString, int>> mastery_effects;
+            // dictionary of array of int; PoE2 only; the keys are set1, set2, and set3
+            std::optional<std::unordered_map<QString, std::vector<int>>> specialisations;
+            // dictionary of PassiveNode; the key is the string value of the node identifier being
+            // replaced
+            std::unordered_map<QString, poe::PassiveNode> skill_overrides;
+            // ?string; PoE1 only; one of Kraityn, Alira, Oak, or Eramir
+            std::optional<QString> bandit_choice;
+            // ?string; PoE1 only; one of TheBrineKing, Arakaali, Solaris, or Lunaris
+            std::optional<QString> pantheon_major;
+            // ?string; PoE1 only; one of Abberath, Gruthkul, Yugul, Shakari, Tukohama, Ralakesh,
+            // Garukhan, or Ryslatha
+            std::optional<QString> pantheon_minor;
+            // dictionary of ItemJewelData; the key is the string value of the x property of an item
+            // from the jewels array in this request
+            std::unordered_map<QString, poe::ItemJewelData> jewel_data;
+            // ?array of string; PoE2 only; passives granted via quests
+            std::vector<QString> quest_stats;
+            std::optional<QString> alternate_ascendancy; // ?string; PoE1 only; Bloodline class name
         };
 
         struct Metadata
         {
-            std::optional<QString> version; // ?string game; version for the character's realm
+            std::optional<QString> version; // ?string; game version for the character's realm
         };
 
         QString id;                    // string; a unique 64 digit hexadecimal string
@@ -59,14 +62,14 @@ namespace poe {
         std::optional<QString> league; // ?string
         unsigned level;                // uint
         unsigned experience;           // uint
-        bool ruthless{false};          // ?bool; always true if present; PoE1 only
+        bool ruthless{false};          // ?bool; PoE1 only; always true if present
         bool expired{false};           // ?bool; always true if present
         bool deleted{false};           // ?bool; always true if present
         bool current{false};           // ?bool; always true if present
         std::optional<std::vector<poe::Item>> equipment;  // ?array of Item
         std::optional<std::vector<poe::Item>> skills;     // ?array of Item; PoE2 only
-        std::optional<std::vector<poe::Item>> inventory;  // ?array of Item
-        std::optional<std::vector<poe::Item>> rucksack;   // ?array of Item
+        std::optional<std::vector<poe::Item>> inventory;  // ?array of Item; PoE1 only
+        std::optional<std::vector<poe::Item>> rucksack;   // ?array of Item; PoE1 only
         std::optional<std::vector<poe::Item>> jewels;     // ?array of Item
         std::optional<std::vector<poe::Item>> guardian;   // ?array of Item; PoE1 only
         std::optional<std::vector<poe::Item>> wickerman;  // ?array of Item; PoE1 only

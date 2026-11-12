@@ -16,10 +16,11 @@ namespace poe {
     {
         float x;                      // float
         float y;                      // float
-        std::vector<unsigned> orbits; //	array of uint
-        std::optional<bool> isProxy;  // ? bool always true if present
-        std::optional<QString> proxy; // ? string identifier of the placeholder node
-        std::vector<QString> nodes; // array of string the node identifiers associated with this group;
+        std::vector<unsigned> orbits; // array of uint
+        std::optional<bool> isProxy;  // ?bool; always true if present
+        std::optional<QString> proxy; // ?string; identifier of the placeholder node
+        // array of string; the node identifiers associated with this group
+        std::vector<QString> nodes;
     };
 
 } // namespace poe

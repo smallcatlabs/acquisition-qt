@@ -13,9 +13,9 @@ namespace poe {
 
     struct LeagueRule
     {
-        QString id;                         // string examples : Hardcore, NoParties(SSF)
+        QString id;                         // string; examples: Hardcore, NoParties (SSF)
         QString name;                       // string
-        std::optional<QString> description; // ? string
+        std::optional<QString> description; // ?string
     };
 
 } // namespace poe

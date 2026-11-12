@@ -15,14 +15,14 @@ namespace poe {
     {
         struct Support
         {
-            unsigned hash;
-            QString name;
-            unsigned tier;
+            unsigned hash; // uint
+            QString name;  // string
+            unsigned tier; // uint
         };
 
-        unsigned hash;
-        QString icon;
-        QString name;
+        unsigned hash;                                                     // uint
+        QString icon;                                                      // string
+        QString name;                                                      // string
         std::optional<std::vector<poe::MercenarySkill::Support>> supports; // ?array of object
     };
 
