@@ -67,10 +67,10 @@ private:
 class NameColumn : public Column
 {
 public:
-    QString name() const;
-    QVariant value(const Item &item) const;
-    QColor color(const Item &item) const;
-    QVariant icon(const Item &item) const
+    QString name() const override;
+    QVariant value(const Item &item) const override;
+    QColor color(const Item &item) const override;
+    QVariant icon(const Item &item) const override
     {
         Q_UNUSED(item);
         return QVariant::fromValue(NULL);
@@ -80,9 +80,9 @@ public:
 class CorruptedColumn : public Column
 {
 public:
-    QString name() const;
-    QVariant value(const Item &item) const;
-    QVariant icon(const Item &item) const
+    QString name() const override;
+    QVariant value(const Item &item) const override;
+    QVariant icon(const Item &item) const override
     {
         Q_UNUSED(item);
         return QVariant::fromValue(NULL);
@@ -92,9 +92,9 @@ public:
 class CraftedColumn : public Column
 {
 public:
-    QString name() const;
-    QVariant value(const Item &item) const;
-    QVariant icon(const Item &item) const
+    QString name() const override;
+    QVariant value(const Item &item) const override;
+    QVariant icon(const Item &item) const override
     {
         Q_UNUSED(item);
         return QVariant::fromValue(NULL);
@@ -104,9 +104,9 @@ public:
 class EnchantedColumn : public Column
 {
 public:
-    QString name() const;
-    QVariant value(const Item &item) const;
-    QVariant icon(const Item &item) const
+    QString name() const override;
+    QVariant value(const Item &item) const override;
+    QVariant icon(const Item &item) const override
     {
         Q_UNUSED(item);
         return QVariant::fromValue(NULL);
@@ -116,9 +116,9 @@ public:
 class InfluncedColumn : public Column
 {
 public:
-    QString name() const;
-    QVariant value(const Item &item) const;
-    QVariant icon(const Item &item) const;
+    QString name() const override;
+    QVariant value(const Item &item) const override;
+    QVariant icon(const Item &item) const override;
 
 protected:
     QVariant sortValue(const Item &item) const override;
@@ -130,9 +130,9 @@ class PropertyColumn : public Column
 public:
     explicit PropertyColumn(const QString &name);
     PropertyColumn(const QString &name, const QString &property);
-    QString name() const;
-    QVariant value(const Item &item) const;
-    QVariant icon(const Item &item) const
+    QString name() const override;
+    QVariant value(const Item &item) const override;
+    QVariant icon(const Item &item) const override
     {
         Q_UNUSED(item);
         return QVariant::fromValue(NULL);
@@ -146,9 +146,9 @@ private:
 class DPSColumn : public Column
 {
 public:
-    QString name() const;
-    QVariant value(const Item &item) const;
-    QVariant icon(const Item &item) const
+    QString name() const override;
+    QVariant value(const Item &item) const override;
+    QVariant icon(const Item &item) const override
     {
         Q_UNUSED(item);
         return QVariant::fromValue(NULL);
@@ -158,9 +158,9 @@ public:
 class pDPSColumn : public Column
 {
 public:
-    QString name() const;
-    QVariant value(const Item &item) const;
-    QVariant icon(const Item &item) const
+    QString name() const override;
+    QVariant value(const Item &item) const override;
+    QVariant icon(const Item &item) const override
     {
         Q_UNUSED(item);
         return QVariant::fromValue(NULL);
@@ -170,9 +170,9 @@ public:
 class eDPSColumn : public Column
 {
 public:
-    QString name() const;
-    QVariant value(const Item &item) const;
-    QVariant icon(const Item &item) const
+    QString name() const override;
+    QVariant value(const Item &item) const override;
+    QVariant icon(const Item &item) const override
     {
         Q_UNUSED(item);
         return QVariant::fromValue(NULL);
@@ -183,10 +183,10 @@ class ElementalDamageColumn : public Column
 {
 public:
     explicit ElementalDamageColumn(int index);
-    QString name() const;
-    QVariant value(const Item &item) const;
-    QColor color(const Item &item) const;
-    QVariant icon(const Item &item) const
+    QString name() const override;
+    QVariant value(const Item &item) const override;
+    QColor color(const Item &item) const override;
+    QVariant icon(const Item &item) const override
     {
         Q_UNUSED(item);
         return QVariant::fromValue(NULL);
@@ -199,10 +199,10 @@ private:
 class ChaosDamageColumn : public Column
 {
 public:
-    QString name() const;
-    QVariant value(const Item &item) const;
-    QColor color(const Item &item) const;
-    QVariant icon(const Item &item) const
+    QString name() const override;
+    QVariant value(const Item &item) const override;
+    QColor color(const Item &item) const override;
+    QVariant icon(const Item &item) const override
     {
         Q_UNUSED(item);
         return QVariant::fromValue(NULL);
@@ -212,9 +212,9 @@ public:
 class cDPSColumn : public Column
 {
 public:
-    QString name() const;
-    QVariant value(const Item &item) const;
-    QVariant icon(const Item &item) const
+    QString name() const override;
+    QVariant value(const Item &item) const override;
+    QVariant icon(const Item &item) const override
     {
         Q_UNUSED(item);
         return QVariant::fromValue(NULL);
@@ -225,13 +225,13 @@ class PriceColumn : public Column
 {
 public:
     explicit PriceColumn(const BuyoutManager &bo_manager);
-    QString name() const;
-    QVariant value(const Item &item) const;
-    QColor color(const Item &item) const;
-    bool buyoutDependent() const { return true; }
-    bool lt(const Item *lhs, const Item *rhs) const;
-    ItemSortKey key(const Item &item) const;
-    QVariant icon(const Item &item) const
+    QString name() const override;
+    QVariant value(const Item &item) const override;
+    QColor color(const Item &item) const override;
+    bool buyoutDependent() const override { return true; }
+    bool lt(const Item *lhs, const Item *rhs) const override;
+    ItemSortKey key(const Item &item) const override;
+    QVariant icon(const Item &item) const override
     {
         Q_UNUSED(item);
         return QVariant::fromValue(NULL);
@@ -249,12 +249,12 @@ class DateColumn : public Column
 {
 public:
     explicit DateColumn(const BuyoutManager &bo_manager);
-    QString name() const;
-    QVariant value(const Item &item) const;
-    bool buyoutDependent() const { return true; }
-    bool lt(const Item *lhs, const Item *rhs) const;
-    ItemSortKey key(const Item &item) const;
-    QVariant icon(const Item &item) const
+    QString name() const override;
+    QVariant value(const Item &item) const override;
+    bool buyoutDependent() const override { return true; }
+    bool lt(const Item *lhs, const Item *rhs) const override;
+    ItemSortKey key(const Item &item) const override;
+    QVariant icon(const Item &item) const override
     {
         Q_UNUSED(item);
         return QVariant::fromValue(NULL);
@@ -270,9 +270,9 @@ private:
 class ItemlevelColumn : public Column
 {
 public:
-    QString name() const;
-    QVariant value(const Item &item) const;
-    QVariant icon(const Item &item) const
+    QString name() const override;
+    QVariant value(const Item &item) const override;
+    QVariant icon(const Item &item) const override
     {
         Q_UNUSED(item);
         return QVariant::fromValue(NULL);

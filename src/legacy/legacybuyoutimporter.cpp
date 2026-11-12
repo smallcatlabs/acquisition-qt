@@ -40,13 +40,13 @@ namespace {
 
     struct ImportTarget
     {
-        QString id;
-        QString location_id;
+        QString id{};
+        QString location_id{};
         ItemLocationType location_type{ItemLocationType::STASH};
-        QString old_name;
-        QString current_name;
-        QString reason;
-        QString item_name;
+        QString old_name{};
+        QString current_name{};
+        QString reason{};
+        QString item_name{};
 
         bool operator==(const ImportTarget &other) const
         {
@@ -57,20 +57,20 @@ namespace {
 
     struct PlanRow
     {
-        QString action;
-        QString reason;
-        QString target_type;
-        LegacyBuyout buyout;
-        QString item_id;
-        QString location_id;
-        QString location_type;
-        QString item_name;
-        QString old_tab_label;
-        QString current_tab_name;
-        QString old_character;
-        QString current_character;
-        QString legacy_hash;
-        std::optional<Buyout> existing;
+        QString action{};
+        QString reason{};
+        QString target_type{};
+        LegacyBuyout buyout{};
+        QString item_id{};
+        QString location_id{};
+        QString location_type{};
+        QString item_name{};
+        QString old_tab_label{};
+        QString current_tab_name{};
+        QString old_character{};
+        QString current_character{};
+        QString legacy_hash{};
+        std::optional<Buyout> existing{};
     };
 
     struct ParsedItemWrite
