@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # Every executable that ctest runs, and nothing else: the sanitizer job
 # (.github/workflows/sanitizers.yml) builds this target so that the
 # `acquisition` app, which must never be built sanitized, is not built at all.
