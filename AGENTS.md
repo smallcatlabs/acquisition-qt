@@ -1,30 +1,89 @@
 # Repository Guidelines
 
-## Project Map
-- Acquisition is a C++23 Qt Widgets application for Path of Exile stash, inventory, and forum shop management.
-- `src/` contains the application code. Important subdirectories include `src/datastore/`, `src/legacy/`, `src/poe/`, `src/ratelimit/`, `src/repoe/`, `src/ui/`, and `src/util/`.
-- `assets/` contains bundled icons and Path of Exile-style UI images.
-- `docs/` contains design specs, ADRs, and the findings register; `docs/README.md` maps them.
-- `deps/qdarkstyle/` is the vendored qdarkstyle dependency. Other third-party libraries are fetched by CMake.
-- Release packaging is defined in `.github/workflows/`.
+Acquisition is a C++23 Qt Widgets application for Path of Exile stash,
+inventory, and forum shop management. This repository is the Qt application,
+maintained indefinitely. A Rust implementation is developed separately in
+`smallcatlabs/acquisition` (`docs/adr/0003-rewrite-vs-evolve.md`); nothing
+there binds work here.
 
-## Build And Run
-- Read `BUILD.md` before changing build, packaging, or platform setup.
-- Configure and build with `cmake -S . -B build` and `cmake --build build`.
-- CMake requires Qt 6.11+, the Qt Network Authorization module, and the private Qt Gui module that the fetched QXlsx dependency links against. Linux also requires OpenSSL.
-- A distribution's Qt packages often ship neither of those modules, so a bare `cmake -S . -B build` can pick up a system Qt and fail in `build/_deps/qxlsx-src` with `Failed to find required Qt component "GuiPrivate"`. Point CMake at an official Qt kit instead: `cmake -S . -B build -DCMAKE_PREFIX_PATH=<qt-install>/6.12.0/<compiler>`.
-- If `build/` already holds Qt Creator kit trees (`build/Desktop_Qt_6_12_0_Release` and similar), build and test in one of those rather than configuring a second tree at `build/` itself.
-- Run locally with `./build/acquisition --data-dir /tmp/acq-data` to avoid touching a user's real Acquisition data.
-- Run the checked-in Qt Test suite with `ctest --test-dir build --output-on-failure` after building.
+## Build, Run, Test
 
-## Items Pipeline and Network Redesign (in progress)
-- The July 2026 interior design cleanup is complete. Current work is a delta-native redesign of the items refresh pipeline; read `docs/design/items-pipeline.md` before making structural changes to the worker, `ItemsManager`, or the search/model refresh paths.
-- The rate-limited networking layer is being redesigned under an accepted, frozen spec; read `docs/design/network-redesign.md` before touching `src/ratelimit/` or the network boundary. Claims about how the Path of Exile API actually limits requests live in `docs/design/network-ground-truth.md` and are cited by number.
-- Known design/correctness problems are recorded in `docs/cleanup/findings.md` (open findings, standing constraints, and a ledger of resolved ones). Check it before fixing something that looks broken — it may already be recorded or assigned.
-- The rewrite-or-evolve decision is made: `docs/adr/0003-rewrite-vs-evolve.md` (accepted, October 2026). The Rust implementation lives in `smallcatlabs/acquisition`; this repository is the Qt application, and the specs above remain full authority for all work on `master`.
+Read `BUILD.md` before changing build, packaging, or platform setup.
 
-## Development Guidance
-- Use `.clang-format` for C++ formatting when touching formatted source, respect existing `// clang-format off/on` blocks, and preserve nearby style for naming and code organization.
+```sh
+export CMAKE_PREFIX_PATH=<qt-install>/6.12.0/<compiler>   # e.g. ~/Qt/6.12.0/macos
+export CMAKE_GENERATOR=Ninja                              # optional
+cmake --preset dev && cmake --build --preset dev && ctest --preset dev
+```
+
+- Presets (`dev`, `release`, `asan`) build under `build/<preset>`. Use them;
+  do not create other build trees in the repository root.
+- CMake requires Qt 6.11+, the Qt Network Authorization module, and the
+  private Qt Gui module that the fetched QXlsx dependency links against. A
+  distribution's Qt usually ships neither, and configuring fails in
+  `_deps/qxlsx-src` with `Failed to find required Qt component "GuiPrivate"`.
+  Point `CMAKE_PREFIX_PATH` at an official Qt kit. Linux also requires OpenSSL.
+- Run the app only with `--data-dir <temporary directory>`. Never read or
+  write a real Acquisition data directory (the platform's application-data
+  location), in the app, in tests, or in investigation scripts. It holds the
+  user's tokens, prices and account data.
+- Enable the commit hook once per clone: `git config core.hooksPath .githooks`.
+
+## Working Rules
+
+- **Work comes from GitHub issues.** Milestones group them; `area:` labels say
+  where. `needs-decision` means the maintainer has to rule before code is
+  written. `docs/cleanup/findings.md` holds standing constraints and
+  design-level findings (F-numbers); check both before fixing something that
+  looks broken.
+- **A change in behaviour comes with a test that fails without it.** Run the
+  test and see it fail before writing the fix. A test that passes at once has
+  proved nothing.
+- **Fixtures use what the game actually sends.** Property values look like
+  `8.00%` and `20 (Max)`; item classes are named `rings` and
+  `one hand swords`; requirements arrive as both `Int` and `Intelligence`.
+  Tests built on invented formats have hidden real defects here.
+- **Pull requests** must pass the Tests check. CodeQL and the sanitizer run
+  follow the merge on `master` (the sanitizer job also runs on a pull request
+  that touches the refresh or network code); a failure there is yours to fix
+  first. Keep one topic per pull request. The maintainer merges and decides which release
+  a change rides in; do not bump the version unless asked.
+- When UI behaviour changes, update `docs/user/`.
+- Use `.clang-format` on the lines you touch, respect existing
+  `// clang-format off/on` blocks, and keep nearby naming and organization.
 - Prefer existing Qt and local helper patterns over new abstractions.
-- Keep generated logs, `settings.ini`, OAuth tokens, and other user-local state out of commits.
-- For release changes, compare `CMakeLists.txt`, `installer.iss`, and the relevant workflow so version and packaging assumptions stay aligned.
+- Keep generated logs, `settings.ini`, OAuth tokens, and other user-local
+  state out of commits.
+- For release changes, compare `CMakeLists.txt`, `installer.iss`, and the
+  relevant workflow so version and packaging assumptions stay aligned. The
+  version has one source: `project(VERSION ...)` in `CMakeLists.txt`.
+
+## Where To Look
+
+| Area | Code | Read first | Must not break |
+|---|---|---|---|
+| Refresh pipeline | `src/itemsmanagerworker.*`, `src/itemsmanager.*` | `docs/design/items-pipeline.md`; the M2 spec's D1–D8 and D10 | An update's identity is its `std::stop_token`, checked after every await. A reply replaces its source atomically. Nothing the worker discards is persisted. |
+| Rate limiting and network | `src/ratelimit/`, `src/poe/poeapiclient.*`, `src/util/networkmanager.*` | `docs/design/network-redesign.md` (frozen); `docs/design/network-ground-truth.md` (N-claims) | One HEAD in flight at a time (F5). The hub lives on the main thread. Every API request carries the transfer timeout. Owners are destroyed only after the event loop stops. |
+| Search and model | `src/search.*`, `src/bucket.*`, `src/items_model.*`, `src/column.*`, `src/filters/` | `docs/design/items-pipeline-m3.md`; `docs/design/folder-tree.md` | Refresh deltas reach the model as row operations, never a reset. `src/filters/` stays free of widgets (the `filters_boundary` test). |
+| Items | `src/item.*`, `src/modlist.*`, `src/pseudomods.*`, `src/repoe/`, `src/poe/types/` | Issues labelled `area:items` | Game data (RePoE) is loaded before any `Item` is built. |
+| Pricing and shop | `src/buyout*`, `src/shop.*`, `src/currency*` | `docs/user/pricing.md`, `docs/user/forum-shop.md`; `docs/design/trade-ground-truth.md` (T-claims) | Prices set in the game are never posted to the forum. Automatic shop submission happens only after a clean completed refresh. User-authored prices are never dropped. |
+| Storage | `src/datastore/`, `src/legacy/` | F22, F64 and F66 in `findings.md` | Any change to a repo table's DDL bumps `SCHEMA_VERSION` in the same commit. Buyout tables are never dropped or rebuilt. |
+| Shell | `src/main.cpp`, `src/application.*`, `src/ui/logindialog.*`, `src/util/` | "Standing constraints" in `findings.md` | Logging teardown comes last (F29). Never touch `logger->sinks()` outside `logging::init` (F42). One user session per process. Credentials never reach the log. |
+| UI | `src/ui/` | `docs/user/` | — |
+| Build, CI, release | `CMakeLists.txt`, `CMakePresets.json`, `.github/workflows/`, `installer.iss` | `BUILD.md` | `_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR` stays a global definition ahead of `FetchContent` (F78). |
+
+`docs/README.md` maps every document. The frozen specs remain full authority
+for the areas they cover; cite their decision numbers, the F-numbers, and the
+N- and T-claims instead of restating them.
+
+## Project Map
+
+- `src/` is the application. `src/ui/` holds the widgets; `src/filters/` is a
+  separate library with no UI dependency.
+- `tests/` is the Qt Test suite, with fakes for the network (`fake*.h`) and a
+  main-window fixture.
+- `assets/` holds bundled icons and Path of Exile-style UI images.
+- `docs/` holds the user guide, design specs, ADRs, and the findings register.
+- `deps/qdarkstyle/` is vendored. Other third-party libraries are fetched by
+  CMake.
+- Release packaging is defined in `.github/workflows/`.

@@ -740,7 +740,9 @@ if(WIN32)
     math(EXPR app_version_major "${acquisition_VERSION_MAJOR} + 0")
     math(EXPR app_version_minor "${acquisition_VERSION_MINOR} + 0")
     math(EXPR app_version_patch "${acquisition_VERSION_PATCH} + 0")
-    math(EXPR app_version_tweak "${acquisition_VERSION_PATCH} + 0")
+    # Always zero: the project rejects tweak versions (see the VERSION checks
+    # at the top of this file), so the fourth VERSIONINFO field is unused.
+    set(app_version_tweak 0)
 
     # Define the rest of the versioninfo data.
     set(app_company_name        "")

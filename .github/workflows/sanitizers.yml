@@ -17,16 +17,36 @@ name: Sanitizers
 # crashpad, whose signal handlers can conflict with the sanitizer's). Release
 # packaging never sets ACQ_SANITIZE.
 
+# Runs on every push to master and on demand. On a pull request it runs only
+# when the change touches the code this runner exercises (the worker, the API
+# client, the rate-limit hub, the network manager) or the runner and its build
+# themselves; every other pull request is gated by the test suite (tests.yml)
+# alone and is covered by the run that follows its merge.
 on:
   push:
     branches: [master]
   pull_request:
     branches: [master]
+    paths:
+      - 'src/ratelimit/**'
+      - 'src/poe/poeapiclient.*'
+      - 'src/itemsmanagerworker.*'
+      - 'src/itemsfromwire.*'
+      - 'src/util/networkmanager.*'
+      - 'src/replytimeout.h'
+      - 'tests/tst_workerintegration.cpp'
+      - 'tests/fake*.h'
+      - 'tests/lsan.supp'
+      - 'tests/CMakeLists.txt'
+      - 'CMakeLists.txt'
+      - '.github/workflows/sanitizers.yml'
   workflow_dispatch:
 
+# A newer commit on a pull request supersedes the run in progress; a run on
+# master is allowed to finish.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
