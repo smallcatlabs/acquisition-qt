@@ -30,6 +30,11 @@ private slots:
     void resonatorSocketsExportAsResonators();
     void vestigialAndDesecratedModsAreKept();
     void realRingModTable();
+    void templateWithLiteralNumber();
+    void negativeRollReducesResistanceTotals();
+    void rangeIsAveraged();
+    void clusterNotableIsPresent();
+    void literalSignWinsOverSignedPlaceholder();
 };
 
 // Real RePoE stat translations, cut from the game data (see
@@ -440,6 +445,97 @@ void ItemTest::realRingModTable()
         QVERIFY2(table.contains(name), qPrintable(name));
         QCOMPARE(table.at(name), value);
     }
+}
+
+// #265: a template whose own text holds a number ("Level 20", "0.5 second")
+// matches a line; rewriting every number in the line to "#" never could.
+void ItemTest::templateWithLiteralNumber()
+{
+    loadRealStatTranslations();
+
+    const auto item = makeItem("literal", R"json(,
+        "explicitMods": [
+            {"description": "25% chance to Trigger Level 20 Animate Weapon on Kill"},
+            {"description": "50% chance to Trigger Socketed Spell on Kill, with a 0.5 second Cooldown"}
+        ]
+    )json");
+    const ModTable &table = item->mod_table();
+    QVERIFY(table.contains("#% chance to Trigger Level 20 Animate Weapon on Kill"));
+    QCOMPARE(table.at("#% chance to Trigger Level 20 Animate Weapon on Kill"), 25.0);
+    QVERIFY(
+        table.contains("#% chance to Trigger Socketed Spell on Kill, with a 0.5 second Cooldown"));
+    QCOMPARE(table.at("#% chance to Trigger Socketed Spell on Kill, with a 0.5 second Cooldown"),
+             50.0);
+
+    // The literal number must match: another level is not this mod.
+    const auto other = makeItem("literal-other", R"json(,
+        "explicitMods": [{"description": "25% chance to Trigger Level 19 Animate Weapon on Kill"}]
+    )json");
+    QVERIFY(!other->mod_table().contains("#% chance to Trigger Level 20 Animate Weapon on Kill"));
+}
+
+// #265: a negative roll of a "+#" mod is that mod with a negative value, and
+// it reduces the resistance totals it feeds.
+void ItemTest::negativeRollReducesResistanceTotals()
+{
+    loadRealStatTranslations();
+
+    const auto item = makeItem("negative", R"json(,
+        "explicitMods": [
+            {"description": "+13% to Fire and Cold Resistances"},
+            {"description": "-22% to Lightning Resistance"}
+        ]
+    )json");
+    const ModTable &table = item->mod_table();
+    QVERIFY(table.contains("+#% to Lightning Resistance"));
+    QCOMPARE(table.at("+#% to Lightning Resistance"), -22.0);
+    QCOMPARE(table.at("+#% total to Lightning Resistance"), -22.0);
+    QCOMPARE(table.at("+#% total to Fire Resistance"), 13.0);
+    QCOMPARE(table.at("+#% total Elemental Resistance"), 4.0);
+    QCOMPARE(table.at("+#% total Resistance"), 4.0);
+}
+
+// A line with two numbers is filed under its template with their mean.
+void ItemTest::rangeIsAveraged()
+{
+    loadRealStatTranslations();
+
+    const auto item = makeItem("range", R"json(,
+        "explicitMods": [{"description": "Adds 10 to 21 Fire Damage"}]
+    )json");
+    QCOMPARE(item->mod_table().at("Adds # to # Fire Damage"), 15.5);
+}
+
+// A cluster jewel notable has a literal "1" and no value; it is present
+// under its own text.
+void ItemTest::clusterNotableIsPresent()
+{
+    loadRealStatTranslations();
+
+    const auto item = makeItem("cluster", R"json(,
+        "explicitMods": [{"description": "1 Added Passive Skill is Adrenaline"}]
+    )json");
+    QVERIFY(item->mod_table().contains("1 Added Passive Skill is Adrenaline"));
+    QCOMPARE(item->mod_table().at("1 Added Passive Skill is Adrenaline"), 0.0);
+}
+
+// RePoE writes some negative values as their own entry with a literal sign
+// ("-{0} to ..." beside "+{0} to ..."). A line with a minus goes to that
+// entry, with the number as written, as it does for templates without a
+// literal number.
+void ItemTest::literalSignWinsOverSignedPlaceholder()
+{
+    loadRealStatTranslations();
+
+    const auto item = makeItem("accuracy", R"json(,
+        "explicitMods": [
+            {"description": "-5 to Accuracy Rating per 10 Dexterity on Unallocated Passives in Radius"}
+        ]
+    )json");
+    const ModTable &table = item->mod_table();
+    QCOMPARE(table.size(), size_t(1));
+    QCOMPARE(table.at("-# to Accuracy Rating per 10 Dexterity on Unallocated Passives in Radius"),
+             5.0);
 }
 
 QTEST_GUILESS_MAIN(ItemTest)
