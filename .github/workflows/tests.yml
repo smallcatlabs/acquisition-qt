@@ -37,14 +37,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
-        with:
-          submodules: recursive
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Setup Qt
         # Normally 30 to 75 seconds; see sanitizers.yml for why this is capped.
         timeout-minutes: 5
-        uses: jurplel/install-qt-action@v4
+        uses: jurplel/install-qt-action@b344308e4483fc892e0d27b3cd1b173ebdd95f06 # v4.5.0
         with:
           version: '6.12.0'
           modules: 'qtnetworkauth'
@@ -70,7 +68,7 @@ jobs:
       # the fetched dependencies (sentry-native with crashpad, QXlsx, QCoro,
       # spdlog) are most of a cold build and almost never change.
       - name: Restore compiler cache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/ccache
           key: ccache-tests-${{ runner.os }}-${{ github.sha }}

@@ -1,0 +1,13 @@
+# Keeps the commit-pinned actions in .github/workflows/ current: Dependabot
+# proposes the new commit SHA and updates the tag in the trailing comment.
+# All updates arrive grouped in one pull request a week.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions:
+        patterns:
+          - '*'
