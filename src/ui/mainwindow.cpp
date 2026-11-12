@@ -165,6 +165,7 @@ namespace {
 } // namespace
 
 MainWindow::MainWindow(QSettings &settings,
+                       const SessionIdentity &identity,
                        NetworkManager &network_manager,
                        RateLimiter &rate_limiter,
                        ItemsManager &items_manager,
@@ -177,6 +178,7 @@ MainWindow::MainWindow(QSettings &settings,
                        ImageCache &image_cache,
                        const QDir &app_data_dir)
     : m_settings(settings)
+    , m_identity(identity)
     , m_network_manager(network_manager)
     , m_rate_limiter(rate_limiter)
     , m_items_manager(items_manager)
@@ -206,8 +208,8 @@ MainWindow::MainWindow(QSettings &settings,
 
     const QString title = QString("Acquisition [%1] - %2 League [%3]")
                               .arg(QString(APP_VERSION_STRING),
-                                   m_settings.value("league").toString(),
-                                   m_settings.value("account").toString());
+                                   m_identity.league(),
+                                   m_identity.account());
     setWindowTitle(title);
     setWindowIcon(QIcon(":/icons/icon.svg"));
 
@@ -1038,8 +1040,8 @@ void MainWindow::OnImportLegacyBuyouts()
     LegacyBuyoutImporter importer(m_buyout_repo,
                                   m_stash_repo,
                                   m_character_repo,
-                                  m_settings.value("realm").toString(),
-                                  m_settings.value("league").toString());
+                                  m_identity.realm(),
+                                  m_identity.league());
     QApplication::setOverrideCursor(Qt::WaitCursor);
     auto restore_cursor = qScopeGuard([] { QApplication::restoreOverrideCursor(); });
     const LegacyBuyoutPlanReport plan = importer.createPlan(file_name, plan_path);

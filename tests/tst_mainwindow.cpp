@@ -519,6 +519,7 @@ void MainWindowTest::startupWarnsWhenBuyoutsNotLoaded()
 
     unloadBuyouts(fixture);
     MainWindow window(*fixture.settings,
+                      fixture.identity,
                       *fixture.networkManager,
                       *fixture.rateLimiter,
                       *fixture.itemsManager,

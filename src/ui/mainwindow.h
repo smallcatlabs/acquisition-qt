@@ -22,6 +22,7 @@
 #include "item.h"
 #include "itemlocation.h"
 #include "refreshoutcome.h"
+#include "sessionidentity.h"
 #include "util/programstate.h"
 
 class QNetworkReply;
@@ -60,6 +61,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 public:
     explicit MainWindow(QSettings &m_settings,
+                        const SessionIdentity &identity,
                         NetworkManager &network_manager,
                         RateLimiter &rate_limiter,
                         ItemsManager &items_mangaer,
@@ -228,6 +230,8 @@ private:
     bool ConfirmLegacyBuyoutWrite();
 
     QSettings &m_settings;
+    // Who the session runs as, decided at login (#299).
+    const SessionIdentity m_identity;
     NetworkManager &m_network_manager;
     RateLimiter &m_rate_limiter;
     ItemsManager &m_items_manager;
