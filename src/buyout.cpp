@@ -48,7 +48,10 @@ bool Buyout::IsActive() const
 
 bool Buyout::IsPostable() const
 {
-    return ((source != BUYOUT_SOURCE_GAME) && (IsPriced() || (type == BUYOUT_TYPE_NO_PRICE)));
+    // A price needs a currency the forum post can name: a stored tag this
+    // build does not know is shown as it is but never posted.
+    return (source != BUYOUT_SOURCE_GAME)
+           && ((IsPriced() && !currency.IsNone()) || (type == BUYOUT_TYPE_NO_PRICE));
 }
 
 bool Buyout::IsPriced() const

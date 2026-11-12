@@ -92,9 +92,9 @@ meaningful for a tab and is logged as obsolete if it is found on one.
 
 ### Currencies
 
-Every currency the game's price dialog offers, plus three older ones. The
-*Tag* is the word Acquisition posts to the forum shop; a price note may also
-name the currency by any of the *Note words*, in any case.
+You can set a price in these currencies. The *Tag* is the word Acquisition
+posts to the forum shop; a price note may also name the currency by any of
+the *Note words*, in any case.
 
 | Currency | Tag | Note words |
 |---|---|---|
@@ -117,38 +117,47 @@ name the currency by any of the *Note words*, in any case.
 | Perandus Coin | `coin` | coin, coins, perandus, p, shekel |
 | Mirror of Kalandra | `mirror` | mirror, mir |
 | Silver Coin | `silver` | silver |
-| Orb of Annulment | `annul` | annul |
-| Orb of Augmentation | `aug` | aug |
-| Orb of Transmutation | `transmute` | transmute |
-| Scroll of Wisdom | `wisdom` | wisdom |
-| Portal Scroll | `portal` | portal |
-| Armourer's Scrap | `scrap` | scrap |
-| Blacksmith's Whetstone | `whetstone` | whetstone |
-| Glassblower's Bauble | `bauble` | bauble |
-| Offering to the Goddess | `offer` | offer |
-| Dedication to the Goddess | `offer-dedication` | offer-dedication |
-| Gift to the Goddess | `offer-gift` | offer-gift |
-| Tribute to the Goddess | `offer-tribute` | offer-tribute |
-| Lesser Eldritch Ember | `lesser-ember` | lesser-ember |
-| Greater Eldritch Ember | `greater-ember` | greater-ember |
-| Grand Eldritch Ember | `grand-ember` | grand-ember |
-| Exceptional Eldritch Ember | `excep-ember` | excep-ember |
-| Lesser Eldritch Ichor | `lesser-echor` | lesser-echor |
-| Greater Eldritch Ichor | `greater-echor` | greater-echor |
-| Grand Eldritch Ichor | `grand-echor` | grand-echor |
-| Exceptional Eldritch Ichor | `excep-echor` | excep-echor |
-| Facetor's Lens | `facetors` | facetors |
-| Engineer's Orb | `engineers` | engineers |
-| Infused Engineer's Orb | `infused-engineers-orb` | infused-engineers-orb |
+
+Notes written in the game may also name the currencies below; Acquisition
+reads such a price, but you cannot choose these currencies for a price of
+your own, because the forum shop is not known to read their words.
+
+| Currency | Note word |
+|---|---|
+| Orb of Annulment | annul |
+| Orb of Augmentation | aug |
+| Orb of Transmutation | transmute |
+| Scroll of Wisdom | wisdom |
+| Portal Scroll | portal |
+| Armourer's Scrap | scrap |
+| Blacksmith's Whetstone | whetstone |
+| Glassblower's Bauble | bauble |
+| Offering to the Goddess | offer |
+| Dedication to the Goddess | offer-dedication |
+| Gift to the Goddess | offer-gift |
+| Tribute to the Goddess | offer-tribute |
+| Lesser Eldritch Ember | lesser-ember |
+| Greater Eldritch Ember | greater-ember |
+| Grand Eldritch Ember | grand-ember |
+| Exceptional Eldritch Ember | excep-ember |
+| Lesser Eldritch Ichor | lesser-echor |
+| Greater Eldritch Ichor | greater-echor |
+| Grand Eldritch Ichor | grand-echor |
+| Exceptional Eldritch Ichor | excep-echor |
+| Facetor's Lens | facetors |
+| Engineer's Orb | engineers |
+| Infused Engineer's Orb | infused-engineers-orb |
+
+A note word followed by a hyphen and more text, such as `chaos-each`, is read
+as the word before the hyphen.
 
 The *Price* column sorts by currency first: Silver Coin highest, then Mirror
 of Kalandra, Divine Orb, Exalted Orb, and so on down to Chromatic Orb. The
-currencies from Orb of Annulment down the table have no rank of their own yet;
-they sort below all the others, in the order of this table.
+currencies only read from notes have no rank of their own yet; they sort
+below all the others, in the order of the second table.
 
-In the currency window (*Currency > List currency...*), the currencies from Orb
-of Annulment down start with a ratio of 0, which leaves them out of the totals
-until you give them a ratio.
+A price in a currency this version does not know (stored by a newer
+version, say) is shown but not posted to the forum shop.
 
 ## Prices set in the game
 

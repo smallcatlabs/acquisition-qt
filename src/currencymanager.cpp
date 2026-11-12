@@ -33,6 +33,11 @@ CurrencyManager::CurrencyManager(QSettings &settings,
     , m_data(datastore)
     , m_items_manager(items_manager)
 {
+    for (const CurrencyInfo &row : CurrencyTable::Default().rows()) {
+        if (row.wisdom > 0) {
+            m_wisdom.push_back(WisdomCount{.name = row.name, .wisdom = row.wisdom, .count = 0});
+        }
+    }
     if (m_data.Get("currency_items", "").isEmpty()) {
         FirstInitCurrency();
         if (!m_data.Get("currency_base", "").isEmpty()) {
@@ -91,10 +96,8 @@ double CurrencyManager::TotalChaosValue()
 int CurrencyManager::TotalWisdomValue()
 {
     int out = 0;
-    for (const auto &currency : m_currencies) {
-        if (const CurrencyInfo *info = currency->currency.Info()) {
-            out += currency->count * info->wisdom;
-        }
+    for (const WisdomCount &row : m_wisdom) {
+        out += row.count * row.wisdom;
     }
     return out;
 }
@@ -104,21 +107,19 @@ void CurrencyManager::ClearCurrency()
     for (auto &currency : m_currencies) {
         currency->count = 0;
     }
+    for (WisdomCount &row : m_wisdom) {
+        row.count = 0;
+    }
 }
 
 void CurrencyManager::MakeCurrencyItems()
 {
-    // The currencies the application has always had start at a ratio of 1,
-    // as they always did. Those added later start at 0, which the totals
-    // skip, so they count only once the user gives them a ratio.
-    constexpr size_t kOriginalCurrencies = Currency::CURRENCY_SILVER_COIN;
     const auto &table = CurrencyTable::Default();
     m_currencies.clear();
-    m_currencies.reserve(table.size());
     for (size_t row = 0; row < table.size(); ++row) {
-        const double ratio = (row < kOriginalCurrencies) ? 1 : 0;
-        m_currencies.push_back(
-            std::make_shared<CurrencyItem>(0, Currency::AtRow(row), ratio, ratio));
+        if (table.at(row).choosable) {
+            m_currencies.push_back(std::make_shared<CurrencyItem>(0, Currency::AtRow(row), 1, 1));
+        }
     }
 }
 
@@ -269,6 +270,11 @@ void CurrencyManager::ParseSingleItem(const Item &item)
     for (auto &currency : m_currencies) {
         if (item.PrettyName() == currency->name) {
             currency->count += item.count();
+        }
+    }
+    for (WisdomCount &row : m_wisdom) {
+        if (item.PrettyName() == row.name) {
+            row.count += item.count();
         }
     }
 }

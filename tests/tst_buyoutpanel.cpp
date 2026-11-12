@@ -364,26 +364,24 @@ void BuyoutPanelTest::typeChoiceWithEmptyBoxStaysPendingQuietly()
     QCOMPARE(notices.count(), 0);
 }
 
-// The currency box shows and reads a currency by its tag, for every row of
-// the table, the ones added after the original 19 included.
+// The currency box shows and reads a currency by its tag.
 void BuyoutPanelTest::currencyBoxSelectsByTag()
 {
     Panel p;
-    Buyout annul = makeChaosBuyout(2.0);
-    annul.currency = Currency::FromTag("annul");
-    QVERIFY(!annul.currency.IsNone());
-    p.prices["item-d"] = annul;
+    Buyout mirror = makeChaosBuyout(2.0);
+    mirror.currency = Currency::FromTag("mirror");
+    p.prices["item-d"] = mirror;
     p.panel.showTargets(items({"item-d"}));
-    QCOMPARE(p.currency->currentData().toString(), QString("annul"));
-    QCOMPARE(p.currency->currentText(), QString("Orb of Annulment"));
+    QCOMPARE(p.currency->currentData().toString(), QString("mirror"));
+    QCOMPARE(p.currency->currentText(), QString("Mirror of Kalandra"));
 
     QSignalSpy committed(&p.panel, &BuyoutPanel::committed);
-    const int gift = p.currency->findData(QString("offer-gift"));
-    QVERIFY(gift > 0);
-    p.currency->setCurrentIndex(gift);
-    emit p.currency->activated(gift);
+    const int silver = p.currency->findData(QString("silver"));
+    QVERIFY(silver > 0);
+    p.currency->setCurrentIndex(silver);
+    emit p.currency->activated(silver);
     QCOMPARE(committed.count(), 1);
-    QCOMPARE(committedBuyout(committed).currency.AsTag(), QString("offer-gift"));
+    QCOMPARE(committedBuyout(committed).currency.AsTag(), QString("silver"));
     QCOMPARE(committedBuyout(committed).value, 2.0);
 }
 

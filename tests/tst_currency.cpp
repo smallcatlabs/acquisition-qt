@@ -17,6 +17,7 @@ private slots:
     void existingRanksAreKept();
     void divineRanksAboveExalted();
     void comboCarriesTheTag();
+    void comboOffersOnlyChoosableCurrencies();
     void gameWordsAreRecognised_data();
     void gameWordsAreRecognised();
     void wordsMatchInAnyCase();
@@ -117,6 +118,19 @@ void CurrencyTest::comboCarriesTheTag()
     for (size_t i = 0; i < existing().size(); ++i) {
         QCOMPARE(combo.itemData(static_cast<int>(i) + 1).toString(), QString(existing()[i].tag));
     }
+}
+
+// The combo offers the currencies a price can be set in (the original 19,
+// which the forum reads), not those only read from notes (T32: the trade
+// site does not even read `facetors`).
+void CurrencyTest::comboOffersOnlyChoosableCurrencies()
+{
+    QComboBox combo;
+    Util::PopulateBuyoutCurrencyComboBox(&combo);
+    QCOMPARE(combo.count(), static_cast<int>(existing().size()) + 1);
+    QCOMPARE(combo.findData(QString("annul")), -1);
+    QCOMPARE(combo.findData(QString("facetors")), -1);
+    QVERIFY(!Currency::FromWord(u"annul").IsNone());
 }
 
 // The 39 words the game's price dialog writes into a note, with the

@@ -5,6 +5,7 @@
 #include <QtTest/QtTest>
 
 #include "itemsmanager.h"
+#include "shoprender.h"
 #include "testfixtures.h"
 
 class BuyoutManagerTest : public QObject
@@ -16,6 +17,9 @@ private slots:
     // #273: every word the game writes, hyphenated or not, in any case.
     void notesReadHyphenatedAndCapitalisedWords();
     void noteWithNewWordPricesFreshItem();
+    void wordBeforeAHyphenStillReads();
+    // A stored price in a currency tag this build does not know.
+    void unknownStoredCurrencyIsShownButNotPosted();
     void itemBuyoutRoundTrip();
     void tabBuyoutRoundTrip();
     void tabBuyoutPropagation();
@@ -172,6 +176,60 @@ void BuyoutManagerTest::noteWithNewWordPricesFreshItem()
     QVERIFY(!bo.inherited);
     QCOMPARE(bo.value, 5.0);
     QCOMPARE(bo.currency.AsString(), QString("Jeweller's Orb"));
+}
+
+// A word followed by a hyphen, as in a tab named "~price 5 chaos-each",
+// read as its first part before the parser took hyphens; it still does. A
+// hyphenated word the game writes is read whole.
+void BuyoutManagerTest::wordBeforeAHyphenStillReads()
+{
+    BuyoutManagerFixture fixture;
+    const Buyout each = fixture.manager->StringToBuyout("~price 5 chaos-each");
+    QVERIFY(each.IsActive());
+    QCOMPARE(each.currency, Currency::CURRENCY_CHAOS_ORB);
+    QCOMPARE(each.value, 5.0);
+
+    const Buyout gift = fixture.manager->StringToBuyout("~price 3 offer-gift");
+    QCOMPARE(gift.currency.AsString(), QString("Gift to the Goddess"));
+}
+
+// A row whose currency tag this build does not know (written by a newer
+// build, say) is loaded and shown as it is, but is never posted: the forum
+// post would carry a price with no currency word.
+void BuyoutManagerTest::unknownStoredCurrencyIsShownButNotPosted()
+{
+    BuyoutManagerFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-unknown-currency", "Dump", 0);
+    QSqlQuery q(*fixture.db);
+    QVERIFY(q.prepare("INSERT INTO item_buyouts (item_id, location_id, location_type, currency, "
+                      "inherited, last_update, source, type, value) VALUES ('item-zorkmid', "
+                      "'stash-unknown-currency', 'stash', 'zorkmid', 0, 1, 'manual', 'b/o', 5)"));
+    QVERIFY(q.exec());
+    QVERIFY(q.prepare("INSERT INTO item_buyouts (item_id, location_id, location_type, currency, "
+                      "inherited, last_update, source, type, value) VALUES ('item-chaos', "
+                      "'stash-unknown-currency', 'stash', 'chaos', 0, 1, 'manual', 'b/o', 6)"));
+    QVERIFY(q.exec());
+    fixture.manager->ReloadBuyouts();
+
+    const Item unknown = makeTestItem("item-zorkmid");
+    const Item chaos = makeTestItem("item-chaos");
+    const Buyout stored = fixture.manager->Get(unknown);
+    QVERIFY(stored.IsPriced());
+    QCOMPARE(stored.value, 5.0);
+    QVERIFY(stored.currency.IsNone());
+    QVERIFY(!stored.IsPostable());
+    QVERIFY(fixture.manager->Get(chaos).IsPostable());
+
+    ShopRenderInput input;
+    input.shop_template = kShopTemplateItems;
+    input.items = {ShopRenderItem{.pretty_name = "Unknown", .location = tab, .buyout = stored},
+                   ShopRenderItem{.pretty_name = "Chaos",
+                                  .location = tab,
+                                  .buyout = fixture.manager->Get(chaos)}};
+    input.tab_index[tab.id().left(10)] = 0;
+    const QString pages = RenderShop(input).pages.join('\n');
+    QVERIFY2(pages.contains(" 6 chaos\""), qPrintable(pages));
+    QVERIFY2(!pages.contains(" 5"), qPrintable(pages));
 }
 
 void BuyoutManagerTest::itemBuyoutRoundTrip()

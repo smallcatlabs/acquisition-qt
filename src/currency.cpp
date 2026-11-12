@@ -30,52 +30,54 @@ const CurrencyTable &CurrencyTable::Default()
     // so new currencies are appended. The words include the game's own
     // (trade-ground-truth T9). Ranks are the old ones, except that Divine
     // ranks above Exalted since the 3.25 swap (#38). Wisdom values are the
-    // currency dialog's (Scroll of Wisdom equivalents).
+    // currency dialog's (Scroll of Wisdom equivalents). Only the first 19
+    // are choosable for a price: nothing says the forum reads the others'
+    // words (T32: the trade site does not read `facetors` at all).
     // clang-format off
     static const CurrencyTable table({
-        {"alt", "Orb of Alteration", {"alt", "alts", "alteration", "alterations"}, 2, 0},
-        {"fuse", "Orb of Fusing", {"fusing", "fuse", "fuses", "fusings"}, 7, 0},
-        {"alch", "Orb of Alchemy", {"alch", "alchs", "alchemy"}, 8, 0},
-        {"chaos", "Chaos Orb", {"chaos"}, 11, 0},
-        {"gcp", "Gemcutter's Prism", {"gcp", "gcps", "gemcutter", "gemcutters"}, 15, 0},
-        {"exa", "Exalted Orb", {"exalted", "exa"}, 16, 0},
-        {"chrom", "Chromatic Orb", {"chrome", "chrom", "chromes", "chromatic", "chromatics"}, 1, 0},
-        {"jew", "Jeweller's Orb", {"jewellers", "jew", "jewel", "jewels", "jeweler", "jewelers"}, 3, 0},
-        {"chance", "Orb of Chance", {"chance"}, 4, 0},
-        {"chisel", "Cartographer's Chisel", {"chisel", "chisels", "cartographer", "cartographers"}, 5, 0},
-        {"scour", "Orb of Scouring", {"scour", "scours", "scouring"}, 10, 0},
-        {"blessed", "Blessed Orb", {"blessed"}, 9, 0},
-        {"regret", "Orb of Regret", {"regret", "regrets"}, 12, 0},
-        {"regal", "Regal Orb", {"regal", "regals"}, 13, 0},
-        {"divine", "Divine Orb", {"divine", "divines"}, 17, 0},
-        {"vaal", "Vaal Orb", {"vaal"}, 14, 0},
-        {"coin", "Perandus Coin", {"coin", "coins", "perandus", "p", "shekel"}, 6, 0},
-        {"mirror", "Mirror of Kalandra", {"mirror", "mir"}, 18, 0},
-        {"silver", "Silver Coin", {"silver"}, 19, 0},
-        // Added from T9: the tag is the game's word.
-        {"annul", "Orb of Annulment", {"annul"}, kUnrankedRank, 0},
-        {"aug", "Orb of Augmentation", {"aug"}, kUnrankedRank, 0},
-        {"transmute", "Orb of Transmutation", {"transmute"}, kUnrankedRank, 4},
-        {"wisdom", "Scroll of Wisdom", {"wisdom"}, kUnrankedRank, 1},
-        {"portal", "Portal Scroll", {"portal"}, kUnrankedRank, 1},
-        {"scrap", "Armourer's Scrap", {"scrap"}, kUnrankedRank, 2},
-        {"whetstone", "Blacksmith's Whetstone", {"whetstone"}, kUnrankedRank, 4},
-        {"bauble", "Glassblower's Bauble", {"bauble"}, kUnrankedRank, 0},
-        {"offer", "Offering to the Goddess", {"offer"}, kUnrankedRank, 0},
-        {"offer-dedication", "Dedication to the Goddess", {"offer-dedication"}, kUnrankedRank, 0},
-        {"offer-gift", "Gift to the Goddess", {"offer-gift"}, kUnrankedRank, 0},
-        {"offer-tribute", "Tribute to the Goddess", {"offer-tribute"}, kUnrankedRank, 0},
-        {"lesser-ember", "Lesser Eldritch Ember", {"lesser-ember"}, kUnrankedRank, 0},
-        {"greater-ember", "Greater Eldritch Ember", {"greater-ember"}, kUnrankedRank, 0},
-        {"grand-ember", "Grand Eldritch Ember", {"grand-ember"}, kUnrankedRank, 0},
-        {"excep-ember", "Exceptional Eldritch Ember", {"excep-ember"}, kUnrankedRank, 0},
-        {"lesser-echor", "Lesser Eldritch Ichor", {"lesser-echor"}, kUnrankedRank, 0},
-        {"greater-echor", "Greater Eldritch Ichor", {"greater-echor"}, kUnrankedRank, 0},
-        {"grand-echor", "Grand Eldritch Ichor", {"grand-echor"}, kUnrankedRank, 0},
-        {"excep-echor", "Exceptional Eldritch Ichor", {"excep-echor"}, kUnrankedRank, 0},
-        {"facetors", "Facetor's Lens", {"facetors"}, kUnrankedRank, 0},
-        {"engineers", "Engineer's Orb", {"engineers"}, kUnrankedRank, 0},
-        {"infused-engineers-orb", "Infused Engineer's Orb", {"infused-engineers-orb"}, kUnrankedRank, 0},
+        {"alt", "Orb of Alteration", {"alt", "alts", "alteration", "alterations"}, 2, 0, true},
+        {"fuse", "Orb of Fusing", {"fusing", "fuse", "fuses", "fusings"}, 7, 0, true},
+        {"alch", "Orb of Alchemy", {"alch", "alchs", "alchemy"}, 8, 0, true},
+        {"chaos", "Chaos Orb", {"chaos"}, 11, 0, true},
+        {"gcp", "Gemcutter's Prism", {"gcp", "gcps", "gemcutter", "gemcutters"}, 15, 0, true},
+        {"exa", "Exalted Orb", {"exalted", "exa"}, 16, 0, true},
+        {"chrom", "Chromatic Orb", {"chrome", "chrom", "chromes", "chromatic", "chromatics"}, 1, 0, true},
+        {"jew", "Jeweller's Orb", {"jewellers", "jew", "jewel", "jewels", "jeweler", "jewelers"}, 3, 0, true},
+        {"chance", "Orb of Chance", {"chance"}, 4, 0, true},
+        {"chisel", "Cartographer's Chisel", {"chisel", "chisels", "cartographer", "cartographers"}, 5, 0, true},
+        {"scour", "Orb of Scouring", {"scour", "scours", "scouring"}, 10, 0, true},
+        {"blessed", "Blessed Orb", {"blessed"}, 9, 0, true},
+        {"regret", "Orb of Regret", {"regret", "regrets"}, 12, 0, true},
+        {"regal", "Regal Orb", {"regal", "regals"}, 13, 0, true},
+        {"divine", "Divine Orb", {"divine", "divines"}, 17, 0, true},
+        {"vaal", "Vaal Orb", {"vaal"}, 14, 0, true},
+        {"coin", "Perandus Coin", {"coin", "coins", "perandus", "p", "shekel"}, 6, 0, true},
+        {"mirror", "Mirror of Kalandra", {"mirror", "mir"}, 18, 0, true},
+        {"silver", "Silver Coin", {"silver"}, 19, 0, true},
+        // Added from T9, to read notes: the tag is the game's word.
+        {"annul", "Orb of Annulment", {"annul"}, kUnrankedRank, 0, false},
+        {"aug", "Orb of Augmentation", {"aug"}, kUnrankedRank, 0, false},
+        {"transmute", "Orb of Transmutation", {"transmute"}, kUnrankedRank, 4, false},
+        {"wisdom", "Scroll of Wisdom", {"wisdom"}, kUnrankedRank, 1, false},
+        {"portal", "Portal Scroll", {"portal"}, kUnrankedRank, 1, false},
+        {"scrap", "Armourer's Scrap", {"scrap"}, kUnrankedRank, 2, false},
+        {"whetstone", "Blacksmith's Whetstone", {"whetstone"}, kUnrankedRank, 4, false},
+        {"bauble", "Glassblower's Bauble", {"bauble"}, kUnrankedRank, 0, false},
+        {"offer", "Offering to the Goddess", {"offer"}, kUnrankedRank, 0, false},
+        {"offer-dedication", "Dedication to the Goddess", {"offer-dedication"}, kUnrankedRank, 0, false},
+        {"offer-gift", "Gift to the Goddess", {"offer-gift"}, kUnrankedRank, 0, false},
+        {"offer-tribute", "Tribute to the Goddess", {"offer-tribute"}, kUnrankedRank, 0, false},
+        {"lesser-ember", "Lesser Eldritch Ember", {"lesser-ember"}, kUnrankedRank, 0, false},
+        {"greater-ember", "Greater Eldritch Ember", {"greater-ember"}, kUnrankedRank, 0, false},
+        {"grand-ember", "Grand Eldritch Ember", {"grand-ember"}, kUnrankedRank, 0, false},
+        {"excep-ember", "Exceptional Eldritch Ember", {"excep-ember"}, kUnrankedRank, 0, false},
+        {"lesser-echor", "Lesser Eldritch Ichor", {"lesser-echor"}, kUnrankedRank, 0, false},
+        {"greater-echor", "Greater Eldritch Ichor", {"greater-echor"}, kUnrankedRank, 0, false},
+        {"grand-echor", "Grand Eldritch Ichor", {"grand-echor"}, kUnrankedRank, 0, false},
+        {"excep-echor", "Exceptional Eldritch Ichor", {"excep-echor"}, kUnrankedRank, 0, false},
+        {"facetors", "Facetor's Lens", {"facetors"}, kUnrankedRank, 0, false},
+        {"engineers", "Engineer's Orb", {"engineers"}, kUnrankedRank, 0, false},
+        {"infused-engineers-orb", "Infused Engineer's Orb", {"infused-engineers-orb"}, kUnrankedRank, 0, false},
     });
     // clang-format on
     return table;
@@ -116,7 +118,14 @@ Currency Currency::FromTag(const QString &tag)
 
 Currency Currency::FromWord(QStringView word)
 {
-    const auto row = CurrencyTable::Default().findWord(word);
+    const auto &table = CurrencyTable::Default();
+    auto row = table.findWord(word);
+    if (!row) {
+        const qsizetype hyphen = word.indexOf(u'-');
+        if (hyphen > 0) {
+            row = table.findWord(word.first(hyphen));
+        }
+    }
     return row ? AtRow(*row) : Currency();
 }
 

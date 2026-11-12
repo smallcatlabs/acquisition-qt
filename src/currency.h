@@ -32,6 +32,11 @@ struct CurrencyInfo
     // How many Scrolls of Wisdom one is worth in the currency dialog's
     // wisdom total; 0 when it is not counted there.
     int wisdom;
+    // Whether a price can be set in it: it is offered in the price editor,
+    // posted to the forum, and listed in the currency dialog. The others
+    // are only words read from notes the game writes (game prices are never
+    // posted).
+    bool choosable;
 };
 
 // The currencies of one game. A table is a value: one per realm could be
@@ -100,6 +105,9 @@ public:
     // A stored tag; an unknown tag is no currency.
     static Currency FromTag(const QString &tag);
     // A word from a price note, in any case; an unknown word is no currency.
+    // A hyphenated word that is not known is read as its part before the
+    // first hyphen ("chaos-each" is chaos), as it was before hyphens were
+    // read at all.
     static Currency FromWord(QStringView word);
 
     bool IsNone() const { return type == CURRENCY_NONE; }

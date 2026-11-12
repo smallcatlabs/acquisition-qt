@@ -81,10 +81,18 @@ private:
     DataStore &m_data;
     ItemsManager &m_items_manager;
 
-    // One per row of the currency table, in table order: the history string
-    // and its CSV columns are positional.
+    // One per choosable currency, in table order: the dialog's rows. The
+    // history string and its CSV columns are positional over them.
     std::vector<std::shared_ptr<CurrencyItem>> m_currencies;
-    // A new item per table row, with the default ratios.
+    // The currencies counted in the wisdom total, from the table.
+    struct WisdomCount
+    {
+        QString name;
+        int wisdom;
+        int count;
+    };
+    std::vector<WisdomCount> m_wisdom;
+    // A new item per choosable currency, with the default ratios.
     void MakeCurrencyItems();
     // Used only the first time we launch the app
     void FirstInitCurrency();

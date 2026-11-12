@@ -31,7 +31,8 @@ private slots:
     void hiddenColumnsAreOwnedByTheDialog();
     void typedRatioIsSavedWhenFinished();
     void historyOfExistingCurrenciesIsUnchanged();
-    void newCurrenciesCountOnlyOnceGivenARatio();
+    void legacyRatioListSkipsNoCurrency();
+    void savedRatiosFromBeforeTheTableLoad();
 };
 
 namespace {
@@ -149,8 +150,10 @@ void CurrencyManagerTest::dialogOwnsOneRowPerCurrency()
     CurrencyDialog dialog(fixture.settings, currency);
 
     const auto rows = dialog.findChildren<CurrencyWidget *>();
-    QCOMPARE(rows.size(), qsizetype(CurrencyTable::Default().size()));
-    QCOMPARE(currency.currencies().size(), CurrencyTable::Default().size());
+    // The currencies the dialog has always covered: the 19 a price can be
+    // set in, not those only read from notes.
+    QCOMPARE(rows.size(), qsizetype(19));
+    QCOMPARE(currency.currencies().size(), size_t(19));
     for (const CurrencyWidget *row : rows) {
         QVERIFY(!row->name->text().isEmpty());
     }
@@ -256,57 +259,90 @@ void CurrencyManagerTest::typedRatioIsSavedWhenFinished()
 }
 
 // The history string is positional: the total, then one count per currency
-// in table order. For holdings of the 19 currencies the application has
-// always had, its first 20 fields are byte-identical to what the enum-based
-// code wrote (the literal below was recorded from it); currencies added
-// later only append fields.
+// the dialog covers. It is the same string as before the currency table.
+// The literal was recorded by running this test, then asserting only that
+// the string began with it and that any further fields were 0, against
+// the enum-based code (b34d4531's currencymanager.cpp and currency.cpp),
+// which wrote exactly these 20 fields: the exalted total with every ratio
+// at its default of 1 (3 + 2 + 7), then the counts in the old enum order.
 void CurrencyManagerTest::historyOfExistingCurrenciesIsUnchanged()
 {
     CurrencyFixture fixture;
     const ItemLocation tab = makeTestStashLocation("stash-hist", "Currency", 0);
     fixture.items.OnItemsRefreshed({makeStack("hist-chaos", "Chaos Orb", 3, 20, tab),
                                     makeStack("hist-divine", "Divine Orb", 2, 10, tab),
-                                    makeStack("hist-silver", "Silver Coin", 7, 30, tab)},
+                                    makeStack("hist-silver", "Silver Coin", 7, 30, tab),
+                                    makeStack("hist-portal", "Portal Scroll", 40, 40, tab)},
                                    {tab},
                                    false);
     CurrencyManager currency(fixture.settings, *fixture.buyouts.data, fixture.items);
     currency.Update();
 
-    const QString recorded = "12;0;0;0;3;0;0;0;0;0;0;0;0;0;0;2;0;0;0;7";
-    const QStringList fields = fixture.buyouts.data->Get("currency_last_value").split(';');
-    QVERIFY(fields.size() >= 20);
-    QCOMPARE(fields.mid(0, 20).join(';'), recorded);
-    for (const QString &field : fields.mid(20)) {
-        QCOMPARE(field, QString("0"));
-    }
+    QCOMPARE(fixture.buyouts.data->Get("currency_last_value"),
+             QString("12;0;0;0;3;0;0;0;0;0;0;0;0;0;0;2;0;0;0;7"));
+    // Portal scrolls count toward the wisdom total, as before, not the
+    // history.
+    QCOMPARE(currency.TotalWisdomValue(), 40);
 }
 
-// The currencies added with the table start at a ratio of 0, which the
-// totals skip: holdings of them do not change the total until the user
-// gives them a ratio. The original currencies keep their default of 1.
-void CurrencyManagerTest::newCurrenciesCountOnlyOnceGivenARatio()
+// The pre-JSON ratio list ("currency_base") is positional over the old
+// enum, whose entry 0 was "no currency": entry i is the dialog's row i - 1.
+void CurrencyManagerTest::legacyRatioListSkipsNoCurrency()
 {
     CurrencyFixture fixture;
-    const ItemLocation tab = makeTestStashLocation("stash-new", "Currency", 0);
-    fixture.items.OnItemsRefreshed({makeStack("new-chaos", "Chaos Orb", 3, 20, tab),
-                                    makeStack("new-annul", "Orb of Annulment", 4, 20, tab)},
-                                   {tab},
-                                   false);
+    fixture.buyouts.data->Set("currency_base", "0;5;7");
     CurrencyManager currency(fixture.settings, *fixture.buyouts.data, fixture.items);
-    currency.Update();
-    QCOMPARE(currency.TotalChaosValue(), 3.0);
 
-    for (const auto &row : currency.currencies()) {
-        if (row->currency == Currency::CURRENCY_CHAOS_ORB) {
-            QCOMPARE(row->chaos.value1, 1.0);
-        }
-        if (row->name == "Orb of Annulment") {
-            QCOMPARE(row->count, 4);
-            QCOMPARE(row->chaos.value1, 0.0);
-            row->chaos.value1 = 0.5;
-        }
+    QCOMPARE(currency.currencies().at(0)->currency, Currency::CURRENCY_ORB_OF_ALTERATION);
+    QCOMPARE(currency.currencies().at(0)->exalt.value1, 5.0);
+    QCOMPARE(currency.currencies().at(1)->currency, Currency::CURRENCY_ORB_OF_FUSING);
+    QCOMPARE(currency.currencies().at(1)->exalt.value1, 7.0);
+}
+
+// Saved ratios as b34d4531 wrote them: one entry per old enum value,
+// "no currency" first with an empty tag. They load by tag.
+void CurrencyManagerTest::savedRatiosFromBeforeTheTableLoad()
+{
+    CurrencyFixture fixture;
+    QString saved = R"([{"currency":"","count":0,"chaos_ratio":1,"exalt_ratio":1})";
+    for (const char *tag : {"alt",
+                            "fuse",
+                            "alch",
+                            "chaos",
+                            "gcp",
+                            "exa",
+                            "chrom",
+                            "jew",
+                            "chance",
+                            "chisel",
+                            "scour",
+                            "blessed",
+                            "regret",
+                            "regal",
+                            "divine",
+                            "vaal",
+                            "coin",
+                            "mirror",
+                            "silver"}) {
+        const bool alt = QString(tag) == "alt";
+        const bool divine = QString(tag) == "divine";
+        saved += QString(R"(,{"currency":"%1","count":0,"chaos_ratio":%2,"exalt_ratio":%3})")
+                     .arg(tag)
+                     .arg(alt ? 12.5 : 1)
+                     .arg(divine ? 0.8 : 1);
     }
-    QCOMPARE(currency.TotalChaosValue(), 11.0);
+    saved += "]";
+    fixture.buyouts.data->Set("currency_items", saved);
+
+    CurrencyManager currency(fixture.settings, *fixture.buyouts.data, fixture.items);
+
+    QCOMPARE(currency.currencies().size(), size_t(19));
+    for (const auto &row : currency.currencies()) {
+        const bool alt = row->currency == Currency::CURRENCY_ORB_OF_ALTERATION;
+        const bool divine = row->currency == Currency::CURRENCY_DIVINE_ORB;
+        QCOMPARE(row->chaos.value1, alt ? 12.5 : 1.0);
+        QCOMPARE(row->exalt.value1, divine ? 0.8 : 1.0);
+    }
 }
 
 QTEST_MAIN(CurrencyManagerTest)
