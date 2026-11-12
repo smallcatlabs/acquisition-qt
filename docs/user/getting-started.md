@@ -35,7 +35,7 @@ still needs a POESESSID cookie; see [Forum shop](forum-shop.md).
 | Option | Effect |
 |---|---|
 | Remember me | Keep the account and league for the next launch |
-| Report crashes | Send crash reports to the developer via [Sentry](https://sentry.io) |
+| Report crashes | Send crash reports to the developer via [Sentry](https://sentry.io); a change takes effect at the next launch |
 | Use system proxy | Route network traffic through the operating system's proxy settings |
 | Logging Level | Same as the **Settings → Logging** menu in the main window |
 | Theme | Dark, Light, or Default (the platform theme) |

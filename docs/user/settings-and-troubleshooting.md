@@ -59,6 +59,9 @@ With **Report crashes** enabled on the login window, native crashes are sent to
 the developer through Sentry. Reports contain a stack trace and the Acquisition
 version; they do not include your item data.
 
+The choice is read when Acquisition starts, so changing it takes effect at the
+next launch. With it turned off, the crash reporter is not started at all.
+
 ## Files and where to find them
 
 See [Getting started](getting-started.md#where-your-data-lives) for the data

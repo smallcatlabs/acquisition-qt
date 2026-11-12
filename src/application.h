@@ -45,8 +45,6 @@ public:
     Application(const Application &) = delete;
     Application &operator=(const Application &) = delete;
 
-    void InitLogin();
-
 public slots:
     void ClearSessionId();
     void SetSessionId(const QString &poesessid);
@@ -115,7 +113,6 @@ private:
     void InitCoreServices();
     void InitUserSession();
 
-    void InitCrashReporting();
     void SaveDataOnNewVersion();
 
     std::unique_ptr<CoreServices> m_core;

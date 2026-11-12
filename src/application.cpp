@@ -339,24 +339,6 @@ void Application::OnLogin()
     ShowMainWindow(main_window());
 }
 
-void Application::InitCrashReporting()
-{
-    spdlog::trace("Application::InitCrashReporting() entered");
-
-    // Enable crash reporting by default.
-    bool report_crashes = true;
-
-    if (!settings().contains("report_crashes")) {
-        // Update the setting if it didn't exist before.
-        spdlog::trace("Application::InitCrashReporting() setting 'report_crashes' to true");
-        settings().setValue("report_crashes", true);
-    } else {
-        // Use the exiting setting.
-        report_crashes = settings().value("report_crashes").toBool();
-        spdlog::trace("Application::InitCrashReporting() 'report_crashes' is {}", report_crashes);
-    }
-}
-
 void Application::ClearSessionId()
 {
     network_manager().clearPoeSessionId();
