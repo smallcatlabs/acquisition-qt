@@ -137,19 +137,28 @@ compiler, generated sources, and include paths used by the application build.
 
 When each check runs:
 
-| Workflow | Pull request | Push to `master` | Other |
-|---|---|---|---|
-| Tests (`tests.yml`) | always | yes | on demand |
-| Sanitizers (`sanitizers.yml`) | only when the change touches the worker, the API client, `src/ratelimit/`, the network manager, or the runner and its build | yes | on demand |
-| CodeQL (`codeql.yml`) | no | yes | weekly, on demand |
+| Workflow | Pull request | Push to `master` | Release tag (`v*`) | Other |
+|---|---|---|---|---|
+| Tests (`tests.yml`) | always | yes | no | on demand |
+| Sanitizers (`sanitizers.yml`) | only when the change touches the worker, the API client, `src/ratelimit/`, the network manager, or the runner and its build; not a required check | no | yes | on demand |
+| CodeQL (`codeql.yml`) | no | no | yes | weekly on `master`, on demand |
 
-A pull request waits on the test suite; CodeQL and the full sanitizer run
-follow the merge, so a finding appears within the hour and points at one
-merge. `master` carries a `-dev` version, and a release is tagged only from a
-`master` commit on which all three have passed, so nothing is released
-unscanned. On
-a pull request a newer commit supersedes a run in progress; on `master` a run
-in progress is allowed to finish.
+A pull request waits on the test suite and nothing else. CodeQL and the
+sanitizer run are slow (17 to 83 minutes from start to result in November
+2026) and rarely find anything, so they run when a release is tagged, not when
+a change merges.
+
+A final release is always preceded by a beta or release-candidate tag
+(`v0.18.10-beta.1`). Tag the final release only after that tag's CodeQL and
+sanitizer runs have come back clean; a finding is fixed on `master` and gets a
+new beta tag. Nothing is released unscanned, at the price that a finding
+points at the changes since the previous tag, not at one merge.
+
+CodeQL files alerts against the ref it scanned and does not itself fail the
+job, so the workflow's last step does: it fails when that ref has an open
+alert (a dismissed alert does not count) and prints the alerts. A green CodeQL
+job on a tag therefore means a clean scan. The weekly run keeps the alerts for
+`master` current between releases.
 
 ## Protected Branch
 

@@ -1,22 +1,21 @@
 name: CodeQL
 
-# Runs after a change lands, not before: on every push to master, weekly so
-# that new queries are applied even when nothing merges, and on demand. A
-# pull request is gated by the test suite (tests.yml) alone, which keeps the
-# wait for a merge to one job. An alert therefore appears within the hour
-# after a merge and points at that merge. master carries a "-dev" version,
-# and a release is tagged only from a master commit on which this workflow
-# has passed, so nothing is released unscanned.
+# Runs on release tags, weekly on master, and on demand. It does not run on
+# pull requests or on pushes to master: a scan took 26 to 83 minutes from
+# start to result in November 2026 and has raised four alerts in the life of
+# the repository, so it is kept out of the path of a merge. A pull request is gated by the test suite (tests.yml)
+# alone. A final release is always preceded by a beta or release-candidate
+# tag, and is tagged only once that tag's scan has come back clean, so
+# nothing is released unscanned. The weekly run applies new queries and
+# keeps the alerts for master current between releases.
 on:
   push:
-    branches: [master]
+    tags: ['v*']
   schedule:
     - cron: '17 6 * * 1'
   workflow_dispatch:
 
-# A run in progress on master is allowed to finish, so each merge that
-# starts a scan gets its result; only a run still waiting is replaced by a
-# newer one.
+# One run per ref; a run in progress is allowed to finish.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
@@ -80,3 +79,21 @@ jobs:
         uses: github/codeql-action/analyze@v4
         with:
           category: '/language:c-cpp'
+
+      # CodeQL files alerts against the ref it scanned; it does not fail the
+      # job. Fail it here when that ref has an open alert, so that a green
+      # job on a release tag means a clean scan. Dismissed alerts do not
+      # count.
+      - name: Fail on open alerts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ALERTS_URL: repos/${{ github.repository }}/code-scanning/alerts?ref=${{ github.ref }}&state=open&per_page=100
+        run: |
+          open=$(gh api --paginate "$ALERTS_URL" \
+            --jq '.[] | "#\(.number) \(.rule.id) \(.most_recent_instance.location.path):\(.most_recent_instance.location.start_line)"')
+          if [ -n "$open" ]; then
+            echo "Open code scanning alerts on ${GITHUB_REF}:"
+            echo "$open"
+            exit 1
+          fi
+          echo "No open code scanning alerts on ${GITHUB_REF}."
