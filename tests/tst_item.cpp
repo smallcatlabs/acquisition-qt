@@ -42,6 +42,7 @@ private slots:
     void literalSignWinsOverSignedPlaceholder();
     void pathOfBuildingTakesGearFlasksAndJewels();
     void pathOfBuildingClassesMatchGameData();
+    void pseudoModNeedsAValue();
 };
 
 // Real RePoE stat translations, cut from the game data (see
@@ -318,13 +319,21 @@ void ItemTest::decimalModValueIgnoresProcessLocale()
     } guard;
 
     bool haveCommaLocale = false;
-    for (const char *candidate : {"de_DE.UTF-8", "de_DE.utf8", "fr_FR.UTF-8", "fr_FR.utf8"}) {
+    for (const char *candidate :
+         {"de_DE.UTF-8", "de_DE.utf8", "fr_FR.UTF-8", "fr_FR.utf8", "de-DE", "German_Germany.1252"}) {
         if (std::setlocale(LC_NUMERIC, candidate) != nullptr) {
             haveCommaLocale = true;
             break;
         }
     }
     if (!haveCommaLocale) {
+        // The pull-request workflow (.github/workflows/tests.yml) generates
+        // de_DE.UTF-8 and sets this variable; there a missing locale is a
+        // broken step, not a reason to skip. The release and sanitizer
+        // workflows also run under CI but do not generate the locale.
+        if (qEnvironmentVariableIsSet("ACQ_REQUIRE_COMMA_LOCALE")) {
+            QFAIL("ACQ_REQUIRE_COMMA_LOCALE is set but no comma-decimal locale is installed");
+        }
         QSKIP("No comma-decimal locale (de_DE or fr_FR) is installed on this machine");
     }
     QCOMPARE(std::localeconv()->decimal_point[0], ',');
@@ -386,8 +395,9 @@ void ItemTest::resonatorSocketsExportAsResonators()
     QVERIFY2(gear->POBformat().contains("\nSockets: R-G B-W A\n"), qPrintable(gear->POBformat()));
 }
 
-// #266: a mod flagged vestigial or desecrated stays in the section of the
-// array it arrived in, and is searchable there. Both were dropped.
+// #266: a mod flagged desecrated stays in the section of the array it
+// arrived in, and is searchable there. A mod flagged vestigial is kept in a
+// section of its own. Both were dropped.
 void ItemTest::vestigialAndDesecratedModsAreKept()
 {
     loadRealStatTranslations();
@@ -404,19 +414,22 @@ void ItemTest::vestigialAndDesecratedModsAreKept()
         ]
     )json");
 
+    // Vestigial lines are kept and shown in a section of their own, but not
+    // counted: provisional until the maintainer rules on what the flag means.
     const auto &text = item->text_mods();
-    QCOMPARE(text.at("implicitMods"),
-             (std::vector<QString>{"+30 to maximum Life", "+12 to maximum Life"}));
+    QCOMPARE(text.at("implicitMods"), (std::vector<QString>{"+12 to maximum Life"}));
     QCOMPARE(text.at("explicitMods"),
              (std::vector<QString>{"+80 to maximum Life",
-                                   "+5 to maximum Life",
                                    "0.26% of Physical Attack Damage Leeched as Life"}));
-    QCOMPARE(item->mod_table().at("+# to maximum Life"), 127.0);
+    QCOMPARE(text.at("vestigialMods"),
+             (std::vector<QString>{"+30 to maximum Life", "+5 to maximum Life"}));
+    QCOMPARE(item->mod_table().at("+# to maximum Life"), 92.0);
 
     const QString pob = item->POBformat();
-    QVERIFY2(pob.contains("\nImplicits: 2\n+30 to maximum Life\n+12 to maximum Life\n"),
-             qPrintable(pob));
-    QVERIFY2(pob.contains("\n+80 to maximum Life\n+5 to maximum Life\n"), qPrintable(pob));
+    QVERIFY2(pob.contains("\nImplicits: 1\n+12 to maximum Life\n"), qPrintable(pob));
+    QVERIFY2(pob.contains("\n+80 to maximum Life\n0.26% of Physical"), qPrintable(pob));
+    QVERIFY2(!pob.contains("+30 to maximum Life"), qPrintable(pob));
+    QVERIFY2(!pob.contains("+5 to maximum Life"), qPrintable(pob));
 }
 
 // A socket's attribute ("S", "D", "I", "G") and its colour ("R", "G", "B",
@@ -666,6 +679,25 @@ void ItemTest::pathOfBuildingClassesMatchGameData()
         QVERIFY2(IsPathOfBuildingItemClass(it.key()) == expected, qPrintable(it.key()));
     }
     QCOMPARE(withInfluenceTags, gear);
+}
+
+// #265: a line that matches no template but whose rewritten text is a
+// pseudo-mod source feeds that pseudo-mod only if a value can be read from
+// it. A pseudo-mod must not become present with a value of 0 because the
+// read failed. The catalogue here holds no translations, so the source is
+// not a template name; the line's literal "#" makes the read fail.
+void ItemTest::pseudoModNeedsAValue()
+{
+    InitStatTranslations();
+    InitModList();
+
+    ModTable table;
+    AddModToTable("+#% to Cold Resistance", table);
+    QVERIFY(!table.contains("+#% total to Cold Resistance"));
+
+    // The same source with a number still feeds the pseudo-mod.
+    AddModToTable("+15% to Cold Resistance", table);
+    QCOMPARE(table.at("+#% total to Cold Resistance"), 15.0);
 }
 
 QTEST_GUILESS_MAIN(ItemTest)

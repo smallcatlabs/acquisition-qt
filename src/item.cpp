@@ -230,14 +230,15 @@ void Item::LoadInfluences(const poe::Item &item)
 namespace {
 
     // The sections an item's mod lines are shown and searched in.
-    enum class ModSection { Enchant, Implicit, Fractured, Explicit, Crafted, Mutated };
+    enum class ModSection { Enchant, Implicit, Fractured, Explicit, Crafted, Mutated, Vestigial };
 
     constexpr std::array kModSections = {ModSection::Enchant,
                                          ModSection::Implicit,
                                          ModSection::Fractured,
                                          ModSection::Explicit,
                                          ModSection::Crafted,
-                                         ModSection::Mutated};
+                                         ModSection::Mutated,
+                                         ModSection::Vestigial};
 
     QString section_key(ModSection section)
     {
@@ -254,14 +255,17 @@ namespace {
             return QStringLiteral("craftedMods");
         case ModSection::Mutated:
             return QStringLiteral("mutatedMods");
+        case ModSection::Vestigial:
+            return QStringLiteral("vestigialMods");
         }
         return {};
     }
 
-    // The section a mod line goes to. Fractured, mutated and crafted mods
-    // have sections of their own; every other mod, flagged or not, stays in
-    // the section of the array it arrived in, so no line the game sends is
-    // dropped (#266). rareonly says where a mod can roll, not what it is.
+    // The section a mod line goes to. Fractured, mutated, crafted and
+    // vestigial mods have sections of their own; every other mod, flagged or
+    // not, stays in the section of the array it arrived in, so no line the
+    // game sends is dropped (#266). rareonly says where a mod can roll, not
+    // what it is.
     ModSection route_mod(ModSection arrived_in, const poe::ItemMod::Flags &flags)
     {
         if (flags.fractured.value_or(false)) {
@@ -272,6 +276,9 @@ namespace {
         }
         if (flags.crafted.value_or(false)) {
             return ModSection::Crafted;
+        }
+        if (flags.vestigial.value_or(false)) {
+            return ModSection::Vestigial;
         }
         return arrived_in;
     }
@@ -355,6 +362,12 @@ void Item::LoadModifiers(const poe::Item &item)
     }
 
     for (const auto &[name, mods] : m_text_mods) {
+        // Vestigial lines are shown but not counted. Provisional: what the
+        // game means by the flag is not known, and this keeps every number
+        // as it was before such lines were kept (#266).
+        if (name == section_key(ModSection::Vestigial)) {
+            continue;
+        }
         for (const auto &mod : mods) {
             AddModToTable(mod, m_mod_table);
         }

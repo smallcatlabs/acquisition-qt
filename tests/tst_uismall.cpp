@@ -3,6 +3,7 @@
 
 #include <QtTest/QtTest>
 
+#include "column.h"
 #include "influence.h"
 #include "itemconstants.h"
 #include "testfixtures.h"
@@ -36,6 +37,7 @@ private slots:
 
     // #319
     void influenceSymbolsExist();
+    void infColumnDrawsInfluenceIcons();
 };
 
 void UiSmallTest::imgurSuccessReplyYieldsLink()
@@ -289,6 +291,51 @@ void UiSmallTest::influenceSymbolsExist()
         QVERIFY2(QFile::exists(path), qPrintable(path));
     }
     QVERIFY(InfluenceSymbolPath(Item::NONE).isEmpty());
+}
+
+static Item makeItemWithInfluences(const QString &influences)
+{
+    const QByteArray json = QString(R"json({
+        "baseType": "Astral Plate",
+        "frameType": 2,
+        "frameTypeId": "Rare",
+        "h": 3,
+        "icon": "https://web.poecdn.com/image/test.png",
+        "id": "inf-column",
+        "identified": true,
+        "ilvl": 86,
+        "influences": {%1},
+        "inventoryId": "Stash1",
+        "name": "Dusk Shell",
+        "typeLine": "Astral Plate",
+        "verified": false,
+        "w": 2,
+        "x": 0,
+        "y": 0
+    })json")
+                                .arg(influences)
+                                .toUtf8();
+    return makeTestItem(json.constData(), ItemLocation());
+}
+
+// #319: the Inf column, the consumer that drew nothing, shows the symbols:
+// one for a single influence, both halves of the combined icon for two.
+void UiSmallTest::infColumnDrawsInfluenceIcons()
+{
+    const InfluncedColumn column;
+
+    const QIcon single = column.icon(makeItemWithInfluences(R"("shaper": true)")).value<QIcon>();
+    QVERIFY(!single.pixmap(27, 27).isNull());
+    QVERIFY(!fullyTransparent(single.pixmap(27, 27).toImage()));
+
+    const QIcon both = column.icon(makeItemWithInfluences(R"("shaper": true, "elder": true)"))
+                           .value<QIcon>();
+    const QImage image = both.pixmap(54, 27).toImage();
+    QVERIFY(!image.isNull());
+    QVERIFY(!fullyTransparent(image.copy(0, 0, 27, 27)));
+    QVERIFY(!fullyTransparent(image.copy(27, 0, 27, 27)));
+
+    QVERIFY(column.icon(makeItemWithInfluences("")).value<QIcon>().isNull());
 }
 
 // GenerateItemIcon paints on a QPixmap, which needs a GUI application.

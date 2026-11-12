@@ -204,7 +204,13 @@ namespace {
 
     QStringListModel m_mod_list_model;
     std::set<QString> mods;
-    // Replaced whole by InitModList; never changed in place.
+    // Read without a lock by AddModToTable, from the parser thread during
+    // the cache load and from the main thread during a refresh. That is
+    // safe only because InitModList, which replaces it, runs once, when
+    // RePoE finishes loading (RePoE::FinishUpdate), and nothing builds an
+    // item before then: Application::OnLogin starts the items worker
+    // (ItemsManagerWorker::OnRePoEReady) only once RePoE is initialized.
+    // Replacing it while items are being built would be a data race.
     std::shared_ptr<const ModCatalogue> catalogue;
 
 } // namespace
@@ -310,8 +316,11 @@ void AddModToTable(const QString &raw_mod, ModTable &output)
     double value = 0.0;
     if (match) {
         value = match->value;
-    } else {
-        Util::MatchMod(generic_mod.toStdString().c_str(), raw_mod.toStdString().c_str(), &value);
+    } else if (!Util::MatchMod(generic_mod.toStdString().c_str(),
+                               raw_mod.toStdString().c_str(),
+                               &value)) {
+        // No value can be read, so the line does not count (#265).
+        return;
     }
     for (const QString &pseudo_mod : it->second) {
         output[pseudo_mod] += value;

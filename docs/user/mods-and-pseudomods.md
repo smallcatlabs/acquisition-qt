@@ -21,6 +21,18 @@ implicit and an explicit), its values add up: `+30 to maximum Life` and
 `+80 to maximum Life` make `+# to maximum Life` 110. Use the `… total …`
 pseudomods below when you need different mods added together.
 
+Some mod names keep a number that is part of the mod's own text, such as
+`#% chance to Trigger Level 20 Animate Weapon on Kill`; such a row matches
+only lines with that same number. A line with two numbers, such as
+`Adds 10 to 21 Fire Damage`, has their average as its value (15.5). A
+negative roll keeps its sign: `-22% to Lightning Resistance` is
+`+#% to Lightning Resistance` with the value -22.
+
+Lines the game marks as desecrated are shown and searched like any other
+line. Lines the game marks as vestigial are shown in the item's
+tooltip, in a block of their own after the implicits, but are not
+searched and do not count towards any pseudomod.
+
 ## Pseudomods
 
 Pseudomods are synthetic modifiers whose value is the **sum of several real
@@ -29,8 +41,9 @@ always named `… total …`. They exist so you can search for "at least 100 tot
 elemental resistance" without enumerating every combination of single, dual, and
 all-resistance lines. The list mirrors the one poe.trade used.
 
-Both implicit and explicit lines feed into the sum. A pseudomod is only present
-on an item that has at least one of its contributing mods.
+Both implicit and explicit lines feed into the sum, with their signs, so a
+negative resistance lowers the totals it belongs to. A pseudomod is only
+present on an item that has at least one of its contributing mods.
 
 ### Resistances
 

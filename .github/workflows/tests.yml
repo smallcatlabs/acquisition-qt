@@ -62,7 +62,12 @@ jobs:
             libvulkan-dev \
             libxcb-cursor0 \
             libxcb-cursor-dev \
+            locales \
             zlib1g-dev
+          # tst_item reads mod values under a decimal-comma LC_NUMERIC (#132);
+          # the Test step sets ACQ_REQUIRE_COMMA_LOCALE so that test fails,
+          # rather than skips, if this locale is missing.
+          sudo locale-gen de_DE.UTF-8
 
       # The compiler cache is what makes this job cheap after its first run:
       # the fetched dependencies (sentry-native with crashpad, QXlsx, QCoro,
@@ -90,4 +95,6 @@ jobs:
         run: ccache --show-stats
 
       - name: Test
+        env:
+          ACQ_REQUIRE_COMMA_LOCALE: '1'
         run: ctest --preset release
