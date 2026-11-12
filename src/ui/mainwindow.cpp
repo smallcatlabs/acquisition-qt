@@ -39,6 +39,7 @@
 #include <utility>
 #include <vector>
 
+#include "applybuyout.h"
 #include "buyoutmanager.h"
 #include "currencymanager.h"
 #include "datastore/buyoutrepo.h"
@@ -58,6 +59,7 @@
 #include "replytimeout.h"
 #include "search.h"
 #include "shop.h"
+#include "ui/buyoutpanel.h"
 #include "ui/currencydialog.h"
 #include "ui/itemtooltip.h"
 #include "ui/logpanel.h"
@@ -163,6 +165,7 @@ namespace {
 } // namespace
 
 MainWindow::MainWindow(QSettings &settings,
+                       const SessionIdentity &identity,
                        NetworkManager &network_manager,
                        RateLimiter &rate_limiter,
                        ItemsManager &items_manager,
@@ -175,6 +178,7 @@ MainWindow::MainWindow(QSettings &settings,
                        ImageCache &image_cache,
                        const QDir &app_data_dir)
     : m_settings(settings)
+    , m_identity(identity)
     , m_network_manager(network_manager)
     , m_rate_limiter(rate_limiter)
     , m_items_manager(items_manager)
@@ -204,8 +208,8 @@ MainWindow::MainWindow(QSettings &settings,
 
     const QString title = QString("Acquisition [%1] - %2 League [%3]")
                               .arg(QString(APP_VERSION_STRING),
-                                   m_settings.value("league").toString(),
-                                   m_settings.value("account").toString());
+                                   m_identity.league(),
+                                   m_identity.account());
     setWindowTitle(title);
     setWindowIcon(QIcon(":/icons/icon.svg"));
 
@@ -254,6 +258,9 @@ MainWindow::MainWindow(QSettings &settings,
 
 MainWindow::~MainWindow()
 {
+    // Destroying the widgets moves focus off the price editor; nothing it
+    // emits then may reach this half-destroyed window.
+    disconnect(ui->buyoutPanel, nullptr, this, nullptr);
     // Detach the log panel's sinks while its widgets are still alive: child
     // cleanup destroys the panel's QTextEdit before ~LogPanel would run, and
     // a worker thread logging in that window would write to a dead widget
@@ -316,12 +323,14 @@ void MainWindow::InitializeUi()
     connect(m_tab_bar, &QTabBar::currentChanged, this, &MainWindow::OnTabChange);
     ui->mainLayout->insertWidget(0, m_tab_bar);
 
-    Util::PopulateBuyoutTypeComboBox(ui->buyoutTypeComboBox);
-    Util::PopulateBuyoutCurrencyComboBox(ui->buyoutCurrencyComboBox);
-
-    connect(ui->buyoutCurrencyComboBox, &QComboBox::activated, this, &MainWindow::OnBuyoutChange);
-    connect(ui->buyoutTypeComboBox, &QComboBox::activated, this, &MainWindow::OnBuyoutChange);
-    connect(ui->buyoutValueLineEdit, &QLineEdit::textEdited, this, &MainWindow::OnBuyoutChange);
+    ui->buyoutPanel->setPriceLookup([this](const PriceTarget &target) {
+        return target.isItem() ? m_buyout_manager.Get(*target.item)
+                               : m_buyout_manager.GetTab(target.location);
+    });
+    connect(ui->buyoutPanel, &BuyoutPanel::committed, this, &MainWindow::OnBuyoutCommitted);
+    connect(ui->buyoutPanel, &BuyoutPanel::notice, this, [this](const QString &text) {
+        statusBar()->showMessage(text, PRICE_NOT_SAVED_TIMEOUT_MS);
+    });
 
     ui->viewComboBox->addItems({"By Tab", "By Item"});
     connect(ui->viewComboBox, &QComboBox::activated, this, [&](int n) {
@@ -349,10 +358,6 @@ void MainWindow::InitializeUi()
         // between modes even when the expansion state does not.
         ScheduleResizeTreeColumns();
     });
-
-    ui->buyoutTypeComboBox->setEnabled(false);
-    ui->buyoutValueLineEdit->setEnabled(false);
-    ui->buyoutCurrencyComboBox->setEnabled(false);
 
     m_search_form_layout = new QVBoxLayout;
     m_search_form_layout->setAlignment(Qt::AlignTop);
@@ -820,107 +825,69 @@ void MainWindow::ScheduleDeltaResizeTreeColumns()
     }
 }
 
-void MainWindow::OnBuyoutChange()
+PriceTargets MainWindow::SelectedPriceTargets() const
 {
-    spdlog::trace("MainWindow::OnBuyoutChange() entered");
-
-    const std::optional<double> value = ParseBuyoutValue(ui->buyoutValueLineEdit->text());
-    Buyout bo;
-    bo.type = Buyout::IndexAsBuyoutType(ui->buyoutTypeComboBox->currentIndex());
-    bo.currency = Currency::FromIndex(ui->buyoutCurrencyComboBox->currentIndex());
-    bo.value = value.value_or(0.0);
-    bo.last_update = QDateTime::currentDateTime();
-
-    if (bo.IsPriced()) {
-        ui->buyoutCurrencyComboBox->setEnabled(true);
-        ui->buyoutValueLineEdit->setEnabled(true);
-    } else {
-        ui->buyoutCurrencyComboBox->setEnabled(false);
-        ui->buyoutValueLineEdit->setEnabled(false);
+    // The selection, as targets: folders take no buyout and nothing
+    // cascades to their members (D11, R7); the By-Item header row has no
+    // location to price. The current row goes first when it is among them,
+    // since the editor shows the first target's price.
+    PriceTargets targets;
+    if (!m_current_search || !ui->treeView->selectionModel()) {
+        return targets;
     }
-
-    if (!bo.IsValid()) {
-        spdlog::trace("MainWindow::OnBuyoutChange() buyout is invalid");
-        return;
-    }
-
-    // A priced buyout needs a number greater than zero in the value box:
-    // empty or unreadable text (a ratio, "1,000", a lone ".") writes nothing
-    // and leaves the box as typed.
-    if (bo.IsPriced() && !value) {
-        spdlog::trace("MainWindow::OnBuyoutChange() the value is not a price");
-        return;
-    }
-
-    m_shop.ExpireShopData();
-
-    // User commands batch at command scope (M3 R2-5): the loop over the
-    // selection plus the trailing propagation pass is one outer batch —
-    // one model update at command end, never one per Set. The propagation
-    // pass's own boundary nests inside this one and emits nothing (R3-3).
-    const BuyoutBatch batch(m_buyout_manager);
-    bool saved = true;
-
-    const auto &selected_rows = ui->treeView->selectionModel()->selectedRows();
-    for (const auto &index : selected_rows) {
+    const QItemSelectionModel &selection = *ui->treeView->selectionModel();
+    const QModelIndex current = selection.currentIndex().siblingAtColumn(0);
+    for (const auto &index : selection.selectedRows()) {
         const ItemsModel::RowRef ref = m_current_search->model().Locate(index);
-        if (ref.isBucket() && m_current_search->isFolderBucket(ref.bucket_row)) {
-            continue; // no buyouts on folders, no cascade (D11, R7)
-        }
-        const auto location = m_current_search->GetTabLocation(index);
-        if (ref.isBucket() && !location.IsValid()) {
-            continue; // the By-Item header row has no location to price
-        }
-        const auto tab = location.id();
-
-        // Don't allow users to manually update locked tabs (game priced)
-        if (m_buyout_manager.GetTab(location).IsGameSet()) {
-            spdlog::trace("MainWindow::OnBuyoutChange() refusing to update locked tab: {}", tab);
-            continue;
-        }
-        if (ref.isBucket()) {
-            saved = m_buyout_manager.SetTab(location, bo) && saved;
-        } else {
-            const int bucket_row = ref.bucket_row;
-            if (ref.isItem()) {
-                const Bucket &bucket = m_current_search->bucket(bucket_row);
-                const int item_row = ref.item_row;
-                if (bucket.has_item(item_row)) {
-                    const Item &item = *bucket.item(item_row);
-                    // Don't allow users to manually update locked items (game priced per item in note section)
-                    if (m_buyout_manager.Get(item).IsGameSet()) {
-                        spdlog::trace(
-                            "MainWindow::OnBuyoutChange() refusing to update locked item: {}",
-                            item.name());
-                        continue;
-                    }
-                    saved = m_buyout_manager.Set(item, bo) && saved;
-                } else {
-                    spdlog::error("OnBuyoutChange(): bucket {} does not have {} items",
-                                  bucket_row,
-                                  item_row);
-                }
-            } else {
-                spdlog::error("OnBuyoutChange(): bucket {} does not exist", bucket_row);
+        std::optional<PriceTarget> row;
+        if (ref.isItem()) {
+            const Bucket &bucket = m_current_search->bucket(ref.bucket_row);
+            if (bucket.has_item(ref.item_row)) {
+                row = PriceTarget::ForItem(bucket.item(ref.item_row));
+            }
+        } else if (ref.isBucket() && !m_current_search->isFolderBucket(ref.bucket_row)) {
+            const ItemLocation location = m_current_search->GetTabLocation(index);
+            if (location.IsValid()) {
+                row = PriceTarget::ForLocation(location);
             }
         }
+        if (!row) {
+            continue;
+        }
+        if (index == current) {
+            targets.rows.insert(targets.rows.begin(), *row);
+        } else {
+            targets.rows.push_back(*row);
+        }
     }
-    m_items_manager.PropagateTabBuyouts();
-    ScheduleResizeTreeColumns();
-    // Refused (the buyouts did not load, #257) or rejected by the database:
-    // the old price stays, so the edit must not look applied. Only a
-    // rejection is logged per edit (as an error), so only then does the
-    // notice point at the log. It is a temporary status message, so it
-    // never replaces refresh progress for long, and the next edit that
-    // saves clears it.
-    if (saved) {
+    return targets;
+}
+
+void MainWindow::OnBuyoutCommitted(const PriceTargets &targets, const Buyout &bo)
+{
+    spdlog::trace("MainWindow::OnBuyoutCommitted() entered");
+    // Only the rows the editor was showing when the value was typed, as
+    // they are now; rows a refresh removed meanwhile are counted.
+    const ResolvedTargets resolved = ResolvePriceTargets(targets,
+                                                         m_items_manager.items(),
+                                                         m_items_manager.locationInventory());
+
+    // A refused edit must not look applied, and a price whose rows went away
+    // before it was committed is not dropped in silence. The notice is a
+    // temporary status message, so it never replaces refresh progress for
+    // long, and the next edit that every row takes clears it.
+    ApplyBuyoutResult result;
+    if (!resolved.targets.tabs.empty() || !resolved.targets.items.empty()) {
+        m_shop.ExpireShopData();
+        result = ApplyBuyout(m_buyout_manager, m_items_manager, resolved.targets, bo);
+        ScheduleResizeTreeColumns();
+    }
+    result.missing = resolved.missing;
+    const QString notice = ApplyBuyoutNotice(result, m_buyout_manager.BuyoutsLoaded());
+    if (notice.isEmpty()) {
         statusBar()->clearMessage();
     } else {
-        statusBar()
-            ->showMessage(m_buyout_manager.BuyoutsLoaded()
-                              ? tr("Price not saved. Check the log file for details.")
-                              : tr("Price not saved: prices cannot be saved in this session."),
-                          PRICE_NOT_SAVED_TIMEOUT_MS);
+        statusBar()->showMessage(notice, PRICE_NOT_SAVED_TIMEOUT_MS);
     }
 }
 
@@ -1082,8 +1049,8 @@ void MainWindow::OnImportLegacyBuyouts()
     LegacyBuyoutImporter importer(m_buyout_repo,
                                   m_stash_repo,
                                   m_character_repo,
-                                  m_settings.value("realm").toString(),
-                                  m_settings.value("league").toString());
+                                  m_identity.realm(),
+                                  m_identity.league());
     QApplication::setOverrideCursor(Qt::WaitCursor);
     auto restore_cursor = qScopeGuard([] { QApplication::restoreOverrideCursor(); });
     const LegacyBuyoutPlanReport plan = importer.createPlan(file_name, plan_path);
@@ -1387,6 +1354,14 @@ void MainWindow::ReconcileSelectionIntent()
     if (!m_current_search) {
         return;
     }
+    // The price editor is shown the selection once it is settled, not the
+    // lapse and re-adoption on the way: a refresh that ends on the same
+    // rows leaves a price being typed alone.
+    m_defer_price_editor = true;
+    const auto show_price_editor = qScopeGuard([this] {
+        m_defer_price_editor = false;
+        UpdateCurrentBuyout();
+    });
     if (m_current_item) {
         const QModelIndex index = m_current_search->index(m_current_item);
         if (index.isValid()) {
@@ -1577,6 +1552,8 @@ void MainWindow::ModelViewRefresh()
 {
     spdlog::trace("MainWindow::ModelViewRefresh() entered");
     disconnect(m_current_item_conn);
+    disconnect(m_selection_conn);
+    disconnect(m_model_reset_conn);
 
     m_buyout_manager.Save();
 
@@ -1621,6 +1598,18 @@ void MainWindow::ModelViewRefresh()
                                   &QItemSelectionModel::currentChanged,
                                   this,
                                   &MainWindow::OnCurrentItemChanged);
+    // The price editor shows the selected rows; a selection can change
+    // without the current row changing (a ctrl-click on it).
+    m_selection_conn = connect(ui->treeView->selectionModel(),
+                               &QItemSelectionModel::selectionChanged,
+                               this,
+                               &MainWindow::OnSelectionChanged);
+    // A model reset (a refilter, a view-mode switch) clears the selection
+    // without a signal; the editor is shown what is selected after it.
+    m_model_reset_conn = connect(&model,
+                                 &QAbstractItemModel::modelReset,
+                                 this,
+                                 &MainWindow::UpdateCurrentBuyout);
 
     ui->viewComboBox->setCurrentIndex(static_cast<int>(m_current_search->GetViewMode()));
 
@@ -2028,50 +2017,27 @@ void MainWindow::OnImageFetched(const QString &url)
     }
 }
 
-void MainWindow::UpdateBuyoutWidgets(const Buyout &bo)
-{
-    spdlog::trace("MainWindow::UpdateBuyoutWidgets() entered");
-    ui->buyoutTypeComboBox->setCurrentIndex(bo.type);
-    ui->buyoutTypeComboBox->setEnabled(!bo.IsGameSet());
-    ui->buyoutCurrencyComboBox->setEnabled(false);
-    ui->buyoutValueLineEdit->setEnabled(false);
-
-    if (bo.IsPriced()) {
-        ui->buyoutCurrencyComboBox->setCurrentIndex(bo.currency.type);
-        ui->buyoutValueLineEdit->setText(QString::number(bo.value, 'g', 15));
-        if (!bo.IsGameSet()) {
-            ui->buyoutCurrencyComboBox->setEnabled(true);
-            ui->buyoutValueLineEdit->setEnabled(true);
-        }
-    } else {
-        ui->buyoutValueLineEdit->setText("");
-    }
-}
-
 void MainWindow::UpdateCurrentBuyout()
 {
     spdlog::trace("MainWindow::UpdateCurrentBuyout() entered");
-    if (m_current_item) {
-        UpdateBuyoutWidgets(m_buyout_manager.Get(*m_current_item));
-    } else if (m_current_bucket_location
-               && (m_current_bucket_location->IsFolder() || !m_current_bucket_location->IsValid())) {
-        // No buyouts on folders (D11, R7): the widgets are disabled, and a
-        // tab buyout an earlier version stored against the folder id is
-        // not rendered. The By-Item view's single header row has no
-        // location at all and is treated the same way.
-        ResetBuyoutWidgets();
-    } else if (m_current_bucket_location) {
-        UpdateBuyoutWidgets(m_buyout_manager.GetTab(*m_current_bucket_location));
-    } else {
-        ResetBuyoutWidgets();
+    // The editor is shown the selected rows, and reads their price itself.
+    if (!m_defer_price_editor) {
+        ui->buyoutPanel->showTargets(SelectedPriceTargets());
+    }
+}
+
+void MainWindow::OnSelectionChanged()
+{
+    // Row operations shuffle the selection mid-delta; the reconcile pass
+    // settles it and updates the editor afterwards.
+    if (!m_applying_delta) {
+        UpdateCurrentBuyout();
     }
 }
 
 void MainWindow::ResetBuyoutWidgets()
 {
-    UpdateBuyoutWidgets(Buyout());
-    ui->buyoutTypeComboBox->setEnabled(false);
-    ui->buyoutCurrencyComboBox->setCurrentIndex(Currency::CURRENCY_NONE);
+    UpdateCurrentBuyout();
 }
 
 void MainWindow::OnItemsRefreshed(bool initial_refresh)
@@ -2199,6 +2165,8 @@ void MainWindow::OnUpdateAvailable(bool available)
 
 void MainWindow::OnCopyShopToClipboard()
 {
+    // A price still being typed is part of the shop being copied.
+    ui->buyoutPanel->finishEditing();
     m_shop.CopyToClipboard();
 }
 
@@ -2245,6 +2213,8 @@ void MainWindow::OnSetAutomaticTabRefresh()
 
 void MainWindow::OnUpdateShops()
 {
+    // A price still being typed is part of what the user is publishing.
+    ui->buyoutPanel->finishEditing();
     m_shop.SubmitShopToForum(true);
 }
 
@@ -2309,6 +2279,7 @@ void MainWindow::OnSetLogging(spdlog::level::level_enum level)
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     if (m_quitting) {
+        ui->buyoutPanel->finishEditing(); // a price still being typed is kept
         event->accept();
         return;
     }
@@ -2321,6 +2292,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
 
     const auto button = msgbox.exec();
     if (button == QMessageBox::Yes) {
+        ui->buyoutPanel->finishEditing(); // a price still being typed is kept
         event->accept();
     } else {
         event->ignore();

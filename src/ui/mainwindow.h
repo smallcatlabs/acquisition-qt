@@ -22,6 +22,7 @@
 #include "item.h"
 #include "itemlocation.h"
 #include "refreshoutcome.h"
+#include "sessionidentity.h"
 #include "util/programstate.h"
 
 class QNetworkReply;
@@ -48,6 +49,7 @@ class StashRepo;
 class UpdateChecker;
 
 struct Buyout;
+struct PriceTargets;
 struct BuyoutChangeSet;
 
 namespace Ui {
@@ -59,6 +61,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 public:
     explicit MainWindow(QSettings &m_settings,
+                        const SessionIdentity &identity,
                         NetworkManager &network_manager,
                         RateLimiter &rate_limiter,
                         ItemsManager &items_mangaer,
@@ -107,7 +110,9 @@ public slots:
     void OnStatusUpdate(ProgramState state, const QString &status);
     void OnNotifyUser(const QString &message);
     void OnShopWarning(const QString &message);
-    void OnBuyoutChange();
+    // Applies a price the editor committed to the current selection.
+    // Applies a price the editor committed to the rows it was typed for.
+    void OnBuyoutCommitted(const PriceTargets &targets, const Buyout &bo);
     // The M3 S2 buyout batch response: one per outer batch boundary
     // (BuyoutManager::BuyoutsChanged).
     void OnBuyoutsChanged(const BuyoutChangeSet &changes);
@@ -209,6 +214,9 @@ private:
     void UpdateCurrentBucket();
     void UpdateCurrentItem();
     void UpdateCurrentBuyout();
+    void OnSelectionChanged();
+    // The selected rows that can take a price.
+    PriceTargets SelectedPriceTargets() const;
     void ResetBuyoutWidgets();
     void NewSearch();
     void InitializeRateLimitDialog();
@@ -217,12 +225,13 @@ private:
     void InitializeUi();
     bool eventFilter(QObject *o, QEvent *e);
     void UpdateShopMenu();
-    void UpdateBuyoutWidgets(const Buyout &bo);
     void closeEvent(QCloseEvent *event);
     void CheckSelected(bool value);
     bool ConfirmLegacyBuyoutWrite();
 
     QSettings &m_settings;
+    // Who the session runs as, decided at login (#299).
+    const SessionIdentity m_identity;
     NetworkManager &m_network_manager;
     RateLimiter &m_rate_limiter;
     ItemsManager &m_items_manager;
@@ -272,6 +281,11 @@ private:
     QTimer m_delayed_resize_columns;
     QTimer m_delta_resize_debounce;
     QMetaObject::Connection m_current_item_conn;
+    QMetaObject::Connection m_selection_conn;
+    QMetaObject::Connection m_model_reset_conn;
+    // Set while ReconcileSelectionIntent settles the selection; the price
+    // editor is updated once at its end.
+    bool m_defer_price_editor{false};
     RateLimitDialog *m_rate_limit_dialog;
     bool m_quitting;
 };

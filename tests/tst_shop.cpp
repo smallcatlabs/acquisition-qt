@@ -52,6 +52,7 @@ public:
     std::unique_ptr<Shop> makeShop()
     {
         return std::make_unique<Shop>(*settings,
+                                      identity,
                                       *networkManager,
                                       *api,
                                       *buyoutFixture.data,
@@ -61,6 +62,8 @@ public:
 
     BuyoutManagerFixture buyoutFixture;
     std::unique_ptr<QSettings> settings;
+    // The identity armForSubmission's settings describe.
+    const SessionIdentity identity = makeTestIdentity("someone", "pc", "Standard");
     std::unique_ptr<FakeNetworkManager> networkManager;
     std::unique_ptr<FakeRateLimiter> rateLimiter;
     std::unique_ptr<PoeApiClient> api;
@@ -82,6 +85,10 @@ private slots:
     void editPage403RejectsPoeSession();
     void shopPost403RejectsPoeSession();
     void continuationDoesNotRunAfterShopDestruction();
+
+    // #299: the shop posts as the session's identity, not as whatever the
+    // settings hold.
+    void stashIndexUsesTheSessionIdentity();
 
     // Items-pipeline M2, D8: the single-active-job foundation (stage 2
     // front-load), plus the delta-dependent capture pins.
@@ -282,6 +289,7 @@ namespace {
             , buyouts(*fixture.buyoutFixture.data, store.buyouts())
             , items(*fixture.settings, buyouts)
             , shop(*fixture.settings,
+                   fixture.identity,
                    *fixture.networkManager,
                    *fixture.api,
                    *fixture.buyoutFixture.data,
@@ -414,6 +422,28 @@ void ShopTest::stashIndexFailureReleasesTheSubmitLock()
     // The lock is released: a second submission starts a new index request.
     fixture.shop->SubmitShopToForum();
     QCOMPARE(fixture.rateLimiter->futureCount(), size_t(2));
+}
+
+// #299: the session runs as the identity decided at login (account
+// "someone", realm "pc", league "Standard" in the fixture). Settings that say
+// otherwise do not change who the shop indexes and posts as.
+void ShopTest::stashIndexUsesTheSessionIdentity()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    fixture.settings->setValue("account", "somebody-else");
+    fixture.settings->setValue("realm", "xbox");
+    fixture.settings->setValue("league", "Not The Session League");
+
+    fixture.shop->SubmitShopToForum();
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(1));
+    const QUrlQuery query(fixture.rateLimiter->pendingFuture(0).request.url());
+    QCOMPARE(query.queryItemValue("accountName"), QString("someone"));
+    QCOMPARE(query.queryItemValue("realm"), QString("pc"));
+    QCOMPARE(query.queryItemValue("league"), QString("Standard"));
+
+    fixture.rateLimiter->reject(0, RateLimit::FetchError::Kind::Http, "HTTP status 503");
+    drainEvents();
 }
 
 void ShopTest::stashIndex403RejectsPoeSession()
@@ -1419,7 +1449,7 @@ void ShopTest::renderCharacterItem()
     poe::Character character;
     character.id = "character-0001";
     character.name = "I_Exist";
-    const ItemLocation inventory(character, 0);
+    const ItemLocation inventory(character);
     const QStringList pages = renderedPages(fixture,
                                             {{makeShopItem("armour", inventory, 0, "BodyArmour"),
                                               makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)}},

@@ -258,12 +258,14 @@ namespace {
 } // namespace
 
 Shop::Shop(QSettings &settings,
+           const SessionIdentity &identity,
            NetworkManager &network_manager,
            PoeApiClient &api,
            DataStore &datastore,
            ItemsManager &items_manager,
            BuyoutManager &buyout_manager)
     : m_settings(settings)
+    , m_identity(identity)
     , m_network_manager(network_manager)
     , m_api(api)
     , m_datastore(datastore)
@@ -445,8 +447,8 @@ std::unique_ptr<Shop::ShopJob> Shop::CaptureJob(bool force) const
 {
     auto job = std::make_unique<ShopJob>();
     job->input.shop_template = m_shop_template;
-    job->input.realm = m_settings.value("realm").toString();
-    job->input.league = m_settings.value("league").toString();
+    job->input.realm = m_identity.realm();
+    job->input.league = m_identity.league();
     job->threads = m_threads;
     job->force = force;
     job->input_revision = m_input_revision;
@@ -463,7 +465,7 @@ void Shop::UpdateStashIndex()
 {
     spdlog::debug("Shop: updating the stash index");
 
-    const QString account = m_settings.value("account").toString();
+    const QString &account = m_identity.account();
 
     // Context-bound (R6-2): the continuation is tied to this Shop, so it
     // never runs against a destroyed one. Shop stays callback-style — no

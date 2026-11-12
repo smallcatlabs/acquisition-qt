@@ -209,11 +209,11 @@ int main(int argc, char *argv[])
 
     // Shut down logging when main() exits, including the early exits below.
     // This guard is declared before the Application object so it runs after
-    // Application's destructor, which joins the item parser thread — that
-    // thread logs, so spdlog must outlive it. (An aboutToQuit hook is too
-    // early: it fires before Application is destroyed, and a still-running
-    // parser thread would then log through a destroyed default logger and
-    // crash.)
+    // Application's destructor, which joins the start-up cache-load thread
+    // (src/cacheload.cpp) — that thread logs, so spdlog must outlive it. (An
+    // aboutToQuit hook is too early: it fires before Application is
+    // destroyed, and a still-running load would then log through a destroyed
+    // default logger and crash.)
     auto loggingShutdown = qScopeGuard([] { spdlog::shutdown(); });
 
     // Determine the logging level. The command-line argument takes first priority.
