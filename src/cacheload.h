@@ -34,9 +34,9 @@ struct CachedItems
     // Anything but Complete carries no tabs or items, so a load that did not
     // finish can never pass for one that did.
     Status status{Status::StoreUnusable};
-    std::vector<ItemLocation> tabs;
-    Items items;
-    std::set<QString> tab_id_index;
+    std::vector<ItemLocation> tabs{};
+    Items items{};
+    std::set<QString> tab_id_index{};
 };
 
 // Called with a progress line for each cached tab as it is loaded.
