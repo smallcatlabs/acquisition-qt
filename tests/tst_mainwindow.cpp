@@ -113,10 +113,16 @@ private slots:
     void pricedFilterFollowsAPriceCommit_data();
     void pricedFilterFollowsAPriceCommit();
     void pricedFilterFollowsATabPrice();
-    void priceCommitRefiltersNothingWithoutThePricedFilter();
+    void priceCommitReconcilesNothingWithoutThePricedFilter();
     void pricedFilterMarksBackgroundSearches();
     void pricedFilterFollowsTheGameAndAReload();
-    void priceCommitRefilterKeepsTheRemainingSelection();
+    void priceCommitKeepsTheRemainingSelection();
+    void priceCommitKeepsSelectedTabHeaders();
+    void priceCommitLeavesADeselectedCurrentRowDeselected();
+    void priceCommitKeepsTheViewState();
+    void priceCommitWithoutMembershipChangeMovesNoRow();
+    void priceCommitsCoalesceIntoOneReconciliation();
+    void priceCommitDuringARefreshWaitsForItsEnd();
     void snapshotPricingSequenceEmitsOneModelBatch();
     void priceCellsRepaintUnderAnySortColumn();
     void buyoutRepaintCoversEveryVisibleOccurrence();
@@ -1774,9 +1780,9 @@ static QStringList sortedItemNames(const QAbstractItemModel &model, const QModel
     return names;
 }
 
-// #268: with the Priced filter on, a price commit re-filters the active
-// search at that commit, so an item whose price was cleared leaves the
-// view then, in either view.
+// #268: with the Priced filter on, the active search is reconciled after a
+// price commit, as row operations, so an item whose price was cleared
+// leaves the view then, in either view.
 void MainWindowTest::pricedFilterFollowsAPriceCommit_data()
 {
     QTest::addColumn<bool>("by_item");
@@ -1826,7 +1832,8 @@ void MainWindowTest::pricedFilterFollowsAPriceCommit()
     applyBuyoutCommand(fixture, Buyout::BUYOUT_TYPE_INHERIT, Currency::CURRENCY_NONE, "");
     QCoreApplication::processEvents();
     probes.enabled = false;
-    QCOMPARE(probes.refilters, 1);
+    QCOMPARE(probes.final_reconciliations, 1);
+    QCOMPARE(probes.refilters, 0);
     QVERIFY(bucket().isValid());
     QCOMPARE(sortedItemNames(*model, bucket()), QStringList({"Bravo Sword"}));
     // The row that left was the selection: nothing is selected, and the
@@ -1875,8 +1882,8 @@ void MainWindowTest::pricedFilterFollowsATabPrice()
 }
 
 // No search uses the Priced filter: a price commit marks nothing and
-// re-filters nothing, and the cleared item stays where it is.
-void MainWindowTest::priceCommitRefiltersNothingWithoutThePricedFilter()
+// reconciles nothing, and the cleared item stays where it is.
+void MainWindowTest::priceCommitReconcilesNothingWithoutThePricedFilter()
 {
     MainWindowFixture fixture;
     auto *tree = fixture.window->findChild<QTreeView *>("treeView");
@@ -1901,6 +1908,7 @@ void MainWindowTest::priceCommitRefiltersNothingWithoutThePricedFilter()
     applyBuyoutCommand(fixture, Buyout::BUYOUT_TYPE_INHERIT, Currency::CURRENCY_NONE, "");
     QCoreApplication::processEvents();
     probes.enabled = false;
+    QCOMPARE(probes.final_reconciliations, 0);
     QCOMPARE(probes.refilters, 0);
     QCOMPARE(resets.count(), 0);
     QCOMPARE(sortedItemNames(*model, bucket), QStringList({"Alpha Sword", "Bravo Sword"}));
@@ -1939,6 +1947,7 @@ void MainWindowTest::pricedFilterMarksBackgroundSearches()
     probes.enabled = true;
     applyBuyoutCommand(fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "4");
     QCoreApplication::processEvents();
+    QCOMPARE(probes.final_reconciliations, 0);
     QCOMPARE(probes.refilters, 0);
     fixture.window->OnTabChange(0);
     QCOMPARE(probes.refilters, 1);
@@ -1962,7 +1971,7 @@ void MainWindowTest::pricedFilterMarksBackgroundSearches()
 // The game prices an item by its note and a tab by its name: a note that
 // arrives or leaves with a delta is filtered with the delta's rows; a tab
 // name priced at the final pass is reconciled there; neither resets the
-// model. A reload (the legacy import ends with one) re-filters.
+// model. A reload (the legacy import ends with one) is reconciled.
 void MainWindowTest::pricedFilterFollowsTheGameAndAReload()
 {
     MainWindowFixture fixture;
@@ -2013,10 +2022,11 @@ void MainWindowTest::pricedFilterFollowsTheGameAndAReload()
     QCOMPARE(names(), QStringList({"Alpha Sword", "Bravo Sword"}));
 }
 
-// What the re-filter at a commit does to the selection and the editor:
+// What the reconciliation after a commit does to the selection and the
+// editor:
 // the selected rows still shown stay selected, and the editor is shown
 // them; rows that left are no longer selected.
-void MainWindowTest::priceCommitRefilterKeepsTheRemainingSelection()
+void MainWindowTest::priceCommitKeepsTheRemainingSelection()
 {
     MainWindowFixture fixture;
     auto *tree = fixture.window->findChild<QTreeView *>("treeView");
@@ -2081,6 +2091,188 @@ void MainWindowTest::priceCommitRefilterKeepsTheRemainingSelection()
     QCOMPARE(type->currentIndex(), int(Buyout::BUYOUT_TYPE_FIXED));
     QVERIFY(!type->isEnabled());
     QCOMPARE(value->text(), QString("2"));
+}
+
+// The step-4 review: a price change that alters what the Priced filter
+// shows reaches the model as row operations, as a delta does, never as a
+// reset. Rows that stay are not touched, so neither is their selection,
+// the current row or the expansion.
+namespace {
+
+    struct PricedTabsFixture
+    {
+        PricedTabsFixture()
+        {
+            tree = fixture.window->findChild<QTreeView *>("treeView");
+            for (int n = 0; n < 3; ++n) {
+                tabs.push_back(makeTestStashLocation(QString("stash-rows-%1").arg(n),
+                                                     QString("Tab %1").arg(n),
+                                                     static_cast<unsigned>(n)));
+            }
+            Items items;
+            for (int n = 0; n < 3; ++n) {
+                items.push_back(makeMainWindowItem(QString("item-%1a").arg(n),
+                                                   QString("Alpha%1").arg(n),
+                                                   "Sword",
+                                                   tabs[n]));
+                items.push_back(makeMainWindowItem(QString("item-%1b").arg(n),
+                                                   QString("Bravo%1").arg(n),
+                                                   "Sword",
+                                                   tabs[n]));
+            }
+            fixture.itemsManager->OnItemsRefreshed(items, tabs, false);
+            for (const auto &item : items) {
+                fixture.buyoutFixture.manager->Set(*item, makeChaosBuyout(5));
+            }
+            this->items = items;
+            pricedCheckBox(fixture)->click();
+            model = tree->model();
+        }
+
+        QModelIndex header(int n) const { return findBucket(*model, tabs[n].GetHeader()); }
+        QModelIndex row(int n, const char *name) const
+        {
+            return findItemRow(*model, header(n), QString("%1%2 Sword").arg(name).arg(n));
+        }
+
+        MainWindowFixture fixture;
+        QTreeView *tree = nullptr;
+        QAbstractItemModel *model = nullptr;
+        std::vector<ItemLocation> tabs;
+        Items items;
+    };
+
+} // namespace
+
+// Finding 1: tab headers selected for a tab price stay selected.
+void MainWindowTest::priceCommitKeepsSelectedTabHeaders()
+{
+    PricedTabsFixture f;
+    QItemSelectionModel &selection = *f.tree->selectionModel();
+    selection.setCurrentIndex(f.header(0),
+                              QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    selection.setCurrentIndex(f.header(1), QItemSelectionModel::Select | QItemSelectionModel::Rows);
+    selection.setCurrentIndex(f.header(2), QItemSelectionModel::Select | QItemSelectionModel::Rows);
+    applyBuyoutCommand(f.fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "1");
+    QCoreApplication::processEvents();
+    QVERIFY(selection.isRowSelected(f.header(0).row(), QModelIndex()));
+    QVERIFY(selection.isRowSelected(f.header(1).row(), QModelIndex()));
+    QVERIFY(selection.isRowSelected(f.header(2).row(), QModelIndex()));
+    QCOMPARE(selection.selectedRows().size(), 3);
+}
+
+// Finding 2: a current row the user deselected is not selected again.
+void MainWindowTest::priceCommitLeavesADeselectedCurrentRowDeselected()
+{
+    PricedTabsFixture f;
+    f.tree->expand(f.header(0));
+    QItemSelectionModel &selection = *f.tree->selectionModel();
+    selection.setCurrentIndex(f.row(0, "Bravo"),
+                              QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    selection.setCurrentIndex(f.row(0, "Alpha"),
+                              QItemSelectionModel::Toggle | QItemSelectionModel::Rows);
+    selection.setCurrentIndex(f.row(0, "Alpha"),
+                              QItemSelectionModel::Toggle | QItemSelectionModel::Rows);
+    QCOMPARE(selection.selectedRows().size(), 1);
+    applyBuyoutCommand(f.fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "7");
+    QCoreApplication::processEvents();
+    QCOMPARE(selection.selectedRows().size(), 1);
+    QVERIFY(selection.isSelected(f.row(0, "Bravo")));
+    QVERIFY(!selection.isSelected(f.row(0, "Alpha")));
+}
+
+// Findings 3a and 3b: a tab the user collapsed stays collapsed, and the
+// current index survives, also when a row leaves.
+void MainWindowTest::priceCommitKeepsTheViewState()
+{
+    PricedTabsFixture f;
+    f.tree->collapse(f.header(0));
+    f.tree->expand(f.header(1));
+    QItemSelectionModel &selection = *f.tree->selectionModel();
+    selection.setCurrentIndex(f.row(1, "Alpha"),
+                              QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    QSignalSpy resets(f.model, &QAbstractItemModel::modelReset);
+    applyBuyoutCommand(f.fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "7");
+    QCoreApplication::processEvents();
+    QVERIFY(!f.tree->isExpanded(f.header(0)));
+    QVERIFY(selection.currentIndex().isValid());
+    QCOMPARE(selection.currentIndex().siblingAtColumn(0), f.row(1, "Alpha"));
+
+    // Bravo1's price is cleared: it leaves, and nothing else moves.
+    selection.setCurrentIndex(f.row(1, "Bravo"),
+                              QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    applyBuyoutCommand(f.fixture, Buyout::BUYOUT_TYPE_INHERIT, Currency::CURRENCY_NONE, "");
+    QCoreApplication::processEvents();
+    QVERIFY(!f.row(1, "Bravo").isValid());
+    QVERIFY(!f.tree->isExpanded(f.header(0)));
+    QVERIFY(f.tree->isExpanded(f.header(1)));
+    QCOMPARE(resets.count(), 0);
+}
+
+// Finding 5: a price edited from 5 to 6 changes no membership, so no row
+// is inserted or removed and the model is not reset.
+void MainWindowTest::priceCommitWithoutMembershipChangeMovesNoRow()
+{
+    PricedTabsFixture f;
+    f.tree->expand(f.header(0));
+    f.tree->selectionModel()->setCurrentIndex(f.row(0, "Alpha"),
+                                              QItemSelectionModel::ClearAndSelect
+                                                  | QItemSelectionModel::Rows);
+    QSignalSpy resets(f.model, &QAbstractItemModel::modelReset);
+    QSignalSpy inserted(f.model, &QAbstractItemModel::rowsInserted);
+    QSignalSpy removed(f.model, &QAbstractItemModel::rowsRemoved);
+    applyBuyoutCommand(f.fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "6");
+    QCoreApplication::processEvents();
+    QCOMPARE(resets.count(), 0);
+    QCOMPARE(inserted.count(), 0);
+    QCOMPARE(removed.count(), 0);
+}
+
+// Two price changes before the event loop runs: one reconciliation.
+void MainWindowTest::priceCommitsCoalesceIntoOneReconciliation()
+{
+    PricedTabsFixture f;
+    f.tree->expand(f.header(0));
+    QItemSelectionModel &selection = *f.tree->selectionModel();
+    auto &probes = ModelProbes::instance();
+    probes.reset();
+    probes.enabled = true;
+    selection.setCurrentIndex(f.row(0, "Alpha"),
+                              QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    applyBuyoutCommand(f.fixture, Buyout::BUYOUT_TYPE_INHERIT, Currency::CURRENCY_NONE, "");
+    QVERIFY(f.row(0, "Bravo").isValid());
+    selection.setCurrentIndex(f.row(0, "Bravo"),
+                              QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    applyBuyoutCommand(f.fixture, Buyout::BUYOUT_TYPE_INHERIT, Currency::CURRENCY_NONE, "");
+    QCoreApplication::processEvents();
+    probes.enabled = false;
+    QCOMPARE(probes.final_reconciliations, 1);
+    QCOMPARE(probes.refilters, 0);
+    QVERIFY(!f.header(0).isValid());
+}
+
+// Finding 3e: a price changed while a refresh is running is reconciled
+// when the refresh ends; a failed refresh reconciles it too.
+void MainWindowTest::priceCommitDuringARefreshWaitsForItsEnd()
+{
+    PricedTabsFixture f;
+    f.tree->expand(f.header(0));
+    QSignalSpy resets(f.model, &QAbstractItemModel::modelReset);
+    // A delta opens the refresh.
+    f.fixture.itemsManager->OnTabRefreshed(f.tabs[2], {f.items[4], f.items[5]});
+    f.tree->selectionModel()->setCurrentIndex(f.row(0, "Alpha"),
+                                              QItemSelectionModel::ClearAndSelect
+                                                  | QItemSelectionModel::Rows);
+    applyBuyoutCommand(f.fixture, Buyout::BUYOUT_TYPE_INHERIT, Currency::CURRENCY_NONE, "");
+    QCoreApplication::processEvents();
+    QVERIFY(f.row(0, "Alpha").isValid());
+    QCOMPARE(resets.count(), 0);
+
+    f.fixture.window->OnRefreshFinished(RefreshOutcome{FailedRefresh{RateLimit::FetchError{}}});
+    QCoreApplication::processEvents();
+    QVERIFY(!f.row(0, "Alpha").isValid());
+    QVERIFY(f.row(0, "Bravo").isValid());
+    QCOMPARE(resets.count(), 0);
 }
 
 void MainWindowTest::priceCellsRepaintUnderAnySortColumn()

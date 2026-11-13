@@ -234,13 +234,15 @@ private:
     // made for the user never undoes the user's collapse (folder-tree D9).
     void SelectWithoutExpanding(const QModelIndex &index, QItemSelectionModel::SelectionFlags flags);
 
-    // `capture`, taken before the refilter, is the selection it restores
-    // (the rows still shown stay selected); without one, only the current
-    // row is selected again.
-    void ModelViewRefresh(const SelectionCapture *capture = nullptr);
-    // The active search re-filters after a price change marked it (#268),
-    // once, after the command or pass that changed the price has returned.
-    void RefilterAfterPriceChange();
+    void ModelViewRefresh();
+    // The active search re-decides every published item against its
+    // filters, as row operations (R1-2): at the final snapshot, and after a
+    // price change with a price-dependent filter active (#268).
+    void ReconcileWithPublishedItems();
+    // After a price change marked the active search (#268), once the
+    // command or pass that changed the price has returned; while a refresh
+    // runs, its end does it instead.
+    void ReconcileAfterPriceChange();
     void ReselectCurrentItem();
     void ReselectCurrentBucket();
     void FlushPendingSearchFormChange();
@@ -332,7 +334,8 @@ private:
     // Set while SettleSelection settles the current row and the selection;
     // the price editor is updated once at its end.
     bool m_defer_price_editor{false};
-    bool m_price_refilter_queued{false};
+    bool m_price_reconcile_queued{false};
+    bool m_price_reconcile_deferred{false};
     RateLimitDialog *m_rate_limit_dialog;
     bool m_quitting;
 };

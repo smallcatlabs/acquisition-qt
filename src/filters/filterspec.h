@@ -85,8 +85,8 @@ struct FilterSpec
     FilterPayload payload;
     // What the filter decides follows the prices, as a column's
     // buyoutDependent() says for its cells (#268): a price change marks
-    // every search where the filter is active, and the active one
-    // re-filters.
+    // every search where the filter is active, and the active one is
+    // reconciled as row operations.
     bool buyoutDependent;
 };
 
