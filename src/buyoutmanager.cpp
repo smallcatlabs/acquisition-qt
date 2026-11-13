@@ -5,6 +5,7 @@
 
 #include <QVariant>
 
+#include <unordered_set>
 #include <utility>
 
 #include "datastore/buyoutrepo.h"
@@ -210,12 +211,23 @@ EffectivePrice BuyoutManager::EffectiveTab(const ItemLocation &location) const
 std::vector<std::pair<std::shared_ptr<Item>, Buyout>> BuyoutManager::PostablePrices(
     const Items &items) const
 {
+    // By id: mid-refresh one id can have two published copies (an item
+    // moved, the new tab's delta in, the old tab's not). A note travels with
+    // its copy, so while the game prices any copy of an id, none is posted.
     std::vector<std::pair<std::shared_ptr<Item>, Buyout>> postable;
+    std::unordered_set<QString> game_priced;
     for (const auto &item : items) {
         EffectivePrice price = Effective(*item);
-        if (price.IsPostable()) {
+        if (price.IsGameSet()) {
+            game_priced.insert(item->id());
+        } else if (price.IsPostable()) {
             postable.emplace_back(item, std::move(price.buyout));
         }
+    }
+    if (!game_priced.empty()) {
+        std::erase_if(postable, [&game_priced](const auto &entry) {
+            return game_priced.contains(entry.first->id());
+        });
     }
     return postable;
 }

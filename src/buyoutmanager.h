@@ -91,7 +91,8 @@ public:
     EffectivePrice Effective(const Item &item) const;
     EffectivePrice EffectiveTab(const ItemLocation &location) const;
     // The forum shop's input: each item whose price in force may be posted,
-    // with that price, by value (M2 D8).
+    // with that price, by value (M2 D8). No copy of an id is posted while the
+    // game prices any copy of it.
     std::vector<std::pair<std::shared_ptr<Item>, Buyout>> PostablePrices(const Items &items) const;
 
     void CompressTabBuyouts();

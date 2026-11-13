@@ -22,6 +22,7 @@ private slots:
     void manualItemPriceSurvivesANote();
     void manualTabPriceSurvivesAPricedName();
     void tabEntryKeepsEachPriceAcrossChanges();
+    void movedItemIsNotPostableWhileANotePricesIt();
     void manualPriceSurvivesAReadableNote();
     void itemBuyoutRoundTrip();
     void tabBuyoutRoundTrip();
@@ -296,6 +297,34 @@ void BuyoutManagerTest::tabEntryKeepsEachPriceAcrossChanges()
     fixture.items.OnItemsRefreshed({}, {}, false);
     QCOMPARE(manager.EffectiveTab(named).source, PriceSource::None);
     QVERIFY(manager.GetTab(named).IsNull());
+}
+
+// Mid-refresh the published items can hold two copies of one id: an item
+// moved from one tab to another, the new tab's delta in, the old tab's
+// not. A note travels with its copy and a manual price is the id's, so
+// the old copy shows the manual price while the game prices the new one.
+// A manual shop update can capture at that moment (nothing gates it on a
+// running refresh), so no copy of an id the game prices is postable.
+void BuyoutManagerTest::movedItemIsNotPostableWhileANotePricesIt()
+{
+    PricingFixture fixture;
+    auto &manager = *fixture.buyouts.manager;
+    const ItemLocation from = makeTestStashLocation("stash-move-from", "Dump", 0);
+    const ItemLocation to = makeTestStashLocation("stash-move-to", "Shelf", 1);
+    const auto before = makeNotedItem("moved-item", from);
+    fixture.items.OnItemsRefreshed({before}, {from, to}, false);
+    QVERIFY(manager.Set(*before, makeChaosBuyout(7.0)));
+    QCOMPARE(manager.PostablePrices(fixture.items.items()).size(), size_t{1});
+
+    const auto after = makeNotedItem("moved-item", to, "~b/o 5 chaos");
+    fixture.items.OnTabRefreshed(to, {after});
+    QCOMPARE(fixture.items.items().size(), size_t{2});
+    QVERIFY(manager.PostablePrices(fixture.items.items()).empty());
+
+    // The old tab's delta arrives: one copy, priced by its note.
+    fixture.items.OnTabRefreshed(from, {});
+    QCOMPARE(fixture.items.items().size(), size_t{1});
+    QVERIFY(manager.PostablePrices(fixture.items.items()).empty());
 }
 
 // From the currency-table review: once the parser reads more words (the
