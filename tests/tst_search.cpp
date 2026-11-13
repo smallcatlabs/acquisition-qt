@@ -95,8 +95,8 @@ void SearchTest::priceFiltersAreMarked()
 {
     BuyoutManagerFixture buyoutFixture;
     const FilterCatalog catalog = BuildFilterCatalog(*buyoutFixture.manager);
-    // Priced is the one filter that reads a price. A new filter that reads
-    // one is marked like it, and added here.
+    // Only a filter built from the BuyoutManager can read a price, and
+    // those are built marked (filterspec.cpp); Priced is the one today.
     const qsizetype pricedIndex = findFilterIndex<BoolPayload>(catalog, "Priced");
     const qsizetype corruptedIndex = findFilterIndex<BoolPayload>(catalog, "Corrupted");
     QVERIFY(pricedIndex >= 0);
