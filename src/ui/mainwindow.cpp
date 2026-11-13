@@ -898,6 +898,22 @@ void MainWindow::OnBuyoutCommitted(const PriceTargets &targets, const Buyout &bo
 void MainWindow::OnBuyoutsChanged(const BuyoutChangeSet &changes)
 {
     spdlog::trace("MainWindow::OnBuyoutsChanged() entered");
+    // A filter that follows the prices (#268): every search where one is
+    // active is marked, so it re-filters before it is shown again; the
+    // active one re-filters once the command or pass that changed the
+    // prices has returned (never inside it: the price editor is still
+    // emitting its commit, or the selection model its change).
+    for (const auto &search : m_searches) {
+        if (search->UsesBuyoutDependentFilter()) {
+            search->setItemsDirty(true);
+            if ((search.get() == m_current_search) && !m_price_refilter_queued) {
+                m_price_refilter_queued = true;
+                QMetaObject::invokeMethod(this,
+                                          &MainWindow::RefilterAfterPriceChange,
+                                          Qt::QueuedConnection);
+            }
+        }
+    }
     // The batch response under residency (M3 D1 rule 4, R1-6/R3-2),
     // column-gated at the batch boundary: affected Price/Date cells
     // repaint under any sort column (rule 5); with Price or Date active,
@@ -1684,7 +1700,7 @@ void MainWindow::RestoreViewExpansion(Search &search)
     }
 }
 
-void MainWindow::ModelViewRefresh()
+void MainWindow::ModelViewRefresh(const SelectionCapture *capture)
 {
     spdlog::trace("MainWindow::ModelViewRefresh() entered");
     disconnect(m_current_item_conn);
@@ -1766,7 +1782,26 @@ void MainWindow::ModelViewRefresh()
     // The intent pass runs on refilter paths too (S4 review round 1): an
     // id that reappeared only in a refilter's fresh result re-adopts
     // here — the contract covers the delta path and the refilter alike.
-    SettleSelection(nullptr);
+    SettleSelection(capture);
+}
+
+void MainWindow::RefilterAfterPriceChange()
+{
+    m_price_refilter_queued = false;
+    // A pass that marked the search may have settled it since: the final
+    // snapshot's reconciliation decides every row against the filters and
+    // clears the flag, with row operations and no reset.
+    if (!m_current_search || !m_current_search->itemsDirty()
+        || (ui->treeView->model() != &m_current_search->model())) {
+        return;
+    }
+    // The rows still shown stay selected, and the editor is shown the
+    // selection once, after it settles: the reset's own notice would show
+    // it an empty selection on the way.
+    const SelectionCapture capture = CaptureSelection(std::nullopt);
+    m_defer_price_editor = true;
+    m_current_search->SetRefreshReason(RefreshReason::ItemsChanged);
+    ModelViewRefresh(&capture);
 }
 
 void MainWindow::SaveViewScroll(Search &search)

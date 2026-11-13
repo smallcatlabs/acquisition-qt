@@ -7,6 +7,7 @@
 #include <QStringList>
 
 #include <functional>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -66,10 +67,27 @@ using FilterPayload
 
 struct FilterSpec
 {
+    FilterSpec(QString caption_,
+               FilterGroup group_,
+               RefreshMode refreshMode_,
+               FilterPayload payload_,
+               bool buyoutDependent_ = false)
+        : caption(std::move(caption_))
+        , group(group_)
+        , refreshMode(refreshMode_)
+        , payload(std::move(payload_))
+        , buyoutDependent(buyoutDependent_)
+    {}
+
     QString caption;
     FilterGroup group;
     RefreshMode refreshMode;
     FilterPayload payload;
+    // What the filter decides follows the prices, as a column's
+    // buyoutDependent() says for its cells (#268): a price change marks
+    // every search where the filter is active, and the active one
+    // re-filters.
+    bool buyoutDependent;
 };
 
 class FilterCatalog
@@ -82,9 +100,15 @@ public:
     const FilterSpec &operator[](qsizetype index) const { return m_specs.at(index); }
     auto begin() const { return m_specs.cbegin(); }
     auto end() const { return m_specs.cend(); }
+    // The indices of the filters whose decision follows the prices.
+    const std::vector<qsizetype> &buyoutDependentIndices() const
+    {
+        return m_buyout_dependent_indices;
+    }
 
 private:
     std::vector<FilterSpec> m_specs;
+    std::vector<qsizetype> m_buyout_dependent_indices;
 };
 
 const QStringList &RarityChoices();
