@@ -93,6 +93,7 @@ jobs:
         retention-days: 3
 
   wine:
+    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -132,3 +133,42 @@ jobs:
         cd deploy
         cp crt/*.dll .
         timeout 300 xvfb-run -a wine ./diag370.exe; echo "exit: $?"
+
+  install-6113:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            extra: windows
+          - os: macos-latest
+            extra: mac
+          - os: ubuntu-latest
+            extra: linux
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Setup Qt 6.11.3 (Windows settings of build-windows.yml)
+      if: matrix.extra == 'windows'
+      uses: jurplel/install-qt-action@b344308e4483fc892e0d27b3cd1b173ebdd95f06 # v4.5.0
+      with:
+        version: '6.11.3'
+        host: 'windows'
+        target: 'desktop'
+        arch: 'win64_msvc2022_64'
+        modules: 'qtnetworkauth'
+        aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@8d961e61720b3c06583517fbc68d57ec0a4e9f95'
+        cache: false
+    - name: Setup Qt 6.11.3 (settings of build-macos.yml / build-linux.yml)
+      if: matrix.extra != 'windows'
+      uses: jurplel/install-qt-action@b344308e4483fc892e0d27b3cd1b173ebdd95f06 # v4.5.0
+      with:
+        version: '6.11.3'
+        modules: 'qtnetworkauth'
+        cache: false
+    - name: What was installed
+      shell: bash
+      run: |
+        echo "QT_ROOT_DIR=$QT_ROOT_DIR"
+        ls "$QT_ROOT_DIR/lib" | grep -i -E 'networkauth|Qt6Network|QtNetwork' | head -5 || true
+        ls "$QT_ROOT_DIR/bin" | grep -i -E 'networkauth|Qt6Network' | head -5 || true
+        ls "$QT_ROOT_DIR/plugins/tls" || true
