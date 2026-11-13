@@ -907,8 +907,7 @@ void MainWindow::OnBuyoutsChanged(const BuyoutChangeSet &changes)
     for (const auto &search : m_searches) {
         if (search->UsesBuyoutDependentFilter()) {
             search->setItemsDirty(true);
-            if ((search.get() == m_current_search) && !m_price_reconcile_queued) {
-                m_price_reconcile_queued = true;
+            if (search.get() == m_current_search) {
                 QMetaObject::invokeMethod(this,
                                           &MainWindow::ReconcileAfterPriceChange,
                                           Qt::QueuedConnection);
@@ -1797,9 +1796,9 @@ void MainWindow::ModelViewRefresh()
 
 void MainWindow::ReconcileAfterPriceChange()
 {
-    m_price_reconcile_queued = false;
-    // A pass that marked the search may have settled it since: the final
-    // snapshot's reconciliation decides every row and clears the flag.
+    // The mark is what coalesces: an earlier queued call, or the final
+    // snapshot's reconciliation, decides every row and clears it, and a
+    // later call then finds nothing to do.
     if (!m_current_search || !m_current_search->itemsDirty()
         || (ui->treeView->model() != &m_current_search->model())) {
         return;

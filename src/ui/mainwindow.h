@@ -334,7 +334,6 @@ private:
     // Set while SettleSelection settles the current row and the selection;
     // the price editor is updated once at its end.
     bool m_defer_price_editor{false};
-    bool m_price_reconcile_queued{false};
     bool m_price_reconcile_deferred{false};
     RateLimitDialog *m_rate_limit_dialog;
     bool m_quitting;
