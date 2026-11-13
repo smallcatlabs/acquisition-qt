@@ -100,5 +100,7 @@ shared or synced data directory) or one that cannot be read is not: if you are
 sure no Acquisition is using the directory, delete the file named in the
 message.
 
-The other command-line option is `--log-level <level>`; see
-[Settings and troubleshooting](settings-and-troubleshooting.md#logging).
+The other command-line options are `--log-level <level>`; see
+[Settings and troubleshooting](settings-and-troubleshooting.md#logging), and
+`--check-tls`, which prints the TLS backends Acquisition finds and exits
+without starting.
