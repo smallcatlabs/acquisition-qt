@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.21)
+project(diag370 LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+find_package(Qt6 REQUIRED COMPONENTS Core Network)
+add_executable(diag370 main.cpp)
+target_link_libraries(diag370 PRIVATE Qt6::Core Qt6::Network)

@@ -1,0 +1,79 @@
+name: Diag 370 (TLS backend on Windows)
+
+# Throwaway diagnostic for issue #370; lives only on diag/370-tls-backend.
+on:
+  push:
+    branches: ['diag/370-tls-backend']
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        qt: ['6.11.1', '6.12.0']
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+    - uses: jurplel/install-qt-action@b344308e4483fc892e0d27b3cd1b173ebdd95f06 # v4.5.0
+      with:
+        version: ${{ matrix.qt }}
+        host: 'windows'
+        target: 'desktop'
+        arch: 'win64_msvc2022_64'
+        modules: 'qtnetworkauth'
+        aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@8d961e61720b3c06583517fbc68d57ec0a4e9f95'
+        cache: true
+        cache-key-prefix: 'qt-${{ matrix.qt }}-win64-aqt-master'
+
+    - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+      with:
+        arch: x64
+
+    - name: Build probe
+      run: |
+        cmake -B probe -S tools/diag370 -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}"
+        cmake --build probe
+
+    - name: Plugin files in the Qt install
+      run: |
+        Get-ChildItem "$env:QT_ROOT_DIR\plugins\tls" | Format-Table Name, Length, LastWriteTime -AutoSize | Out-String -Width 200
+        Get-ChildItem "$env:QT_ROOT_DIR\bin\Qt6Network.dll" | Format-Table Name, Length -AutoSize | Out-String -Width 200
+
+    - name: Imports and headers of the schannel plugin
+      continue-on-error: true
+      run: |
+        foreach ($f in @("$env:QT_ROOT_DIR\plugins\tls\qschannelbackend.dll", "$env:QT_ROOT_DIR\bin\Qt6Network.dll")) {
+          Write-Host "===== $f"
+          dumpbin /nologo /headers $f | Select-String -Pattern 'machine|subsystem version|operating system version|DLL characteristics'
+          dumpbin /nologo /dependents $f
+          dumpbin /nologo /imports $f | Select-String -Pattern '\.dll|SCH|Acquire|Ncrypt|BCrypt|Cert' | Select-Object -First 120
+        }
+
+    - name: Probe against the Qt install
+      continue-on-error: true
+      run: |
+        $env:PATH = "$env:QT_ROOT_DIR\bin;$env:PATH"
+        .\probe\diag370.exe
+        Write-Host "exit: $LASTEXITCODE"
+
+    - name: Deploy probe and run it as a package would
+      continue-on-error: true
+      run: |
+        New-Item -ItemType Directory -Force -Path deploy | Out-Null
+        Copy-Item probe\diag370.exe deploy
+        & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --no-translations --no-compiler-runtime --dir deploy deploy\diag370.exe
+        Get-ChildItem -Recurse deploy | Select-Object -ExpandProperty FullName
+        Remove-Item Env:QT_PLUGIN_PATH -ErrorAction SilentlyContinue
+        $env:QT_DEBUG_PLUGINS = '1'
+        $env:QT_LOGGING_RULES = 'qt.network.ssl*=true;qt.core.plugin*=true'
+        # Strip the Qt install from PATH so only the deployed copy is found.
+        $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notlike "*\Qt\*" }) -join ';'
+        $p = Start-Process -FilePath deploy\diag370.exe -NoNewWindow -Wait -PassThru `
+          -RedirectStandardOutput out.txt -RedirectStandardError err.txt
+        Write-Host "----- stdout"; Get-Content out.txt
+        Write-Host "----- stderr"; Get-Content err.txt
+        Write-Host "exit: $($p.ExitCode)"
