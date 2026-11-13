@@ -87,8 +87,11 @@ after a few seconds, or as soon as an edit is saved.
 
 Pricing a stash tab or character prices every item in it that is still on
 *[Inherit]*. Setting an item's own buyout overrides the tab's for that item;
-setting it back to *[Inherit]* restores the tab price. *Current Offer* is not
-meaningful for a tab and is logged as obsolete if it is found on one.
+setting it back to *[Inherit]* restores the tab price. Only the tab's price
+is stored: an item on *[Inherit]* shows the tab's price, in grey, for as long
+as the tab has one, and its *Last Update* is when the tab's price was set.
+*Current Offer* is not meaningful for a tab and is logged as obsolete if it
+is found on one.
 
 ### Currencies
 
@@ -162,10 +165,13 @@ version, say) is shown but not posted to the forum shop.
 ## Prices set in the game
 
 If a stash tab's name, or an item's note, contains a trade-site price string such
-as `~b/o 5 chaos` or `~price 1 divine`, Acquisition imports it as a buyout with
+as `~b/o 5 chaos` or `~price 1 divine`, Acquisition shows it as a buyout with
 source *game*. Game-sourced prices are **locked**: you cannot change them in
-Acquisition, because the next refresh would overwrite the change. Edit the tab
-name or item note in the game instead. A tab with a price of its own, set in
+Acquisition, because the game's price wins. Edit the tab name or item note in
+the game instead. Acquisition reads these prices from the game on every
+refresh and does not store them, so they have no *Last Update*. A price you
+set in Acquisition is kept underneath: when the note or the priced tab name is
+removed in the game, your price shows again. A tab with a price of its own, set in
 the game or in Acquisition, is always refreshed regardless of its check box, so
 its prices stay current; this holds even while the tab is empty or not yet
 fetched. Remove-only tabs are the exception: they are refreshed only when
@@ -186,6 +192,11 @@ items under the **Buyouts** menu bring them forward:
 
 If the current prices cannot be read, planning stops with an error rather than
 treating every target as unpriced.
+
+An old price that came from an item's note or a tab's name is not imported:
+its plan row is set to `skip` with the reason `game`, and it stays skipped
+even if you change it to `import`. Acquisition reads that price from the game
+again at the next refresh.
 
 Run a full refresh of stashes and characters first so the matcher has current
 data. Existing manual buyouts are never overwritten by the importer.

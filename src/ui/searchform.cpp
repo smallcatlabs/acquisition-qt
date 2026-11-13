@@ -16,7 +16,9 @@
 #include <algorithm>
 #include <optional>
 
+#include "filters/fieldnumber.h"
 #include "search.h"
+#include "ui/fieldvalidity.h"
 #include "ui/flowlayout.h"
 #include "ui/modsfilterform.h"
 #include "ui/searchcombobox.h"
@@ -220,6 +222,8 @@ namespace {
             parent->addWidget(group);
             m_textboxMin->setPlaceholderText("min");
             m_textboxMax->setPlaceholderText("max");
+            MarkWhenNotANumber(*m_textboxMin);
+            MarkWhenNotANumber(*m_textboxMax);
             m_textboxMin->setFixedWidth(Util::TextWidth(TextWidthId::WIDTH_MIN_MAX));
             m_textboxMax->setFixedWidth(Util::TextWidth(TextWidthId::WIDTH_MIN_MAX));
             label->setFixedWidth(Util::TextWidth(TextWidthId::WIDTH_LABEL));
@@ -263,12 +267,10 @@ namespace {
         }
 
     private:
+        // Text that is not a number is no bound (#270), never a bound of 0.
         static std::optional<double> parse(const QLineEdit *textbox)
         {
-            if (textbox->text().isEmpty()) {
-                return std::nullopt;
-            }
-            return textbox->text().toDouble();
+            return ParseFieldNumber(textbox->text());
         }
 
         QLineEdit *m_textboxMin = nullptr;
@@ -294,6 +296,9 @@ namespace {
             m_textboxG->setPlaceholderText("G");
             m_textboxB = new QLineEdit;
             m_textboxB->setPlaceholderText("B");
+            MarkWhenNotAWholeNumber(*m_textboxR);
+            MarkWhenNotAWholeNumber(*m_textboxG);
+            MarkWhenNotAWholeNumber(*m_textboxB);
             layout->addWidget(label);
             layout->addWidget(m_textboxR);
             layout->addWidget(m_textboxG);
@@ -349,12 +354,10 @@ namespace {
         }
 
     private:
+        // Text that is not a whole number is no count (#270), never 0.
         static std::optional<int> parse(const QLineEdit *textbox)
         {
-            if (textbox->text().isEmpty()) {
-                return std::nullopt;
-            }
-            return textbox->text().toInt();
+            return ParseFieldInteger(textbox->text());
         }
 
         static QString toText(const std::optional<int> &value)

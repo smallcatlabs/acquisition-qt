@@ -39,17 +39,6 @@ namespace {
         return la.id() < lb.id();
     }
 
-    // The location a folder-presence map value stands for (FilterItems maps
-    // keys to buckets, the snapshot reconciliation to locations).
-    const ItemLocation &LocationOf(const Bucket &bucket)
-    {
-        return bucket.location();
-    }
-    const ItemLocation &LocationOf(const ItemLocation &location)
-    {
-        return location;
-    }
-
 } // namespace
 
 Search::Search(BuyoutManager &bo_manager,
@@ -62,7 +51,6 @@ Search::Search(BuyoutManager &bo_manager,
     , m_model(bo_manager, *this)
     , m_caption(caption)
     , m_filtered(false)
-    , m_filtered_item_count(0)
     , m_current_mode(ViewMode::ByTab)
     , m_refresh_reason(RefreshReason::Unknown)
 {
@@ -149,34 +137,12 @@ void Search::setExpandedKeys(std::set<LocationInventory::Key> keys)
 
 const std::vector<Bucket> &Search::buckets() const
 {
-    switch (m_current_mode) {
-    case ViewMode::ByTab:
-        return m_bucket_by_tab;
-        break;
-    case ViewMode::ByItem:
-        return m_bucket_by_item;
-        break;
-    default:
-        spdlog::error("Invalid view mode: {}", m_current_mode);
-        return m_bucket_by_item;
-        break;
-    }
+    return (m_current_mode == ViewMode::ByItem) ? m_bucket_by_item : m_bucket_by_tab;
 }
 
 std::vector<Bucket> &Search::active_buckets()
 {
-    switch (m_current_mode) {
-    case ViewMode::ByTab:
-        return m_bucket_by_tab;
-        break;
-    case ViewMode::ByItem:
-        return m_bucket_by_item;
-        break;
-    default:
-        spdlog::error("Invalid view mode: {}", static_cast<int>(m_current_mode));
-        return m_bucket_by_item;
-        break;
-    }
+    return (m_current_mode == ViewMode::ByItem) ? m_bucket_by_item : m_bucket_by_tab;
 }
 
 bool Search::has_bucket(int row) const
@@ -204,28 +170,20 @@ const QModelIndex Search::index(const std::shared_ptr<Item> &item) const
         // Return an invalid index because there is no current item.
         return QModelIndex();
     }
-    // Look for a bucket that matches the item's location. In ByItem mode
-    // the single bucket has a null location and holds every visible item,
-    // so it is always searched; a ByTab bucket must match the item's
-    // stable display key (M2 D6 — never mutable header text or position).
-    const auto &bucket_list = buckets();
-    const auto item_key = LocationInventory::KeyFor(item->location());
-    const int bucket_count = static_cast<int>(bucket_list.size());
-    for (int row = 0; row < bucket_count; ++row) {
-        // Check each search bucket against the item's location.
-        const auto &bucket = bucket_list[row];
-        if ((m_current_mode == ViewMode::ByItem)
-            || (LocationInventory::KeyFor(bucket.location()) == item_key)) {
-            // Check each item in the bucket.
-            const QModelIndex parent = m_model.BucketIndex(row);
-            const auto &items = bucket.items();
-            const int item_count = static_cast<int>(items.size());
-            for (int n = 0; n < item_count; ++n) {
-                const auto &model_item = items[n];
-                if (item == model_item) {
-                    // Found the index of a match.
-                    return m_model.index(n, 0, parent);
-                }
+    // The item's bucket: the flat bucket in By-Item, the bucket with the
+    // item's stable display key in By-Tab (M2 D6 — never mutable header
+    // text or position), found through the row lookup (#272).
+    const int row = bucketRowFor(*item);
+    if (row >= 0) {
+        const QModelIndex parent = m_model.BucketIndex(row);
+        const auto &items = buckets()[static_cast<size_t>(row)].items();
+        auto &probes = ModelProbes::instance();
+        for (size_t n = 0; n < items.size(); ++n) {
+            if (probes.enabled) {
+                ++probes.index_lookup_steps;
+            }
+            if (items[n] == item) {
+                return m_model.index(static_cast<int>(n), 0, parent);
             }
         }
     }
@@ -329,12 +287,24 @@ std::vector<int> Search::InvalidateBuyoutOrder(const BuyoutChangeSet &changes, i
     // scoped pricing pass stays O(delta + affected bucket); an id the
     // index cannot fully represent (duplicated across buckets, or the
     // empty id) forces the every-bucket path, the same fallback shape as
-    // the rule-5 repaint. Only item-level buyouts feed Price/Date keys
-    // (BuyoutManager::Get is item-keyed; tab prices reach items through
-    // propagation's item-level Sets in the same batch), so tab ids alone
-    // affect no order.
+    // the rule-5 repaint. A changed tab price is a change to the price of
+    // every item that shows it (BuyoutManager::Effective falls back to the
+    // tab's), so a changed tab's items are affected too. They are found
+    // through the By-Tab buckets, which are kept in both view modes and
+    // hold the same visible items as the flat bucket.
     bool every_bucket = changes.everything;
     std::set<LocationInventory::Key> affected_tabs;
+    std::set<QString> ids = changes.item_ids;
+    if (!every_bucket && !changes.tab_ids.empty()) {
+        for (const Bucket &bucket : m_bucket_by_tab) {
+            if (changes.tab_ids.count(bucket.location().id()) > 0) {
+                affected_tabs.insert(LocationInventory::KeyFor(bucket.location()));
+                for (const auto &item : bucket.items()) {
+                    ids.insert(item->id());
+                }
+            }
+        }
+    }
     if (!every_bucket) {
         for (const QString &id : changes.item_ids) {
             if (visibleIdUnindexed(id)) {
@@ -359,7 +329,7 @@ std::vector<int> Search::InvalidateBuyoutOrder(const BuyoutChangeSet &changes, i
                               || (affected_tabs.count(LocationInventory::KeyFor(bucket.location()))
                                   > 0);
         if (affected) {
-            bucket.RebuildKeyEntries(col, changes.item_ids, every_bucket);
+            bucket.RebuildKeyEntries(col, ids, every_bucket);
             bucket.InvalidateOrder();
             if (!by_item && bucket.expanded()) {
                 resort_rows.push_back(static_cast<int>(row));
@@ -369,7 +339,7 @@ std::vector<int> Search::InvalidateBuyoutOrder(const BuyoutChangeSet &changes, i
     const bool flat_affected = every_bucket || !affected_tabs.empty();
     for (auto &bucket : m_bucket_by_item) {
         if (flat_affected) {
-            bucket.RebuildKeyEntries(col, changes.item_ids, every_bucket);
+            bucket.RebuildKeyEntries(col, ids, every_bucket);
             bucket.InvalidateOrder();
             if (by_item) {
                 resort_rows.push_back(0);
@@ -418,7 +388,6 @@ void Search::FilterItems(const Items &items)
     if (auto &probes = ModelProbes::instance(); probes.enabled) {
         ++probes.index_rebuilds;
     }
-    m_items.clear();
     // "Filtered" means ANY filter is active (the spec's July 31, 2026
     // post-freeze amendment at D2 rule 5), not the old "at least one
     // item was rejected" snapshot: the membership decisions hanging off
@@ -428,23 +397,11 @@ void Search::FilterItems(const Items &items)
     // definition flips only at filter edits, which are full refilters by
     // construction (D6).
     m_filtered = !active_filters.empty();
-    m_filtered_item_count = 0;
-    m_visible_by_id.clear();
-    m_unindexed_visible_ids.clear();
-    m_duplicate_visible_ids.clear();
-    m_empty_id_visible_count = 0;
+    m_visible.Clear();
 
     // A single bucket with null location is used to view all items at once.
     m_bucket_by_item.clear();
     m_bucket_by_item.emplace_back(ItemLocation());
-
-    // Temporarily store items-by-tabs in a map keyed by the STABLE display
-    // identity (M2 D6/R5-1): ItemLocation orders stash locations by
-    // position, so keying on the location itself can split a moved tab into
-    // old- and new-position buckets, file fresh items under a stale header,
-    // or merge two different tabs whose positions collide mid-refresh. Each
-    // bucket renders the freshest metadata seen for its key.
-    std::map<LocationInventory::Key, Bucket> bucketed_tabs;
 
     // Try to minimize the number of times we have to loop over each item,
     // because some players have hundreds of thousands or millions of items.
@@ -463,73 +420,26 @@ void Search::FilterItems(const Items &items)
             }
         }
         if (matches) {
-            // This item passed through all the filters, so we can
-            // add it to the list of items and total count.
-            m_items.push_back(item);
-
-            // Add this item to the "By Item" bucket.
+            // This item passed through all the filters: add it to the
+            // "By Item" bucket.
             m_bucket_by_item.front().AddItem(item);
-
-            // Add this item to the associated "By Tab" bucket.
-            const ItemLocation &location = item->location();
-            const auto key = LocationInventory::KeyFor(location);
-            auto bucket_it = bucketed_tabs.find(key);
-            if (bucket_it == bucketed_tabs.end()) {
-                bucket_it = bucketed_tabs.emplace(key, Bucket(canonicalLocation(location))).first;
-            }
-            bucket_it->second.AddItem(item);
 
             // Record the stable identity for R6-3 reselection and the
             // count; the shared helper keeps refilter and delta
             // bookkeeping identical (S4).
-            IndexInsertVisible(item);
+            m_visible.Insert(item);
         }
     }
 
-    // We need to add empty tabs here as there are no items to force their addition
-    // But only do so if no filters are active as we want to hide empty tabs when
-    // filtering. The published tab list resolves through the canonical
-    // inventory too, and tabs known only to the inventory (discovered
-    // mid-refresh by an empty delta, R6-1) are included until the final
-    // snapshot publishes them.
-    if (!m_filtered) {
-        for (auto &location : m_bo_manager.GetStashTabLocations()) {
-            const auto key = LocationInventory::KeyFor(location);
-            if (!bucketed_tabs.count(key)) {
-                bucketed_tabs.emplace(key, Bucket(canonicalLocation(location)));
-            }
-        }
-        if (m_location_inventory) {
-            for (const auto &[key, location] : m_location_inventory->entries()) {
-                if (!bucketed_tabs.count(key)) {
-                    bucketed_tabs.emplace(key, Bucket(location));
-                }
-            }
-        }
-    }
-    // Folder presence (folder-tree D2): a folder is present while one of
-    // its members is — in an unfiltered search every known folder already
-    // is, like any listed tab.
-    AddMemberFolders(bucketed_tabs, [](const ItemLocation &location) { return Bucket(location); });
-
-    // Move the "By Tab" buckets into their final location, in tree order
-    // (folder-tree D3) by their rendered locations — the map above is
-    // keyed for identity, not display order. Stable ids break positional
-    // ties so two tabs colliding on one position mid-refresh keep a
-    // deterministic order.
-    m_bucket_by_tab.clear();
-    m_bucket_by_tab.reserve(bucketed_tabs.size());
-    for (auto &element : bucketed_tabs) {
-        m_bucket_by_tab.emplace_back(std::move(element.second));
-    }
-
+    // The "By Tab" buckets, in tree order (folder-tree D3) by their
+    // rendered locations — the grouping map is keyed for identity, not
+    // display order.
+    InstallTabBuckets(GroupByTab(m_bucket_by_item.front().items()));
     // Fresh buckets get fresh identities (S4): the reset invalidates every
     // persistent index, so serial continuity across a refilter would buy
     // nothing.
-    AssignSerials();
-    ArrangeTabTree();
+    m_bucket_by_item.front().SetSerial(m_next_bucket_serial++);
     RebuildRowLookups();
-    m_items_stale = false;
     m_flat_bucket_stale = false;
     m_tab_buckets_stale = false;
 
@@ -556,28 +466,21 @@ void Search::FilterItems(const Items &items)
     m_items_dirty = false; // a successful refilter clears its own flag (D9 rule 3)
 }
 
-const Items &Search::items() const
+Items Search::items() const
 {
-    if (m_items_stale) {
-        // Lazily reconciled from the maintained side: the delta path
-        // never pays an O(collection) pass, and only user-initiated
-        // boundaries (mode switch) and tests read this. In By-Item mode
-        // the flat bucket is the maintained structure (S5) — the By-Tab
-        // side is stale until the next mode switch rebuilds it.
-        m_items.clear();
-        if (m_tab_buckets_stale) {
-            if (!m_bucket_by_item.empty()) {
-                const auto &flat = m_bucket_by_item.front().items();
-                m_items.insert(m_items.end(), flat.begin(), flat.end());
-            }
-        } else {
-            for (const auto &bucket : m_bucket_by_tab) {
-                m_items.insert(m_items.end(), bucket.items().begin(), bucket.items().end());
-            }
-        }
-        m_items_stale = false;
+    // Read from whichever side is maintained: the delta path keeps the
+    // active mode's buckets (S4/S5), so the flat bucket is stale after
+    // By-Tab deltas and the tab buckets after By-Item ones; a refilter
+    // freshens both. Only the mode switch and tests read this, so no
+    // delta pays an O(collection) pass for it.
+    if (!m_flat_bucket_stale) {
+        return m_bucket_by_item.empty() ? Items{} : m_bucket_by_item.front().items();
     }
-    return m_items;
+    Items items;
+    for (const auto &bucket : m_bucket_by_tab) {
+        items.insert(items.end(), bucket.items().begin(), bucket.items().end());
+    }
+    return items;
 }
 
 int Search::rowForSerial(std::uint64_t serial) const
@@ -597,14 +500,12 @@ int Search::rowForKey(const LocationInventory::Key &key) const
     return FindBucketRow(key);
 }
 
-void Search::AssignSerials()
+int Search::bucketRowFor(const Item &item) const
 {
-    for (auto &bucket : m_bucket_by_tab) {
-        bucket.SetSerial(m_next_bucket_serial++);
+    if (m_current_mode == ViewMode::ByItem) {
+        return m_bucket_by_item.empty() ? -1 : 0;
     }
-    for (auto &bucket : m_bucket_by_item) {
-        bucket.SetSerial(m_next_bucket_serial++);
-    }
+    return FindBucketRow(LocationInventory::KeyFor(item.location()));
 }
 
 void Search::RebuildRowLookups()
@@ -699,67 +600,6 @@ int Search::FindBucketRow(const LocationInventory::Key &key) const
     return (it != m_row_by_key.end()) ? it->second : -1;
 }
 
-void Search::IndexInsertVisible(const std::shared_ptr<Item> &item)
-{
-    m_filtered_item_count += item->count();
-    const QString id = item->id();
-    if (id.isEmpty()) {
-        // Id-less items cannot be identity-tracked; the unindexed mark
-        // sends consumers down the every-occurrence path.
-        ++m_empty_id_visible_count;
-        m_unindexed_visible_ids.insert(id);
-        return;
-    }
-    const auto [it, inserted] = m_visible_by_id.emplace(id, item);
-    if (!inserted) {
-        // Mid-refresh divergence: one id visible twice. Track every
-        // occurrence so a removal restores the survivor exactly.
-        auto &occurrences = m_duplicate_visible_ids[id];
-        if (occurrences.empty()) {
-            occurrences.push_back(it->second);
-        }
-        occurrences.push_back(item);
-        m_unindexed_visible_ids.insert(id);
-    }
-}
-
-void Search::IndexRemoveVisible(const std::shared_ptr<Item> &item)
-{
-    m_filtered_item_count -= item->count();
-    const QString id = item->id();
-    if (id.isEmpty()) {
-        if ((m_empty_id_visible_count > 0) && (--m_empty_id_visible_count == 0)) {
-            m_unindexed_visible_ids.erase(id);
-        }
-        return;
-    }
-    const auto dup = m_duplicate_visible_ids.find(id);
-    if (dup != m_duplicate_visible_ids.end()) {
-        auto &occurrences = dup->second;
-        const auto occurrence = std::find(occurrences.begin(), occurrences.end(), item);
-        if (occurrence != occurrences.end()) {
-            occurrences.erase(occurrence);
-        }
-        if (occurrences.size() == 1) {
-            // Unique again: the survivor is the freshly-refiltered answer.
-            m_visible_by_id[id] = occurrences.front();
-            m_duplicate_visible_ids.erase(dup);
-            m_unindexed_visible_ids.erase(id);
-        } else if (!occurrences.empty()) {
-            m_visible_by_id[id] = occurrences.front();
-        } else {
-            m_visible_by_id.erase(id);
-            m_duplicate_visible_ids.erase(dup);
-            m_unindexed_visible_ids.erase(id);
-        }
-    } else {
-        const auto it = m_visible_by_id.find(id);
-        if ((it != m_visible_by_id.end()) && (it->second == item)) {
-            m_visible_by_id.erase(it);
-        }
-    }
-}
-
 int Search::NestingParentRow(const ItemLocation &location) const
 {
     // Depth is fixed at one level (D2): a folder is always top-level, and a
@@ -798,12 +638,49 @@ std::optional<ItemLocation> Search::KnownFolderLocation(const QString &folder_id
     return std::nullopt;
 }
 
-template<typename Map, typename Make>
-void Search::AddMemberFolders(Map &present, Make &&make) const
+std::map<LocationInventory::Key, Bucket> Search::GroupByTab(const Items &accepted) const
 {
+    // Keyed by the STABLE display identity (M2 D6/R5-1): ItemLocation
+    // orders stash locations by position, so keying on the location itself
+    // can split a moved tab into old- and new-position buckets, file fresh
+    // items under a stale header, or merge two different tabs whose
+    // positions collide mid-refresh. Each bucket renders the canonical
+    // location of the first item seen for its key.
+    std::map<LocationInventory::Key, Bucket> grouped;
+    for (const auto &item : accepted) {
+        const ItemLocation &location = item->location();
+        auto it = grouped.find(LocationInventory::KeyFor(location));
+        if (it == grouped.end()) {
+            it = grouped
+                     .emplace(LocationInventory::KeyFor(location),
+                              Bucket(canonicalLocation(location)))
+                     .first;
+        }
+        it->second.AddItem(item);
+    }
+
+    // An unfiltered search also shows the empty tabs: the published tab
+    // list, resolved through the canonical inventory, and the tabs known
+    // only to the inventory (discovered mid-refresh by an empty delta,
+    // R6-1) until the final snapshot publishes them. A filtered search
+    // hides empty tabs.
+    if (!m_filtered) {
+        for (const auto &location : m_bo_manager.GetStashTabLocations()) {
+            grouped.try_emplace(LocationInventory::KeyFor(location), canonicalLocation(location));
+        }
+        if (m_location_inventory) {
+            for (const auto &[key, location] : m_location_inventory->entries()) {
+                grouped.try_emplace(key, location);
+            }
+        }
+    }
+
+    // Folder presence (folder-tree D2): a known folder is present while
+    // one of its members is — in an unfiltered search every known folder
+    // already is, like any listed tab.
     std::set<QString> folder_ids;
-    for (const auto &[key, value] : present) {
-        const ItemLocation &location = LocationOf(value);
+    for (const auto &[key, bucket] : grouped) {
+        const ItemLocation &location = bucket.location();
         if ((location.type() == ItemLocationType::STASH) && !location.IsFolder()
             && !location.folder_id().isEmpty()) {
             folder_ids.insert(location.folder_id());
@@ -811,13 +688,25 @@ void Search::AddMemberFolders(Map &present, Make &&make) const
     }
     for (const QString &folder_id : folder_ids) {
         const LocationInventory::Key key{ItemLocationType::STASH, folder_id};
-        if (present.count(key) > 0) {
+        if (grouped.count(key) > 0) {
             continue;
         }
         if (const auto folder = KnownFolderLocation(folder_id)) {
-            present.emplace(key, make(*folder));
+            grouped.emplace(key, Bucket(*folder));
         }
     }
+    return grouped;
+}
+
+void Search::InstallTabBuckets(std::map<LocationInventory::Key, Bucket> grouped)
+{
+    m_bucket_by_tab.clear();
+    m_bucket_by_tab.reserve(grouped.size());
+    for (auto &[key, bucket] : grouped) {
+        bucket.SetSerial(m_next_bucket_serial++);
+        m_bucket_by_tab.emplace_back(std::move(bucket));
+    }
+    ArrangeTabTree();
 }
 
 void Search::ArrangeTabTree()
@@ -1039,7 +928,7 @@ std::vector<std::uint64_t> Search::InsertTabBucket(const ItemLocation &canonical
         AdoptMembers(rowForSerial(serial));
     } else {
         for (const auto &item : accepted) {
-            IndexInsertVisible(item);
+            m_visible.Insert(item);
         }
     }
     return inserted;
@@ -1066,7 +955,7 @@ bool Search::RemoveTabBucket(int bucket_row, bool cascade)
     const Bucket &bucket = m_bucket_by_tab[static_cast<size_t>(bucket_row)];
     const bool had_items = !bucket.items().empty();
     for (const auto &item : bucket.items()) {
-        IndexRemoveVisible(item);
+        m_visible.Remove(item);
     }
     RemoveBucketAt(bucket_row);
 
@@ -1193,10 +1082,7 @@ int Search::ApplyBucketMetadata(int bucket_row,
 {
     Bucket &bucket = m_bucket_by_tab[static_cast<size_t>(bucket_row)];
     const ItemLocation old_location = bucket.location();
-    const bool rendered_changed = (old_location.GetHeader() != canonical.GetHeader())
-                                  || (old_location.getR() != canonical.getR())
-                                  || (old_location.getG() != canonical.getG())
-                                  || (old_location.getB() != canonical.getB());
+    const bool rendered_changed = !old_location.RendersSameAs(canonical);
     const std::uint64_t serial = bucket.serial();
     Q_ASSERT(old_location.IsFolder() == canonical.IsFolder()); // callers handle a kind change
     bucket.SetLocation(canonical);
@@ -1273,7 +1159,7 @@ bool Search::RemoveBucketRows(int bucket_row, Predicate &&predicate)
     for (auto run = runs.rbegin(); run != runs.rend(); ++run) {
         m_model.BeginRemoveItemRows(bucket_row, run->first, run->last);
         for (int row = run->first; row <= run->last; ++row) {
-            IndexRemoveVisible(bucket_items[static_cast<size_t>(row)]);
+            m_visible.Remove(bucket_items[static_cast<size_t>(row)]);
         }
         bucket.RemoveRows(run->first, run->last - run->first + 1);
         m_model.EndRemoveItemRows();
@@ -1355,7 +1241,7 @@ void Search::InsertArrivals(int bucket_row, const Items &accepted)
             bucket.InsertRows(first, run_items, &run_keys);
             m_model.EndInsertItemRows();
             for (const auto &item : run_items) {
-                IndexInsertVisible(item);
+                m_visible.Insert(item);
             }
             offset += static_cast<int>(end - start);
             start = end;
@@ -1369,7 +1255,7 @@ void Search::InsertArrivals(int bucket_row, const Items &accepted)
         bucket.InsertRows(first, accepted, nullptr);
         m_model.EndInsertItemRows();
         for (const auto &item : accepted) {
-            IndexInsertVisible(item);
+            m_visible.Insert(item);
         }
         bucket.InvalidateOrder();
     }
@@ -1416,7 +1302,6 @@ Search::DeltaApplication Search::ApplyTabDelta(const ItemLocation &location, con
         // A kind change (folder <-> tab, unobserved) is a different row
         // kind (D5): the old bucket leaves and the delta inserts it anew.
         if (RemoveTabBucket(bucket_row, true)) {
-            m_items_stale = true;
             m_flat_bucket_stale = true;
             result.content_changed = true;
         }
@@ -1436,7 +1321,6 @@ Search::DeltaApplication Search::ApplyTabDelta(const ItemLocation &location, con
         }
         inserted = InsertTabBucket(canonical, accepted);
         if (!accepted.empty() && !canonical.IsFolder()) {
-            m_items_stale = true;
             m_flat_bucket_stale = true;
             result.content_changed = true;
         }
@@ -1460,7 +1344,6 @@ Search::DeltaApplication Search::ApplyTabDelta(const ItemLocation &location, con
         }
 
         if (removed || !accepted.empty()) {
-            m_items_stale = true;
             m_flat_bucket_stale = true;
             result.content_changed = true;
             result.model_changed = true;
@@ -1518,14 +1401,13 @@ Search::DeltaApplication Search::ApplyFlatDelta(const FetchSourceKey &source, co
         [this](int first, int last) { m_model.BeginInsertItemRows(0, first, last); },
         [this] { m_model.EndInsertItemRows(); });
     for (const auto &item : removed_items) {
-        IndexRemoveVisible(item);
+        m_visible.Remove(item);
     }
     for (const auto &item : accepted) {
-        IndexInsertVisible(item);
+        m_visible.Insert(item);
     }
 
     if (!removed_items.empty() || !accepted.empty()) {
-        m_items_stale = true;
         result.content_changed = true;
         result.model_changed = true;
     }
@@ -1580,10 +1462,9 @@ Search::DeltaApplication Search::ApplyChildReconciliation(
             [this](int first, int last) { m_model.BeginInsertItemRows(0, first, last); },
             [this] { m_model.EndInsertItemRows(); });
         for (const auto &item : removed_items) {
-            IndexRemoveVisible(item);
+            m_visible.Remove(item);
         }
         if (!removed_items.empty()) {
-            m_items_stale = true;
             result.content_changed = true;
             result.model_changed = true;
         }
@@ -1600,7 +1481,6 @@ Search::DeltaApplication Search::ApplyChildReconciliation(
         // A kind change (folder <-> tab) is a different row kind (D5): the
         // bucket leaves; a later delta or the snapshot inserts it anew.
         if (RemoveTabBucket(bucket_row, true)) {
-            m_items_stale = true;
             m_flat_bucket_stale = true;
             result.content_changed = true;
         }
@@ -1626,7 +1506,6 @@ Search::DeltaApplication Search::ApplyChildReconciliation(
         return allowed.count(FetchSourceKey::ForLocation(item.location())) == 0;
     });
     if (removed) {
-        m_items_stale = true;
         m_flat_bucket_stale = true;
         result.content_changed = true;
         result.model_changed = true;
@@ -1662,7 +1541,7 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
     constexpr std::uint8_t kRetained = 2;
     std::unordered_map<const Item *, std::uint8_t> state;
     state.reserve(published.size());
-    std::map<LocationInventory::Key, Items> target_items;
+    Items accepted;
     const bool by_item = (m_current_mode == ViewMode::ByItem);
     for (const auto &item : published) {
         if (!MatchesActiveFilters(*item)) {
@@ -1670,7 +1549,7 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
         }
         state.emplace(item.get(), kAccepted);
         if (!by_item) {
-            target_items[LocationInventory::KeyFor(item->location())].push_back(item);
+            accepted.push_back(item);
         }
     }
 
@@ -1714,13 +1593,12 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
             [this](int first, int last) { m_model.BeginInsertItemRows(0, first, last); },
             [this] { m_model.EndInsertItemRows(); });
         for (const auto &item : removed_items) {
-            IndexRemoveVisible(item);
+            m_visible.Remove(item);
         }
         for (const auto &item : missing) {
-            IndexInsertVisible(item);
+            m_visible.Insert(item);
         }
         if (!removed_items.empty() || !missing.empty()) {
-            m_items_stale = true;
             result.content_changed = true;
             result.model_changed = true;
         }
@@ -1737,35 +1615,19 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
         return result;
     }
 
-    // Target display buckets: keys with accepted items, plus every
-    // published tab for an unfiltered search (FilterItems' empty-bucket
-    // rule — filtered searches still hide empty buckets). emplace keeps
-    // FilterItems' precedence: item-derived canonical anchor first, then
-    // the published tab list, then the canonical inventory — then the
-    // folders present members need (folder-tree D2).
+    // Target display buckets, by the one grouping rule FilterItems uses:
+    // keys with accepted items, every listed tab for an unfiltered search
+    // (filtered searches still hide empty buckets), and the folders
+    // present members need (folder-tree D2).
     const std::uint64_t ops_before = m_structural_ops;
-    std::map<LocationInventory::Key, ItemLocation> target_buckets;
-    for (const auto &[key, bucket_items] : target_items) {
-        target_buckets.emplace(key, canonicalLocation(bucket_items.front()->location()));
-    }
-    if (!m_filtered) {
-        for (const auto &location : m_bo_manager.GetStashTabLocations()) {
-            target_buckets.emplace(LocationInventory::KeyFor(location), canonicalLocation(location));
-        }
-        if (m_location_inventory) {
-            for (const auto &[key, location] : m_location_inventory->entries()) {
-                target_buckets.emplace(key, location);
-            }
-        }
-    }
-    AddMemberFolders(target_buckets, [](const ItemLocation &location) { return location; });
+    const std::map<LocationInventory::Key, Bucket> target = GroupByTab(accepted);
 
     // A surviving bucket keeps its key and its kind (folder or tab, D5); a
     // kind change is a deletion plus a new listing.
-    const auto survives = [&target_buckets](const Bucket &bucket) {
-        const auto it = target_buckets.find(LocationInventory::KeyFor(bucket.location()));
-        return (it != target_buckets.end())
-               && (it->second.IsFolder() == bucket.location().IsFolder());
+    const auto survives = [&target](const Bucket &bucket) {
+        const auto it = target.find(LocationInventory::KeyFor(bucket.location()));
+        return (it != target.end())
+               && (it->second.location().IsFolder() == bucket.location().IsFolder());
     };
 
     // Deleted tab buckets leave first — rows and bucket as one removal (the
@@ -1792,13 +1654,9 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
         if (!survives(bucket)) {
             continue;
         }
-        const ItemLocation &canonical = target_buckets.at(
-            LocationInventory::KeyFor(bucket.location()));
-        const ItemLocation old_location = bucket.location();
-        const bool rendered_changed = (old_location.GetHeader() != canonical.GetHeader())
-                                      || (old_location.getR() != canonical.getR())
-                                      || (old_location.getG() != canonical.getG())
-                                      || (old_location.getB() != canonical.getB());
+        const ItemLocation &canonical = target.at(LocationInventory::KeyFor(bucket.location()))
+                                            .location();
+        const bool rendered_changed = !bucket.location().RendersSameAs(canonical);
         bucket.SetLocation(canonical);
         if (rendered_changed) {
             m_model.EmitBucketMetadataChanged(static_cast<int>(row));
@@ -1835,13 +1693,12 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
     // its present members). Rows shift as later insertions land, so track
     // serials and resolve them to final rows at the end.
     std::vector<std::uint64_t> inserted_serials;
-    static const Items no_items;
-    for (const auto &[key, canonical] : target_buckets) {
+    for (const auto &[key, bucket] : target) {
         if (FindBucketRow(key) >= 0) {
             continue;
         }
-        const auto it = target_items.find(key);
-        const Items &bucket_items = (it != target_items.end()) ? it->second : no_items;
+        const ItemLocation &canonical = bucket.location();
+        const Items &bucket_items = bucket.items();
         const auto inserted = InsertTabBucket(canonical, bucket_items);
         inserted_serials.insert(inserted_serials.end(), inserted.begin(), inserted.end());
         result.model_changed = true;
@@ -1875,9 +1732,9 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
             return (location.type() != bucket_location.type())
                    || (location.id() != bucket_location.id());
         });
-        const auto it = target_items.find(
+        const auto it = target.find(
             LocationInventory::KeyFor(m_bucket_by_tab[static_cast<size_t>(row)].location()));
-        if (it != target_items.end()) {
+        if (it != target.end()) {
             const Bucket &bucket = m_bucket_by_tab[static_cast<size_t>(row)];
             for (const auto &item : bucket.items()) {
                 const auto entry = state.find(item.get());
@@ -1886,7 +1743,7 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
                 }
             }
             Items missing;
-            for (const auto &item : it->second) {
+            for (const auto &item : it->second.items()) {
                 if (state.at(item.get()) == kAccepted) {
                     missing.push_back(item);
                 }
@@ -1909,7 +1766,6 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
     }
 
     if (result.content_changed) {
-        m_items_stale = true;
         m_flat_bucket_stale = true;
     }
     m_items_dirty = false; // authoritative (R1-7)
@@ -1944,7 +1800,7 @@ void Search::RenameCaption(const QString &newName)
 
 QString Search::GetCaption() const
 {
-    return QString("%1 [%2]").arg(m_caption).arg(m_filtered_item_count);
+    return QString("%1 [%2]").arg(m_caption).arg(m_visible.itemCount());
 }
 
 ItemLocation Search::GetTabLocation(const QModelIndex &index) const
@@ -2034,51 +1890,12 @@ void Search::SetViewMode(ViewMode mode)
 
 void Search::RebuildTabBucketsFromFlat()
 {
-    // The same bucketing FilterItems performs, minus the filter loop:
-    // membership is exactly the flat bucket's contents, grouped by the
-    // stable display key and rendered against the canonical inventory —
-    // so metadata deltas that arrived while By-Item was active land here.
-    std::map<LocationInventory::Key, Bucket> bucketed_tabs;
-    if (!m_bucket_by_item.empty()) {
-        for (const auto &item : m_bucket_by_item.front().items()) {
-            const ItemLocation &location = item->location();
-            const auto key = LocationInventory::KeyFor(location);
-            auto bucket_it = bucketed_tabs.find(key);
-            if (bucket_it == bucketed_tabs.end()) {
-                bucket_it = bucketed_tabs.emplace(key, Bucket(canonicalLocation(location))).first;
-            }
-            bucket_it->second.AddItem(item);
-        }
-    }
-
-    // Unfiltered searches show empty tabs, published and inventory-known
-    // alike (the FilterItems rule, R6-1).
-    if (!m_filtered) {
-        for (auto &location : m_bo_manager.GetStashTabLocations()) {
-            const auto key = LocationInventory::KeyFor(location);
-            if (!bucketed_tabs.count(key)) {
-                bucketed_tabs.emplace(key, Bucket(canonicalLocation(location)));
-            }
-        }
-        if (m_location_inventory) {
-            for (const auto &[key, location] : m_location_inventory->entries()) {
-                if (!bucketed_tabs.count(key)) {
-                    bucketed_tabs.emplace(key, Bucket(location));
-                }
-            }
-        }
-    }
-    // Folder presence (folder-tree D2), as FilterItems applies it.
-    AddMemberFolders(bucketed_tabs, [](const ItemLocation &location) { return Bucket(location); });
-
-    m_bucket_by_tab.clear();
-    m_bucket_by_tab.reserve(bucketed_tabs.size());
-    for (auto &element : bucketed_tabs) {
-        m_bucket_by_tab.emplace_back(std::move(element.second));
-    }
-    for (auto &bucket : m_bucket_by_tab) {
-        bucket.SetSerial(m_next_bucket_serial++);
-    }
-    ArrangeTabTree();
+    // The same grouping FilterItems performs, minus the filter loop:
+    // membership is exactly the flat bucket's contents, rendered against
+    // the canonical inventory — so metadata deltas that arrived while
+    // By-Item was active land here.
+    static const Items no_items;
+    InstallTabBuckets(
+        GroupByTab(m_bucket_by_item.empty() ? no_items : m_bucket_by_item.front().items()));
     m_tab_buckets_stale = false;
 }

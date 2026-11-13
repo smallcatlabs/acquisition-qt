@@ -45,6 +45,8 @@ private slots:
     // elsewhere (insertions target the anchor); the reconciliation must
     // move it home, never retain-and-duplicate.
     void reconciliationRehomesWrongBucketRow();
+    // #271: a mods row with no mod chosen leaves the search unfiltered.
+    void blankModsRowLeavesSearchUnfiltered();
 };
 
 template<typename Payload>
@@ -777,6 +779,29 @@ void SearchTest::reconciliationRehomesWrongBucketRow()
     }
     QCOMPARE(occurrences, 1);
     QCOMPARE(search.GetCaption(), "Search [2]");
+}
+
+void SearchTest::blankModsRowLeavesSearchUnfiltered()
+{
+    BuyoutManagerFixture buyoutFixture;
+    const ItemLocation firstTab = makeTestStashLocation("stash-a", "Alpha Tab", 0);
+    const ItemLocation emptyTab = makeTestStashLocation("stash-empty", "Empty Tab", 1);
+    buyoutFixture.manager->SetStashTabLocations({firstTab, emptyTab});
+
+    Items items;
+    items.push_back(makeSearchItem("alpha-item", "Alpha Bite", "Vaal Axe", firstTab));
+
+    const FilterCatalog catalog = BuildFilterCatalog(*buyoutFixture.manager);
+    const qsizetype modsIndex = findFilterIndex<ModsPayload>(catalog, "Mods");
+    QVERIFY(modsIndex >= 0);
+    Search search(*buyoutFixture.manager, "Blank", catalog);
+    search.setFilterState(modsIndex, ModsState{{ModRow{}}});
+    search.FilterItems(items);
+
+    // Unfiltered: the empty tab is still shown and buckets start collapsed.
+    QCOMPARE(search.buckets().size(), 2);
+    QCOMPARE(search.buckets()[1].location().id(), emptyTab.id());
+    QVERIFY(!search.defaultExpanded());
 }
 
 QTEST_MAIN(SearchTest)

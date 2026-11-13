@@ -177,3 +177,9 @@ bool ItemLocation::operator==(const ItemLocation &other) const
 {
     return m_unique_id == other.m_unique_id;
 }
+
+bool ItemLocation::RendersSameAs(const ItemLocation &other) const
+{
+    return (GetHeader() == other.GetHeader()) && (m_red == other.m_red)
+           && (m_green == other.m_green) && (m_blue == other.m_blue);
+}

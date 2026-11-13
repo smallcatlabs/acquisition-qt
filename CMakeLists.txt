@@ -352,6 +352,8 @@ set(ACQ_CORE
     src/search.cpp
     src/search.h
     src/sessionidentity.h
+    src/visibleindex.cpp
+    src/visibleindex.h
     src/shop.cpp
     src/shop.h
     src/shoprender.cpp
@@ -360,6 +362,8 @@ set(ACQ_CORE
 )
 
 set(ACQ_FILTERS
+    src/filters/fieldnumber.cpp
+    src/filters/fieldnumber.h
     src/filters/filtermatchers.cpp
     src/filters/filtermatchers.h
     src/filters/filterstate.cpp
@@ -476,6 +480,8 @@ set(ACQ_UI
     src/ui/buyoutpanel.h
     src/ui/currencydialog.cpp
     src/ui/currencydialog.h
+    src/ui/fieldvalidity.cpp
+    src/ui/fieldvalidity.h
     src/ui/flowlayout.cpp
     src/ui/flowlayout.h
     src/ui/itemtooltip.cpp

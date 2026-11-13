@@ -40,6 +40,9 @@ public:
     bool IsValid() const;
     bool operator<(const ItemLocation &other) const;
     bool operator==(const ItemLocation &other) const;
+    // True when both render the same header: the same header text and
+    // colour. A metadata delta that changes neither needs no repaint.
+    bool RendersSameAs(const ItemLocation &other) const;
 
     ItemLocationType type() const { return m_type; }
     QString tab_label() const { return m_tab_label; }

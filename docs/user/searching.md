@@ -28,7 +28,13 @@ From top to bottom:
   Right-click for **Refresh Selected**, **Check Selected**, **Uncheck Selected**,
   **Check All**, **Uncheck All**, **Expand All**, and **Collapse All**. Check
   All and Uncheck All act on the tab and character rows shown, so they do
-  nothing in *By Item*, whose only header is *All Items*.
+  nothing in *By Item*, whose only header is *All Items*. Tabs hidden by the
+  current search keep their check state and are still refreshed by **Refresh
+  checked tabs**. During a refresh the row you are on follows its item, even
+  if the item moves to another tab. Other selected rows stay selected while
+  their item stays where it is; an item that was sold or moved to another tab
+  is no longer selected, and nor may one moved between the sub-tabs of a map
+  or unique tab. A price you set applies to the rows selected at that moment.
 - **Buyout controls** under the list — see [Pricing](pricing.md).
 - **Item panel** on the right: the item's name, an in-game-style **Tooltip** tab,
   a plain **Text** tab, and **Hide**. **Upload to imgur** uploads the rendered
@@ -42,7 +48,17 @@ From top to bottom:
 ## Filters
 
 All filters are ANDed together. Min/max fields are inclusive and either side may
-be left blank. Check boxes match only when checked.
+be left blank.
+
+Number fields (min/max, the socket colour counts, and a mod row's min and max)
+take a single number: `5`, `-3`, `2.5` or `2,5` (a point or a comma as the
+decimal separator), with spaces around it allowed; `1e3` is read as 1000. The
+colour counts take whole numbers only. A comma followed by exactly three
+digits, such as `1,000`, is not accepted, because it could mean one thousand
+or one; type `1000` or `1.0`. Text that is not a number, such as `5%` or
+`abc`, is shown in red and does not filter at all: the field counts as left
+blank until its text is a number again. Hover over a red field to see what it
+accepts. Check boxes match only when checked.
 
 | Group | Filter | Matches |
 |---|---|---|

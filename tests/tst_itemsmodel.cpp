@@ -11,6 +11,7 @@
 
 #include "filters/filterspec.h"
 #include "items_model.h"
+#include "modelprobes.h"
 #include "search.h"
 #include "testfixtures.h"
 
@@ -25,6 +26,9 @@ private slots:
     // Folder-tree S2 (D4): the two conversions every bucket-or-item
     // decision goes through.
     void bucketRowConversionsRoundTrip();
+    // #272: relocating rows by item costs one walk, not one per row.
+    void sortRemapWalksEachBucketOnce();
+    void indexLooksInTheItemsBucketOnly();
 };
 
 static std::shared_ptr<Item> makeModelItem(const QString &id,
@@ -292,6 +296,95 @@ void ItemsModelTest::bucketRowConversionsRoundTrip()
     Search other(*buyoutFixture.manager, "Other", other_catalog);
     other.FilterItems(items);
     QCOMPARE(model.Locate(other.model().index(0, 0)).bucket_row, -1);
+}
+
+// #272: restoring the selection after a sort walks the sorted bucket once,
+// whatever the number of selected rows. Under a vertical sort the
+// selection model keeps one persistent index per selected row, so
+// remapping each one by a search of the bucket cost (selected rows x
+// bucket size).
+void ItemsModelTest::sortRemapWalksEachBucketOnce()
+{
+    BuyoutManagerFixture buyoutFixture;
+    const ItemLocation tab = makeTestStashLocation("stash-a", "Alpha Tab", 0);
+    buyoutFixture.manager->SetStashTabLocations({tab});
+
+    constexpr int kItems = 200;
+    Items items;
+    for (int n = 0; n < kItems; ++n) {
+        items.push_back(makeModelItem(QString("item-%1").arg(n),
+                                      QString("Bite %1").arg(n, 3, 10, QChar('0')),
+                                      "Vaal Axe",
+                                      tab));
+    }
+
+    QTreeView view;
+    FilterCatalog catalog({});
+    Search search(*buyoutFixture.manager, "Model", catalog);
+    search.FilterItems(items);
+    view.setModel(&search.model());
+    auto *model = &search.model();
+    model->OnBucketExpanded(0);
+    model->sort(0, Qt::AscendingOrder);
+
+    const QModelIndex bucket = model->index(0, 0);
+    QCOMPARE(model->rowCount(bucket), kItems);
+    // All rows but the last: a selection of the whole table takes a
+    // shortcut in QItemSelectionModel that keeps no persistent indexes.
+    constexpr int kSelected = kItems - 1;
+    view.selectionModel()->select(QItemSelection(model->index(0, 0, bucket),
+                                                 model->index(kSelected - 1, 0, bucket)),
+                                  QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+    const QString first_before = model->index(0, 0, bucket).data().toString();
+
+    auto &probes = ModelProbes::instance();
+    probes.reset();
+    probes.enabled = true;
+    model->sort(0, Qt::DescendingOrder);
+    probes.enabled = false;
+
+    QVERIFY(model->index(0, 0, bucket).data().toString() != first_before);
+    QCOMPARE(view.selectionModel()->selectedRows().size(), kSelected);
+    QVERIFY(!view.selectionModel()->isRowSelected(0, bucket)); // the unselected item moved first
+    // One walk of the bucket, plus one lookup per persistent index.
+    const std::int64_t bound = kItems + kSelected;
+    QVERIFY2(probes.sort_remap_steps <= bound,
+             qPrintable(QString("%1 steps, bound %2").arg(probes.sort_remap_steps).arg(bound)));
+    probes.reset();
+}
+
+// #272: finding an item's row in By-Tab looks in its own bucket, found by
+// its stable key, instead of testing every bucket.
+void ItemsModelTest::indexLooksInTheItemsBucketOnly()
+{
+    BuyoutManagerFixture buyoutFixture;
+    constexpr int kTabs = 100;
+    Items items;
+    std::vector<ItemLocation> tabs;
+    for (int n = 0; n < kTabs; ++n) {
+        tabs.push_back(makeTestStashLocation(QString("stash-%1").arg(n),
+                                             QString("Tab %1").arg(n),
+                                             static_cast<unsigned>(n)));
+        items.push_back(makeModelItem(QString("item-%1").arg(n), "Bite", "Vaal Axe", tabs.back()));
+    }
+    buyoutFixture.manager->SetStashTabLocations(tabs);
+
+    FilterCatalog catalog({});
+    Search search(*buyoutFixture.manager, "Model", catalog);
+    search.FilterItems(items);
+
+    auto &probes = ModelProbes::instance();
+    probes.reset();
+    probes.enabled = true;
+    const QModelIndex found = search.index(items.back());
+    probes.enabled = false;
+
+    QVERIFY(found.isValid());
+    QCOMPARE(found.data().toString(), QString("Bite Vaal Axe"));
+    QCOMPARE(found.parent().data().toString(), tabs.back().GetHeader());
+    // The item's bucket holds one item.
+    QVERIFY2(probes.index_lookup_steps <= 1, qPrintable(QString::number(probes.index_lookup_steps)));
+    probes.reset();
 }
 
 QTEST_MAIN(ItemsModelTest)

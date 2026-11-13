@@ -64,6 +64,9 @@ endfunction()
 # default build compiles them, so a change that breaks one fails the build
 # instead of rotting unseen. They reuse the test fakes and the deterministic
 # dataset generator, so they live here. Run them by hand in a Release build.
+# Not on Windows: they measure with POSIX calls (getrusage) and have never
+# been built there, so the Windows build leaves them out of `all`; the Linux
+# pull-request job and a macOS build still compile them.
 #   m2m2_benchmark: the M2-M2 harness (items-pipeline M2, stage 4).
 #   m3_holdpoint_benchmark: the M3 hold-point harness (items-pipeline M3,
 #     working rule 3): the conditional budget rows at S3-S5 and the S7 gate's
@@ -75,6 +78,9 @@ foreach(benchmark m2m2_benchmark m3_holdpoint_benchmark m1m2_benchmark)
     acq_first_party(${benchmark})
     target_include_directories(${benchmark} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(${benchmark} PRIVATE acquisition_core)
+    if(WIN32)
+        set_target_properties(${benchmark} PROPERTIES EXCLUDE_FROM_ALL TRUE)
+    endif()
 endforeach()
 
 # The mod-match census (#265, #296): runs the mod matching over real RePoE
@@ -96,6 +102,7 @@ add_dependencies(acq_tests acquisition_filters)
 acq_add_test(tst_buyout)
 acq_add_test(tst_buyoutmanager)
 acq_add_test(tst_applybuyout)
+acq_add_test(tst_effectiveprice)
 acq_add_test(tst_buyoutpanel)
 acq_add_test(tst_currencymanager)
 acq_add_test(tst_currency)
@@ -129,6 +136,7 @@ acq_add_test(tst_gate)
 acq_add_test(tst_filters)
 acq_add_test(tst_foldertree)
 acq_add_test(tst_reconcile)
+acq_add_test(tst_refreshchecked)
 acq_add_test(tst_repoe)
 acq_add_test(tst_userstoremigration)
 acq_add_test(tst_workerparse)

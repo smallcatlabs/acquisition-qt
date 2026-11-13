@@ -35,11 +35,13 @@
 #include <spdlog/spdlog.h>
 
 #include "buyoutmanager.h"
+#include "column.h"
 #include "currencymanager.h"
 #include "datastore/stashrepo.h"
 #include "datastore/userstore.h"
 #include "fakeapiclient.h"
 #include "fetchsourcekey.h"
+#include "filters/filterspec.h"
 #include "imagecache.h"
 #include "itemcategories.h"
 #include "itemsmanager.h"
@@ -435,6 +437,69 @@ int main(int argc, char *argv[])
 
     std::vector<Sample> replacement;
     std::vector<Sample> removal;
+    // Results the optimiser must not discard.
+    long long sink = 0;
+
+    // --- price reads at collection scale (#293) ------------------------------
+    // Every reader of a price reads BuyoutManager::Effective. Priced the way
+    // a user prices: every third tab with a price set in Acquisition, every
+    // tenth item with one of its own. Three runs each, median reported: the
+    // Price and Date columns' key build over the whole collection, and the
+    // Priced filter's pass.
+    {
+        const BuyoutBatch batch(*bm.manager);
+        for (int t = 0; t < dataset.tabCount(); t += 3) {
+            bm.manager->SetTab(dataset.location(t), makeChaosBuyout(1.0 + t % 7));
+        }
+        qsizetype n = 0;
+        for (const auto &item : manager.items()) {
+            if ((n++ % 10) == 0) {
+                bm.manager->Set(*item, makeChaosBuyout(2.0 + n % 5));
+            }
+        }
+    }
+    if (!drainUntilIdle()) {
+        std::fprintf(stderr, "event loop never settled after pricing\n");
+        return 1;
+    }
+    {
+        const PriceColumn price_column(*bm.manager);
+        const DateColumn date_column(*bm.manager);
+        const FilterCatalog catalog = BuildFilterCatalog(*bm.manager);
+        const BoolPayload *priced = nullptr;
+        for (const FilterSpec &spec : catalog) {
+            if (spec.caption == "Priced") {
+                priced = &std::get<BoolPayload>(spec.payload);
+            }
+        }
+        const auto time_runs = [&](const char *name, const auto &body) {
+            std::vector<qint64> runs;
+            for (int run = 0; run < 3; ++run) {
+                const qint64 t0 = g_clock.nsecsElapsed();
+                for (const auto &item : manager.items()) {
+                    body(*item);
+                }
+                runs.push_back(g_clock.nsecsElapsed() - t0);
+            }
+            std::sort(runs.begin(), runs.end());
+            std::printf("  [price reads] %-28s runs %8.3f %8.3f %8.3f ms   median %8.3f ms\n",
+                        name,
+                        toMs(runs[0]),
+                        toMs(runs[1]),
+                        toMs(runs[2]),
+                        toMs(runs[1]));
+        };
+        std::printf("\nPrice reads over %lld published items:\n",
+                    static_cast<long long>(manager.items().size()));
+        time_runs("Price key build", [&](const Item &item) {
+            sink += std::get<0>(std::get<ItemSortKey::PriceHead>(price_column.key(item).head));
+        });
+        time_runs("Date key build", [&](const Item &item) {
+            sink += std::get<0>(std::get<ItemSortKey::DateHead>(date_column.key(item).head))
+                        .isValid();
+        });
+        time_runs("Priced filter pass", [&](const Item &item) { sink += priced->predicate(item); });
+    }
 
     // Store mirrors for the replace micros: seeded from each side's
     // post-populate state and fed every measured reply's delta, so they
@@ -533,33 +598,18 @@ int main(int argc, char *argv[])
             sample.micro_parse_append = g_clock.nsecsElapsed() - t0;
         }
         {
-            // Replicates ItemsManager::ApplyScopedPricing's three per-item
-            // rules (D7) with the real BuyoutManager, on the applied delta.
+            // The price reads the scoped pricing pass makes per delta item
+            // (#293): the price in force and the tab's, as the refresh-lock
+            // query reads them, through the one function every reader uses.
             const qint64 t0 = g_clock.nsecsElapsed();
+            int locked = 0;
             for (const auto &item : last_delta) {
-                const auto &note = item->note();
-                if (!note.isEmpty()) {
-                    const Buyout buyout = bm.manager->StringToBuyout(note);
-                    if (buyout.IsActive() || bm.manager->Get(*item).IsGameSet()) {
-                        bm.manager->Set(*item, buyout);
-                    }
-                }
-                Buyout tab_bo = bm.manager->GetTab(item->location());
-                if (bm.manager->Get(*item).IsInherited()) {
-                    if (tab_bo.IsActive()) {
-                        tab_bo.inherited = true;
-                        tab_bo.last_update = QDateTime::currentDateTime();
-                        bm.manager->Set(*item, tab_bo);
-                    } else {
-                        bm.manager->Set(*item, Buyout());
-                    }
-                }
-                if (item->location().removeonly() == false) {
-                    if (bm.manager->Get(*item).RequiresRefresh() || tab_bo.RequiresRefresh()) {
-                        bm.manager->SetRefreshLocked(item->location());
-                    }
+                if (bm.manager->Effective(*item).buyout.RequiresRefresh()
+                    || bm.manager->EffectiveTab(item->location()).buyout.RequiresRefresh()) {
+                    ++locked;
                 }
             }
+            sink += locked;
             sample.micro_pricing = g_clock.nsecsElapsed() - t0;
         }
 
@@ -625,6 +675,7 @@ int main(int argc, char *argv[])
                 qVersion());
     report("Replacement replies (churn 0.3)", replacement);
     report("Removal replies (emptied source)", removal);
+    std::printf("\n(sink %lld)\n", sink);
 
     return 0;
 }

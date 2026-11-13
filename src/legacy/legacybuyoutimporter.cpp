@@ -169,12 +169,20 @@ namespace {
         return ids;
     }
 
+    // A price an old build read from a note or a tab's name (#293): the
+    // game is read again at the next refresh, so it is never imported.
+    bool fromTheGame(const LegacyBuyout &buyout)
+    {
+        return Buyout::TagAsBuyoutSource(buyout.source) == Buyout::BUYOUT_SOURCE_GAME;
+    }
+
     QString prefillAction(const LegacyBuyout &buyout,
                           const QString &matching_reason,
                           const std::optional<Buyout> &existing)
     {
         if (matching_reason == "orphaned" || matching_reason == "needs-attention"
-            || buyout.inherited || (existing && existing->source == Buyout::BUYOUT_SOURCE_MANUAL)) {
+            || fromTheGame(buyout) || buyout.inherited
+            || (existing && existing->source == Buyout::BUYOUT_SOURCE_MANUAL)) {
             return "skip";
         }
         return "import";
@@ -186,6 +194,9 @@ namespace {
     {
         if (matching_reason == "orphaned" || matching_reason == "needs-attention") {
             return matching_reason;
+        }
+        if (fromTheGame(buyout)) {
+            return "game";
         }
         if (buyout.inherited) {
             return "inherited";
@@ -886,6 +897,15 @@ LegacyBuyoutApplyReport LegacyBuyoutImporter::applyPlan(const QString &plan_file
         if (!validation_error.isEmpty()) {
             annotate(row, "error", validation_error);
             ++report.errors;
+            continue;
+        }
+        // Not even when the user flipped the row to import (#293).
+        if (buyout->IsGameSet()) {
+            annotate(row,
+                     "skipped",
+                     "A price set in the game is read again at the next refresh; it is not "
+                     "imported.");
+            ++report.skipped;
             continue;
         }
 

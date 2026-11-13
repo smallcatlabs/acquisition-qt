@@ -22,7 +22,10 @@ bound (out of the S8 external review — see the marker at the
 design-review criteria: ordinary deltas pay an O(log tab-count)
 ordered-map bucket-row lookup and structural ops an O(tab-count)
 remap, both chosen and accepted at S4 implementation review
-round 1). Review rounds 1–3 (external; R1-1…R1-8, R2-1…R2-6, and
+round 1). A fourth is recorded November 12, 2026: R1-3's selection
+intent is extended to the other selected rows within their tab (#282 —
+see the marker after R1-3).
+Review rounds 1–3 (external; R1-1…R1-8, R2-1…R2-6, and
 R3-1…R3-4, all eighteen verified and accepted) are incorporated
 throughout. Round 1's largest changes: D3's source-scoped
 replacement grain (R1-1), the final snapshot's row reconciliation
@@ -554,6 +557,64 @@ immediately, as today. Pinned by
 `selectionIntentSurvivesCrossTabMoveAcrossDeltas` — the successor of
 M2's pin under no-reset machinery — and
 `selectionIntentClearsOnTerminalFailure`.
+*(Post-freeze amendment, November 12, 2026 — #282: this extends
+R1-3 and withdraws nothing. A delta that replaced the rows of a tab
+holding several selected items left only the current item selected —
+the intent pass cleared the view's selection and re-adopted the one id
+— so the next price edit applied to one row. **The current item keeps
+everything above** (its stable id is the intent for the refresh window,
+a removal keeps it alive, any delta showing it again re-adopts it as
+the current row, a user selection overwrites it, R2-1 closes the
+window), with one change: lapsing and re-adoption no longer clear or
+replace the rest of the selection, and the re-adopted row is selected
+only if it was selected when it last left (whether the current row is
+selected is recorded before every pass that can remove it — a delta,
+the final snapshot, a refilter — so the record describes the latest
+lapse; switching search tabs records it as selected). **Every other
+selected row stays selected across a refresh while its item stays
+where it is**: immediately
+before a delta, the items selected in the bucket it touches are read
+from the selection as (stable id, tab) pairs (every bucket for the final
+snapshot); immediately after, one walk of that bucket selects again
+those it still holds from the same tab. Nothing is kept for those rows
+from one delta to the next, so **they do not follow a move**: an item
+that leaves its tab (sold, or moved to another tab) loses its selection,
+whichever tab's delta arrives first. The grain is the delta's: a
+Map/Unique child source is its own delta, so an item moved between
+child sources of one tab loses its selection too when the removal
+arrives first. Cost: the delta reads no row
+selected in another bucket and walks only its own bucket, but finding
+that bucket's rows scans the selection's range list once (and each row
+re-selected asks Qt once), so it grows with the number of selection
+ranges elsewhere — QItemSelectionModel keeps nothing else. Recorded:
+input that changes neither the selection nor the current row (a click
+on empty space while the tree has focus and the current item is away)
+cannot be told from no input, so the intent survives it; focus entering
+the tree makes its first row current, which overwrites the intent.
+Known limitation: every content delta removes and inserts its rows
+(D3's source-scoped replace), so the restore calls select() without the
+Current flag. A Shift+click, Shift+arrow or Ctrl+drag range in progress
+when such a delta lands is frozen as it stood: the frozen range stays
+selected, and the user's next Shift gesture replaces the rows the
+restore had just re-selected instead of the range. The price editor
+acts on the selection as it then is, which may include rows in a
+collapsed or scrolled-away tab. Removing this needs an in-place replacement for a
+delta that leaves a tab's items unchanged, an item-level diff within a
+source that D3's "source-scoped replace is the delta's native grain"
+rejects; it would need its own decision to amend D3. Pinned by
+`multiSelectionSurvivesDeltaToItsTab`,
+`multiSelectionAcrossTabsSurvivesDeltas`,
+`multiSelectionKeepsSelectedHeaders`,
+`byItemMultiSelectionSurvivesDelta`,
+`currentItemLeavingKeepsOtherSelectedRows`,
+`moverLosesSelectionWhicheverDeltaComesFirst`,
+`currentMoverFollowsWithoutCollapsingSelection`,
+`emptySpaceClickIsNotUndoneByALaterDelta`,
+`userInputWhileCurrentItemIsAway`,
+`readoptionUsesSelectionAtTheLatestLapse`,
+`byItemMoverArrivingFirstLosesSelection`,
+`deltaElsewhereLeavesUnselectedCurrentRowUnselected` and
+`deltaWorkIgnoresSelectionInOtherTabs` (rows read and walked).)*
 
 **Where resets remain legitimate**: initial population (nothing to
 preserve) and user-initiated structural changes — filter edits, view-

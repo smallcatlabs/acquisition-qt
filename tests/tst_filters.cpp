@@ -4,6 +4,7 @@
 
 #include <optional>
 
+#include "filters/fieldnumber.h"
 #include "filters/filtermatchers.h"
 #include "filters/filterspec.h"
 #include "itemcategories.h"
@@ -30,6 +31,11 @@ private slots:
     void modsFilter();
     void valuelessModFilter();
     void mapTierFromBaseType();
+    // #270: number fields accept a number and nothing else.
+    void fieldNumber_data();
+    void fieldNumber();
+    void fieldInteger_data();
+    void fieldInteger();
 };
 
 static const QString kIcon = "https://web.poecdn.com/image/test.png";
@@ -635,12 +641,15 @@ void FiltersTest::modsFilter()
     emptyRow.min = 100.0;
     emptyRow.max = 1.0;
     state.rows.push_back(emptyRow);
-    QVERIFY(state.isActive());
+    // #271: a row with no mod chosen filters nothing, so it does not make
+    // the filter active.
+    QVERIFY(!state.isActive());
     QCOMPARE(state.rows.size(), 1);
     QVERIFY(state.rows.front().mod.isEmpty());
     QVERIFY(MatchesFilter(*item, *mods, state));
 
     state.rows.push_back(ModRow{"+# to maximum Life", 40.0, 45.0});
+    QVERIFY(state.isActive());
     QVERIFY(MatchesFilter(*item, *mods, state));
     state.rows.back().min = 43.0;
     QVERIFY(!MatchesFilter(*item, *mods, state));
@@ -728,6 +737,73 @@ void FiltersTest::mapTierFromBaseType()
          {"Map (Tier )", "Map (Tier 16", "Map (Tier x)", "Map (Tier 3) Extra"}) {
         QVERIFY2(!MatchesFilter(*makeFilterItem("odd", "", 0, "Normal", kIcon, base), *tier, state),
                  qPrintable(base));
+    }
+}
+
+void FiltersTest::fieldNumber_data()
+{
+    QTest::addColumn<QString>("text");
+    QTest::addColumn<bool>("valid");
+    QTest::addColumn<double>("value");
+    QTest::newRow("decimal comma") << "0,5" << true << 0.5;
+    QTest::newRow("decimal point") << "2.5" << true << 2.5;
+    QTest::newRow("surrounding spaces") << " 2.5 " << true << 2.5;
+    QTest::newRow("zero") << "0" << true << 0.0;
+    QTest::newRow("negative") << "-3" << true << -3.0;
+    QTest::newRow("plus sign") << "+4" << true << 4.0;
+    QTest::newRow("exponent") << "1e3" << true << 1000.0;
+    QTest::newRow("four digits after comma") << "1,0005" << true << 1.0005;
+    QTest::newRow("percent sign") << "5%" << false << 0.0;
+    QTest::newRow("thousands comma") << "1,000" << false << 0.0;
+    QTest::newRow("comma and point") << "1,000.5" << false << 0.0;
+    QTest::newRow("two commas") << "1,0,0" << false << 0.0;
+    QTest::newRow("letters") << "abc" << false << 0.0;
+    QTest::newRow("empty") << "" << false << 0.0;
+    QTest::newRow("spaces only") << "   " << false << 0.0;
+    QTest::newRow("lone point") << "." << false << 0.0;
+    QTest::newRow("infinity") << "inf" << false << 0.0;
+    QTest::newRow("not a number") << "nan" << false << 0.0;
+}
+
+void FiltersTest::fieldNumber()
+{
+    QFETCH(QString, text);
+    QFETCH(bool, valid);
+    QFETCH(double, value);
+    const std::optional<double> parsed = ParseFieldNumber(text);
+    QCOMPARE(parsed.has_value(), valid);
+    if (valid) {
+        QCOMPARE(*parsed, value);
+    }
+}
+
+void FiltersTest::fieldInteger_data()
+{
+    QTest::addColumn<QString>("text");
+    QTest::addColumn<bool>("valid");
+    QTest::addColumn<int>("value");
+    QTest::newRow("digits") << "3" << true << 3;
+    QTest::newRow("surrounding spaces") << " 2 " << true << 2;
+    QTest::newRow("zero") << "0" << true << 0;
+    QTest::newRow("negative") << "-1" << true << -1;
+    QTest::newRow("plus sign") << "+4" << true << 4;
+    QTest::newRow("decimal") << "2.5" << false << 0;
+    QTest::newRow("decimal comma") << "2,5" << false << 0;
+    QTest::newRow("exponent") << "1e3" << false << 0;
+    QTest::newRow("trailing letter") << "3r" << false << 0;
+    QTest::newRow("letters") << "abc" << false << 0;
+    QTest::newRow("empty") << "" << false << 0;
+}
+
+void FiltersTest::fieldInteger()
+{
+    QFETCH(QString, text);
+    QFETCH(bool, valid);
+    QFETCH(int, value);
+    const std::optional<int> parsed = ParseFieldInteger(text);
+    QCOMPARE(parsed.has_value(), valid);
+    if (valid) {
+        QCOMPARE(*parsed, value);
     }
 }
 
