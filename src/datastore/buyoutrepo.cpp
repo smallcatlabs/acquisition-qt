@@ -140,6 +140,17 @@ ON CONFLICT(location_id) DO NOTHING
 
 namespace {
 
+    // No save path stores a price the game set (#293): it is read again
+    // from the game at every refresh, and a stored copy is never read back.
+    bool refusesGamePrice(const Buyout &buyout, const char *where, const QString &id)
+    {
+        if (!buyout.IsGameSet()) {
+            return false;
+        }
+        spdlog::error("BuyoutRepo::{}: refusing to store a price set in the game for {}", where, id);
+        return true;
+    }
+
     // The rows a user authored (#293): not a copy of a tab's price that an
     // older build stored on each item, marked inherited, and not a price
     // an older build read from a note or a tab's name, sourced game. Every
@@ -309,6 +320,9 @@ BuyoutSaveResult BuyoutRepo::saveItemBuyout(const Buyout &buyout,
                                             ItemLocationType location_type,
                                             bool overwrite_existing)
 {
+    if (refusesGamePrice(buyout, "saveItemBuyout", item_id)) {
+        return BuyoutSaveResult::Error;
+    }
     const QString location_type_tag = locationTypeTag(location_type);
     if (location_type_tag.isEmpty()) {
         spdlog::error("BuyoutRepo::saveItemBuyout: invalid item location type: {}", location_type);
@@ -354,6 +368,9 @@ BuyoutSaveResult BuyoutRepo::saveLocationBuyout(const Buyout &buyout,
                                                 ItemLocationType location_type,
                                                 bool overwrite_existing)
 {
+    if (refusesGamePrice(buyout, "saveLocationBuyout", location_id)) {
+        return BuyoutSaveResult::Error;
+    }
     const QString location_type_tag = locationTypeTag(location_type);
     if (location_type_tag.isEmpty()) {
         spdlog::error("BuyoutRepo::saveLocationBuyout: invalid item location type: {}",
@@ -387,6 +404,20 @@ BuyoutBatchSaveResult BuyoutRepo::saveImportBatch(const std::vector<ItemBuyoutWr
                                                   const std::vector<LocationBuyoutWrite> &locations)
 {
     BuyoutBatchSaveResult result;
+    for (const ItemBuyoutWrite &item : items) {
+        if (refusesGamePrice(item.buyout, "saveImportBatch", item.item_id)) {
+            result.error = QString("A price set in the game is not stored (item '%1').")
+                               .arg(item.item_id);
+            return result;
+        }
+    }
+    for (const LocationBuyoutWrite &location : locations) {
+        if (refusesGamePrice(location.buyout, "saveImportBatch", location.location_id)) {
+            result.error = QString("A price set in the game is not stored (location '%1').")
+                               .arg(location.location_id);
+            return result;
+        }
+    }
     if (!m_db.transaction()) {
         result.error = QString("Could not start buyout import transaction: %1")
                            .arg(m_db.lastError().text());

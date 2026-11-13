@@ -174,6 +174,47 @@ namespace {
         QSqlDatabase::removeDatabase(connection_name);
     }
 
+    // Marks the revised source's item price for the "Old Priced" chaos orbs
+    // and its "stash:Old Priced" tab price as read from the game, as a pre-
+    // 0.16 build stored a note's or a tab name's price.
+    void markLegacyPricesFromTheGame(const QString &filename)
+    {
+        const QString connection_name = "legacy-game-rows:"
+                                        + QUuid::createUuid().toString(QUuid::WithoutBraces);
+        {
+            QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connection_name);
+            db.setDatabaseName(filename);
+            QVERIFY2(db.open(), qPrintable(db.lastError().text()));
+            QSqlQuery query(db);
+            const auto mark = [&query](const QString &key, const QString &price) {
+                QVERIFY(
+                    query.prepare("UPDATE data SET value = replace(value, ?, ?) WHERE key = ?"));
+                query.bindValue(0, price + R"("source":"manual")");
+                query.bindValue(1, price + R"("source":"game")");
+                query.bindValue(2, key);
+                QVERIFY(query.exec());
+                QCOMPARE(query.numRowsAffected(), 1);
+            };
+            mark("buyouts",
+                 R"("value":5,"last_update":1700000000,"type":"b/o","currency":"chaos",)");
+            mark("tab_buyouts",
+                 R"("value":8,"last_update":1700000003,"type":"b/o","currency":"chaos",)");
+            db.close();
+        }
+        QSqlDatabase::removeDatabase(connection_name);
+    }
+
+    int gameRows(QSqlDatabase &db)
+    {
+        QSqlQuery query(db);
+        if (!query.exec("SELECT (SELECT COUNT(*) FROM item_buyouts WHERE source = 'game')"
+                        " + (SELECT COUNT(*) FROM location_buyouts WHERE source = 'game')")
+            || !query.next()) {
+            qFatal("Could not count game rows");
+        }
+        return query.value(0).toInt();
+    }
+
     struct PlanningFixture
     {
         PlanningFixture()
@@ -314,6 +355,7 @@ private slots:
     void appliesEditedPlanTransactionallyAndIsIdempotent();
     void manualPricesSetAfterPlanningAreProtected();
     void inheritedCopyDoesNotBlockTheImport();
+    void gamePricesAreNotImported();
     void importedInheritedBuyoutsLoseTheFlag();
     void skipRowEditsDoNotAbortTheImport();
     void blankPlanRowsAreIgnored();
@@ -710,6 +752,90 @@ void LegacyBuyoutImporterTest::inheritedCopyDoesNotBlockTheImport()
     QCOMPARE(stored.at("item-a").value, 5.0);
     QVERIFY(!stored.at("item-a").inherited);
     QCOMPARE(stored.at("item-b").value, 99.0);
+}
+
+// #293: a price an old build read from a note or a tab's name is read
+// again from the game at the next refresh; it is never stored. The plan
+// does not offer such a row (skip, reason "game"), and a row the user flips
+// to import is still not written, not even over a manual price. Rows set
+// in Acquisition are planned and imported as before.
+void LegacyBuyoutImporterTest::gamePricesAreNotImported()
+{
+    QTemporaryDir source_dir;
+    QVERIFY(source_dir.isValid());
+    const QString source_path = source_dir.filePath("legacy-v4.db");
+    const QString plan_path = source_dir.filePath("buyout-plan.xlsx");
+    createLegacyDatabase(source_path, "4");
+    reviseLegacyDatabaseForPlan(source_path);
+    markLegacyPricesFromTheGame(source_path);
+
+    PlanningFixture destination;
+    destination.seedStash("0123456789", "Renamed Priced", 0);
+    destination.seedCharacter("character-id-bob", "Bob");
+    Buyout manual = makeChaosBuyout(99.0);
+    manual.source = Buyout::BUYOUT_SOURCE_MANUAL;
+    QCOMPARE(destination.buyouts.repo
+                 ->saveItemBuyout(manual, "item-b", "0123456789", ItemLocationType::STASH, false),
+             BuyoutSaveResult::Saved);
+
+    LegacyBuyoutImporter importer(*destination.buyouts.repo,
+                                  *destination.stashes,
+                                  *destination.characters,
+                                  "pc",
+                                  "Standard");
+    QVERIFY(importer.createPlan(source_path, plan_path).success);
+    const PlanRows rows = readPlanRows(plan_path);
+    const auto tabRow = [](const PlanRows &rows, const QString &location_id) {
+        const auto found = std::ranges::find_if(rows, [&](const auto &row) {
+            return row.value("target_type").toString() == "location"
+                   && row.value("location_id").toString() == location_id;
+        });
+        if (found == rows.end()) {
+            qFatal("Tab row not found: %s", qPrintable(location_id));
+        }
+        return *found;
+    };
+    for (const QString &item_id : {QString("item-a"), QString("item-b")}) {
+        const auto row = findPlanRow(rows, "item_id", item_id);
+        QCOMPARE(row.value("action").toString(), QString("skip"));
+        QCOMPARE(row.value("reason").toString(), QString("game"));
+    }
+    QCOMPARE(tabRow(rows, "0123456789").value("action").toString(), QString("skip"));
+    QCOMPARE(tabRow(rows, "0123456789").value("reason").toString(), QString("game"));
+    // The manual rows are planned as before.
+    QCOMPARE(tabRow(rows, "character-id-bob").value("action").toString(), QString("import"));
+    QCOMPARE(findPlanRow(rows, "item_id", "item-character").value("reason").toString(),
+             QString("inherited"));
+
+    // The user flips every game row to import, item-b's over its manual
+    // price as well.
+    editPlanRow(plan_path, "item_id", "item-a", {{"action", "import"}});
+    editPlanRow(plan_path,
+                "item_id",
+                "item-b",
+                {{"action", "import"}, {"existing_source", "manual"}});
+    editPlanRow(plan_path, "legacy_hash", "stash:Old Priced", {{"action", "import"}});
+
+    const LegacyBuyoutApplyReport report = importer.applyPlan(plan_path);
+    QVERIFY2(report.success, qPrintable(report.error));
+    QCOMPARE(report.errors, 0);
+    QCOMPARE(gameRows(*destination.buyouts.db), 0);
+    QCOMPARE(destination.buyouts.repo->loadItemBuyouts().value().at("item-b").value, 99.0);
+    QVERIFY(!destination.buyouts.repo->loadItemBuyouts().value().contains("item-a"));
+    QCOMPARE(destination.buyouts.repo->loadLocationBuyouts().value().at("character-id-bob").value,
+             9.0);
+    QVERIFY(!destination.buyouts.repo->loadLocationBuyouts().value().contains("0123456789"));
+    QCOMPARE(report.imported, 1);
+
+    const PlanRows applied = readPlanRows(plan_path);
+    // Each flipped row is refused with the reason, not skipped as planned.
+    for (const auto &row : {findPlanRow(applied, "item_id", "item-a"),
+                            findPlanRow(applied, "item_id", "item-b"),
+                            tabRow(applied, "0123456789")}) {
+        QCOMPARE(row.value("action").toString(), QString("import"));
+        QCOMPARE(row.value("outcome").toString(), QString("skipped"));
+        QVERIFY(row.value("error").toString().contains("read again at the next refresh"));
+    }
 }
 
 void LegacyBuyoutImporterTest::importedInheritedBuyoutsLoseTheFlag()

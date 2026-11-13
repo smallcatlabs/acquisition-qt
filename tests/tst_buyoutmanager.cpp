@@ -23,6 +23,7 @@ private slots:
     void manualTabPriceSurvivesAPricedName();
     void tabEntryKeepsEachPriceAcrossChanges();
     void movedItemIsNotPostableWhileANotePricesIt();
+    void repositoryStoresNoGamePrice();
     void manualPriceSurvivesAReadableNote();
     void itemBuyoutRoundTrip();
     void tabBuyoutRoundTrip();
@@ -325,6 +326,46 @@ void BuyoutManagerTest::movedItemIsNotPostableWhileANotePricesIt()
     fixture.items.OnTabRefreshed(from, {});
     QCOMPARE(fixture.items.items().size(), size_t{1});
     QVERIFY(manager.PostablePrices(fixture.items.items()).empty());
+}
+
+// Nothing writes a price the game set (#293): the repository refuses one
+// on every save path, the manager reports it unsaved, and nothing reaches
+// either table.
+void BuyoutManagerTest::repositoryStoresNoGamePrice()
+{
+    PricingFixture fixture;
+    auto &repo = *fixture.buyouts.repo;
+    const ItemLocation tab = makeTestStashLocation("stash-no-game", "Dump", 0);
+    const auto item = makeNotedItem("no-game-item", tab);
+    fixture.items.OnItemsRefreshed({item}, {tab}, false);
+    // Dated, as older builds stored it: an undated row would be refused by
+    // the table's NOT NULL constraint, which says nothing about the source.
+    Buyout game = ParseGamePrice("~b/o 5 chaos");
+    game.last_update = QDateTime::currentDateTime();
+    QVERIFY(game.IsGameSet());
+
+    QCOMPARE(repo.saveItemBuyout(game, item->id(), tab.id(), tab.type(), true),
+             BuyoutSaveResult::Error);
+    QCOMPARE(repo.saveLocationBuyout(game, tab.id(), tab.type(), true), BuyoutSaveResult::Error);
+    QVERIFY(!fixture.buyouts.manager->Set(*item, game));
+    QVERIFY(!fixture.buyouts.manager->SetTab(tab, game));
+    const ItemBuyoutWrite item_write{.buyout = game,
+                                     .item_id = item->id(),
+                                     .location_id = tab.id(),
+                                     .location_type = tab.type(),
+                                     .allow_manual_overwrite = false};
+    const LocationBuyoutWrite location_write{.buyout = game,
+                                             .location_id = tab.id(),
+                                             .location_type = tab.type(),
+                                             .allow_manual_overwrite = false};
+    QVERIFY(!repo.saveImportBatch({item_write}, {}).success);
+    QVERIFY(!repo.saveImportBatch({}, {location_write}).success);
+
+    QSqlQuery q(*fixture.buyouts.db);
+    QVERIFY(q.exec("SELECT (SELECT COUNT(*) FROM item_buyouts)"
+                   " + (SELECT COUNT(*) FROM location_buyouts)"));
+    QVERIFY(q.next());
+    QCOMPARE(q.value(0).toInt(), 0);
 }
 
 // From the currency-table review: once the parser reads more words (the

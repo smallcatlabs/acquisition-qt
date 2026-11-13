@@ -131,5 +131,10 @@ items under the **Buyouts** menu bring them forward:
 If the current prices cannot be read, planning stops with an error rather than
 treating every target as unpriced.
 
+An old price that came from an item's note or a tab's name is not imported:
+its plan row is set to `skip` with the reason `game`, and it stays skipped
+even if you change it to `import`. Acquisition reads that price from the game
+again at the next refresh.
+
 Run a full refresh of stashes and characters first so the matcher has current
 data. Existing manual buyouts are never overwritten by the importer.
