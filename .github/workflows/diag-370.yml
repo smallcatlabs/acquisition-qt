@@ -7,9 +7,11 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   probe:
+    if: false
     strategy:
       fail-fast: false
       matrix:
@@ -91,7 +93,6 @@ jobs:
         retention-days: 3
 
   wine:
-    needs: probe
     strategy:
       fail-fast: false
       matrix:
@@ -102,27 +103,32 @@ jobs:
       with:
         name: probe-${{ matrix.qt }}
         path: deploy
+        run-id: 43457656502
+        github-token: ${{ github.token }}
     - name: Install Wine
       run: |
         sudo dpkg --add-architecture i386
         sudo apt-get update -q
-        sudo apt-get install -y -q wine64 wine >/dev/null
+        sudo apt-get install -y -q wine64 wine xvfb >/dev/null
         wine --version
+        xvfb-run -a wineboot -u || echo "wineboot exit: $?"
     - name: Probe under Wine, Wine's own runtime
       continue-on-error: true
       env:
         QT_DEBUG_PLUGINS: '1'
-        WINEDEBUG: '-all'
+        WINEDEBUG: 'err+all,fixme-all'
       run: |
+        set +e
         cd deploy
-        timeout 300 wine ./diag370.exe; echo "exit: $?"
+        timeout 300 xvfb-run -a wine ./diag370.exe; echo "exit: $?"
     - name: Probe under Wine, the Microsoft runtime app-local
       continue-on-error: true
       env:
         QT_DEBUG_PLUGINS: '1'
-        WINEDEBUG: '-all'
+        WINEDEBUG: 'err+all,fixme-all'
         WINEDLLOVERRIDES: 'msvcp140,msvcp140_1,msvcp140_2,vcruntime140,vcruntime140_1=n,b'
       run: |
+        set +e
         cd deploy
         cp crt/*.dll .
-        timeout 300 wine ./diag370.exe; echo "exit: $?"
+        timeout 300 xvfb-run -a wine ./diag370.exe; echo "exit: $?"
