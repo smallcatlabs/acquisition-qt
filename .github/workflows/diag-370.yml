@@ -46,12 +46,13 @@ jobs:
     - name: Imports and headers of the schannel plugin
       continue-on-error: true
       run: |
-        foreach ($f in @("$env:QT_ROOT_DIR\plugins\tls\qschannelbackend.dll", "$env:QT_ROOT_DIR\bin\Qt6Network.dll")) {
+        foreach ($f in @("$env:QT_ROOT_DIR\plugins\tls\qschannelbackend.dll", "$env:QT_ROOT_DIR\plugins\tls\qcertonlybackend.dll", "$env:QT_ROOT_DIR\bin\Qt6Network.dll", "$env:QT_ROOT_DIR\bin\Qt6Core.dll")) {
           Write-Host "===== $f"
-          dumpbin /nologo /headers $f | Select-String -Pattern 'machine|subsystem version|operating system version|DLL characteristics'
-          dumpbin /nologo /dependents $f
-          dumpbin /nologo /imports $f | Select-String -Pattern '\.dll|SCH|Acquire|Ncrypt|BCrypt|Cert' | Select-Object -First 120
+          dumpbin /nologo /headers $f | Select-String -Pattern 'linker version|operating system version|subsystem version'
+          dumpbin /nologo /imports $f
         }
+        Write-Host "===== system msvcp140.dll"
+        (Get-Item C:\Windows\System32\msvcp140.dll).VersionInfo | Format-List FileVersion, ProductVersion
 
     - name: Probe against the Qt install
       continue-on-error: true
