@@ -87,6 +87,15 @@ accepts. Check boxes match only when checked.
 *Influenced* means Shaper, Elder, Crusader, Redeemer, Hunter, or Warlord only;
 fractured, synthesised, and eldritch items have their own filters.
 
+*Priced* follows the prices: when you save a price, on an item or a tab, the
+search is filtered again at once, so an item whose price you cleared leaves
+it and an item that now has a price joins it. The rows you had selected that
+are still shown stay selected, and a tab you collapsed stays collapsed for as
+long as it stays in the results. A price saved while a refresh is running is
+followed when the refresh ends. A refresh, an item's note or a tab's name
+priced in the game, and an import of old prices are followed too. Other
+searches that use *Priced* are filtered again when you next open them.
+
 ## Item table columns
 
 Name · Price · Last Update · Q (quality) · Stack · Corr · Mast (crafted) · Ench ·

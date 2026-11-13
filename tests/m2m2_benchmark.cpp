@@ -42,12 +42,14 @@
 #include "fakeapiclient.h"
 #include "fetchsourcekey.h"
 #include "filters/filterspec.h"
+#include "filters/filterstate.h"
 #include "imagecache.h"
 #include "itemcategories.h"
 #include "itemsmanager.h"
 #include "itemsmanagerworker.h"
 #include "poe/poeapiclient.h"
 #include "ratelimit/ratelimiter.h"
+#include "search.h"
 #include "shop.h"
 #include "sourcekeyeditems.h"
 #include "spikedataset.h"
@@ -499,6 +501,42 @@ int main(int argc, char *argv[])
                         .isValid();
         });
         time_runs("Priced filter pass", [&](const Item &item) { sink += priced->predicate(item); });
+
+        // #268: with the Priced filter on, a price commit re-filters the
+        // active search: the whole FilterItems pass, By Tab (the default),
+        // without the window's expansion and scroll restore. With no search
+        // using the filter, a commit costs one state check per search.
+        qsizetype priced_index = -1;
+        for (qsizetype index = 0; index < catalog.size(); ++index) {
+            if (catalog[index].caption == "Priced") {
+                priced_index = index;
+            }
+        }
+        Search unfiltered(*bm.manager, "Unfiltered", catalog);
+        Search filtered(*bm.manager, "Priced", catalog);
+        filtered.setFilterState(priced_index, BoolState{true});
+        std::vector<qint64> refilters;
+        for (int run = 0; run < 3; ++run) {
+            filtered.SetRefreshReason(RefreshReason::ItemsChanged);
+            const qint64 t0 = g_clock.nsecsElapsed();
+            filtered.FilterItems(manager.items());
+            refilters.push_back(g_clock.nsecsElapsed() - t0);
+        }
+        std::sort(refilters.begin(), refilters.end());
+        std::printf("  [price reads] %-28s runs %8.3f %8.3f %8.3f ms   median %8.3f ms\n",
+                    "Priced refilter",
+                    toMs(refilters[0]),
+                    toMs(refilters[1]),
+                    toMs(refilters[2]),
+                    toMs(refilters[1]));
+        constexpr int kChecks = 100000;
+        const qint64 t0 = g_clock.nsecsElapsed();
+        for (int check = 0; check < kChecks; ++check) {
+            sink += unfiltered.UsesBuyoutDependentFilter();
+        }
+        std::printf("  [price reads] %-28s %8.1f ns per search\n",
+                    "dirty check, filter off",
+                    static_cast<double>(g_clock.nsecsElapsed() - t0) / kChecks);
     }
 
     // Store mirrors for the replace micros: seeded from each side's

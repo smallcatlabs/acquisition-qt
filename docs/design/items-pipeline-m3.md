@@ -298,6 +298,15 @@ invalidation observable and bounded:
   sorts the view; only *reordering* is gated on the active column
   (`priceCellsRepaintUnderAnySortColumn`).
 
+*Amendment, 2026-11-12 (#268).* With a price-dependent filter active
+(Priced), a price change is followed, after the command or pass returns,
+by one membership reconciliation of the active search as row operations
+(`ReconcileFinalSnapshot`, never a reset). It is separate work from the
+batch's repaint and reorder of the rows whose price changed, and both
+stay: one command can produce two model updates. During a refresh the
+reconciliation waits for the refresh's end
+(`priceCommitDuringARefreshWaitsForItsEnd`).
+
 **Memory.** Measured (spike section 4): ~286 B/item accounted for
 the string-heavy worst case. Under the residency rules, resident key
 memory is proportional to the **active search's materialized set**

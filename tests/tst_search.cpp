@@ -25,6 +25,9 @@ private slots:
     void backgroundRefilterUsesOwnState();
     void backgroundBooleanRefilterUsesOwnState();
     void backgroundMinMaxRefilterUsesOwnState();
+    // #268: the filters whose decision follows the prices are marked, as
+    // columns are; a search reports one while it is active.
+    void priceFiltersAreMarked();
     void tabChangeSkipsRefilterWhenStateIsUnchanged();
     void tabChangeRefiltersAfterStateChange();
     void probeCountersTrackRefilterAndSort();
@@ -86,6 +89,28 @@ static std::shared_ptr<Item> makeSearchItem(const QString &id,
                                 .arg(id, name, typeLine, extraJson)
                                 .toUtf8();
     return std::make_shared<Item>(makeTestItem(json.constData(), location));
+}
+
+void SearchTest::priceFiltersAreMarked()
+{
+    BuyoutManagerFixture buyoutFixture;
+    const FilterCatalog catalog = BuildFilterCatalog(*buyoutFixture.manager);
+    // Only a filter built from the BuyoutManager can read a price, and
+    // those are built marked (filterspec.cpp); Priced is the one today.
+    const qsizetype pricedIndex = findFilterIndex<BoolPayload>(catalog, "Priced");
+    const qsizetype corruptedIndex = findFilterIndex<BoolPayload>(catalog, "Corrupted");
+    QVERIFY(pricedIndex >= 0);
+    QVERIFY(corruptedIndex >= 0);
+    QCOMPARE(catalog.buyoutDependentIndices(), std::vector<qsizetype>{pricedIndex});
+
+    Search search(*buyoutFixture.manager, "Marked", catalog);
+    QVERIFY(!search.UsesBuyoutDependentFilter());
+    search.setFilterState(corruptedIndex, BoolState{true});
+    QVERIFY(!search.UsesBuyoutDependentFilter());
+    search.setFilterState(pricedIndex, BoolState{true});
+    QVERIFY(search.UsesBuyoutDependentFilter());
+    search.setFilterState(pricedIndex, BoolState{false});
+    QVERIFY(!search.UsesBuyoutDependentFilter());
 }
 
 void SearchTest::bucketConstruction()

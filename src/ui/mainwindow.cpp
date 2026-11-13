@@ -898,6 +898,22 @@ void MainWindow::OnBuyoutCommitted(const PriceTargets &targets, const Buyout &bo
 void MainWindow::OnBuyoutsChanged(const BuyoutChangeSet &changes)
 {
     spdlog::trace("MainWindow::OnBuyoutsChanged() entered");
+    // A filter that follows the prices (#268): every search where one is
+    // active is marked, so it re-filters before it is shown again; the
+    // active one is reconciled, as row operations, once the command or
+    // pass that changed the prices has returned (never inside it: the
+    // price editor is still emitting its commit, or the selection model
+    // its change).
+    for (const auto &search : m_searches) {
+        if (search->UsesBuyoutDependentFilter()) {
+            search->setItemsDirty(true);
+            if (search.get() == m_current_search) {
+                QMetaObject::invokeMethod(this,
+                                          &MainWindow::ReconcileAfterPriceChange,
+                                          Qt::QueuedConnection);
+            }
+        }
+    }
     // The batch response under residency (M3 D1 rule 4, R1-6/R3-2),
     // column-gated at the batch boundary: affected Price/Date cells
     // repaint under any sort column (rule 5); with Price or Date active,
@@ -1589,6 +1605,15 @@ void MainWindow::OnRefreshFinished(const RefreshOutcome &outcome)
     // adjudicates honestly at the terminal event itself — the S4-era
     // deferral machinery died with the seam.
     m_refresh_active = false;
+    // A price change made during the refresh waited for its end (#268). A
+    // completed refresh's final snapshot has reconciled already; one that
+    // ended without it reconciles now, against the published items the
+    // applied deltas left, so the mark is honoured at once.
+    if (std::exchange(m_price_reconcile_deferred, false) && m_current_search
+        && m_current_search->itemsDirty()
+        && (ui->treeView->model() == &m_current_search->model())) {
+        ReconcileWithPublishedItems();
+    }
     if (m_selection_intent_id.isEmpty() || !m_current_search) {
         return;
     }
@@ -1767,6 +1792,25 @@ void MainWindow::ModelViewRefresh()
     // id that reappeared only in a refilter's fresh result re-adopts
     // here — the contract covers the delta path and the refilter alike.
     SettleSelection(nullptr);
+}
+
+void MainWindow::ReconcileAfterPriceChange()
+{
+    // The mark is what coalesces: an earlier queued call, or the final
+    // snapshot's reconciliation, decides every row and clears it, and a
+    // later call then finds nothing to do.
+    if (!m_current_search || !m_current_search->itemsDirty()
+        || (ui->treeView->model() != &m_current_search->model())) {
+        return;
+    }
+    // While a refresh runs, its end decides: the final snapshot re-decides
+    // every item, and a refresh that ends without one reconciles in
+    // OnRefreshFinished. The search stays marked meanwhile.
+    if (m_refresh_active) {
+        m_price_reconcile_deferred = true;
+        return;
+    }
+    ReconcileWithPublishedItems();
 }
 
 void MainWindow::SaveViewScroll(Search &search)
@@ -2179,6 +2223,28 @@ void MainWindow::ResetBuyoutWidgets()
     UpdateCurrentBuyout();
 }
 
+void MainWindow::ReconcileWithPublishedItems()
+{
+    NoteCurrentRowSelection();
+    const SelectionCapture capture = CaptureSelection(std::nullopt);
+    m_applying_delta = true;
+    const auto result = m_current_search->ReconcileFinalSnapshot(m_items_manager.items());
+    m_applying_delta = false;
+    // Buckets the reconciliation inserted expand by the same rules as a
+    // delta's inserted buckets.
+    ExpandInsertedBuckets(result.inserted_bucket_rows);
+    for (size_t i = 0; i < m_searches.size(); ++i) {
+        if (m_searches[i].get() == m_current_search) {
+            m_tab_bar->setTabText(static_cast<int>(i), m_current_search->GetCaption());
+            break;
+        }
+    }
+    if (result.model_changed) {
+        ScheduleResizeTreeColumns();
+    }
+    SettleSelection(&capture);
+}
+
 void MainWindow::OnItemsRefreshed(bool initial_refresh)
 {
     spdlog::trace("MainWindow::OnItemsRefreshed() entered");
@@ -2208,24 +2274,7 @@ void MainWindow::OnItemsRefreshed(bool initial_refresh)
     // R1-2 (S6): the active search performs one authoritative row
     // reconciliation against the post-snapshot published state — row
     // operations only, never a reset (noModelResetDuringRefresh).
-    NoteCurrentRowSelection();
-    const SelectionCapture capture = CaptureSelection(std::nullopt);
-    m_applying_delta = true;
-    const auto result = m_current_search->ReconcileFinalSnapshot(m_items_manager.items());
-    m_applying_delta = false;
-    // Buckets the reconciliation inserted expand by the same rules as a
-    // delta's inserted buckets.
-    ExpandInsertedBuckets(result.inserted_bucket_rows);
-    for (size_t i = 0; i < m_searches.size(); ++i) {
-        if (m_searches[i].get() == m_current_search) {
-            m_tab_bar->setTabText(static_cast<int>(i), m_current_search->GetCaption());
-            break;
-        }
-    }
-    if (result.model_changed) {
-        ScheduleResizeTreeColumns();
-    }
-    SettleSelection(&capture);
+    ReconcileWithPublishedItems();
     // The success-boundary intent closure (R1-3): the intent pass above
     // adopted an id that reappeared only in the final snapshot; one whose
     // id is absent is cleared so it cannot reselect in a later refresh.

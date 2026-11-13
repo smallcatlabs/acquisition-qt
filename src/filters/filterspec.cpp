@@ -24,9 +24,18 @@ const QStringList &RarityChoices()
 
 FilterCatalog::FilterCatalog(std::vector<FilterSpec> specs)
     : m_specs(std::move(specs))
-{}
+{
+    for (qsizetype index = 0; index < size(); ++index) {
+        if (m_specs.at(static_cast<size_t>(index)).buyoutDependent) {
+            m_buyout_dependent_indices.push_back(index);
+        }
+    }
+}
 
-FilterCatalog BuildFilterCatalog(const BuyoutManager &buyoutManager)
+// Every filter but the ones that read a price. It is not given the
+// BuyoutManager, so a filter built here cannot read a price; those come in
+// already built and marked (PricedFilter).
+static std::vector<FilterSpec> BuildSpecs(FilterSpec priced)
 {
     using enum RefreshMode;
 
@@ -168,9 +177,7 @@ FilterCatalog BuildFilterCatalog(const BuyoutManager &buyoutManager)
     specs.push_back(
         itemMethod("ilvl", FilterGroup::Misc, [](const Item &item) { return item.ilvl(); }));
     specs.push_back(boolean("Alt. art", FilterGroup::MiscFlags, MatchesAltart));
-    specs.push_back(boolean("Priced", FilterGroup::MiscFlags, [&buyoutManager](const Item &item) {
-        return buyoutManager.Effective(item).buyout.IsActive();
-    }));
+    specs.push_back(std::move(priced));
     specs.push_back(boolean("Unidentified", FilterGroup::MiscFlags2, [](const Item &item) {
         return !item.identified();
     }));
@@ -203,5 +210,22 @@ FilterCatalog BuildFilterCatalog(const BuyoutManager &buyoutManager)
         return item.mutated();
     }));
     specs.push_back(FilterSpec{"Mods", FilterGroup::Mods, Debounced, ModsPayload{}});
-    return FilterCatalog(std::move(specs));
+    return specs;
+}
+
+// The filters that read a price, each marked buyoutDependent (#268).
+static FilterSpec PricedFilter(const BuyoutManager &buyoutManager)
+{
+    return FilterSpec{"Priced",
+                      FilterGroup::MiscFlags,
+                      RefreshMode::Immediate,
+                      BoolPayload{[&buyoutManager](const Item &item) {
+                          return buyoutManager.Effective(item).buyout.IsActive();
+                      }},
+                      true};
+}
+
+FilterCatalog BuildFilterCatalog(const BuyoutManager &buyoutManager)
+{
+    return FilterCatalog(BuildSpecs(PricedFilter(buyoutManager)));
 }
