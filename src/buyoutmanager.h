@@ -54,11 +54,9 @@ struct EffectivePrice
     {
         return (source == PriceSource::Note) || (source == PriceSource::TabName);
     }
-    // The forum may carry it: set in Acquisition, and a price or "no price".
-    bool IsPostable() const
-    {
-        return !IsGameSet() && (buyout.IsPriced() || (buyout.type == Buyout::BUYOUT_TYPE_NO_PRICE));
-    }
+    // The forum may carry it: set in Acquisition, and a price in a currency
+    // the post can name, or "no price" (Buyout::IsPostable).
+    bool IsPostable() const { return !IsGameSet() && buyout.IsPostable(); }
 };
 
 class BuyoutManager : public QObject

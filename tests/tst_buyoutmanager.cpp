@@ -33,6 +33,7 @@ private slots:
     void manualPriceSurvivesAReadableNote();
     void noteInAGameWordPricesTheItem();
     void manualPriceSurvivesANoteInAGameWord();
+    void noteOnlyCurrencyIsNeverPosted();
     void itemBuyoutRoundTrip();
     void tabBuyoutRoundTrip();
     void itemShowsItsTabsPrice();
@@ -221,6 +222,9 @@ void BuyoutManagerTest::unknownStoredCurrencyIsShownButNotPosted()
     QVERIFY(stored.currency.IsNone());
     QVERIFY(!stored.IsPostable());
     QVERIFY(fixture.manager->Get(chaos).IsPostable());
+    // The shop's capture reads the price in force: the same rule.
+    QVERIFY(!fixture.manager->Effective(unknown).IsPostable());
+    QVERIFY(fixture.manager->Effective(chaos).IsPostable());
 
     ShopRenderInput input;
     input.shop_template = kShopTemplateItems;
@@ -503,6 +507,23 @@ void BuyoutManagerTest::manualPriceSurvivesANoteInAGameWord()
     fixture.items.OnTabRefreshed(tab, {cleared});
     QCOMPARE(manager.Effective(*cleared).source, PriceSource::ManualItem);
     QCOMPARE(manager.Effective(*cleared).buyout.value, 7.0);
+}
+
+// A currency read only from notes (Gift to the Goddess) prices the item,
+// but a price the game set is never posted, and no price can be set in it
+// in Acquisition (it is not offered: comboOffersOnlyChoosableCurrencies).
+void BuyoutManagerTest::noteOnlyCurrencyIsNeverPosted()
+{
+    PricingFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-note-only", "Dump", 0);
+    const auto item = makeNotedItem("item-note-only", tab, "~price 3 offer-gift");
+    fixture.items.OnItemsRefreshed({item}, {tab}, false);
+    const EffectivePrice price = fixture.buyouts.manager->Effective(*item);
+    QCOMPARE(price.source, PriceSource::Note);
+    QCOMPARE(price.buyout.currency.AsString(), QString("Gift to the Goddess"));
+    QVERIFY(!price.buyout.currency.Info()->choosable);
+    QVERIFY(!price.IsPostable());
+    QVERIFY(fixture.buyouts.manager->PostablePrices(fixture.items.items()).empty());
 }
 
 // From the currency-table review: once the parser reads more words (the

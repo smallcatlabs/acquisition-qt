@@ -165,9 +165,10 @@ version, say) is shown but not posted to the forum shop.
 ## Prices set in the game
 
 If a stash tab's name, or an item's note, contains a trade-site price string such
-as `~b/o 5 chaos` or `~price 1 divine`, Acquisition shows it as a buyout with
-source *game*. Game-sourced prices are **locked**: you cannot change them in
-Acquisition, because the game's price wins. Edit the tab name or item note in
+as `~b/o 5 chaos` or `~price 1 divine`, naming the currency by one of its note
+words (see *Currencies*), Acquisition shows it as a buyout with source *game*.
+Game-sourced prices are **locked**: you cannot change them in Acquisition,
+because the game's price wins, and they are never posted to the forum shop. Edit the tab name or item note in
 the game instead. Acquisition reads these prices from the game on every
 refresh and does not store them, so they have no *Last Update*. A price you
 set in Acquisition is kept underneath: when the note or the priced tab name is
