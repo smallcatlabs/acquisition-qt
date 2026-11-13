@@ -188,13 +188,23 @@ EffectivePrice BuyoutManager::Effective(const Item &item) const
 EffectivePrice BuyoutManager::EffectiveTab(const ItemLocation &location) const
 {
     // The tab name's price; else the price set on the tab in Acquisition.
-    const auto named = m_tab_name_prices.find(location.id());
-    if (named != m_tab_name_prices.end()) {
-        return EffectivePrice{.buyout = named->second, .source = PriceSource::TabName};
+    const auto it = m_tab_prices.find(location.id());
+    if (it == m_tab_prices.end()) {
+        return EffectivePrice{};
     }
-    EffectivePrice price{.buyout = GetTab(location), .source = PriceSource::None};
-    price.source = sourceOf(price.buyout, false);
-    return price;
+    const TabPrices &prices = it->second;
+    if (prices.named) {
+        return EffectivePrice{.buyout = *prices.named, .source = PriceSource::TabName};
+    }
+    if (!prices.manual) {
+        return EffectivePrice{};
+    }
+    if (prices.manual->type == Buyout::BUYOUT_TYPE_CURRENT_OFFER) {
+        spdlog::warn("BuyoutManager: detected an obsolete 'current offer' tab buyout for {}: {}",
+                     location.id(),
+                     prices.manual->AsText());
+    }
+    return EffectivePrice{.buyout = *prices.manual, .source = sourceOf(*prices.manual, false)};
 }
 
 std::vector<std::pair<std::shared_ptr<Item>, Buyout>> BuyoutManager::PostablePrices(
@@ -213,9 +223,9 @@ std::vector<std::pair<std::shared_ptr<Item>, Buyout>> BuyoutManager::PostablePri
 Buyout BuyoutManager::GetTab(const ItemLocation &location) const
 {
     const QString tab = location.id();
-    const auto &it = m_tab_buyouts.find(tab);
-    if (it != m_tab_buyouts.end()) {
-        Buyout buyout = it->second;
+    const auto it = m_tab_prices.find(tab);
+    if ((it != m_tab_prices.end()) && it->second.manual) {
+        Buyout buyout = *it->second.manual;
         if (buyout.type == Buyout::BUYOUT_TYPE_CURRENT_OFFER) {
             spdlog::warn(
                 "BuyoutManager: detected an obsolete 'current offer' tab buyout for {}: {}",
@@ -244,29 +254,33 @@ bool BuyoutManager::SetTab(const ItemLocation &location, const Buyout &buyout)
         return false;
     }
 
-    const auto it = m_tab_buyouts.find(location.id());
+    const auto it = m_tab_prices.find(location.id());
+    const bool stored = (it != m_tab_prices.end()) && it->second.manual.has_value();
     // "Inherit" is no price of its own: the row goes, as a cleared one does
     // (the pricing passes used to delete an item's inherit row; a tab's
     // stayed, unread).
     if (buyout.IsNull() || (buyout.type == Buyout::BUYOUT_TYPE_INHERIT)) {
-        if (it == m_tab_buyouts.end()) {
+        if (!stored) {
             return true;
         }
         if (!m_repo.removeLocationBuyout(location)) {
             return false;
         }
-        m_tab_buyouts.erase(it);
+        it->second.manual.reset();
+        if (!it->second.named) {
+            m_tab_prices.erase(it);
+        }
         RecordChange(ChangeScope::Tab, location.id());
         return true;
     }
 
-    if ((it != m_tab_buyouts.end()) && (it->second == buyout)) {
+    if (stored && (*it->second.manual == buyout)) {
         return true;
     }
     if (!m_repo.saveLocationBuyout(buyout, location)) {
         return false;
     }
-    m_tab_buyouts[location.id()] = buyout;
+    m_tab_prices[location.id()].manual = buyout;
     RecordChange(ChangeScope::Tab, location.id());
     return true;
 }
@@ -285,15 +299,18 @@ void BuyoutManager::CompressTabBuyouts()
     // erasures coalesce into a single boundary that emits only after every
     // mutation is complete — a consumer must never observe pre-erase state.
     const BuyoutBatch batch(*this);
-    for (auto it = m_tab_buyouts.begin(); it != m_tab_buyouts.end();) {
-        if (tmp.count(it->first) == 0) {
+    for (auto it = m_tab_prices.begin(); it != m_tab_prices.end();) {
+        if (it->second.manual && (tmp.count(it->first) == 0)) {
             m_save_needed = true;
             const QString id = it->first;
-            it = m_tab_buyouts.erase(it);
+            it->second.manual.reset();
             RecordChange(ChangeScope::Tab, id);
-        } else {
-            ++it;
+            if (!it->second.named) {
+                it = m_tab_prices.erase(it);
+                continue;
+            }
         }
+        ++it;
     }
 }
 
@@ -391,7 +408,13 @@ bool BuyoutManager::LoadBuyouts()
         m_buyouts = std::move(*items);
     }
     if (tabs) {
-        m_tab_buyouts = std::move(*tabs);
+        for (auto it = m_tab_prices.begin(); it != m_tab_prices.end();) {
+            it->second.manual.reset();
+            it = it->second.named ? std::next(it) : m_tab_prices.erase(it);
+        }
+        for (auto &[id, buyout] : *tabs) {
+            m_tab_prices[id].manual = std::move(buyout);
+        }
     }
     const bool loaded = m_repo.storeUsable() && items && tabs;
     if (!loaded) {
@@ -418,18 +441,24 @@ void BuyoutManager::SetStashTabLocations(const std::vector<ItemLocation> &tabs)
         }
     }
     const BuyoutBatch batch(*this);
-    for (const auto &[id, price] : prices) {
-        const auto old = m_tab_name_prices.find(id);
-        if ((old == m_tab_name_prices.end()) || (old->second != price)) {
+    for (auto it = m_tab_prices.begin(); it != m_tab_prices.end();) {
+        if (it->second.named && !prices.contains(it->first)) {
+            RecordChange(ChangeScope::Tab, it->first);
+            it->second.named.reset();
+            if (!it->second.manual) {
+                it = m_tab_prices.erase(it);
+                continue;
+            }
+        }
+        ++it;
+    }
+    for (auto &[id, price] : prices) {
+        std::optional<Buyout> &named = m_tab_prices[id].named;
+        if (!named || (*named != price)) {
             RecordChange(ChangeScope::Tab, id);
+            named = std::move(price);
         }
     }
-    for (const auto &[id, price] : m_tab_name_prices) {
-        if (!prices.contains(id)) {
-            RecordChange(ChangeScope::Tab, id);
-        }
-    }
-    m_tab_name_prices = std::move(prices);
 }
 
 const std::vector<ItemLocation> &BuyoutManager::GetStashTabLocations() const

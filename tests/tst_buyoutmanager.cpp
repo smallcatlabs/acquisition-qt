@@ -21,6 +21,7 @@ private slots:
     // #293 step 3: a game price is never stored, so a manual one survives.
     void manualItemPriceSurvivesANote();
     void manualTabPriceSurvivesAPricedName();
+    void tabEntryKeepsEachPriceAcrossChanges();
     void manualPriceSurvivesAReadableNote();
     void itemBuyoutRoundTrip();
     void tabBuyoutRoundTrip();
@@ -256,6 +257,45 @@ void BuyoutManagerTest::manualTabPriceSurvivesAPricedName()
     fixture.items.OnItemsRefreshed({}, {tab}, false);
     QCOMPARE(fixture.buyouts.manager->EffectiveTab(tab).source, PriceSource::ManualTab);
     QCOMPARE(fixture.buyouts.manager->EffectiveTab(tab).buyout.value, 3.0);
+}
+
+// A tab's two prices share one entry: the one its name gives and the one
+// set in Acquisition. Changing, reloading or compressing one never costs
+// the other, and a tab that is gone keeps neither.
+void BuyoutManagerTest::tabEntryKeepsEachPriceAcrossChanges()
+{
+    PricingFixture fixture;
+    auto &manager = *fixture.buyouts.manager;
+    const ItemLocation named = makeTestStashLocation("stash-entry", "~price 2 chaos", 0);
+    const ItemLocation plain = makeTestStashLocation("stash-entry", "Dump", 0);
+    fixture.items.OnItemsRefreshed({}, {named}, false);
+    QVERIFY(manager.SetTab(named, makeChaosBuyout(3.0)));
+    QCOMPARE(manager.EffectiveTab(named).source, PriceSource::TabName);
+    QCOMPARE(manager.EffectiveTab(named).buyout.value, 2.0);
+    QCOMPARE(manager.GetTab(named).value, 3.0);
+
+    manager.ReloadBuyouts();
+    QCOMPARE(manager.EffectiveTab(named).source, PriceSource::TabName);
+    QCOMPARE(manager.GetTab(named).value, 3.0);
+
+    manager.CompressTabBuyouts();
+    QCOMPARE(manager.EffectiveTab(named).source, PriceSource::TabName);
+    QCOMPARE(manager.GetTab(named).value, 3.0);
+
+    QVERIFY(manager.SetTab(named, Buyout()));
+    QCOMPARE(manager.EffectiveTab(named).source, PriceSource::TabName);
+    QCOMPARE(manager.EffectiveTab(named).buyout.value, 2.0);
+    QVERIFY(manager.GetTab(named).IsNull());
+
+    QVERIFY(manager.SetTab(named, makeChaosBuyout(3.0)));
+    fixture.items.OnItemsRefreshed({}, {plain}, false);
+    QCOMPARE(manager.EffectiveTab(plain).source, PriceSource::ManualTab);
+    QCOMPARE(manager.EffectiveTab(plain).buyout.value, 3.0);
+
+    fixture.items.OnItemsRefreshed({}, {named}, false);
+    fixture.items.OnItemsRefreshed({}, {}, false);
+    QCOMPARE(manager.EffectiveTab(named).source, PriceSource::None);
+    QVERIFY(manager.GetTab(named).IsNull());
 }
 
 // From the currency-table review: once the parser reads more words (the
