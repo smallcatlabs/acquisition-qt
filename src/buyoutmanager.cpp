@@ -169,7 +169,7 @@ EffectivePrice BuyoutManager::Effective(const Item &item) const
     // The note's price; else the price set on the item in Acquisition;
     // else its tab's, read now by the tab's id, which marks it inherited
     // and keeps the tab price's source and date.
-    if (item.note_price().IsActive()) {
+    if (item.HasNotePrice()) {
         return EffectivePrice{.buyout = item.note_price(), .source = PriceSource::Note};
     }
     EffectivePrice price{.buyout = Get(item), .source = PriceSource::None};
