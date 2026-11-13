@@ -273,8 +273,11 @@ Release artifacts are built by GitHub Actions:
 - `.github/workflows/build-windows.yml` builds the Windows installer.
 
 The workflows run on `workflow_dispatch` and on tags matching `v*`. Tag builds
-create draft GitHub releases and attach the platform artifacts. They currently
-install Qt 6.12.0 with the `qtnetworkauth` module.
+create draft GitHub releases and attach the platform artifacts. They install
+Qt with the `qtnetworkauth` module: 6.12.0 on macOS and Linux, and 6.11.1 on
+Windows, where a 6.12.0 package failed at start-up with "SSL support is
+missing" (#370). The Windows workflow runs the packaged binary with
+`--check-tls` and fails when it finds no TLS backend that supports SSL.
 
 ## Platform Notes
 
