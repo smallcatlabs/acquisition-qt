@@ -6,6 +6,7 @@
 
 #include "applybuyout.h"
 #include "itemsmanager.h"
+#include "shoprender.h"
 #include "testfixtures.h"
 
 class BuyoutManagerTest : public QObject
@@ -14,6 +15,11 @@ class BuyoutManagerTest : public QObject
 
 private slots:
     void stringToBuyout();
+    // #273: every word the game writes, hyphenated or not, in any case.
+    void notesReadHyphenatedAndCapitalisedWords();
+    void wordBeforeAHyphenStillReads();
+    // A stored price in a currency tag this build does not know.
+    void unknownStoredCurrencyIsShownButNotPosted();
     // #293 step 2: a tab's price is not copied onto its items.
     void tabPriceWritesOneRow();
     void inheritedRowIsIgnoredOnLoad();
@@ -25,6 +31,9 @@ private slots:
     void movedItemIsNotPostableWhileANotePricesIt();
     void repositoryStoresNoGamePrice();
     void manualPriceSurvivesAReadableNote();
+    void noteInAGameWordPricesTheItem();
+    void manualPriceSurvivesANoteInAGameWord();
+    void noteOnlyCurrencyIsNeverPosted();
     void itemBuyoutRoundTrip();
     void tabBuyoutRoundTrip();
     void itemShowsItsTabsPrice();
@@ -155,6 +164,78 @@ void BuyoutManagerTest::stringToBuyout()
     QCOMPARE(tolerant.type, Buyout::BUYOUT_TYPE_BUYOUT);
     QCOMPARE(tolerant.value, 7.0);
     QCOMPARE(tolerant.currency, Currency::CURRENCY_CHAOS_ORB);
+}
+
+void BuyoutManagerTest::notesReadHyphenatedAndCapitalisedWords()
+{
+    const Buyout gift = ParseGamePrice("~price 3 offer-gift");
+    QVERIFY(gift.IsActive());
+    QCOMPARE(gift.value, 3.0);
+    QCOMPARE(gift.currency.AsString(), QString("Gift to the Goddess"));
+
+    const Buyout orb = ParseGamePrice("~price 1 infused-engineers-orb");
+    QVERIFY(orb.IsActive());
+    QCOMPARE(orb.currency.AsString(), QString("Infused Engineer's Orb"));
+
+    const Buyout capitalised = ParseGamePrice("~b/o 5 Chaos");
+    QVERIFY(capitalised.IsActive());
+    QCOMPARE(capitalised.currency, Currency::CURRENCY_CHAOS_ORB);
+}
+
+// A word followed by a hyphen, as in a tab named "~price 5 chaos-each",
+// read as its first part before the parser took hyphens; it still does. A
+// hyphenated word the game writes is read whole.
+void BuyoutManagerTest::wordBeforeAHyphenStillReads()
+{
+    const Buyout each = ParseGamePrice("~price 5 chaos-each");
+    QVERIFY(each.IsActive());
+    QCOMPARE(each.currency, Currency::CURRENCY_CHAOS_ORB);
+    QCOMPARE(each.value, 5.0);
+
+    const Buyout gift = ParseGamePrice("~price 3 offer-gift");
+    QCOMPARE(gift.currency.AsString(), QString("Gift to the Goddess"));
+}
+
+// A row whose currency tag this build does not know (written by a newer
+// build, say) is loaded and shown as it is, but is never posted: the forum
+// post would carry a price with no currency word.
+void BuyoutManagerTest::unknownStoredCurrencyIsShownButNotPosted()
+{
+    BuyoutManagerFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-unknown-currency", "Dump", 0);
+    QSqlQuery q(*fixture.db);
+    QVERIFY(q.prepare("INSERT INTO item_buyouts (item_id, location_id, location_type, currency, "
+                      "inherited, last_update, source, type, value) VALUES ('item-zorkmid', "
+                      "'stash-unknown-currency', 'stash', 'zorkmid', 0, 1, 'manual', 'b/o', 5)"));
+    QVERIFY(q.exec());
+    QVERIFY(q.prepare("INSERT INTO item_buyouts (item_id, location_id, location_type, currency, "
+                      "inherited, last_update, source, type, value) VALUES ('item-chaos', "
+                      "'stash-unknown-currency', 'stash', 'chaos', 0, 1, 'manual', 'b/o', 6)"));
+    QVERIFY(q.exec());
+    fixture.manager->ReloadBuyouts();
+
+    const Item unknown = makeTestItem("item-zorkmid");
+    const Item chaos = makeTestItem("item-chaos");
+    const Buyout stored = fixture.manager->Get(unknown);
+    QVERIFY(stored.IsPriced());
+    QCOMPARE(stored.value, 5.0);
+    QVERIFY(stored.currency.IsNone());
+    QVERIFY(!stored.IsPostable());
+    QVERIFY(fixture.manager->Get(chaos).IsPostable());
+    // The shop's capture reads the price in force: the same rule.
+    QVERIFY(!fixture.manager->Effective(unknown).IsPostable());
+    QVERIFY(fixture.manager->Effective(chaos).IsPostable());
+
+    ShopRenderInput input;
+    input.shop_template = kShopTemplateItems;
+    input.items = {ShopRenderItem{.pretty_name = "Unknown", .location = tab, .buyout = stored},
+                   ShopRenderItem{.pretty_name = "Chaos",
+                                  .location = tab,
+                                  .buyout = fixture.manager->Get(chaos)}};
+    input.tab_index[tab.id().left(10)] = 0;
+    const QString pages = RenderShop(input).pages.join('\n');
+    QVERIFY2(pages.contains(" 6 chaos\""), qPrintable(pages));
+    QVERIFY2(!pages.contains(" 5"), qPrintable(pages));
 }
 
 // A price set on a tab of three items writes one location row and no item
@@ -376,6 +457,73 @@ void BuyoutManagerTest::repositoryStoresNoGamePrice()
                    " + (SELECT COUNT(*) FROM location_buyouts)"));
     QVERIFY(q.next());
     QCOMPARE(q.value(0).toInt(), 0);
+}
+
+// #273, the user-visible half: a note in a word the game writes
+// (trade-ground-truth T9) but the parser did not know was ignored, so the
+// item showed its tab's price and could be posted at it. The game's own
+// word for Jeweller's Orbs now prices the item, with the game's
+// provenance, and a price edit on it is refused.
+void BuyoutManagerTest::noteInAGameWordPricesTheItem()
+{
+    PricingFixture fixture;
+    auto &manager = *fixture.buyouts.manager;
+    const ItemLocation tab = makeTestStashLocation("stash-273", "Dump", 0);
+    const auto item = makeNotedItem("item-273", tab, "~b/o 5 jewellers");
+    QVERIFY(manager.SetTab(tab, makeChaosBuyout(2.0)));
+    fixture.items.OnItemsRefreshed({item}, {tab}, false);
+
+    const EffectivePrice price = manager.Effective(*item);
+    QCOMPARE(price.source, PriceSource::Note);
+    QVERIFY(price.buyout.IsGameSet());
+    QVERIFY(!price.buyout.inherited);
+    QCOMPARE(price.buyout.value, 5.0);
+    QCOMPARE(price.buyout.currency.AsTag(), QString("jew"));
+    QVERIFY(!price.IsPostable());
+
+    BuyoutTargets targets;
+    targets.items.push_back(item.get());
+    QCOMPARE(ApplyBuyout(manager, fixture.items, targets, makeChaosBuyout(9.0)).locked, 1);
+}
+
+// A price set in Acquisition on such an item stays stored under the note
+// (#293) and is in force again when the note goes.
+void BuyoutManagerTest::manualPriceSurvivesANoteInAGameWord()
+{
+    PricingFixture fixture;
+    auto &manager = *fixture.buyouts.manager;
+    const ItemLocation tab = makeTestStashLocation("stash-273-manual", "Dump", 0);
+    const auto plain = makeNotedItem("item-273-manual", tab);
+    fixture.items.OnItemsRefreshed({plain}, {tab}, false);
+    QVERIFY(manager.Set(*plain, makeChaosBuyout(7.0)));
+
+    const auto noted = makeNotedItem("item-273-manual", tab, "~b/o 5 jewellers");
+    fixture.items.OnTabRefreshed(tab, {noted});
+    QCOMPARE(manager.Effective(*noted).source, PriceSource::Note);
+    QCOMPARE(manager.Effective(*noted).buyout.value, 5.0);
+    QCOMPARE(manager.Get(*noted).value, 7.0);
+
+    const auto cleared = makeNotedItem("item-273-manual", tab);
+    fixture.items.OnTabRefreshed(tab, {cleared});
+    QCOMPARE(manager.Effective(*cleared).source, PriceSource::ManualItem);
+    QCOMPARE(manager.Effective(*cleared).buyout.value, 7.0);
+}
+
+// A currency read only from notes (Gift to the Goddess) prices the item,
+// but a price the game set is never posted, and no price can be set in it
+// in Acquisition (it is not offered: comboOffersOnlyChoosableCurrencies).
+void BuyoutManagerTest::noteOnlyCurrencyIsNeverPosted()
+{
+    PricingFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-note-only", "Dump", 0);
+    const auto item = makeNotedItem("item-note-only", tab, "~price 3 offer-gift");
+    fixture.items.OnItemsRefreshed({item}, {tab}, false);
+    const EffectivePrice price = fixture.buyouts.manager->Effective(*item);
+    QCOMPARE(price.source, PriceSource::Note);
+    QCOMPARE(price.buyout.currency.AsString(), QString("Gift to the Goddess"));
+    QVERIFY(!price.buyout.currency.Info()->choosable);
+    QVERIFY(!price.IsPostable());
+    QVERIFY(fixture.buyouts.manager->PostablePrices(fixture.items.items()).empty());
 }
 
 // From the currency-table review: once the parser reads more words (the
@@ -694,8 +842,9 @@ void BuyoutManagerTest::unknownCurrencyClearsGamePrice()
     QVERIFY(fixture.buyouts.manager->Effective(*first).buyout.IsGameSet());
     QVERIFY(fixture.buyouts.manager->Effective(*second).buyout.IsGameSet());
 
-    const auto first_unknown = makeNotedItem("item-251d", tab, "~b/o 5 jewellers");
-    const auto second_unknown = makeNotedItem("item-251e", tab, "~b/o 3 jewellers");
+    // A word in no currency table, typed by hand.
+    const auto first_unknown = makeNotedItem("item-251d", tab, "~b/o 5 tablespoons");
+    const auto second_unknown = makeNotedItem("item-251e", tab, "~b/o 3 tablespoons");
 
     // Delta path first, for the first item only.
     fixture.items.OnTabRefreshed(tab, {first_unknown, second});

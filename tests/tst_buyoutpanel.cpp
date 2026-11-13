@@ -32,6 +32,7 @@ private slots:
     void noTargetsDisablesThePanel();
     void finishEditingKeepsTextItCouldNotCommit();
     void typeChoiceWithEmptyBoxStaysPendingQuietly();
+    void currencyBoxSelectsByTag();
 };
 
 namespace {
@@ -361,6 +362,27 @@ void BuyoutPanelTest::typeChoiceWithEmptyBoxStaysPendingQuietly()
     QCOMPARE(committedBuyout(committed).type, Buyout::BUYOUT_TYPE_BUYOUT);
     QCOMPARE(committedBuyout(committed).value, 5.0);
     QCOMPARE(notices.count(), 0);
+}
+
+// The currency box shows and reads a currency by its tag.
+void BuyoutPanelTest::currencyBoxSelectsByTag()
+{
+    Panel p;
+    Buyout mirror = makeChaosBuyout(2.0);
+    mirror.currency = Currency::FromTag("mirror");
+    p.prices["item-d"] = mirror;
+    p.panel.showTargets(items({"item-d"}));
+    QCOMPARE(p.currency->currentData().toString(), QString("mirror"));
+    QCOMPARE(p.currency->currentText(), QString("Mirror of Kalandra"));
+
+    QSignalSpy committed(&p.panel, &BuyoutPanel::committed);
+    const int silver = p.currency->findData(QString("silver"));
+    QVERIFY(silver > 0);
+    p.currency->setCurrentIndex(silver);
+    emit p.currency->activated(silver);
+    QCOMPARE(committed.count(), 1);
+    QCOMPARE(committedBuyout(committed).currency.AsTag(), QString("silver"));
+    QCOMPARE(committedBuyout(committed).value, 2.0);
 }
 
 QTEST_MAIN(BuyoutPanelTest)

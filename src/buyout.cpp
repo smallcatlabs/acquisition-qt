@@ -50,7 +50,10 @@ bool Buyout::IsActive() const
 
 bool Buyout::IsPostable() const
 {
-    return ((source != BUYOUT_SOURCE_GAME) && (IsPriced() || (type == BUYOUT_TYPE_NO_PRICE)));
+    // A price needs a currency the forum post can name: a stored tag this
+    // build does not know is shown as it is but never posted.
+    return (source != BUYOUT_SOURCE_GAME)
+           && ((IsPriced() && !currency.IsNone()) || (type == BUYOUT_TYPE_NO_PRICE));
 }
 
 bool Buyout::IsPriced() const
@@ -170,7 +173,9 @@ bool Buyout::operator!=(const Buyout &o) const
 
 Buyout ParseGamePrice(const QString &text)
 {
-    static const QRegularExpression exp("(~\\S+)\\s+(\\d+\\.?\\d*)\\s+(\\w+)");
+    // The currency word may be hyphenated (offer-gift) and is read through
+    // the currency table, in any case (#273).
+    static const QRegularExpression exp("(~\\S+)\\s+(\\d+\\.?\\d*)\\s+([\\w-]+)");
     static const std::map<QString, Buyout::BuyoutType> types = {
         {"~gb/o", Buyout::BUYOUT_TYPE_BUYOUT},
         {"~b/o", Buyout::BUYOUT_TYPE_BUYOUT},
@@ -188,7 +193,7 @@ Buyout ParseGamePrice(const QString &text)
     Buyout parsed;
     parsed.type = (type != types.end()) ? type->second : Buyout::BUYOUT_TYPE_INHERIT;
     parsed.value = m.captured(2).toDouble();
-    parsed.currency = Currency::FromString(m.captured(3));
+    parsed.currency = Currency::FromWord(m.captured(3));
     parsed.source = Buyout::BUYOUT_SOURCE_GAME;
     return parsed.IsActive() ? parsed : Buyout();
 }

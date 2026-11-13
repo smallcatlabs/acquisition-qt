@@ -375,7 +375,7 @@ QColor PriceColumn::color(const Item &item) const
 ItemSortKey::PriceHead PriceColumn::head(const Item &item) const
 {
     const Buyout bo = m_bo_manager.Effective(item).buyout;
-    return ItemSortKey::PriceHead(bo.currency.AsRank(), bo.value);
+    return ItemSortKey::PriceHead(bo.currency.SortKey(), bo.value);
 }
 
 std::tuple<int, double, const Item &> PriceColumn::multivalue(const Item *item) const

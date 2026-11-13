@@ -3,200 +3,167 @@
 
 #include "currency.h"
 
-const QString Currency::m_currency_type_error;
+#include <utility>
 
-const Currency::TypeStringMap Currency::m_currency_type_as_string = {
-    {CURRENCY_NONE, ""},
-    {CURRENCY_ORB_OF_ALTERATION, "Orb of Alteration"},
-    {CURRENCY_ORB_OF_FUSING, "Orb of Fusing"},
-    {CURRENCY_ORB_OF_ALCHEMY, "Orb of Alchemy"},
-    {CURRENCY_CHAOS_ORB, "Chaos Orb"},
-    {CURRENCY_GCP, "Gemcutter's Prism"},
-    {CURRENCY_EXALTED_ORB, "Exalted Orb"},
-    {CURRENCY_CHROMATIC_ORB, "Chromatic Orb"},
-    {CURRENCY_JEWELLERS_ORB, "Jeweller's Orb"},
-    {CURRENCY_ORB_OF_CHANCE, "Orb of Chance"},
-    {CURRENCY_CARTOGRAPHERS_CHISEL, "Cartographer's Chisel"},
-    {CURRENCY_ORB_OF_SCOURING, "Orb of Scouring"},
-    {CURRENCY_BLESSED_ORB, "Blessed Orb"},
-    {CURRENCY_ORB_OF_REGRET, "Orb of Regret"},
-    {CURRENCY_REGAL_ORB, "Regal Orb"},
-    {CURRENCY_DIVINE_ORB, "Divine Orb"},
-    {CURRENCY_VAAL_ORB, "Vaal Orb"},
-    {CURRENCY_PERANDUS_COIN, "Perandus Coin"},
-    {CURRENCY_MIRROR_OF_KALANDRA, "Mirror of Kalandra"},
-    {CURRENCY_SILVER_COIN, "Silver Coin"},
-};
+namespace {
 
-const Currency::TypeStringMap Currency::m_currency_type_as_tag = {
-    {CURRENCY_NONE, ""},
-    {CURRENCY_ORB_OF_ALTERATION, "alt"},
-    {CURRENCY_ORB_OF_FUSING, "fuse"},
-    {CURRENCY_ORB_OF_ALCHEMY, "alch"},
-    {CURRENCY_CHAOS_ORB, "chaos"},
-    {CURRENCY_GCP, "gcp"},
-    {CURRENCY_EXALTED_ORB, "exa"},
-    {CURRENCY_CHROMATIC_ORB, "chrom"},
-    {CURRENCY_JEWELLERS_ORB, "jew"},
-    {CURRENCY_ORB_OF_CHANCE, "chance"},
-    {CURRENCY_CARTOGRAPHERS_CHISEL, "chisel"},
-    {CURRENCY_ORB_OF_SCOURING, "scour"},
-    {CURRENCY_BLESSED_ORB, "blessed"},
-    {CURRENCY_ORB_OF_REGRET, "regret"},
-    {CURRENCY_REGAL_ORB, "regal"},
-    {CURRENCY_DIVINE_ORB, "divine"},
-    {CURRENCY_VAAL_ORB, "vaal"},
-    {CURRENCY_PERANDUS_COIN, "coin"},
-    {CURRENCY_MIRROR_OF_KALANDRA, "mirror"},
-    {CURRENCY_SILVER_COIN, "silver"},
-};
+    // Currencies added after the first 19 have no rank from the maintainer
+    // yet: they share this one, below every ranked currency, and sort among
+    // themselves in table order (see Currency::SortKey). Replace it with real
+    // ranks when they are known.
+    constexpr int kUnrankedRank = 0;
 
-const Currency::TypeIntMap Currency::m_currency_type_as_rank = {
-    {CURRENCY_NONE, 0},
-    {CURRENCY_CHROMATIC_ORB, 1},
-    {CURRENCY_ORB_OF_ALTERATION, 2},
-    {CURRENCY_JEWELLERS_ORB, 3},
-    {CURRENCY_ORB_OF_CHANCE, 4},
-    {CURRENCY_CARTOGRAPHERS_CHISEL, 5},
-    {CURRENCY_PERANDUS_COIN, 6},
-    {CURRENCY_ORB_OF_FUSING, 7},
-    {CURRENCY_ORB_OF_ALCHEMY, 8},
-    {CURRENCY_BLESSED_ORB, 9},
-    {CURRENCY_ORB_OF_SCOURING, 10},
-    {CURRENCY_CHAOS_ORB, 11},
-    {CURRENCY_ORB_OF_REGRET, 12},
-    {CURRENCY_REGAL_ORB, 13},
-    {CURRENCY_VAAL_ORB, 14},
-    {CURRENCY_GCP, 15},
-    {CURRENCY_DIVINE_ORB, 16},
-    {CURRENCY_EXALTED_ORB, 17},
-    {CURRENCY_MIRROR_OF_KALANDRA, 18},
-    {CURRENCY_SILVER_COIN, 19},
-};
+    // Empty but not null: a tag is bound into NOT NULL columns, and "no
+    // currency" has always been stored as "".
+    const QString kEmpty("");
 
-const Currency::StringTypeMap Currency::m_string_to_currency_type = {
-    {"alch", CURRENCY_ORB_OF_ALCHEMY},
-    {"alchs", CURRENCY_ORB_OF_ALCHEMY},
-    {"alchemy", CURRENCY_ORB_OF_ALCHEMY},
-    {"alt", CURRENCY_ORB_OF_ALTERATION},
-    {"alts", CURRENCY_ORB_OF_ALTERATION},
-    {"alteration", CURRENCY_ORB_OF_ALTERATION},
-    {"alterations", CURRENCY_ORB_OF_ALTERATION},
-    {"blessed", CURRENCY_BLESSED_ORB},
-    {"cartographer", CURRENCY_CARTOGRAPHERS_CHISEL},
-    {"cartographers", CURRENCY_CARTOGRAPHERS_CHISEL},
-    {"chance", CURRENCY_ORB_OF_CHANCE},
-    {"chaos", CURRENCY_CHAOS_ORB},
-    {"chisel", CURRENCY_CARTOGRAPHERS_CHISEL},
-    {"chisels", CURRENCY_CARTOGRAPHERS_CHISEL},
-    {"chrom", CURRENCY_CHROMATIC_ORB},
-    {"chrome", CURRENCY_CHROMATIC_ORB},
-    {"chromes", CURRENCY_CHROMATIC_ORB},
-    {"chromatic", CURRENCY_CHROMATIC_ORB},
-    {"chromatics", CURRENCY_CHROMATIC_ORB},
-    {"coin", CURRENCY_PERANDUS_COIN},
-    {"coins", CURRENCY_PERANDUS_COIN},
-    {"divine", CURRENCY_DIVINE_ORB},
-    {"divines", CURRENCY_DIVINE_ORB},
-    {"exa", CURRENCY_EXALTED_ORB},
-    {"exalted", CURRENCY_EXALTED_ORB},
-    {"fuse", CURRENCY_ORB_OF_FUSING},
-    {"fuses", CURRENCY_ORB_OF_FUSING},
-    {"fusing", CURRENCY_ORB_OF_FUSING},
-    {"fusings", CURRENCY_ORB_OF_FUSING},
-    {"gcp", CURRENCY_GCP},
-    {"gcps", CURRENCY_GCP},
-    {"gemcutter", CURRENCY_GCP},
-    {"gemcutters", CURRENCY_GCP},
-    {"jew", CURRENCY_JEWELLERS_ORB},
-    {"jewel", CURRENCY_JEWELLERS_ORB},
-    {"jewels", CURRENCY_JEWELLERS_ORB},
-    {"jeweler", CURRENCY_JEWELLERS_ORB},
-    {"jewelers", CURRENCY_JEWELLERS_ORB},
-    {"mir", CURRENCY_MIRROR_OF_KALANDRA},
-    {"mirror", CURRENCY_MIRROR_OF_KALANDRA},
-    {"p", CURRENCY_PERANDUS_COIN},
-    {"perandus", CURRENCY_PERANDUS_COIN},
-    {"regal", CURRENCY_REGAL_ORB},
-    {"regals", CURRENCY_REGAL_ORB},
-    {"regret", CURRENCY_ORB_OF_REGRET},
-    {"regrets", CURRENCY_ORB_OF_REGRET},
-    {"scour", CURRENCY_ORB_OF_SCOURING},
-    {"scours", CURRENCY_ORB_OF_SCOURING},
-    {"scouring", CURRENCY_ORB_OF_SCOURING},
-    {"shekel", CURRENCY_PERANDUS_COIN},
-    {"vaal", CURRENCY_VAAL_ORB},
-    {"silver", CURRENCY_SILVER_COIN},
-};
+} // namespace
 
-std::vector<Currency::CurrencyType> Currency::Types()
+CurrencyTable::CurrencyTable(std::vector<CurrencyInfo> rows)
+    : m_rows(std::move(rows))
+{}
+
+const CurrencyTable &CurrencyTable::Default()
 {
-    std::vector<Currency::CurrencyType> tmp;
-    for (unsigned int i = 0; i < m_currency_type_as_tag.size(); i++) {
-        tmp.push_back(static_cast<CurrencyType>(i));
+    // The first 19 rows are the currencies the application has always had,
+    // in their old order, with their stored tags; the history is positional,
+    // so new currencies are appended. The words include the game's own
+    // (trade-ground-truth T9). Ranks are the old ones, except that Divine
+    // ranks above Exalted since the 3.25 swap (#38). Wisdom values are the
+    // currency dialog's (Scroll of Wisdom equivalents). Only the first 19
+    // are choosable for a price: nothing says the forum reads the others'
+    // words (T32: the trade site does not read `facetors` at all).
+    // clang-format off
+    static const CurrencyTable table({
+        {"alt", "Orb of Alteration", {"alt", "alts", "alteration", "alterations"}, 2, 0, true},
+        {"fuse", "Orb of Fusing", {"fusing", "fuse", "fuses", "fusings"}, 7, 0, true},
+        {"alch", "Orb of Alchemy", {"alch", "alchs", "alchemy"}, 8, 0, true},
+        {"chaos", "Chaos Orb", {"chaos"}, 11, 0, true},
+        {"gcp", "Gemcutter's Prism", {"gcp", "gcps", "gemcutter", "gemcutters"}, 15, 0, true},
+        {"exa", "Exalted Orb", {"exalted", "exa"}, 16, 0, true},
+        {"chrom", "Chromatic Orb", {"chrome", "chrom", "chromes", "chromatic", "chromatics"}, 1, 0, true},
+        {"jew", "Jeweller's Orb", {"jewellers", "jew", "jewel", "jewels", "jeweler", "jewelers"}, 3, 0, true},
+        {"chance", "Orb of Chance", {"chance"}, 4, 0, true},
+        {"chisel", "Cartographer's Chisel", {"chisel", "chisels", "cartographer", "cartographers"}, 5, 0, true},
+        {"scour", "Orb of Scouring", {"scour", "scours", "scouring"}, 10, 0, true},
+        {"blessed", "Blessed Orb", {"blessed"}, 9, 0, true},
+        {"regret", "Orb of Regret", {"regret", "regrets"}, 12, 0, true},
+        {"regal", "Regal Orb", {"regal", "regals"}, 13, 0, true},
+        {"divine", "Divine Orb", {"divine", "divines"}, 17, 0, true},
+        {"vaal", "Vaal Orb", {"vaal"}, 14, 0, true},
+        {"coin", "Perandus Coin", {"coin", "coins", "perandus", "p", "shekel"}, 6, 0, true},
+        {"mirror", "Mirror of Kalandra", {"mirror", "mir"}, 18, 0, true},
+        {"silver", "Silver Coin", {"silver"}, 19, 0, true},
+        // Added from T9, to read notes: the tag is the game's word.
+        {"annul", "Orb of Annulment", {"annul"}, kUnrankedRank, 0, false},
+        {"aug", "Orb of Augmentation", {"aug"}, kUnrankedRank, 0, false},
+        {"transmute", "Orb of Transmutation", {"transmute"}, kUnrankedRank, 4, false},
+        {"wisdom", "Scroll of Wisdom", {"wisdom"}, kUnrankedRank, 1, false},
+        {"portal", "Portal Scroll", {"portal"}, kUnrankedRank, 1, false},
+        {"scrap", "Armourer's Scrap", {"scrap"}, kUnrankedRank, 2, false},
+        {"whetstone", "Blacksmith's Whetstone", {"whetstone"}, kUnrankedRank, 4, false},
+        {"bauble", "Glassblower's Bauble", {"bauble"}, kUnrankedRank, 0, false},
+        {"offer", "Offering to the Goddess", {"offer"}, kUnrankedRank, 0, false},
+        {"offer-dedication", "Dedication to the Goddess", {"offer-dedication"}, kUnrankedRank, 0, false},
+        {"offer-gift", "Gift to the Goddess", {"offer-gift"}, kUnrankedRank, 0, false},
+        {"offer-tribute", "Tribute to the Goddess", {"offer-tribute"}, kUnrankedRank, 0, false},
+        {"lesser-ember", "Lesser Eldritch Ember", {"lesser-ember"}, kUnrankedRank, 0, false},
+        {"greater-ember", "Greater Eldritch Ember", {"greater-ember"}, kUnrankedRank, 0, false},
+        {"grand-ember", "Grand Eldritch Ember", {"grand-ember"}, kUnrankedRank, 0, false},
+        {"excep-ember", "Exceptional Eldritch Ember", {"excep-ember"}, kUnrankedRank, 0, false},
+        {"lesser-echor", "Lesser Eldritch Ichor", {"lesser-echor"}, kUnrankedRank, 0, false},
+        {"greater-echor", "Greater Eldritch Ichor", {"greater-echor"}, kUnrankedRank, 0, false},
+        {"grand-echor", "Grand Eldritch Ichor", {"grand-echor"}, kUnrankedRank, 0, false},
+        {"excep-echor", "Exceptional Eldritch Ichor", {"excep-echor"}, kUnrankedRank, 0, false},
+        {"facetors", "Facetor's Lens", {"facetors"}, kUnrankedRank, 0, false},
+        {"engineers", "Engineer's Orb", {"engineers"}, kUnrankedRank, 0, false},
+        {"infused-engineers-orb", "Infused Engineer's Orb", {"infused-engineers-orb"}, kUnrankedRank, 0, false},
+    });
+    // clang-format on
+    return table;
+}
+
+std::optional<size_t> CurrencyTable::findTag(QStringView tag) const
+{
+    for (size_t row = 0; row < m_rows.size(); ++row) {
+        if (m_rows[row].tag == tag) {
+            return row;
+        }
     }
-    return tmp;
+    return std::nullopt;
+}
+
+std::optional<size_t> CurrencyTable::findWord(QStringView word) const
+{
+    for (size_t row = 0; row < m_rows.size(); ++row) {
+        for (const QString &known : m_rows[row].words) {
+            if (word.compare(known, Qt::CaseInsensitive) == 0) {
+                return row;
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+Currency Currency::AtRow(size_t row)
+{
+    return Currency(static_cast<CurrencyType>(row + 1));
 }
 
 Currency Currency::FromTag(const QString &tag)
 {
-    auto &m = m_currency_type_as_tag;
-    auto const &it = std::find_if(m.begin(),
-                                  m.end(),
-                                  [&](Currency::TypeStringMap::value_type const &x) {
-                                      return x.second == tag;
-                                  });
-    return Currency((it != m.end()) ? it->first : CURRENCY_NONE);
+    const auto row = CurrencyTable::Default().findTag(tag);
+    return row ? AtRow(*row) : Currency();
 }
 
-Currency Currency::FromIndex(int index)
+Currency Currency::FromWord(QStringView word)
 {
-    if (static_cast<unsigned int>(index) >= m_currency_type_as_tag.size()) {
-        spdlog::warn(
-            "Currency type index out of bounds: {}. This should never happen - please report.",
-            index);
-        return CURRENCY_NONE;
-    } else {
-        return Currency(static_cast<CurrencyType>(index));
+    const auto &table = CurrencyTable::Default();
+    auto row = table.findWord(word);
+    if (!row) {
+        const qsizetype hyphen = word.indexOf(u'-');
+        if (hyphen > 0) {
+            row = table.findWord(word.first(hyphen));
+        }
     }
+    return row ? AtRow(*row) : Currency();
 }
 
-Currency Currency::FromString(const QString &currency)
+const CurrencyInfo *Currency::Info() const
 {
-    auto const &it = m_string_to_currency_type.find(currency);
-    if (it != m_string_to_currency_type.end()) {
-        return it->second;
+    const auto &table = CurrencyTable::Default();
+    const int row = static_cast<int>(type) - 1;
+    if ((row < 0) || (static_cast<size_t>(row) >= table.size())) {
+        return nullptr;
     }
-    return CURRENCY_NONE;
+    return &table.at(static_cast<size_t>(row));
 }
 
 const QString &Currency::AsString() const
 {
-    auto const &it = m_currency_type_as_string.find(type);
-    if (it != m_currency_type_as_string.end()) {
-        return it->second;
-    } else {
-        spdlog::warn("No mapping from currency type: {} to string. This should never happen - "
-                     "please report.",
-                     type);
-        return m_currency_type_error;
-    }
+    const CurrencyInfo *info = Info();
+    return info ? info->name : kEmpty;
 }
 
 const QString &Currency::AsTag() const
 {
-    auto const &it = m_currency_type_as_tag.find(type);
-    if (it != m_currency_type_as_tag.end()) {
-        return it->second;
-    } else {
-        spdlog::warn(
-            "No mapping from currency type: {} to tag. This should never happen - please report.",
-            type);
-        return m_currency_type_error;
-    }
+    const CurrencyInfo *info = Info();
+    return info ? info->tag : kEmpty;
 }
 
-const int &Currency::AsRank() const
+int Currency::AsRank() const
 {
-    return m_currency_type_as_rank.at(type);
+    const CurrencyInfo *info = Info();
+    return info ? info->rank : 0;
+}
+
+int Currency::SortKey() const
+{
+    const CurrencyInfo *info = Info();
+    if (!info) {
+        return -1;
+    }
+    // Ranks differ between ranked currencies, so the row only orders the
+    // unranked ones among themselves (kUnrankedRank), in table order.
+    return (info->rank * 1000) + (static_cast<int>(type) - 1);
 }

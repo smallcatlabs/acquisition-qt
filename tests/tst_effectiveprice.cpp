@@ -207,7 +207,10 @@ void EffectivePriceTest::readersAgree_data()
     QTest::addColumn<bool>("delta");      // the second pass is a tab delta
     addExpectedColumns();
 
-    const int chaos = Currency(Currency::CURRENCY_CHAOS_ORB).AsRank();
+    // The Price column's sort key: the currency's (SortKey), and below
+    // every currency for none.
+    const int chaos = Currency(Currency::CURRENCY_CHAOS_ORB).SortKey();
+    const int nokey = Currency().SortKey();
     const int none = -1;
     const int bo = Buyout::BUYOUT_TYPE_BUYOUT;
     using PS = PriceSource;
@@ -215,7 +218,7 @@ void EffectivePriceTest::readersAgree_data()
     //                                           tab name            tab   note             item   delta
     //   text            grey   rank   value  dated  head     priced locked refresh source           postable
     QTest::newRow("nothing")                  << "Dump"          << 0.0 << ""             << none << false
-        << ""            << true  << 0     << 0.0 << false << "null"  << false << false << false << PS::None       << false;
+        << ""            << true  << nokey << 0.0 << false << "null"  << false << false << false << PS::None       << false;
     QTest::newRow("note")                     << "Dump"          << 0.0 << "~b/o 5 chaos" << none << false
         << "b/o 5 chaos" << false << chaos << 5.0 << false << "null"   << true  << true  << true  << PS::Note       << false;
     QTest::newRow("manual item")              << "Dump"          << 0.0 << ""             << bo   << false
@@ -246,9 +249,9 @@ void EffectivePriceTest::readersAgree_data()
     QTest::newRow("tab name, manual tab")     << "~price 2 chaos" << 3.0 << ""            << none << false
         << "price 2 chaos" << true << chaos << 2.0 << false << "null"  << true  << true  << true  << PS::TabName    << false;
     QTest::newRow("no price")                 << "Dump"          << 0.0 << ""             << int(Buyout::BUYOUT_TYPE_NO_PRICE) << false
-        << "no price"    << false << 0     << 0.0 << true  << "fixed" << true  << false << true  << PS::ManualItem << true;
+        << "no price"    << false << nokey << 0.0 << true  << "fixed" << true  << false << true  << PS::ManualItem << true;
     QTest::newRow("ignore")                   << "Dump"          << 0.0 << ""             << int(Buyout::BUYOUT_TYPE_IGNORE) << false
-        << "[ignore]"    << false << 0     << 0.0 << true  << "fixed" << true  << false << false << PS::ManualItem << false;
+        << "[ignore]"    << false << nokey << 0.0 << true  << "fixed" << true  << false << false << PS::ManualItem << false;
     // The per-delta pass (ApplyScopedPricing) as the second pass.
     QTest::newRow("note, delta")              << "Dump"          << 0.0 << "~b/o 5 chaos" << none << true
         << "b/o 5 chaos" << false << chaos << 5.0 << false << "null"   << true  << true  << true  << PS::Note       << false;
@@ -298,6 +301,7 @@ void EffectivePriceTest::readersAgree()
 // price (left behind, say, by an item absent when the tab was cleared).
 void EffectivePriceTest::seededRowsReadAsBefore_data()
 {
+    const int nokey = Currency().SortKey();
     QTest::addColumn<QString>("type");
     QTest::addColumn<QString>("row_source");
     QTest::addColumn<bool>("inherited");
@@ -307,13 +311,13 @@ void EffectivePriceTest::seededRowsReadAsBefore_data()
     using PS = PriceSource;
     // clang-format off
     QTest::newRow("manual inherit row")  << "" << "manual" << false << 0.0
-        << ""            << true  << 0     << 0.0 << false << "fixed" << false << false << false << PS::None      << false;
+        << ""            << true  << nokey << 0.0 << false << "fixed" << false << false << false << PS::None      << false;
     // Since #293 step 3 a game row is not loaded at all.
     QTest::newRow("game inherit row")    << "" << "game"   << false << 0.0
-        << ""            << true  << 0     << 0.0 << false << "null"  << false << false << false << PS::None      << false;
+        << ""            << true  << nokey << 0.0 << false << "null"  << false << false << false << PS::None      << false;
     // Since #293 step 2 an inherited copy is not loaded at all.
     QTest::newRow("left-behind inherited copy") << "b/o" << "manual" << true << 3.0
-        << ""            << true  << 0     << 0.0 << false << "null"  << false << false << false << PS::None      << false;
+        << ""            << true  << nokey << 0.0 << false << "null"  << false << false << false << PS::None      << false;
     // clang-format on
 }
 

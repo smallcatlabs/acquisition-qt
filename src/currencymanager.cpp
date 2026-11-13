@@ -33,6 +33,11 @@ CurrencyManager::CurrencyManager(QSettings &settings,
     , m_data(datastore)
     , m_items_manager(items_manager)
 {
+    for (const CurrencyInfo &row : CurrencyTable::Default().rows()) {
+        if (row.wisdom > 0) {
+            m_wisdom.push_back(WisdomCount{.name = row.name, .wisdom = row.wisdom, .count = 0});
+        }
+    }
     if (m_data.Get("currency_items", "").isEmpty()) {
         FirstInitCurrency();
         if (!m_data.Get("currency_base", "").isEmpty()) {
@@ -91,8 +96,8 @@ double CurrencyManager::TotalChaosValue()
 int CurrencyManager::TotalWisdomValue()
 {
     int out = 0;
-    for (unsigned int i = 0; i < m_wisdoms.size(); i++) {
-        out += m_wisdoms[i] * CurrencyWisdomValue[i];
+    for (const WisdomCount &row : m_wisdom) {
+        out += row.count * row.wisdom;
     }
     return out;
 }
@@ -102,29 +107,36 @@ void CurrencyManager::ClearCurrency()
     for (auto &currency : m_currencies) {
         currency->count = 0;
     }
-    for (auto &wisdom : m_wisdoms) {
-        wisdom = 0;
+    for (WisdomCount &row : m_wisdom) {
+        row.count = 0;
     }
 }
+
+void CurrencyManager::MakeCurrencyItems()
+{
+    const auto &table = CurrencyTable::Default();
+    m_currencies.clear();
+    for (size_t row = 0; row < table.size(); ++row) {
+        if (table.at(row).choosable) {
+            m_currencies.push_back(std::make_shared<CurrencyItem>(0, Currency::AtRow(row), 1, 1));
+        }
+    }
+}
+
 void CurrencyManager::InitCurrency()
 {
-    m_currencies.clear();
-    for (auto type : Currency::Types()) {
-        m_currencies.push_back(std::make_shared<CurrencyItem>(0, Currency(type), 1, 1));
-    }
+    MakeCurrencyItems();
     Deserialize(m_data.Get("currency_items"), m_currencies);
 }
 
 void CurrencyManager::FirstInitCurrency()
 {
-    QString value = "";
-    //Dummy items + dummy currency_last_value
-    //TODO : can i get the size of the Currency enum ??
-    for (auto type : Currency::Types()) {
-        m_currencies.push_back(std::make_shared<CurrencyItem>(0, Currency(type), 1, 1));
-        value += "0;";
+    MakeCurrencyItems();
+    // A placeholder last value: the total, then a count per currency.
+    QString value = "0";
+    for (size_t row = 0; row < m_currencies.size(); ++row) {
+        value += ";0";
     }
-    value.chop(1); // Remove the last ";"
     m_data.Set("currency_items", Serialize(m_currencies));
     m_data.Set("currency_last_value", value);
     m_settings.setValue("show_chaos", true);
@@ -133,11 +145,14 @@ void CurrencyManager::FirstInitCurrency()
 
 void CurrencyManager::MigrateCurrency()
 {
-    QStringList list = m_data.Get("currency_base").split(';');
-    for (unsigned int i = 0; i < list.size(); i++) {
+    // The old list is positional over the old currency enum, whose first
+    // entry was "no currency": entry i is table row i - 1.
+    const QStringList list = m_data.Get("currency_base").split(';');
+    for (qsizetype i = 1; (i < list.size()) && (static_cast<size_t>(i - 1) < m_currencies.size());
+         ++i) {
         // We can't use the toDouble function from QT, because it encodes a double with a ","
         // Might be related to localisation issue, but anyway it's safer this way
-        m_currencies[i]->exalt.value1 = list[i].toDouble();
+        m_currencies[static_cast<size_t>(i - 1)]->exalt.value1 = list[i].toDouble();
     }
     //Set to empty so we won't trigger it next time !
     m_data.Set("currency_base", "");
@@ -207,9 +222,7 @@ void CurrencyManager::SaveCurrencyValue()
     bool empty = true;
     value = QString::number(TotalExaltedValue());
     for (auto &currency : m_currencies) {
-        if (currency->name != "") {
-            value += ";" + std::to_string(currency->count);
-        }
+        value += ";" + QString::number(currency->count);
         if (currency->count != 0) {
             empty = false;
         }
@@ -233,11 +246,8 @@ void CurrencyManager::ExportCurrency(const QString &file_name)
         return;
     }
     QString header_csv = "Date,Total value";
-    for (auto &item : m_currencies) {
-        auto &label = item->currency.AsString();
-        if (label != "") {
-            header_csv += "," + label;
-        }
+    for (const auto &item : m_currencies) {
+        header_csv += "," + item->currency.AsString();
     }
     std::vector<CurrencyUpdate> result = m_data.GetAllCurrency();
     QFile file(QDir::toNativeSeparators(file_name));
@@ -257,15 +267,14 @@ void CurrencyManager::ExportCurrency(const QString &file_name)
 
 void CurrencyManager::ParseSingleItem(const Item &item)
 {
-    for (unsigned int i = 0; i < m_currencies.size(); i++) {
-        if (item.PrettyName() == m_currencies[i]->name) {
-            m_currencies[i]->count += item.count();
+    for (auto &currency : m_currencies) {
+        if (item.PrettyName() == currency->name) {
+            currency->count += item.count();
         }
     }
-
-    for (unsigned int i = 0; i < m_wisdoms.size(); i++) {
-        if (item.PrettyName() == CurrencyForWisdom[i]) {
-            m_wisdoms[i] += item.count();
+    for (WisdomCount &row : m_wisdom) {
+        if (item.PrettyName() == row.name) {
+            row.count += item.count();
         }
     }
 }

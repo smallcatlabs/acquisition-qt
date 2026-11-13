@@ -98,17 +98,80 @@ is found on one.
 
 ### Currencies
 
-Alteration, Fusing, Alchemy, Chaos, Gemcutter's Prism, Exalted, Chromatic,
-Jeweller's, Chance, Cartographer's Chisel, Scouring, Blessed, Regret, Regal,
-Divine, Vaal, Perandus Coin, Mirror of Kalandra, Silver Coin. The forum tags are
-the usual short forms (`chaos`, `exa`, `divine`, `fuse`, …).
+You can set a price in these currencies. The *Tag* is the word Acquisition
+posts to the forum shop; a price note may also name the currency by any of
+the *Note words*, in any case.
+
+| Currency | Tag | Note words |
+|---|---|---|
+| Orb of Alteration | `alt` | alt, alts, alteration, alterations |
+| Orb of Fusing | `fuse` | fusing, fuse, fuses, fusings |
+| Orb of Alchemy | `alch` | alch, alchs, alchemy |
+| Chaos Orb | `chaos` | chaos |
+| Gemcutter's Prism | `gcp` | gcp, gcps, gemcutter, gemcutters |
+| Exalted Orb | `exa` | exalted, exa |
+| Chromatic Orb | `chrom` | chrome, chrom, chromes, chromatic, chromatics |
+| Jeweller's Orb | `jew` | jewellers, jew, jewel, jewels, jeweler, jewelers |
+| Orb of Chance | `chance` | chance |
+| Cartographer's Chisel | `chisel` | chisel, chisels, cartographer, cartographers |
+| Orb of Scouring | `scour` | scour, scours, scouring |
+| Blessed Orb | `blessed` | blessed |
+| Orb of Regret | `regret` | regret, regrets |
+| Regal Orb | `regal` | regal, regals |
+| Divine Orb | `divine` | divine, divines |
+| Vaal Orb | `vaal` | vaal |
+| Perandus Coin | `coin` | coin, coins, perandus, p, shekel |
+| Mirror of Kalandra | `mirror` | mirror, mir |
+| Silver Coin | `silver` | silver |
+
+Notes written in the game may also name the currencies below; Acquisition
+reads such a price, but you cannot choose these currencies for a price of
+your own, because the forum shop is not known to read their words.
+
+| Currency | Note word |
+|---|---|
+| Orb of Annulment | annul |
+| Orb of Augmentation | aug |
+| Orb of Transmutation | transmute |
+| Scroll of Wisdom | wisdom |
+| Portal Scroll | portal |
+| Armourer's Scrap | scrap |
+| Blacksmith's Whetstone | whetstone |
+| Glassblower's Bauble | bauble |
+| Offering to the Goddess | offer |
+| Dedication to the Goddess | offer-dedication |
+| Gift to the Goddess | offer-gift |
+| Tribute to the Goddess | offer-tribute |
+| Lesser Eldritch Ember | lesser-ember |
+| Greater Eldritch Ember | greater-ember |
+| Grand Eldritch Ember | grand-ember |
+| Exceptional Eldritch Ember | excep-ember |
+| Lesser Eldritch Ichor | lesser-echor |
+| Greater Eldritch Ichor | greater-echor |
+| Grand Eldritch Ichor | grand-echor |
+| Exceptional Eldritch Ichor | excep-echor |
+| Facetor's Lens | facetors |
+| Engineer's Orb | engineers |
+| Infused Engineer's Orb | infused-engineers-orb |
+
+A note word followed by a hyphen and more text, such as `chaos-each`, is read
+as the word before the hyphen.
+
+The *Price* column sorts by currency first: Silver Coin highest, then Mirror
+of Kalandra, Divine Orb, Exalted Orb, and so on down to Chromatic Orb. The
+currencies only read from notes have no rank of their own yet; they sort
+below all the others, in the order of the second table.
+
+A price in a currency this version does not know (stored by a newer
+version, say) is shown but not posted to the forum shop.
 
 ## Prices set in the game
 
 If a stash tab's name, or an item's note, contains a trade-site price string such
-as `~b/o 5 chaos` or `~price 1 divine`, Acquisition shows it as a buyout with
-source *game*. Game-sourced prices are **locked**: you cannot change them in
-Acquisition, because the game's price wins. Edit the tab name or item note in
+as `~b/o 5 chaos` or `~price 1 divine`, naming the currency by one of its note
+words (see *Currencies*), Acquisition shows it as a buyout with source *game*.
+Game-sourced prices are **locked**: you cannot change them in Acquisition,
+because the game's price wins, and they are never posted to the forum shop. Edit the tab name or item note in
 the game instead. Acquisition reads these prices from the game on every
 refresh and does not store them, so they have no *Last Update*. A price you
 set in Acquisition is kept underneath: when the note or the priced tab name is

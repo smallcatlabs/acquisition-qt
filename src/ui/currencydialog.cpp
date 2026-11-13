@@ -109,11 +109,9 @@ CurrencyDialog::CurrencyDialog(QSettings &settings, CurrencyManager &manager, QW
     , m_currency_manager(manager)
 {
     m_headers = std::make_unique<CurrencyLabels>(this);
+    // One row per currency in the table (the manager keeps them in table
+    // order).
     for (auto &curr : m_currency_manager.currencies()) {
-        // The "no currency" entry has no row (#285).
-        if (curr->currency == Currency::CURRENCY_NONE) {
-            continue;
-        }
         CurrencyWidget *tmp = new CurrencyWidget(curr, this);
         // The row's own handler has written the edited ratio into the
         // manager's item by now (it connected first): total it, and save it
