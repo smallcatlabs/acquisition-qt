@@ -15,7 +15,6 @@
 #include <QTimer>
 
 #include <clocale>
-#include <cstdio>
 #include <cstdlib>
 #include <optional>
 #include <string_view>
@@ -104,22 +103,6 @@ constexpr const char *CRASHPAD_HANDLER = "crashpad_handler.exe";
 constexpr const char *CRASHPAD_HANDLER = "crashpad_handler";
 #endif
 
-// What Qt found for TLS: the backends its plugins provide, the one in use, and
-// whether that one can make an encrypted connection. Logged when SSL support is
-// missing, and printed by --check-tls, so a package without a working backend
-// says which part is absent (#370).
-static QString TlsReport()
-{
-    return QString("TLS backends available: %1\n"
-                   "TLS backend active: %2\n"
-                   "SSL supported: %3\n"
-                   "SSL library: %4")
-        .arg(QSslSocket::availableBackends().join(", "),
-             QSslSocket::activeBackend(),
-             QSslSocket::supportsSsl() ? "yes" : "no",
-             QSslSocket::sslLibraryVersionString());
-}
-
 int main(int argc, char *argv[])
 {
     // Make sure resources from the static qdarkstyle library are available.
@@ -154,28 +137,12 @@ int main(int argc, char *argv[])
     option_log_level.setDescription("How much to log.");
     option_log_level.setValueName("log-level");
 
-    QCommandLineOption option_check_tls("check-tls");
-    option_check_tls.setDescription(
-        "Print the TLS backends Qt found and exit; the exit status is 1 when "
-        "SSL is not supported.");
-
     QCommandLineParser parser;
     parser.addHelpOption();
     parser.addVersionOption();
     parser.addOption(option_data_dir);
     parser.addOption(option_log_level);
-    parser.addOption(option_check_tls);
     parser.process(a);
-
-    // The packaging workflows run the packaged binary with this option, so a
-    // package whose Qt has no working TLS backend fails its build instead of
-    // failing at a user's start-up. It answers before the data directory,
-    // settings, crash reporting or logging are touched.
-    if (parser.isSet(option_check_tls)) {
-        std::fputs(qPrintable(TlsReport() + '\n'), stdout);
-        std::fflush(stdout);
-        return QSslSocket::supportsSsl() ? EXIT_SUCCESS : EXIT_FAILURE;
-    }
 
     // Setup the data dir, which is where the log will be written.
     const auto appDir = QDir(QCoreApplication::applicationDirPath());
@@ -294,12 +261,11 @@ int main(int argc, char *argv[])
         const QString message = "SSL support is missing.";
 #endif
         spdlog::critical(message);
-        spdlog::critical("{}", TlsReport());
         QMessageBox::critical(nullptr, "Acquisition", message);
         return EXIT_FAILURE;
     }
     spdlog::trace("SSL Library Build Version: {}", QSslSocket::sslLibraryBuildVersionString());
-    spdlog::debug("{}", TlsReport());
+    spdlog::trace("SSL Library Version: {}", QSslSocket::sslLibraryVersionString());
 
     // Run the main application, starting with the login dialog.
     spdlog::info("Running application...");
