@@ -108,13 +108,6 @@ public:
     void SetStashTabLocations(const std::vector<ItemLocation> &tabs);
     const std::vector<ItemLocation> &GetStashTabLocations() const;
 
-    // The prices the game sets are never stored (#293). A note's is parsed
-    // with its item (Item::note_price); a tab name's is parsed here, from
-    // the tab list the final pass publishes (D7), and looked up by tab id.
-    // ObserveNotePrices reports items whose note price changed, so the
-    // model repaints and re-sorts them as it did when the price was stored.
-    void ObserveNotePrices(const Items &items);
-
     void Save();
     void ReloadBuyouts();
 
@@ -168,8 +161,6 @@ private:
 
     // Tab-name prices by tab id, from the published tab list.
     std::unordered_map<QString, Buyout> m_tab_name_prices;
-    // The note price last seen per item id, only to tell what changed.
-    std::unordered_map<QString, Buyout> m_seen_note_prices;
 };
 
 // Scoped batch boundary (M3 S2): user commands and pricing passes hold one

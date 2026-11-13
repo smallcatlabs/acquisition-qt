@@ -118,7 +118,6 @@ void ItemsManager::OnItemsRefreshed(const Items &items,
         const BuyoutBatch snapshot_batch(m_buyout_manager);
         m_buyout_manager.SetStashTabLocations(tabs);
         m_buyout_manager.CompressTabBuyouts();
-        m_buyout_manager.ObserveNotePrices(m_items.Flat());
         PropagateTabBuyouts();
     }
 
@@ -169,14 +168,10 @@ void ItemsManager::OnChildrenReconciled(const ItemLocation &parent,
 
 void ItemsManager::ApplyScopedPricing(const Items &delta_items)
 {
-    // The scoped per-delta pass batches like the final passes (M3 R1-6):
-    // one model update per pass, never one per Set.
-    const BuyoutBatch batch(m_buyout_manager);
     // Scoped per-delta pricing (D7), restricted to steps that are safe on
     // BOTH update outcomes (R1-4) — an update can end without a final pass.
-    // A note's price comes with its item (#293); what is left is to report
-    // the items whose note price changed, and to lock their tabs.
-    m_buyout_manager.ObserveNotePrices(delta_items);
+    // A note's price comes with its item (#293), and the delta's rows are
+    // rebuilt from the new items; what is left is to lock their tabs.
     for (const auto &item : delta_items) {
         // Monotone refresh-lock additions only — ClearRefreshLocks stays
         //    exclusive to the final pass. Fail-safe in the right direction:

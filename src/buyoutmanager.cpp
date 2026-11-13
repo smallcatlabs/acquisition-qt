@@ -210,27 +210,6 @@ std::vector<std::pair<std::shared_ptr<Item>, Buyout>> BuyoutManager::PostablePri
     return postable;
 }
 
-void BuyoutManager::ObserveNotePrices(const Items &items)
-{
-    const BuyoutBatch batch(*this);
-    for (const auto &item : items) {
-        const Buyout &price = item->note_price();
-        const auto seen = m_seen_note_prices.find(item->id());
-        if (seen == m_seen_note_prices.end()) {
-            if (price.IsActive()) {
-                m_seen_note_prices.emplace(item->id(), price);
-                RecordChange(ChangeScope::Item, item->id());
-            }
-        } else if (!price.IsActive()) {
-            m_seen_note_prices.erase(seen);
-            RecordChange(ChangeScope::Item, item->id());
-        } else if (seen->second != price) {
-            seen->second = price;
-            RecordChange(ChangeScope::Item, item->id());
-        }
-    }
-}
-
 Buyout BuyoutManager::GetTab(const ItemLocation &location) const
 {
     const QString tab = location.id();

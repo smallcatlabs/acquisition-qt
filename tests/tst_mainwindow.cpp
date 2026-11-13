@@ -107,6 +107,8 @@ private slots:
     void priceKeysFollowBuyoutEdits();
     void multiSelectionBuyoutEditReordersOnce();
     void pricingPassYieldsSingleModelUpdate();
+    void notePriceFollowsTheDelta_data();
+    void notePriceFollowsTheDelta();
     void snapshotPricingSequenceEmitsOneModelBatch();
     void priceCellsRepaintUnderAnySortColumn();
     void buyoutRepaintCoversEveryVisibleOccurrence();
@@ -1609,7 +1611,9 @@ void MainWindowTest::pricingPassYieldsSingleModelUpdate()
     probes.reset();
     probes.enabled = true;
 
-    // The scoped pass: a delta whose notes price three items is one batch.
+    // The scoped pass: a delta whose notes price three items writes no
+    // price (#293: a note's is read from the item, and the delta's rows are
+    // rebuilt), so it updates nothing through the buyout batch.
     Items delta;
     delta.push_back(makeMainWindowItemWithNote("item-a", "Alpha", "Sword", tabA, "~b/o 5 chaos"));
     delta.push_back(makeMainWindowItemWithNote("item-b", "Bravo", "Sword", tabA, "~b/o 3 chaos"));
@@ -1618,7 +1622,7 @@ void MainWindowTest::pricingPassYieldsSingleModelUpdate()
     delta.push_back(makeMainWindowItem("item-e", "Echo", "Sword", tabA));
     probes.reset();
     fixture.itemsManager->OnTabRefreshed(tabA, delta);
-    QCOMPARE(probes.model_updates, 1);
+    QCOMPARE(probes.model_updates, 0);
 
     // A tab price reaches the two items without their own price as one
     // change to the tab (#293: nothing is copied onto them), one batch; the
@@ -1667,6 +1671,79 @@ void MainWindowTest::snapshotPricingSequenceEmitsOneModelBatch()
 // M3 R1-6, rule 5: with Name active, a buyout batch emits dataChanged for
 // the affected visible Price/Date cells and performs no reordering — cell
 // repaint is independent of the active sort column.
+// A note's price is read from the item (#293), and a refresh delta
+// brings new items: the rows they replace are rebuilt, so a note added,
+// changed or removed shows and sorts at once, in either view, with no
+// separate notice that the price changed.
+void MainWindowTest::notePriceFollowsTheDelta_data()
+{
+    QTest::addColumn<bool>("by_item");
+    QTest::newRow("By Tab") << false;
+    QTest::newRow("By Item") << true;
+}
+
+void MainWindowTest::notePriceFollowsTheDelta()
+{
+    QFETCH(bool, by_item);
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    auto *viewCombo = fixture.window->findChild<QComboBox *>("viewComboBox");
+    QVERIFY(tree);
+    QVERIFY(viewCombo);
+
+    const ItemLocation tabA = makeTestStashLocation("stash-alpha", "Alpha Tab", 0);
+    const auto withNote = [&](const char *id, const char *name, const char *note) {
+        return makeMainWindowItemWithNote(id, name, "Sword", tabA, note);
+    };
+    Items items;
+    items.push_back(withNote("item-a", "Alpha", "~b/o 1 chaos"));
+    items.push_back(withNote("item-b", "Bravo", "~b/o 2 chaos"));
+    items.push_back(withNote("item-c", "Charlie", "~b/o 3 chaos"));
+    fixture.itemsManager->OnItemsRefreshed(items, {tabA}, false);
+    // Alpha also has a price of its own, set in Acquisition, under its note.
+    QVERIFY(fixture.buyoutFixture.manager->Set(*items[0], makeChaosBuyout(2.5)));
+
+    tree->header()->setSortIndicator(1, Qt::AscendingOrder);
+    auto *model = tree->model();
+    QModelIndex bucket;
+    if (by_item) {
+        viewCombo->setCurrentIndex(1);
+        emit viewCombo->activated(1);
+        bucket = model->index(0, 0);
+    } else {
+        bucket = findBucket(*model, tabA.GetHeader());
+        tree->expand(bucket);
+    }
+    QVERIFY(bucket.isValid());
+    QCOMPARE(bucketItemNames(*model, bucket),
+             QStringList({"Alpha Sword", "Bravo Sword", "Charlie Sword"}));
+
+    // The delta changes Alpha's note.
+    Items changed;
+    changed.push_back(withNote("item-a", "Alpha", "~b/o 9 chaos"));
+    changed.push_back(withNote("item-b", "Bravo", "~b/o 2 chaos"));
+    changed.push_back(withNote("item-c", "Charlie", "~b/o 3 chaos"));
+    fixture.itemsManager->OnTabRefreshed(tabA, changed);
+    QCOMPARE(bucketItemNames(*model, bucket),
+             QStringList({"Bravo Sword", "Charlie Sword", "Alpha Sword"}));
+    QVERIFY(
+        findItemRow(*model, bucket, "Alpha Sword").siblingAtColumn(1).data().toString().contains("9"));
+
+    // The next delta removes it: Alpha's own price shows again.
+    Items removed;
+    removed.push_back(makeMainWindowItem("item-a", "Alpha", "Sword", tabA));
+    removed.push_back(withNote("item-b", "Bravo", "~b/o 2 chaos"));
+    removed.push_back(withNote("item-c", "Charlie", "~b/o 3 chaos"));
+    fixture.itemsManager->OnTabRefreshed(tabA, removed);
+    QCOMPARE(bucketItemNames(*model, bucket),
+             QStringList({"Bravo Sword", "Alpha Sword", "Charlie Sword"}));
+    QVERIFY(findItemRow(*model, bucket, "Alpha Sword")
+                .siblingAtColumn(1)
+                .data()
+                .toString()
+                .contains("2.5"));
+}
+
 void MainWindowTest::priceCellsRepaintUnderAnySortColumn()
 {
     MainWindowFixture fixture;
