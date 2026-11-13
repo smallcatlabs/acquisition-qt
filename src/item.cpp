@@ -153,6 +153,7 @@ Item::Item(const poe::Item &item, const ItemLocation &base_location)
     }
     if (item.note) {
         m_note = *item.note;
+        m_note_price = ParseGamePrice(m_note);
     }
 
     if (item.properties) {

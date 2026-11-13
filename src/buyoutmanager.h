@@ -9,6 +9,7 @@
 #include <QObject>
 #include <QString>
 
+#include <optional>
 #include <set>
 #include <unordered_map>
 
@@ -90,7 +91,8 @@ public:
     EffectivePrice Effective(const Item &item) const;
     EffectivePrice EffectiveTab(const ItemLocation &location) const;
     // The forum shop's input: each item whose price in force may be posted,
-    // with that price, by value (M2 D8).
+    // with that price, by value (M2 D8). No copy of an id is posted while the
+    // game prices any copy of it.
     std::vector<std::pair<std::shared_ptr<Item>, Buyout>> PostablePrices(const Items &items) const;
 
     void CompressTabBuyouts();
@@ -107,8 +109,6 @@ public:
 
     void SetStashTabLocations(const std::vector<ItemLocation> &tabs);
     const std::vector<ItemLocation> &GetStashTabLocations() const;
-
-    Buyout StringToBuyout(QString);
 
     void Save();
     void ReloadBuyouts();
@@ -127,7 +127,7 @@ signals:
 
 private:
     // The single M3 choke point (D1 rule 4, R1-6): every mutation of the
-    // buyout lookup state (m_buyouts / m_tab_buyouts) reports here — item
+    // buyout lookup state (m_buyouts / m_tab_prices) reports here — item
     // and tab set-and-clear, the tab compression the pricing passes run,
     // and a reload. Refresh-check state is not buyout lookup state and
     // does not report.
@@ -142,8 +142,6 @@ private:
     bool LoadBuyouts();
     void EmitPendingChanges();
 
-    BuyoutType StringToBuyoutType(QString bo_str) const;
-
     QString Serialize(const std::unordered_map<QString, bool> &obj);
     void Deserialize(const QString &data, std::unordered_map<QString, bool> &obj);
 
@@ -151,7 +149,16 @@ private:
     BuyoutRepo &m_repo;
 
     std::unordered_map<QString, Buyout> m_buyouts;
-    std::unordered_map<QString, Buyout> m_tab_buyouts;
+    // A tab's prices by tab id (#293): the price its name gives, from the
+    // tab list the final pass publishes (D7), and the price set on it in
+    // Acquisition, as stored. One entry holds both, so a read of the tab's
+    // price is one lookup; an entry holding neither is erased.
+    struct TabPrices
+    {
+        std::optional<Buyout> named;
+        std::optional<Buyout> manual;
+    };
+    std::unordered_map<QString, TabPrices> m_tab_prices;
     // Buyouts persist through direct BuyoutRepo calls. Refresh-check state is DataStore JSON
     // in Save()/Load(); this split is intentional (see F22).
     std::unordered_map<QString, bool> m_refresh_checked;
@@ -162,8 +169,6 @@ private:
 
     int m_batch_depth{0};
     BuyoutChangeSet m_pending_changes;
-
-    static const std::unordered_map<QString, BuyoutType> m_string_to_buyout_type;
 };
 
 // Scoped batch boundary (M3 S2): user commands and pricing passes hold one

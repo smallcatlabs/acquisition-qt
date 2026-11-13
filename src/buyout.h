@@ -85,6 +85,12 @@ private:
     static const BuyoutSourceMap m_buyout_source_as_tag;
 };
 
+// The price a game note or a tab's name sets: "~b/o 5 chaos", "~price 1.5
+// divine", anything before or after it tolerated. An active buyout with the
+// game's source, and no date (the game does not say when it was set); an
+// inactive, null buyout when the text names no price this build can read.
+Buyout ParseGamePrice(const QString &text);
+
 using BuyoutType = Buyout::BuyoutType;
 template<>
 struct fmt::formatter<BuyoutType, char> : QtEnumFormatter<BuyoutType>

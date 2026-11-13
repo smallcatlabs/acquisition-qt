@@ -18,6 +18,13 @@ private slots:
     void tabPriceWritesOneRow();
     void inheritedRowIsIgnoredOnLoad();
     void inheritedDateIsTheTabPricesDate();
+    // #293 step 3: a game price is never stored, so a manual one survives.
+    void manualItemPriceSurvivesANote();
+    void manualTabPriceSurvivesAPricedName();
+    void tabEntryKeepsEachPriceAcrossChanges();
+    void movedItemIsNotPostableWhileANotePricesIt();
+    void repositoryStoresNoGamePrice();
+    void manualPriceSurvivesAReadableNote();
     void itemBuyoutRoundTrip();
     void tabBuyoutRoundTrip();
     void itemShowsItsTabsPrice();
@@ -108,33 +115,43 @@ namespace {
 
 void BuyoutManagerTest::stringToBuyout()
 {
-    BuyoutManagerFixture fixture;
-
-    const Buyout chaos = fixture.manager->StringToBuyout("~b/o 5 chaos");
+    const Buyout chaos = ParseGamePrice("~b/o 5 chaos");
     QCOMPARE(chaos.type, Buyout::BUYOUT_TYPE_BUYOUT);
     QCOMPARE(chaos.value, 5.0);
     QCOMPARE(chaos.currency, Currency::CURRENCY_CHAOS_ORB);
     QCOMPARE(chaos.source, Buyout::BUYOUT_SOURCE_GAME);
     QVERIFY(chaos.IsActive());
 
-    const Buyout exalted = fixture.manager->StringToBuyout("~price 1.5 exalted");
+    const Buyout exalted = ParseGamePrice("~price 1.5 exalted");
     QCOMPARE(exalted.type, Buyout::BUYOUT_TYPE_FIXED);
     QCOMPARE(exalted.value, 1.5);
     QCOMPARE(exalted.currency, Currency::CURRENCY_EXALTED_ORB);
 
-    const Buyout fusing = fixture.manager->StringToBuyout("~gb/o 20 fusing");
+    const Buyout fusing = ParseGamePrice("~gb/o 20 fusing");
     QCOMPARE(fusing.type, Buyout::BUYOUT_TYPE_BUYOUT);
     QCOMPARE(fusing.value, 20.0);
     QCOMPARE(fusing.currency, Currency::CURRENCY_ORB_OF_FUSING);
 
-    const Buyout currentOffer = fixture.manager->StringToBuyout("~c/o 3 chaos");
+    const Buyout currentOffer = ParseGamePrice("~c/o 3 chaos");
     QCOMPARE(currentOffer.type, Buyout::BUYOUT_TYPE_CURRENT_OFFER);
     QCOMPARE(currentOffer.value, 3.0);
     QCOMPARE(currentOffer.currency, Currency::CURRENCY_CHAOS_ORB);
 
-    QVERIFY(fixture.manager->StringToBuyout("not a buyout").IsNull());
+    QVERIFY(ParseGamePrice("not a buyout").IsNull());
+    // A type word the trade site does not know: no price, and a null one,
+    // which Item::HasNotePrice relies on.
+    const Buyout unknown_type = ParseGamePrice("~skip 5 chaos");
+    QVERIFY(unknown_type.IsNull());
+    QCOMPARE(unknown_type.type, Buyout::BUYOUT_TYPE_INHERIT);
+    PricingFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-skip-word", "Dump", 0);
+    const auto item = makeNotedItem("skip-word-item", tab, "~skip 5 chaos");
+    QVERIFY(!item->HasNotePrice());
+    fixture.items.OnItemsRefreshed({item}, {tab}, false);
+    QVERIFY(fixture.buyouts.manager->Set(*item, makeChaosBuyout(7.0)));
+    QCOMPARE(fixture.buyouts.manager->Effective(*item).source, PriceSource::ManualItem);
 
-    const Buyout tolerant = fixture.manager->StringToBuyout("prefix ~b/o 7 chaos suffix");
+    const Buyout tolerant = ParseGamePrice("prefix ~b/o 7 chaos suffix");
     QCOMPARE(tolerant.type, Buyout::BUYOUT_TYPE_BUYOUT);
     QCOMPARE(tolerant.value, 7.0);
     QCOMPARE(tolerant.currency, Currency::CURRENCY_CHAOS_ORB);
@@ -207,6 +224,183 @@ void BuyoutManagerTest::inheritedDateIsTheTabPricesDate()
     fixture.items.OnItemsRefreshed({item}, {tab}, false);
 
     QCOMPARE(fixture.buyouts.manager->Effective(*item).buyout.last_update, set_at);
+}
+
+// The price-loss sequence for an item: a price set in Acquisition, then a
+// note in the game. The note's price is in force while the note is there,
+// but the manual price stays stored; when the note goes, it is in force
+// again. (The note's price overwrote the stored manual price, and the
+// note's removal then deleted it.)
+void BuyoutManagerTest::manualItemPriceSurvivesANote()
+{
+    PricingFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-loss-item", "Dump", 0);
+    const auto plain = makeNotedItem("loss-item", tab);
+    fixture.items.OnItemsRefreshed({plain}, {tab}, false);
+    QVERIFY(fixture.buyouts.manager->Set(*plain, makeChaosBuyout(7.0)));
+
+    const auto noted = makeNotedItem("loss-item", tab, "~b/o 5 chaos");
+    fixture.items.OnItemsRefreshed({noted}, {tab}, false);
+    QCOMPARE(fixture.buyouts.manager->Effective(*noted).source, PriceSource::Note);
+    QCOMPARE(fixture.buyouts.manager->Effective(*noted).buyout.value, 5.0);
+    QCOMPARE(fixture.buyouts.repo->loadItemBuyouts().value().at("loss-item").value, 7.0);
+
+    const auto cleared = makeNotedItem("loss-item", tab);
+    fixture.items.OnItemsRefreshed({cleared}, {tab}, false);
+    QCOMPARE(fixture.buyouts.manager->Effective(*cleared).source, PriceSource::ManualItem);
+    QCOMPARE(fixture.buyouts.manager->Effective(*cleared).buyout.value, 7.0);
+}
+
+// The same for a tab: a price set in Acquisition, then the tab renamed to a
+// price in the game, then renamed back.
+void BuyoutManagerTest::manualTabPriceSurvivesAPricedName()
+{
+    PricingFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-loss-tab", "Dump", 0);
+    fixture.items.OnItemsRefreshed({}, {tab}, false);
+    QVERIFY(fixture.buyouts.manager->SetTab(tab, makeChaosBuyout(3.0)));
+
+    const ItemLocation named = makeTestStashLocation("stash-loss-tab", "~price 2 chaos", 0);
+    fixture.items.OnItemsRefreshed({}, {named}, false);
+    QCOMPARE(fixture.buyouts.manager->EffectiveTab(named).source, PriceSource::TabName);
+    QCOMPARE(fixture.buyouts.manager->EffectiveTab(named).buyout.value, 2.0);
+    QCOMPARE(fixture.buyouts.repo->loadLocationBuyouts().value().at("stash-loss-tab").value, 3.0);
+
+    fixture.items.OnItemsRefreshed({}, {tab}, false);
+    QCOMPARE(fixture.buyouts.manager->EffectiveTab(tab).source, PriceSource::ManualTab);
+    QCOMPARE(fixture.buyouts.manager->EffectiveTab(tab).buyout.value, 3.0);
+}
+
+// A tab's two prices share one entry: the one its name gives and the one
+// set in Acquisition. Changing, reloading or compressing one never costs
+// the other, and a tab that is gone keeps neither.
+void BuyoutManagerTest::tabEntryKeepsEachPriceAcrossChanges()
+{
+    PricingFixture fixture;
+    auto &manager = *fixture.buyouts.manager;
+    const ItemLocation named = makeTestStashLocation("stash-entry", "~price 2 chaos", 0);
+    const ItemLocation plain = makeTestStashLocation("stash-entry", "Dump", 0);
+    fixture.items.OnItemsRefreshed({}, {named}, false);
+    QVERIFY(manager.SetTab(named, makeChaosBuyout(3.0)));
+    QCOMPARE(manager.EffectiveTab(named).source, PriceSource::TabName);
+    QCOMPARE(manager.EffectiveTab(named).buyout.value, 2.0);
+    QCOMPARE(manager.GetTab(named).value, 3.0);
+
+    manager.ReloadBuyouts();
+    QCOMPARE(manager.EffectiveTab(named).source, PriceSource::TabName);
+    QCOMPARE(manager.GetTab(named).value, 3.0);
+
+    manager.CompressTabBuyouts();
+    QCOMPARE(manager.EffectiveTab(named).source, PriceSource::TabName);
+    QCOMPARE(manager.GetTab(named).value, 3.0);
+
+    QVERIFY(manager.SetTab(named, Buyout()));
+    QCOMPARE(manager.EffectiveTab(named).source, PriceSource::TabName);
+    QCOMPARE(manager.EffectiveTab(named).buyout.value, 2.0);
+    QVERIFY(manager.GetTab(named).IsNull());
+
+    QVERIFY(manager.SetTab(named, makeChaosBuyout(3.0)));
+    fixture.items.OnItemsRefreshed({}, {plain}, false);
+    QCOMPARE(manager.EffectiveTab(plain).source, PriceSource::ManualTab);
+    QCOMPARE(manager.EffectiveTab(plain).buyout.value, 3.0);
+
+    fixture.items.OnItemsRefreshed({}, {named}, false);
+    fixture.items.OnItemsRefreshed({}, {}, false);
+    QCOMPARE(manager.EffectiveTab(named).source, PriceSource::None);
+    QVERIFY(manager.GetTab(named).IsNull());
+}
+
+// Mid-refresh the published items can hold two copies of one id: an item
+// moved from one tab to another, the new tab's delta in, the old tab's
+// not. A note travels with its copy and a manual price is the id's, so
+// the old copy shows the manual price while the game prices the new one.
+// A manual shop update can capture at that moment (nothing gates it on a
+// running refresh), so no copy of an id the game prices is postable.
+void BuyoutManagerTest::movedItemIsNotPostableWhileANotePricesIt()
+{
+    PricingFixture fixture;
+    auto &manager = *fixture.buyouts.manager;
+    const ItemLocation from = makeTestStashLocation("stash-move-from", "Dump", 0);
+    const ItemLocation to = makeTestStashLocation("stash-move-to", "Shelf", 1);
+    const auto before = makeNotedItem("moved-item", from);
+    fixture.items.OnItemsRefreshed({before}, {from, to}, false);
+    QVERIFY(manager.Set(*before, makeChaosBuyout(7.0)));
+    QCOMPARE(manager.PostablePrices(fixture.items.items()).size(), size_t{1});
+
+    const auto after = makeNotedItem("moved-item", to, "~b/o 5 chaos");
+    fixture.items.OnTabRefreshed(to, {after});
+    QCOMPARE(fixture.items.items().size(), size_t{2});
+    QVERIFY(manager.PostablePrices(fixture.items.items()).empty());
+
+    // The old tab's delta arrives: one copy, priced by its note.
+    fixture.items.OnTabRefreshed(from, {});
+    QCOMPARE(fixture.items.items().size(), size_t{1});
+    QVERIFY(manager.PostablePrices(fixture.items.items()).empty());
+}
+
+// Nothing writes a price the game set (#293): the repository refuses one
+// on every save path, the manager reports it unsaved, and nothing reaches
+// either table.
+void BuyoutManagerTest::repositoryStoresNoGamePrice()
+{
+    PricingFixture fixture;
+    auto &repo = *fixture.buyouts.repo;
+    const ItemLocation tab = makeTestStashLocation("stash-no-game", "Dump", 0);
+    const auto item = makeNotedItem("no-game-item", tab);
+    fixture.items.OnItemsRefreshed({item}, {tab}, false);
+    // Dated, as older builds stored it: an undated row would be refused by
+    // the table's NOT NULL constraint, which says nothing about the source.
+    Buyout game = ParseGamePrice("~b/o 5 chaos");
+    game.last_update = QDateTime::currentDateTime();
+    QVERIFY(game.IsGameSet());
+
+    QCOMPARE(repo.saveItemBuyout(game, item->id(), tab.id(), tab.type(), true),
+             BuyoutSaveResult::Error);
+    QCOMPARE(repo.saveLocationBuyout(game, tab.id(), tab.type(), true), BuyoutSaveResult::Error);
+    QVERIFY(!fixture.buyouts.manager->Set(*item, game));
+    QVERIFY(!fixture.buyouts.manager->SetTab(tab, game));
+    const ItemBuyoutWrite item_write{.buyout = game,
+                                     .item_id = item->id(),
+                                     .location_id = tab.id(),
+                                     .location_type = tab.type(),
+                                     .allow_manual_overwrite = false};
+    const LocationBuyoutWrite location_write{.buyout = game,
+                                             .location_id = tab.id(),
+                                             .location_type = tab.type(),
+                                             .allow_manual_overwrite = false};
+    QVERIFY(!repo.saveImportBatch({item_write}, {}).success);
+    QVERIFY(!repo.saveImportBatch({}, {location_write}).success);
+
+    QSqlQuery q(*fixture.buyouts.db);
+    QVERIFY(q.exec("SELECT (SELECT COUNT(*) FROM item_buyouts)"
+                   " + (SELECT COUNT(*) FROM location_buyouts)"));
+    QVERIFY(q.next());
+    QCOMPARE(q.value(0).toInt(), 0);
+}
+
+// From the currency-table review: once the parser reads more words (the
+// currency table widens the set of readable notes), a note the old build
+// ignored starts to count. It must never cost a price set in Acquisition:
+// with a note in a word the parser reads, the manual price stays stored
+// and comes back when the note goes.
+void BuyoutManagerTest::manualPriceSurvivesAReadableNote()
+{
+    PricingFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-readable", "Dump", 0);
+    const auto plain = makeNotedItem("readable-item", tab);
+    fixture.items.OnItemsRefreshed({plain}, {tab}, false);
+    QVERIFY(fixture.buyouts.manager->Set(*plain, makeChaosBuyout(7.0)));
+
+    const auto noted = makeNotedItem("readable-item", tab, "~price 4 divine");
+    fixture.items.OnTabRefreshed(tab, {noted});
+    QCOMPARE(fixture.buyouts.manager->Effective(*noted).source, PriceSource::Note);
+    const auto stored = fixture.buyouts.repo->loadItemBuyouts().value();
+    QCOMPARE(stored.at("readable-item").value, 7.0);
+    QCOMPARE(stored.at("readable-item").source, Buyout::BUYOUT_SOURCE_MANUAL);
+
+    fixture.items.OnTabRefreshed(tab, {plain});
+    QCOMPARE(fixture.buyouts.manager->Effective(*plain).buyout.value, 7.0);
+    QCOMPARE(fixture.buyouts.manager->Effective(*plain).source, PriceSource::ManualItem);
 }
 
 void BuyoutManagerTest::itemBuyoutRoundTrip()
@@ -428,8 +622,9 @@ void BuyoutManagerTest::unbatchedTabCompressionEmitsOnceAfterErase()
     QVERIFY(fixture.manager->GetTab(keep).IsActive());
 }
 
-// #251: deleting an item's in-game note clears the price it set — the
-// snapshot passes must not leave a locked, game-set price behind.
+// #251: deleting an item's in-game note clears the price it set — no
+// locked, game-set price is left behind. Since #293 the note's price is
+// never stored at all; it goes with the note.
 void BuyoutManagerTest::removedNoteClearsGamePriceOnSnapshot()
 {
     PricingFixture fixture;
@@ -437,13 +632,13 @@ void BuyoutManagerTest::removedNoteClearsGamePriceOnSnapshot()
 
     const auto priced = makeNotedItem("item-251a", tab, "~b/o 5 chaos");
     fixture.items.OnItemsRefreshed({priced}, {tab}, false);
-    QVERIFY(fixture.buyouts.manager->Get(*priced).IsGameSet());
-    QCOMPARE(fixture.buyouts.manager->Get(*priced).value, 5.0);
+    QVERIFY(fixture.buyouts.manager->Effective(*priced).buyout.IsGameSet());
+    QCOMPARE(fixture.buyouts.manager->Effective(*priced).buyout.value, 5.0);
 
     const auto unnoted = makeNotedItem("item-251a", tab);
     fixture.items.OnItemsRefreshed({unnoted}, {tab}, false);
 
-    QVERIFY(fixture.buyouts.manager->Get(*unnoted).IsNull());
+    QVERIFY(fixture.buyouts.manager->Effective(*unnoted).buyout.IsNull());
     QVERIFY(!fixture.buyouts.repo->loadItemBuyouts().value().contains("item-251a"));
 }
 
@@ -455,12 +650,12 @@ void BuyoutManagerTest::removedNoteClearsGamePriceOnDelta()
 
     const auto priced = makeNotedItem("item-251b", tab, "~b/o 5 chaos");
     fixture.items.OnItemsRefreshed({priced}, {tab}, false);
-    QVERIFY(fixture.buyouts.manager->Get(*priced).IsGameSet());
+    QVERIFY(fixture.buyouts.manager->Effective(*priced).buyout.IsGameSet());
 
     const auto unnoted = makeNotedItem("item-251b", tab);
     fixture.items.OnTabRefreshed(tab, {unnoted});
 
-    QVERIFY(fixture.buyouts.manager->Get(*unnoted).IsNull());
+    QVERIFY(fixture.buyouts.manager->Effective(*unnoted).buyout.IsNull());
     QVERIFY(!fixture.buyouts.repo->loadItemBuyouts().value().contains("item-251b"));
 }
 
@@ -472,15 +667,15 @@ void BuyoutManagerTest::renamedTabClearsGameTabPrice()
     const ItemLocation priced_tab = makeTestStashLocation("stash-251c", "~price 5 chaos", 0);
     const auto item = makeNotedItem("item-251c", priced_tab);
     fixture.items.OnItemsRefreshed({item}, {priced_tab}, false);
-    QVERIFY(fixture.buyouts.manager->GetTab(priced_tab).IsGameSet());
+    QVERIFY(fixture.buyouts.manager->EffectiveTab(priced_tab).IsGameSet());
     QVERIFY(fixture.buyouts.manager->Effective(*item).buyout.IsActive());
 
     const ItemLocation renamed_tab = makeTestStashLocation("stash-251c", "Dump", 0);
     const auto moved = makeNotedItem("item-251c", renamed_tab);
     fixture.items.OnItemsRefreshed({moved}, {renamed_tab}, false);
 
-    QVERIFY(fixture.buyouts.manager->GetTab(renamed_tab).IsNull());
-    QVERIFY(fixture.buyouts.manager->Get(*moved).IsNull());
+    QVERIFY(fixture.buyouts.manager->EffectiveTab(renamed_tab).buyout.IsNull());
+    QVERIFY(fixture.buyouts.manager->Effective(*moved).buyout.IsNull());
     QVERIFY(!fixture.buyouts.repo->loadLocationBuyouts().value().contains("stash-251c"));
     QVERIFY(!fixture.buyouts.repo->loadItemBuyouts().value().contains("item-251c"));
 }
@@ -496,20 +691,20 @@ void BuyoutManagerTest::unknownCurrencyClearsGamePrice()
     const auto first = makeNotedItem("item-251d", tab, "~b/o 5 chaos");
     const auto second = makeNotedItem("item-251e", tab, "~b/o 3 chaos");
     fixture.items.OnItemsRefreshed({first, second}, {tab}, false);
-    QVERIFY(fixture.buyouts.manager->Get(*first).IsGameSet());
-    QVERIFY(fixture.buyouts.manager->Get(*second).IsGameSet());
+    QVERIFY(fixture.buyouts.manager->Effective(*first).buyout.IsGameSet());
+    QVERIFY(fixture.buyouts.manager->Effective(*second).buyout.IsGameSet());
 
     const auto first_unknown = makeNotedItem("item-251d", tab, "~b/o 5 jewellers");
     const auto second_unknown = makeNotedItem("item-251e", tab, "~b/o 3 jewellers");
 
     // Delta path first, for the first item only.
     fixture.items.OnTabRefreshed(tab, {first_unknown, second});
-    QVERIFY(fixture.buyouts.manager->Get(*first_unknown).IsNull());
-    QVERIFY(fixture.buyouts.manager->Get(*second).IsGameSet());
+    QVERIFY(fixture.buyouts.manager->Effective(*first_unknown).buyout.IsNull());
+    QVERIFY(fixture.buyouts.manager->Effective(*second).buyout.IsGameSet());
 
     // Then the snapshot path for the second.
     fixture.items.OnItemsRefreshed({first_unknown, second_unknown}, {tab}, false);
-    QVERIFY(fixture.buyouts.manager->Get(*second_unknown).IsNull());
+    QVERIFY(fixture.buyouts.manager->Effective(*second_unknown).buyout.IsNull());
     QVERIFY(fixture.buyouts.repo->loadItemBuyouts().value().empty());
 }
 
@@ -579,7 +774,7 @@ void BuyoutManagerTest::snapshotWritesNoDbVersion()
 
     fixture.items.OnItemsRefreshed({item}, {tab}, false);
 
-    QCOMPARE(fixture.buyouts.manager->Get(*item).value, 5.0);
+    QCOMPARE(fixture.buyouts.manager->Effective(*item).buyout.value, 5.0);
     QCOMPARE(fixture.buyouts.data->Get("db_version"), QString());
 }
 
@@ -630,7 +825,7 @@ void BuyoutManagerTest::gamePricedEmptyTabIsLocked()
 
     fixture.items.OnItemsRefreshed({}, {tab}, false);
 
-    QVERIFY(fixture.buyouts.manager->GetTab(tab).IsGameSet());
+    QVERIFY(fixture.buyouts.manager->EffectiveTab(tab).IsGameSet());
     QVERIFY(fixture.buyouts.manager->GetRefreshLocked(tab));
     QVERIFY(fixture.buyouts.manager->GetRefreshChecked(tab));
 }

@@ -411,7 +411,9 @@ QString DateColumn::name() const
 QVariant DateColumn::value(const Item &item) const
 {
     const Buyout bo = m_bo_manager.Effective(item).buyout;
-    return bo.IsActive() ? Util::TimeAgoInWords(bo.last_update) : QVariant();
+    // A price the game set has no date (#293): nothing is shown for it.
+    return (bo.IsActive() && bo.last_update.isValid()) ? Util::TimeAgoInWords(bo.last_update)
+                                                       : QVariant();
 }
 
 ItemSortKey::DateHead DateColumn::head(const Item &item) const

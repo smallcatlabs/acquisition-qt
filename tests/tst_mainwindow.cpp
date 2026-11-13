@@ -107,6 +107,8 @@ private slots:
     void priceKeysFollowBuyoutEdits();
     void multiSelectionBuyoutEditReordersOnce();
     void pricingPassYieldsSingleModelUpdate();
+    void notePriceFollowsTheDelta_data();
+    void notePriceFollowsTheDelta();
     void snapshotPricingSequenceEmitsOneModelBatch();
     void priceCellsRepaintUnderAnySortColumn();
     void buyoutRepaintCoversEveryVisibleOccurrence();
@@ -1609,7 +1611,9 @@ void MainWindowTest::pricingPassYieldsSingleModelUpdate()
     probes.reset();
     probes.enabled = true;
 
-    // The scoped pass: a delta whose notes price three items is one batch.
+    // The scoped pass: a delta whose notes price three items writes no
+    // price (#293: a note's is read from the item, and the delta's rows are
+    // rebuilt), so it updates nothing through the buyout batch.
     Items delta;
     delta.push_back(makeMainWindowItemWithNote("item-a", "Alpha", "Sword", tabA, "~b/o 5 chaos"));
     delta.push_back(makeMainWindowItemWithNote("item-b", "Bravo", "Sword", tabA, "~b/o 3 chaos"));
@@ -1618,7 +1622,7 @@ void MainWindowTest::pricingPassYieldsSingleModelUpdate()
     delta.push_back(makeMainWindowItem("item-e", "Echo", "Sword", tabA));
     probes.reset();
     fixture.itemsManager->OnTabRefreshed(tabA, delta);
-    QCOMPARE(probes.model_updates, 1);
+    QCOMPARE(probes.model_updates, 0);
 
     // A tab price reaches the two items without their own price as one
     // change to the tab (#293: nothing is copied onto them), one batch; the
@@ -1632,19 +1636,17 @@ void MainWindowTest::pricingPassYieldsSingleModelUpdate()
     probes.enabled = false;
 }
 
-// M3 R3-4: one snapshot's ApplyAutoTabBuyouts ->
-// ApplyAutoItemBuyouts -> PropagateTabBuyouts sequence produces at most
-// one reorder / model update on the active search, never one per pass;
-// buyout persistence writes still occur.
+// M3 R3-4: one snapshot's pricing produces at most one reorder / model
+// update on the active search, never one per step. Since #293 the game's
+// prices it reads (a tab name, a note) are never stored.
 void MainWindowTest::snapshotPricingSequenceEmitsOneModelBatch()
 {
     MainWindowFixture fixture;
     auto *tree = fixture.window->findChild<QTreeView *>("treeView");
     QVERIFY(tree);
 
-    // The tab's label auto-prices the tab, Alpha's note auto-prices the
-    // item, and Bravo inherits the tab price: three distinct passes mutate
-    // buyout state in this one snapshot.
+    // The tab's label prices the tab, Alpha's note prices the item, and
+    // Bravo shows the tab's price: three changes in this one snapshot.
     const ItemLocation tabA = makeTestStashLocation("stash-alpha", "~b/o 10 chaos", 0);
     Items items;
     items.push_back(makeMainWindowItemWithNote("item-a", "Alpha", "Sword", tabA, "~b/o 5 chaos"));
@@ -1658,17 +1660,90 @@ void MainWindowTest::snapshotPricingSequenceEmitsOneModelBatch()
     QCOMPARE(probes.model_updates, 1);
     probes.enabled = false;
 
-    // Persistence is outside batching and unchanged: the pricing writes
-    // reached the repo.
-    const auto itemBuyouts = fixture.buyoutFixture.repo->loadItemBuyouts().value();
-    QVERIFY(itemBuyouts.contains("item-a"));
-    const auto tabBuyouts = fixture.buyoutFixture.repo->loadLocationBuyouts().value();
-    QVERIFY(tabBuyouts.contains("stash-alpha"));
+    // The prices are in force, and none of them is stored.
+    auto &manager = *fixture.buyoutFixture.manager;
+    QCOMPARE(manager.Effective(*items[0]).source, PriceSource::Note);
+    QCOMPARE(manager.Effective(*items[1]).source, PriceSource::TabName);
+    QVERIFY(fixture.buyoutFixture.repo->loadItemBuyouts().value().empty());
+    QVERIFY(fixture.buyoutFixture.repo->loadLocationBuyouts().value().empty());
 }
 
 // M3 R1-6, rule 5: with Name active, a buyout batch emits dataChanged for
 // the affected visible Price/Date cells and performs no reordering — cell
 // repaint is independent of the active sort column.
+// A note's price is read from the item (#293), and a refresh delta
+// brings new items: the rows they replace are rebuilt, so a note added,
+// changed or removed shows and sorts at once, in either view, with no
+// separate notice that the price changed.
+void MainWindowTest::notePriceFollowsTheDelta_data()
+{
+    QTest::addColumn<bool>("by_item");
+    QTest::newRow("By Tab") << false;
+    QTest::newRow("By Item") << true;
+}
+
+void MainWindowTest::notePriceFollowsTheDelta()
+{
+    QFETCH(bool, by_item);
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    auto *viewCombo = fixture.window->findChild<QComboBox *>("viewComboBox");
+    QVERIFY(tree);
+    QVERIFY(viewCombo);
+
+    const ItemLocation tabA = makeTestStashLocation("stash-alpha", "Alpha Tab", 0);
+    const auto withNote = [&](const char *id, const char *name, const char *note) {
+        return makeMainWindowItemWithNote(id, name, "Sword", tabA, note);
+    };
+    Items items;
+    items.push_back(withNote("item-a", "Alpha", "~b/o 1 chaos"));
+    items.push_back(withNote("item-b", "Bravo", "~b/o 2 chaos"));
+    items.push_back(withNote("item-c", "Charlie", "~b/o 3 chaos"));
+    fixture.itemsManager->OnItemsRefreshed(items, {tabA}, false);
+    // Alpha also has a price of its own, set in Acquisition, under its note.
+    QVERIFY(fixture.buyoutFixture.manager->Set(*items[0], makeChaosBuyout(2.5)));
+
+    tree->header()->setSortIndicator(1, Qt::AscendingOrder);
+    auto *model = tree->model();
+    QModelIndex bucket;
+    if (by_item) {
+        viewCombo->setCurrentIndex(1);
+        emit viewCombo->activated(1);
+        bucket = model->index(0, 0);
+    } else {
+        bucket = findBucket(*model, tabA.GetHeader());
+        tree->expand(bucket);
+    }
+    QVERIFY(bucket.isValid());
+    QCOMPARE(bucketItemNames(*model, bucket),
+             QStringList({"Alpha Sword", "Bravo Sword", "Charlie Sword"}));
+
+    // The delta changes Alpha's note.
+    Items changed;
+    changed.push_back(withNote("item-a", "Alpha", "~b/o 9 chaos"));
+    changed.push_back(withNote("item-b", "Bravo", "~b/o 2 chaos"));
+    changed.push_back(withNote("item-c", "Charlie", "~b/o 3 chaos"));
+    fixture.itemsManager->OnTabRefreshed(tabA, changed);
+    QCOMPARE(bucketItemNames(*model, bucket),
+             QStringList({"Bravo Sword", "Charlie Sword", "Alpha Sword"}));
+    QVERIFY(
+        findItemRow(*model, bucket, "Alpha Sword").siblingAtColumn(1).data().toString().contains("9"));
+
+    // The next delta removes it: Alpha's own price shows again.
+    Items removed;
+    removed.push_back(makeMainWindowItem("item-a", "Alpha", "Sword", tabA));
+    removed.push_back(withNote("item-b", "Bravo", "~b/o 2 chaos"));
+    removed.push_back(withNote("item-c", "Charlie", "~b/o 3 chaos"));
+    fixture.itemsManager->OnTabRefreshed(tabA, removed);
+    QCOMPARE(bucketItemNames(*model, bucket),
+             QStringList({"Bravo Sword", "Alpha Sword", "Charlie Sword"}));
+    QVERIFY(findItemRow(*model, bucket, "Alpha Sword")
+                .siblingAtColumn(1)
+                .data()
+                .toString()
+                .contains("2.5"));
+}
+
 void MainWindowTest::priceCellsRepaintUnderAnySortColumn()
 {
     MainWindowFixture fixture;
@@ -4498,10 +4573,10 @@ void MainWindowTest::priceEditSkipsGamePricedRows()
     const auto &manager = *fixture.buyoutFixture.manager;
     QCOMPARE(manager.Get(*plain).value, 7.0);
     QVERIFY(!manager.Get(*plain).IsGameSet());
-    QCOMPARE(manager.Get(*noted).value, 5.0);
-    QVERIFY(manager.Get(*noted).IsGameSet());
-    QCOMPARE(manager.GetTab(priced).value, 2.0);
-    QVERIFY(manager.GetTab(priced).IsGameSet());
+    QCOMPARE(manager.Effective(*noted).buyout.value, 5.0);
+    QVERIFY(manager.Effective(*noted).IsGameSet());
+    QCOMPARE(manager.EffectiveTab(priced).buyout.value, 2.0);
+    QVERIFY(manager.EffectiveTab(priced).IsGameSet());
     QCOMPARE(manager.Effective(*inside).buyout.value, 2.0);
     QVERIFY(manager.Effective(*inside).buyout.IsInherited());
 }
@@ -4627,7 +4702,7 @@ void MainWindowTest::gamePricedRowsLeftAloneAreNamedInStatusLine()
     applyBuyoutCommand(fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "7");
 
     QCOMPARE(fixture.buyoutFixture.manager->Get(*plain).value, 7.0);
-    QCOMPARE(fixture.buyoutFixture.manager->Get(*noted).value, 5.0);
+    QCOMPARE(fixture.buyoutFixture.manager->Effective(*noted).buyout.value, 5.0);
     const QString status = statusText(fixture);
     QVERIFY2(status.contains("in the game"), qPrintable(status));
     QVERIFY2(!status.contains("Price not saved"), qPrintable(status));
