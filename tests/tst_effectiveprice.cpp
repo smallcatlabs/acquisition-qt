@@ -31,6 +31,7 @@ private slots:
     void upgradeKeepsTheTabPrice_data();
     void upgradeKeepsTheTabPrice();
     void tabTargetsAreLockedAsBefore();
+    void activeGameRowsAreIgnoredAndReplaced();
 
 private:
     QDateTime m_start;
@@ -238,6 +239,12 @@ void EffectivePriceTest::readersAgree_data()
         << "b/o 7 chaos" << false << chaos << 7.0 << true  << "fixed" << true  << true  << true  << PS::ManualItem << true;
     QTest::newRow("note, manual tab")         << "Dump"          << 3.0 << "~b/o 5 chaos" << none << false
         << "b/o 5 chaos" << false << chaos << 5.0 << false << "null"   << true  << true  << true  << PS::Note       << false;
+    // Since #293 step 3 the price set in Acquisition stays stored under the
+    // game's; the game's is in force, locked and not posted.
+    QTest::newRow("note, manual item")        << "Dump"          << 0.0 << "~b/o 5 chaos" << bo   << false
+        << "b/o 5 chaos" << false << chaos << 5.0 << false << "null"   << true  << true  << true  << PS::Note       << false;
+    QTest::newRow("tab name, manual tab")     << "~price 2 chaos" << 3.0 << ""            << none << false
+        << "price 2 chaos" << true << chaos << 2.0 << false << "null"  << true  << true  << true  << PS::TabName    << false;
     QTest::newRow("no price")                 << "Dump"          << 0.0 << ""             << int(Buyout::BUYOUT_TYPE_NO_PRICE) << false
         << "no price"    << false << 0     << 0.0 << true  << "fixed" << true  << false << true  << PS::ManualItem << true;
     QTest::newRow("ignore")                   << "Dump"          << 0.0 << ""             << int(Buyout::BUYOUT_TYPE_IGNORE) << false
@@ -440,6 +447,59 @@ void EffectivePriceTest::tabTargetsAreLockedAsBefore()
     QCOMPARE(result.applied, 2);
     QCOMPARE(f.buyouts.manager->EffectiveTab(named).buyout.value, 2.0);
     QCOMPARE(f.buyouts.manager->GetTab(manual).value, 9.0);
+}
+
+// A store as the previous release leaves it: an active price read from the
+// game (type b/o, source game) in each table. Both rows are ignored on
+// load, so nothing is priced or locked by them, and a later price set in
+// Acquisition replaces each row.
+void EffectivePriceTest::activeGameRowsAreIgnoredAndReplaced()
+{
+    Fixture f;
+    BuyoutManager &manager = *f.buyouts.manager;
+    const ItemLocation tab = makeTestStashLocation("stash-old-game", "Dump", 0);
+    const auto item = makeItem(tab, QString());
+    QSqlQuery q(*f.buyouts.db);
+    QVERIFY(q.prepare("INSERT INTO item_buyouts (item_id, location_id, location_type, currency, "
+                      "inherited, last_update, source, type, value) VALUES (:id, :location, "
+                      "'stash', 'chaos', 0, :when, 'game', 'b/o', 5)"));
+    q.bindValue(":id", kItemId);
+    q.bindValue(":location", tab.id());
+    q.bindValue(":when", QDateTime::fromSecsSinceEpoch(5));
+    QVERIFY2(q.exec(), qPrintable(q.lastError().text()));
+    QVERIFY(q.prepare("INSERT INTO location_buyouts (location_id, location_type, currency, "
+                      "inherited, last_update, source, type, value) VALUES (:location, 'stash', "
+                      "'chaos', 0, :when, 'game', 'b/o', 4)"));
+    q.bindValue(":location", tab.id());
+    q.bindValue(":when", QDateTime::fromSecsSinceEpoch(5));
+    QVERIFY2(q.exec(), qPrintable(q.lastError().text()));
+    manager.ReloadBuyouts();
+    QVERIFY(manager.BuyoutsLoaded());
+
+    f.items.OnItemsRefreshed({item}, {tab}, false);
+    QCOMPARE(manager.Effective(*item).source, PriceSource::None);
+    QCOMPARE(manager.EffectiveTab(tab).source, PriceSource::None);
+    QVERIFY(!manager.GetRefreshLocked(tab));
+    QVERIFY(manager.PostablePrices(f.items.items()).empty());
+
+    QVERIFY(manager.Set(*item, makeChaosBuyout(3.0)));
+    QVERIFY(manager.SetTab(tab, makeChaosBuyout(2.0)));
+    QVERIFY(q.exec("SELECT source, value FROM item_buyouts"));
+    QVERIFY(q.next());
+    QCOMPARE(q.value(0).toString(), QString("manual"));
+    QCOMPARE(q.value(1).toDouble(), 3.0);
+    QVERIFY(!q.next());
+    QVERIFY(q.exec("SELECT source, value FROM location_buyouts"));
+    QVERIFY(q.next());
+    QCOMPARE(q.value(0).toString(), QString("manual"));
+    QCOMPARE(q.value(1).toDouble(), 2.0);
+    QVERIFY(!q.next());
+
+    manager.ReloadBuyouts();
+    QCOMPARE(manager.Effective(*item).source, PriceSource::ManualItem);
+    QCOMPARE(manager.Effective(*item).buyout.value, 3.0);
+    QCOMPARE(manager.EffectiveTab(tab).source, PriceSource::ManualTab);
+    QCOMPARE(manager.EffectiveTab(tab).buyout.value, 2.0);
 }
 
 QTEST_MAIN(EffectivePriceTest)

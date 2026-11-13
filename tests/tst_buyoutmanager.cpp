@@ -115,8 +115,6 @@ namespace {
 
 void BuyoutManagerTest::stringToBuyout()
 {
-    BuyoutManagerFixture fixture;
-
     const Buyout chaos = ParseGamePrice("~b/o 5 chaos");
     QCOMPARE(chaos.type, Buyout::BUYOUT_TYPE_BUYOUT);
     QCOMPARE(chaos.value, 5.0);
@@ -140,6 +138,18 @@ void BuyoutManagerTest::stringToBuyout()
     QCOMPARE(currentOffer.currency, Currency::CURRENCY_CHAOS_ORB);
 
     QVERIFY(ParseGamePrice("not a buyout").IsNull());
+    // A type word the trade site does not know: no price, and a null one,
+    // which Item::HasNotePrice relies on.
+    const Buyout unknown_type = ParseGamePrice("~skip 5 chaos");
+    QVERIFY(unknown_type.IsNull());
+    QCOMPARE(unknown_type.type, Buyout::BUYOUT_TYPE_INHERIT);
+    PricingFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-skip-word", "Dump", 0);
+    const auto item = makeNotedItem("skip-word-item", tab, "~skip 5 chaos");
+    QVERIFY(!item->HasNotePrice());
+    fixture.items.OnItemsRefreshed({item}, {tab}, false);
+    QVERIFY(fixture.buyouts.manager->Set(*item, makeChaosBuyout(7.0)));
+    QCOMPARE(fixture.buyouts.manager->Effective(*item).source, PriceSource::ManualItem);
 
     const Buyout tolerant = ParseGamePrice("prefix ~b/o 7 chaos suffix");
     QCOMPARE(tolerant.type, Buyout::BUYOUT_TYPE_BUYOUT);
