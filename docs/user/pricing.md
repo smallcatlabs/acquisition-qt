@@ -33,7 +33,10 @@ typing it and to no others, when you:
   (*Shop > Update forum shop(s)*), or copy the shop to the clipboard
   (*Shop > Copy shop data to clipboard*).
 
-After it is saved, the box shows the stored price.
+After it is saved, the box shows the stored price. With the *Priced* filter on,
+the search is filtered again when a price is saved: a row whose price you
+cleared leaves the list, and the box then shows the rows still selected (see
+[Searching](searching.md)).
 
 Nothing else saves it: moving between the three controls, a message window
 appearing, or a refresh that keeps the same rows selected leaves it in the box.

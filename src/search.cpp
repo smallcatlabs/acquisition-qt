@@ -1777,6 +1777,16 @@ Search::SnapshotReconciliation Search::ReconcileFinalSnapshot(const Items &publi
     return result;
 }
 
+bool Search::UsesBuyoutDependentFilter() const
+{
+    for (const qsizetype index : m_filter_catalog.buyoutDependentIndices()) {
+        if (IsActive(m_filter_states.at(static_cast<size_t>(index)))) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool Search::MatchesActiveFilters(const Item &item) const
 {
     for (qsizetype index = 0; index < static_cast<qsizetype>(m_filter_states.size()); ++index) {

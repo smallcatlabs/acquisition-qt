@@ -193,6 +193,9 @@ public:
     // as m_states_dirty.
     bool itemsDirty() const { return m_items_dirty; }
     void setItemsDirty(bool dirty) { m_items_dirty = dirty; }
+    // Whether a filter whose decision follows the prices is active here
+    // (#268): one state check per such filter.
+    bool UsesBuyoutDependentFilter() const;
 
     // The active-filter membership test the delta path applies to every
     // arrival (D3; formerly the M2 D9 intersection's match half — the
