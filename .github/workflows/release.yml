@@ -1,0 +1,206 @@
+name: Release
+
+# One workflow per release (RELEASE.md). On a version tag it checks the tag
+# against the version in CMakeLists.txt, builds the three platforms by calling
+# build-{linux,macos,windows}.yml, and only when all three have succeeded
+# creates the Sentry release and one draft GitHub release with every
+# platform's files attached. The maintainer publishes the draft by hand.
+#
+# A failed platform is retried with "Re-run failed jobs": the platforms that
+# succeeded keep their artifacts, and the release job runs once the retried
+# build passes.
+#
+# A workflow_dispatch run builds everything and stops before the release job
+# (it never creates a release from a branch, and not from a tag while dry_run
+# is set), so the builds and the version check can be tried without tagging.
+#
+# CodeQL (codeql.yml) and the sanitizers (sanitizers.yml) run on the same
+# tags from their own workflows; nothing here waits for them.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build only; never create a release (applies when run on a tag).'
+        type: boolean
+        default: true
+
+# The organization makes GITHUB_TOKEN read-only by default; only the release
+# job asks for more.
+permissions:
+  contents: read
+
+# One run per ref; a release run in progress is allowed to finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Check version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      # The same string the build writes to APP_VERSION_STRING:
+      # project(VERSION) followed by app_version_suffix. Each build checks
+      # its own APP_VERSION_STRING against the tag again; this job only makes
+      # a mismatch fail in seconds instead of after three builds.
+      - name: Read and check the version
+        id: version
+        run: |
+          set -euo pipefail
+          base=$(sed -n 's/^ *VERSION \([0-9][0-9.]*\) *$/\1/p' CMakeLists.txt)
+          suffix=$(sed -n 's/^set(app_version_suffix "\([^"]*\)")$/\1/p' CMakeLists.txt)
+          if [ "$(printf '%s\n' "$base" | wc -l)" -ne 1 ] || [ -z "$base" ]; then
+            echo "::error::Could not read project(VERSION) from CMakeLists.txt"
+            exit 1
+          fi
+          version="${base}${suffix}"
+          echo "version=$version"
+
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+              echo "::error::Tag $GITHUB_REF_NAME does not match the version in CMakeLists.txt ($version)"
+              echo "::error::Update project(VERSION) / app_version_suffix in CMakeLists.txt"
+              exit 1
+            fi
+            case "$suffix" in
+              -dev*)
+                echo "::error::$version is a development version; tag a -beta.N or final version (RELEASE.md)"
+                exit 1 ;;
+            esac
+          fi
+
+          if [ -n "$suffix" ]; then prerelease=true; else prerelease=false; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+
+  linux:
+    name: Linux
+    needs: version
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-linux.yml
+    secrets: inherit
+
+  macos:
+    name: macOS
+    needs: version
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-macos.yml
+    secrets: inherit
+
+  windows:
+    name: Windows
+    needs: version
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build-windows.yml
+    secrets: inherit
+
+  release:
+    name: Create draft release
+    needs: [version, linux, macos, windows]
+    if: github.ref_type == 'tag' && !inputs.dry_run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+
+      - name: Check the builds agree
+        env:
+          LINUX: ${{ needs.linux.outputs.version }}
+          MACOS: ${{ needs.macos.outputs.version }}
+          WINDOWS: ${{ needs.windows.outputs.version }}
+        run: |
+          for built in "$LINUX" "$MACOS" "$WINDOWS"; do
+            if [ "$built" != "$VERSION" ]; then
+              echo "::error::A build reports version '$built', expected '$VERSION'"
+              exit 1
+            fi
+          done
+
+      - name: Download artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: dist
+          merge-multiple: true
+
+      # Exactly one of each file the release carries, named as in past
+      # releases (installer.iss names the installer acquisition_setup_*, in
+      # lower case; this runner, unlike Windows, matches case). Anything else
+      # in the artifacts (the AppImage's .debug file, the dSYM) stays a
+      # workflow artifact only.
+      - name: Collect release files
+        run: |
+          set -euo pipefail
+          : > release-files.txt
+          for pattern in "acquisition*.AppImage" "Acquisition_*_arm64.dmg" \
+                         "acquisition_setup_*.exe" "acquisition-${VERSION}.pdb"; do
+            found=$(find dist -type f -name "$pattern")
+            if [ "$(printf '%s' "$found" | grep -c '^')" -ne 1 ]; then
+              echo "::error::Expected exactly one '$pattern' in the artifacts, found: ${found:-none}"
+              exit 1
+            fi
+            echo "$found" >> release-files.txt
+          done
+          cat release-files.txt
+
+      # Before the draft, so that re-running this job after a failed draft
+      # step only repeats the Sentry calls, which accept an existing release.
+      - name: Create Sentry release
+        if: vars.SENTRY_ORG != ''
+        env:
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: acquisition
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SENTRY_AUTH_TOKEN}" ]; then
+            echo "SENTRY_AUTH_TOKEN is not set; skipping Sentry release."
+            exit 0
+          fi
+
+          # Must match SENTRY_RELEASE in src/main.cpp: APP_NAME "@" APP_VERSION_STRING.
+          release="acquisition@${VERSION}"
+
+          # Same pinned release and checksum as .github/actions/sentry-symbols.
+          cli="${RUNNER_TEMP}/sentry-cli-Linux-x86_64"
+          curl -sSfL --retry 3 -o "${cli}" \
+            "https://github.com/getsentry/sentry-cli/releases/download/3.6.2/sentry-cli-Linux-x86_64"
+          echo "3a4bbf2c0d06378d4e59b337647483751a0a2b1603db5fd4991847d0cfd6478c  ${cli}" | sha256sum -c -
+          chmod +x "${cli}"
+
+          "${cli}" releases new "${release}"
+          # Suspect commits need the Sentry GitHub integration; don't fail the
+          # release if it isn't configured.
+          "${cli}" releases set-commits "${release}" --auto \
+            || echo "::warning::Could not associate commits (is the Sentry GitHub integration set up?)"
+          "${cli}" releases finalize "${release}"
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ needs.version.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          flags=(--draft --generate-notes --verify-tag --title "$GITHUB_REF_NAME")
+          if [ "$PRERELEASE" = "true" ]; then
+            flags+=(--prerelease)
+          fi
+          mapfile -t files < release-files.txt
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" "${flags[@]}" "${files[@]}"

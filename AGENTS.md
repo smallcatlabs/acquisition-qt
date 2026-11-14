@@ -59,7 +59,8 @@ cmake --preset dev && cmake --build --preset dev && ctest --preset dev
   state out of commits.
 - For release changes, compare `CMakeLists.txt`, `installer.iss`, and the
   relevant workflow so version and packaging assumptions stay aligned. The
-  version has one source: `project(VERSION ...)` in `CMakeLists.txt`.
+  version has one source: `project(VERSION ...)` in `CMakeLists.txt`. The
+  release procedure is in `RELEASE.md`.
 
 ## Where To Look
 
