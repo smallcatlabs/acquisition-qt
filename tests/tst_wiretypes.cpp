@@ -26,6 +26,7 @@
 #include "testfixtures.h"
 #include "util/glaze_qt.h" // IWYU pragma: keep
 #include "util/json_readers.h"
+#include "util/json_writers.h"
 
 class WireTypesTest : public QObject
 {
@@ -40,6 +41,7 @@ private slots:
     void characterWickermanIsRead();
     void passiveNodeVariantFieldsAreRead();
     void passiveNodeConnectionsAreRead();
+    void characterWithNumericConnectionTargetIsRead();
     void leagueAccountVariantsAreRead();
 
     // Earlier reference changes the headers had not caught up with.
@@ -225,8 +227,9 @@ void WireTypesTest::passiveNodeConnectionsAreRead()
 {
     // GGG documents connections[].to as "uint; skill hash". It is modeled as
     // a string, following PoE's other node identifiers and PassiveNode::skill
-    // (Tom's ruling, 2026-11-12), so this fixture sends a string. GUESS: no
-    // 3.30 reply has been seen yet.
+    // (Tom's ruling, 2026-11-12); this fixture sends a string, and the next
+    // test sends the documented number. GUESS: no 3.30 reply has been seen
+    // yet.
     const auto node = readTolerant<poe::PassiveNode>(R"json({
         "skill": "12345",
         "out": ["222"],
@@ -249,6 +252,80 @@ void WireTypesTest::passiveNodeConnectionsAreRead()
     QCOMPARE(curve.orbit, 2u);
     QCOMPARE(curve.orbitX, std::optional<float>(1.5f));
     QCOMPARE(curve.orbitY, std::optional<float>(-2.25f));
+}
+
+void WireTypesTest::characterWithNumericConnectionTargetIsRead()
+{
+    // connections[].to in the shape GGG's reference documents ("uint; skill
+    // hash"), on a cluster jewel's subgraph node in a character reply. Either
+    // shape is read into the same string, so a reply in the documented shape
+    // does not fail the whole character fetch.
+    const auto payload = json::readCharacterPayload(R"json({"character": {
+        "id": "0000000000000000000000000000000000000000000000000000000000000001",
+        "name": "TestCharacter",
+        "realm": "pc",
+        "class": "Necromancer",
+        "league": "Standard",
+        "level": 90,
+        "experience": 1000000,
+        "passives": {
+            "hashes": [1, 2],
+            "hashes_ex": [],
+            "mastery_effects": {},
+            "skill_overrides": {},
+            "jewel_data": {
+                "13": {
+                    "type": "JewelPassiveTreeExpansionLarge",
+                    "subgraph": {
+                        "groups": {
+                            "expansion_0": {
+                                "x": 1.5, "y": -2.25, "orbits": [3], "nodes": ["65536", "65537"]
+                            }
+                        },
+                        "nodes": {
+                            "65536": {
+                                "skill": "65536",
+                                "name": "Small Passive",
+                                "group": "expansion_0",
+                                "orbit": 3,
+                                "orbitIndex": 0,
+                                "out": ["65537"],
+                                "in": [],
+                                "connections": [{"to": 65537, "orbit": 3, "orbitX": 1.5, "orbitY": -2.25}]
+                            },
+                            "65537": {
+                                "skill": "65537",
+                                "name": "Small Passive",
+                                "group": "expansion_0",
+                                "orbit": 3,
+                                "orbitIndex": 2,
+                                "out": [],
+                                "in": ["65536"],
+                                "connections": [{"to": "65536", "orbit": 0}]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }})json");
+    QVERIFY(payload);
+    QVERIFY(payload->character.passives);
+    const auto &jewel = payload->character.passives->jewel_data.at("13");
+    QVERIFY(jewel.subgraph);
+    const auto &numeric = jewel.subgraph->nodes.at("65536");
+    QVERIFY(numeric.connections);
+    QCOMPARE(numeric.connections->size(), size_t(1));
+    QCOMPARE(numeric.connections->front().to, QString("65537"));
+    QCOMPARE(numeric.connections->front().orbit, 3u);
+    const auto &string = jewel.subgraph->nodes.at("65537");
+    QVERIFY(string.connections);
+    QCOMPARE(string.connections->front().to, QString("65536"));
+
+    // Written back in the modeled shape, a string.
+    const QByteArray written = json::writeCharacter(payload->character);
+    QVERIFY(written.contains(R"("to":"65537")"));
+    QVERIFY(!written.contains(R"("to":65537)"));
 }
 
 void WireTypesTest::leagueAccountVariantsAreRead()

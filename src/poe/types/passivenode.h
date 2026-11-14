@@ -3,10 +3,15 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
+#include <string>
+#include <variant>
 #include <vector>
 
 #include <QString>
+
+#include <glaze/glaze.hpp>
 
 namespace poe {
 
@@ -31,8 +36,10 @@ namespace poe {
         struct Connection
         {
             // NOTE: documented as uint; modeled as a string like skill below and
-            // the out/in node identifiers (Tom's ruling, 2026-11-12). Unverified
-            // until a 3.30 reply has been seen.
+            // the out/in node identifiers (Tom's ruling, 2026-11-12). Read from
+            // either a JSON string or a JSON number (see the glz::meta below),
+            // so neither shape fails a character fetch. Unverified until a 3.30
+            // reply has been seen.
             QString to;     // uint; skill hash
             unsigned orbit; // uint; the orbit of this node around a point. 0 means a straight line
             std::optional<float> orbitX; // ?float; omitted if the orbit is 0
@@ -99,3 +106,21 @@ namespace poe {
     };
 
 } // namespace poe
+
+// connections[].to is documented as a number and modeled as a string; accept
+// both, so a reply in the documented shape does not fail the whole character
+// read. Written back as a string.
+template<>
+struct glz::meta<poe::PassiveNode::Connection>
+{
+    using T = poe::PassiveNode::Connection;
+    static constexpr auto read_to = [](T &self, const std::variant<std::uint64_t, std::string> &to) {
+        if (const auto *number = std::get_if<std::uint64_t>(&to)) {
+            self.to = QString::number(*number);
+        } else {
+            self.to = QString::fromStdString(std::get<std::string>(to));
+        }
+    };
+    static constexpr auto write_to = [](const T &self) -> const QString & { return self.to; };
+    static constexpr auto modify = glz::object("to", glz::custom<read_to, write_to>);
+};
