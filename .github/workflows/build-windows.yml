@@ -18,17 +18,21 @@ jobs:
       with:
         fetch-depth: 0
 
+    # Every workflow installs the same Qt (BUILD.md). Not 6.12.0: a 6.12.0
+    # Windows package failed at start-up with "SSL support is missing" on a
+    # user's machine, while its TLS backend works on this runner (#370), so
+    # the TLS check below would not catch that failure here.
     - name: Setup Qt
       uses: jurplel/install-qt-action@b344308e4483fc892e0d27b3cd1b173ebdd95f06 # v4.5.0
       with:
-        version: '6.12.0'
+        version: '6.11.1'
         host: 'windows'
         target: 'desktop'
         arch: 'win64_msvc2022_64'
         modules: 'qtnetworkauth'
         aqtsource: 'git+https://github.com/miurahr/aqtinstall.git@8d961e61720b3c06583517fbc68d57ec0a4e9f95'
         cache: true
-        cache-key-prefix: 'qt-6.12.0-win64-aqt-master'
+        cache-key-prefix: 'qt-6.11.1-win64-aqt-master'
 
     - name: Setup MSVC
       uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
@@ -106,6 +110,46 @@ jobs:
             $signature.SignerCertificate.Subject -notmatch
               '(^|,\s*)O=Microsoft Corporation(,|$)') {
           throw "vc_redist.x64.exe does not have a valid Microsoft signature"
+        }
+
+    - name: Check TLS in the package
+      run: |
+        # The packaged binary reports the TLS backends it finds and exits 1
+        # when none supports SSL (#370). The Qt install is hidden from it
+        # (install-qt-action puts its bin on PATH and sets QT_PLUGIN_PATH), so
+        # only what windeployqt packaged can be found.
+        $deploy = Resolve-Path "build\deploy"
+        Remove-Item Env:QT_PLUGIN_PATH -ErrorAction SilentlyContinue
+        $env:PATH = ($env:PATH -split ';' |
+          Where-Object { $_ -and -not $_.StartsWith($env:QT_ROOT_DIR) }) -join ';'
+        $data = Join-Path $env:RUNNER_TEMP "tls-check-data"
+
+        function Invoke-TlsCheck {
+          $out = Join-Path $env:RUNNER_TEMP "tls-check-out.txt"
+          $err = Join-Path $env:RUNNER_TEMP "tls-check-err.txt"
+          $p = Start-Process -FilePath "$deploy\acquisition.exe" `
+            -ArgumentList '--check-tls', '--data-dir', "`"$data`"" `
+            -NoNewWindow -Wait -PassThru `
+            -RedirectStandardOutput $out -RedirectStandardError $err
+          Get-Content $out, $err | Out-Host
+          return $p.ExitCode
+        }
+
+        $code = Invoke-TlsCheck
+        if ($code -ne 0) {
+          throw "The packaged application has no TLS backend that supports SSL (exit $code)"
+        }
+
+        # Negative control: without the packaged TLS plugins the same check
+        # must fail, or a pass above proves nothing.
+        Rename-Item "$deploy\tls" "tls.hidden"
+        try {
+          $code = Invoke-TlsCheck
+        } finally {
+          Rename-Item "$deploy\tls.hidden" "tls"
+        }
+        if ($code -eq 0) {
+          throw "The TLS check passed with the TLS plugins removed; it would not catch a package without them"
         }
 
     - name: Install Inno Setup

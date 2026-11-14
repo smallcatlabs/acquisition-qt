@@ -24,7 +24,7 @@ See [BUILD.md](BUILD.md) for more detailed build and release packaging guidance.
 
 ## Command line
 
-`acquisition [--data-dir <path>] [--log-level <level>]`
+`acquisition [--data-dir <path>] [--log-level <level>] [--check-tls]`
 
 `--data-dir <path>`:
 	Set the path where Acquisition should save its data.
@@ -38,6 +38,10 @@ See [BUILD.md](BUILD.md) for more detailed build and release packaging guidance.
 	This option is case-insensitive.
 	The default level for release builds is `INFO`.
 	The default level for debug builds is `DEBUG`.
+
+`--check-tls`:
+	Print the TLS backends Acquisition finds and exit without starting.
+	The exit status is 1 when none of them supports SSL.
 
 ## Reporting issues
 

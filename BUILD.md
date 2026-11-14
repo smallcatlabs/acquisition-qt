@@ -57,7 +57,7 @@ CMake has to be able to find Qt. Either export `CMAKE_PREFIX_PATH` or put it in
 a `CMakeUserPresets.json` (ignored by git):
 
 ```sh
-export CMAKE_PREFIX_PATH=<qt-install>/6.12.0/<compiler>   # e.g. ~/Qt/6.12.0/macos
+export CMAKE_PREFIX_PATH=<qt-install>/6.11.1/<compiler>   # e.g. ~/Qt/6.11.1/macos
 export CMAKE_GENERATOR=Ninja                              # optional, faster
 ```
 
@@ -273,8 +273,12 @@ Release artifacts are built by GitHub Actions:
 - `.github/workflows/build-windows.yml` builds the Windows installer.
 
 The workflows run on `workflow_dispatch` and on tags matching `v*`. Tag builds
-create draft GitHub releases and attach the platform artifacts. They currently
-install Qt 6.12.0 with the `qtnetworkauth` module.
+create draft GitHub releases and attach the platform artifacts. Every
+workflow, these three and the test, CodeQL and sanitizer workflows, installs
+the same Qt, 6.11.1, with the `qtnetworkauth` module. A Windows package built
+with 6.12.0 failed at start-up with "SSL support is missing" (#370). The
+Windows workflow runs the packaged binary with `--check-tls` and fails when it
+finds no TLS backend that supports SSL.
 
 ## Platform Notes
 

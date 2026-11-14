@@ -99,6 +99,22 @@ add_test(NAME filters_boundary
         -P "${acquisition_SOURCE_DIR}/cmake/filters_boundary_check.cmake")
 add_dependencies(acq_tests acquisition_filters)
 
+# The application finds a TLS backend that supports SSL (#370): a Qt whose
+# TLS plugins load but cannot make an encrypted connection fails here, not at
+# a user's start-up. The packaging workflows run the same check against the
+# packaged binary. --check-tls exits before the data directory is touched.
+# Not in a sanitized tree: that tree never builds the app (BUILD.md).
+if(NOT ACQ_SANITIZE)
+    add_test(NAME app_check_tls
+        COMMAND acquisition --check-tls
+            --data-dir "${CMAKE_CURRENT_BINARY_DIR}/app_check_tls-data")
+    _acq_test_environment(test_environment)
+    set_tests_properties(app_check_tls PROPERTIES
+        ENVIRONMENT "${test_environment}"
+        PASS_REGULAR_EXPRESSION "SSL supported: yes")
+    _acq_test_dll_path(app_check_tls)
+endif()
+
 acq_add_test(tst_buyout)
 acq_add_test(tst_buyoutmanager)
 acq_add_test(tst_applybuyout)
