@@ -21,10 +21,10 @@ jobs:
     - name: Setup Qt
       uses: jurplel/install-qt-action@b344308e4483fc892e0d27b3cd1b173ebdd95f06 # v4.5.0
       with:
-        version: '6.11.1'
+        version: '6.11.3'
         modules: 'qtnetworkauth'
         cache: true
-        cache-key-prefix: 'qt-6.11.1-macos'
+        cache-key-prefix: 'qt-6.11.3-macos'
 
     - name: Configure CMake
       run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release

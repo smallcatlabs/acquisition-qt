@@ -11,7 +11,7 @@ there binds work here.
 Read `BUILD.md` before changing build, packaging, or platform setup.
 
 ```sh
-export CMAKE_PREFIX_PATH=<qt-install>/6.11.1/<compiler>   # e.g. ~/Qt/6.11.1/macos
+export CMAKE_PREFIX_PATH=<qt-install>/6.11.3/<compiler>   # e.g. ~/Qt/6.11.3/macos
 export CMAKE_GENERATOR=Ninja                              # optional
 cmake --preset dev && cmake --build --preset dev && ctest --preset dev
 ```
