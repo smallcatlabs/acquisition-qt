@@ -6,7 +6,7 @@ maintained indefinitely. A Rust implementation is developed separately in
 `smallcatlabs/acquisition` (`docs/adr/0003-rewrite-vs-evolve.md`); nothing
 there binds work here.
 
-## Build, Run, Test
+## Build and Run
 
 Read `BUILD.md` before changing build, packaging, or platform setup.
 
@@ -23,11 +23,33 @@ cmake --preset dev && cmake --build --preset dev && ctest --preset dev
   distribution's Qt usually ships neither, and configuring fails in
   `_deps/qxlsx-src` with `Failed to find required Qt component "GuiPrivate"`.
   Point `CMAKE_PREFIX_PATH` at an official Qt kit. Linux also requires OpenSSL.
-- Run the app only with `--data-dir <temporary directory>`. Never read or
-  write a real Acquisition data directory (the platform's application-data
-  location), in the app, in tests, or in investigation scripts. It holds the
-  user's tokens, prices and account data.
+- Never read or write a real Acquisition data directory (the platform's
+  application-data location), in the app, in tests, or in investigation
+  scripts. It holds the user's tokens, prices and account data.
+- Run the `acquisition` executable only with `--data-dir <temporary
+  directory>`. To exercise the application, use the app fixture below.
 - Enable the commit hook once per clone: `git config core.hooksPath .githooks`.
+
+## Test
+
+`BUILD.md`, "Tests", has the detail. Use the smallest of these that can fail
+for the change in hand:
+
+- **A suite.** `tests/tst_<name>.cpp`. All suites link into one executable:
+  `acq_tests <suite> [function]` runs one, `ctest --preset dev` runs all.
+- **What the window shows.** `tests/viewtranscript.h` prints the item tree as
+  text, with its selection, current row and collapsed tabs. A test compares
+  the print before and after and names the lines allowed to change.
+  `ACQ_TEST_SCREENSHOT_DIR=<dir>` saves PNGs.
+- **The whole application.** `tests/appfixture.h` builds the real
+  `Application` over a temporary data directory, with the network answered
+  from files. `tests/tst_appsmoke.cpp` runs the release smoke list this way.
+- **The live API.** `live_capture` (`BUILD.md`, "Live capture") refreshes once
+  against the real API. Run it only with a live directory and an account the
+  user names for it, and never on a branch that changes the refresh or network
+  code (the `src/` paths in `.github/workflows/sanitizers.yml`). The directory
+  and the account are local settings: they stay out of the repository, issues,
+  pull requests and commits.
 
 ## Working Rules
 
@@ -39,11 +61,13 @@ cmake --preset dev && cmake --build --preset dev && ctest --preset dev
 - **A change in behaviour comes with a test that fails without it.** Run the
   test and see it fail before writing the fix. A test that passes at once has
   proved nothing.
-- **Fixtures use what the game actually sends.** Property values look like
+- **Fixtures use what the game actually sends.** Take them from
+  `tests/fixtures/payloads`, real replies with character and account names
+  scrubbed. Property values look like
   `8.00%` and `20 (Max)`; item classes are named `rings` and
   `one hand swords`; requirements arrive as both `Int` and `Intelligence`.
   Tests built on invented formats have hidden real defects here.
-- **Pull requests** must pass the Tests check, and nothing else gates a merge.
+- **Pull requests** must pass the Tests check; no other check gates a merge.
   CodeQL and the sanitizer run happen on release tags (the sanitizer job also
   runs, without gating, on a pull request that touches the refresh or network
   code); a finding on a beta tag is fixed before the final release. Keep one
@@ -65,7 +89,7 @@ cmake --preset dev && cmake --build --preset dev && ctest --preset dev
 
 | Area | Code | Read first | Must not break |
 |---|---|---|---|
-| Refresh pipeline | `src/itemsmanagerworker.*`, `src/itemsmanager.*` | `docs/design/items-pipeline.md`; the M2 spec's D1–D8 and D10 | An update's identity is its `std::stop_token`, checked after every await. A reply replaces its source atomically. Nothing the worker discards is persisted. |
+| Refresh pipeline | `src/itemsmanagerworker.*`, `src/itemsmanager.*` | `docs/design/items-pipeline.md`; D1–D8 and D10 in `docs/design/items-pipeline-m2.md` | An update's identity is its `std::stop_token`, checked after every await. A reply replaces its source atomically. Nothing the worker discards is persisted. |
 | Rate limiting and network | `src/ratelimit/`, `src/poe/poeapiclient.*`, `src/util/networkmanager.*` | `docs/design/network-redesign.md` (frozen); `docs/design/network-ground-truth.md` (N-claims) | One HEAD in flight at a time (F5). The hub lives on the main thread. Every API request carries the transfer timeout. Owners are destroyed only after the event loop stops. |
 | Search and model | `src/search.*`, `src/bucket.*`, `src/items_model.*`, `src/column.*`, `src/filters/` | `docs/design/items-pipeline-m3.md`; `docs/design/folder-tree.md` | Refresh deltas reach the model as row operations, never a reset. `src/filters/` stays free of widgets (the `filters_boundary` test). |
 | Items | `src/item.*`, `src/modlist.*`, `src/pseudomods.*`, `src/repoe/`, `src/poe/types/` | Issues labelled `area:items` | Game data (RePoE) is loaded before any `Item` is built. |
@@ -79,14 +103,5 @@ cmake --preset dev && cmake --build --preset dev && ctest --preset dev
 for the areas they cover; cite their decision numbers, the F-numbers, and the
 N- and T-claims instead of restating them.
 
-## Project Map
-
-- `src/` is the application. `src/ui/` holds the widgets; `src/filters/` is a
-  separate library with no UI dependency.
-- `tests/` is the Qt Test suite, with fakes for the network (`fake*.h`) and a
-  main-window fixture.
-- `assets/` holds bundled icons and Path of Exile-style UI images.
-- `docs/` holds the user guide, design specs, ADRs, and the findings register.
-- `deps/qdarkstyle/` is vendored. Other third-party libraries are fetched by
-  CMake.
-- Release packaging is defined in `.github/workflows/`.
+`assets/` holds the bundled icons and UI images. `deps/qdarkstyle/` is
+vendored; other third-party libraries are fetched by CMake.
