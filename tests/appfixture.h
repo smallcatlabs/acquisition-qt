@@ -12,6 +12,7 @@
 #include <QDir>
 #include <QFile>
 #include <QImage>
+#include <QInputDialog>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -62,7 +63,8 @@
 // Qt Test's own clean-up follows.
 //
 // What it does not exercise: the OAuth login (logIn() starts where the login
-// dialog ends), and the request headers NetworkManager adds (scriptednetwork.h).
+// dialog ends), and the request headers and cookies NetworkManager adds
+// (scriptednetwork.h).
 // The scripted API has one rate-limit rule with room to spare, so the
 // limiter's waits beyond its own spacing between sends never happen here.
 //
@@ -113,6 +115,14 @@ public:
         QObject::connect(&m_dialog_watch, &QTimer::timeout, &m_dialog_watch, [this] {
             for (QWidget *window : QApplication::topLevelWidgets()) {
                 if (!window->isVisible() || !window->isModal()) {
+                    continue;
+                }
+                // A dialog that asks for a text and has an answer waiting
+                // gets it, as from a user who types it and presses OK.
+                if (auto *input = qobject_cast<QInputDialog *>(window);
+                    input && !m_input_answers.isEmpty()) {
+                    input->setTextValue(m_input_answers.takeFirst());
+                    input->accept();
                     continue;
                 }
                 const auto *box = qobject_cast<QMessageBox *>(window);
@@ -234,6 +244,107 @@ public:
             }
         }
         qFatal("AppFixture: no menu has an item named %s", qPrintable(text));
+    }
+
+    // Triggers the menu item named `menu_text`, which asks for a text in a
+    // dialog, and gives the dialog `answer`. False if no dialog took it.
+    bool answerMenuDialog(const QString &menu_text, const QString &answer)
+    {
+        m_input_answers << answer;
+        // The dialog runs its own event loop inside trigger(); the dialog
+        // watch answers it from there.
+        menuAction(menu_text).trigger();
+        const bool taken = m_input_answers.isEmpty();
+        m_input_answers.clear();
+        return taken;
+    }
+
+    // The forum from now on, for the thread the captured pages in
+    // tests/fixtures/forum belong to: the website's list of stash tabs, the
+    // thread's edit page, and the page a saved edit answers with. A scenario
+    // that never calls this fails on any request to the website.
+    static constexpr const char *kForumThread = "3445874";
+    static QString forumEditUrl()
+    {
+        return QString("https://www.pathofexile.com/forum/edit-thread/") + kForumThread;
+    }
+    void serveForum()
+    {
+        // The website numbers the tabs it lists from 0 (T24). The reply is
+        // written from the fields the shop reads; no reply of this endpoint
+        // has been captured.
+        QJsonArray listed;
+        for (const Tab &tab : tabs) {
+            const QJsonObject stash = QJsonDocument::fromJson(tab.reply).object();
+            listed.append(QJsonObject{{"n", tab.name}, {"i", stash.value("index")}, {"id", tab.id}});
+        }
+        const QByteArray index = QJsonDocument(
+                                     QJsonObject{{"numTabs", listed.size()}, {"tabs", listed}})
+                                     .toJson(QJsonDocument::Compact);
+        network->answer([index](QNetworkAccessManager::Operation,
+                                const QUrl &asked) -> std::optional<ScriptedNetwork::Answer> {
+            if (asked.toString(QUrl::RemoveQuery)
+                == "https://www.pathofexile.com/character-window/get-stash-items") {
+                return apiAnswer("backend-item-request-limit", index);
+            }
+            return std::nullopt;
+        });
+        const QByteArray edit_page = readFixture("forum/edit-thread.html");
+        const QByteArray saved_page = readFixture("forum/after-edit-thread.html");
+        network->answer(
+            [edit_page, saved_page](QNetworkAccessManager::Operation op,
+                                    const QUrl &asked) -> std::optional<ScriptedNetwork::Answer> {
+                if (asked.toString() != forumEditUrl()) {
+                    return std::nullopt;
+                }
+                const bool post = (op == QNetworkAccessManager::PostOperation);
+                return ScriptedNetwork::Answer{.body = post ? saved_page : edit_page};
+            });
+    }
+
+    // The forms posted to the forum so far, as sent.
+    QList<QByteArray> forumPosts() const
+    {
+        QList<QByteArray> bodies;
+        for (const ScriptedNetwork::Request &request : network->requests()) {
+            if ((request.op == QNetworkAccessManager::PostOperation)
+                && (request.url.toString() == forumEditUrl())) {
+                bodies << request.body;
+            }
+        }
+        return bodies;
+    }
+
+    // One field of a posted form, decoded as a form decoder reads it: "+"
+    // is a space and "%xx" a byte.
+    static QString formField(const QByteArray &form, const QByteArray &name)
+    {
+        for (const QByteArray &pair : form.split('&')) {
+            const qsizetype equals = pair.indexOf('=');
+            if ((equals >= 0) && (pair.first(equals) == name)) {
+                QByteArray value = pair.mid(equals + 1);
+                value.replace('+', ' ');
+                return QString::fromUtf8(QByteArray::fromPercentEncoding(value));
+            }
+        }
+        return "(no field " + QString::fromUtf8(name) + ")";
+    }
+
+    // Every request made to the website so far, as "GET /forum/edit-thread/1"
+    // (the stash list without its query), in order.
+    QStringList websiteRequests() const
+    {
+        QStringList found;
+        for (const ScriptedNetwork::Request &request : network->requests()) {
+            if (request.url.host() != "www.pathofexile.com") {
+                continue;
+            }
+            const char *verb = (request.op == QNetworkAccessManager::HeadOperation)   ? "HEAD "
+                               : (request.op == QNetworkAccessManager::PostOperation) ? "POST "
+                                                                                      : "GET ";
+            found << verb + request.url.path();
+        }
+        return found;
     }
 
     // Every stash and character request made so far, probes included, as
@@ -530,4 +641,5 @@ private:
     }
 
     QTimer m_dialog_watch;
+    QStringList m_input_answers; // for the next dialogs that ask for a text
 };

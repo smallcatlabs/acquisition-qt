@@ -7,11 +7,16 @@
 #include <QtTest/QtTest>
 
 #include <QAction>
+#include <QClipboard>
+#include <QNetworkCookie>
+#include <QNetworkCookieJar>
+#include <QUrlQuery>
 
 #include <spdlog/sinks/dist_sink.h>
 #include <spdlog/spdlog.h>
 
 #include "appfixture.h"
+#include "shop.h"
 #include "testsuite.h"
 #include "viewtranscript.h"
 
@@ -38,6 +43,10 @@ private slots:
     void pricedFilterFollowsPrices();
     // Step 8: number fields take a decimal comma and refuse a percent sign.
     void numberFieldsTakeACommaAndRefuseAPercent();
+    // Step 9: the forum shop, against the captured forum pages. Whether the
+    // real forum accepts the post stays a check by hand.
+    void manualShopUpdatePostsTheUsersPrices();
+    void automaticShopUpdateWaitsForACleanRefresh();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -467,6 +476,204 @@ void AppSmokeTest::numberFieldsTakeACommaAndRefuseAPercent()
     QTRY_VERIFY(marked(minimum));
     QTRY_COMPARE(rows(), everything);
     QCOMPARE(surprises(fixture), QString());
+}
+
+namespace {
+
+    // Not a real session id: the shape of one, 32 hexadecimal digits.
+    constexpr const char *kTestSessionId = "00112233445566778899aabbccddeeff";
+
+    // The scrubbed security token in tests/fixtures/forum/edit-thread.html.
+    constexpr const char *kEditPageHash
+        = "0123456789abcdef0123456789abcdef-fedcba9876543210fedcba9876543210";
+
+    // The shop with the scene's Viper Suit at b/o 7 chaos and nothing else:
+    // the website lists the item's tab as number 15, and it lies at 5, 2.
+    // The spaces in the price and the one closing tag for two spoilers are
+    // what the application posts today (#359).
+    constexpr const char *kShopWithViperSuit
+        = R"([spoiler][spoiler=" ~b/o  7 chaos"])"
+          R"([linkItem location="Stash16" league="Hardcore" x="5" y="2" realm="pc"])"
+          R"([/spoiler])";
+
+    // What a shop scenario must end without: a request the script did not
+    // answer, or a dialog other than the ones it expected.
+    QString surprisesBeyond(const AppFixture &fixture, qsizetype expected_dialogs)
+    {
+        QStringList found;
+        for (const QString &url : fixture.network->unanswered()) {
+            found << "unanswered request: " + url;
+        }
+        for (const QString &dialog : fixture.dialogs.mid(expected_dialogs)) {
+            found << "dialog: " + dialog;
+        }
+        return found.join('\n');
+    }
+
+    // The session id the network would send to the website.
+    QString sessionCookie(const AppFixture &fixture)
+    {
+        const QUrl forum(AppFixture::forumEditUrl());
+        for (const QNetworkCookie &cookie : fixture.network->cookieJar()->cookiesForUrl(forum)) {
+            if (cookie.name() == "POESESSID") {
+                return QString::fromUtf8(cookie.value());
+            }
+        }
+        return "(no POESESSID cookie)";
+    }
+
+} // namespace
+
+void AppSmokeTest::manualShopUpdatePostsTheUsersPrices()
+{
+    AppFixture fixture;
+    QVERIFY(fixture.logInAndLoad());
+    ScreenshotOnFailure screenshot{fixture.window()};
+    fixture.tree().expandAll();
+    fixture.serveForum();
+
+    // One price of the user's own, beside a tab priced by its name and an
+    // item priced by a note: four items the game priced. The gem sits in
+    // the Viper Suit and has no price.
+    fixture.select("Viper Suit");
+    fixture.typePrice("7");
+    QCOMPARE(text(fixture),
+             QString("  [-] #16, \"KB/CF Champ\"\n"
+                     "*>      Viper Suit Loricated Ringmail | b/o 7 chaos\n"
+                     "        Iron Will Support\n"
+                     "        Hollow Vision Hypnotic Eye Jewel\n"
+                     "  [-] #22, \"~price 2 chaos\" [price 2 chaos]\n"
+                     "        Sol Buckle Chain Belt | price 2 chaos\n"
+                     "        Hypnotic Finger Moonstone Ring | price 2 chaos\n"
+                     "        Grim Arbiter Searching Eye Jewel | price 2 chaos\n"
+                     "  [-] #24, \"Market\"\n"
+                     "        Dragon Crown Close Helmet | price 3 chaos"));
+
+    // With no thread and no session id set, an update says what is missing
+    // and asks the website for nothing.
+    QAction &update = fixture.menuAction("Update forum shop(s)");
+    update.trigger();
+    QTRY_COMPARE(fixture.dialogs.size(), 1);
+    QVERIFY2(fixture.dialogs.last().contains("No forum threads have been set"),
+             qPrintable(fixture.dialogs.last()));
+
+    QVERIFY(fixture.answerMenuDialog("Forum shop thread...", AppFixture::kForumThread));
+    QCOMPARE(fixture.window().findChild<QAction *>("actionSetShopThreads")->text(),
+             QString("Forum shop thread... [3445874]"));
+    update.trigger();
+    QTRY_COMPARE(fixture.dialogs.size(), 2);
+    QVERIFY2(fixture.dialogs.last().contains("POESESSID has not been set"),
+             qPrintable(fixture.dialogs.last()));
+    QCOMPARE(fixture.websiteRequests(), QStringList());
+
+    QCOMPARE(sessionCookie(fixture), QString("(no POESESSID cookie)"));
+    QVERIFY(fixture.answerMenuDialog("Update shop POESESSID", kTestSessionId));
+    QCOMPARE(sessionCookie(fixture), QString(kTestSessionId));
+
+    // The update: the website's list of tabs, the thread's edit page, and
+    // half a second later the post.
+    update.trigger();
+    QVERIFY2(QTest::qWaitFor([&] { return fixture.statusText().contains("Shop threads updated"); },
+                             15000),
+             qPrintable(fixture.statusText() + '\n' + fixture.websiteRequests().join('\n')));
+    QCOMPARE(fixture.websiteRequests(),
+             QStringList({
+                 "HEAD /character-window/get-stash-items",
+                 "GET /character-window/get-stash-items",
+                 "GET /forum/edit-thread/3445874",
+                 "POST /forum/edit-thread/3445874",
+             }));
+
+    // The list of tabs is asked for by account, realm and league.
+    const QString index_url
+        = fixture.network->requested(QNetworkAccessManager::GetOperation, "get-stash-items").first();
+    QCOMPARE(QUrlQuery(QUrl(index_url)).queryItemValue("accountName", QUrl::FullyDecoded),
+             QString(AppFixture::kAccount));
+    QCOMPARE(QUrlQuery(QUrl(index_url)).queryItemValue("realm"), QString(AppFixture::kRealm));
+    QCOMPARE(QUrlQuery(QUrl(index_url)).queryItemValue("league"), QString(AppFixture::kLeague));
+
+    // The form: the title and the security token of the edit page, and the
+    // shop. Nothing in it is left unencoded.
+    QCOMPARE(fixture.forumPosts().size(), 1);
+    const QByteArray form = fixture.forumPosts().first();
+    QCOMPARE(AppFixture::formField(form, "title"), QString("GERWARIC's Standard Shop"));
+    QCOMPARE(AppFixture::formField(form, "hash"), QString(kEditPageHash));
+    QCOMPARE(AppFixture::formField(form, "notify_owner"), QString("0"));
+    QCOMPARE(AppFixture::formField(form, "submit"), QString("Submit"));
+    for (const char unencoded : {'[', ']', '"', ' ', '+', '\''}) {
+        QVERIFY2(!form.contains(unencoded), form.constData());
+    }
+    QVERIFY2(form.contains("content=%5Bspoiler%5D"), form.constData());
+
+    // The shop lists the item the user priced and none the game priced.
+    const QString content = AppFixture::formField(form, "content");
+    QCOMPARE(content, QString(kShopWithViperSuit));
+
+    // "Copy shop data to clipboard" gives the same text.
+    QApplication::clipboard()->clear();
+    fixture.menuAction("Copy shop data to clipboard").trigger();
+    QCOMPARE(QApplication::clipboard()->text(), content);
+
+    QCOMPARE(surprisesBeyond(fixture, 2), QString());
+}
+
+void AppSmokeTest::automaticShopUpdateWaitsForACleanRefresh()
+{
+    AppFixture fixture;
+    QVERIFY(fixture.logInAndLoad());
+    ScreenshotOnFailure screenshot{fixture.window()};
+    fixture.tree().expandAll();
+    fixture.serveForum();
+    QVERIFY(fixture.answerMenuDialog("Forum shop thread...", AppFixture::kForumThread));
+    QVERIFY(fixture.answerMenuDialog("Update shop POESESSID", kTestSessionId));
+    fixture.select("Viper Suit");
+    fixture.typePrice("7");
+
+    // Turning automatic updates on posts nothing by itself.
+    QAction &automatic = fixture.menuAction("Automatically update shop");
+    QVERIFY(!automatic.isChecked());
+    automatic.trigger();
+    QVERIFY(automatic.isChecked());
+    QVERIFY(fixture.access().shop().auto_update());
+
+    auto *refresh_checked = fixture.window().findChild<QAction *>("actionRefreshCheckedTabs");
+    QVERIFY(refresh_checked);
+
+    // A refresh in which one tab's reply could not be read completes with
+    // that tab skipped, and the shop is not posted: an automatic update
+    // would ask the website for its list of tabs at once.
+    fixture.serveStash(fixture.tabs[1].id, "\"not a stash\"");
+    const auto with_a_skip = fixture.refresh([&] { refresh_checked->trigger(); });
+    QVERIFY(with_a_skip.has_value());
+    const auto *completed = std::get_if<CompletedRefresh>(&*with_a_skip);
+    QVERIFY(completed);
+    QCOMPARE(completed->skipped.size(), size_t(1));
+    QTest::qWait(1000);
+    QCOMPARE(fixture.websiteRequests(), QStringList());
+
+    // A clean refresh: the shop is posted, with the user's price in it.
+    fixture.serveStash(fixture.tabs[1].id, fixture.tabs[1].reply);
+    const auto clean = fixture.refresh([&] { refresh_checked->trigger(); });
+    QVERIFY(AppFixture::isClean(clean));
+    QVERIFY2(QTest::qWaitFor([&] { return fixture.statusText().contains("Shop threads updated"); },
+                             15000),
+             qPrintable(fixture.statusText() + '\n' + fixture.websiteRequests().join('\n')));
+    QCOMPARE(fixture.forumPosts().size(), 1);
+    QCOMPARE(AppFixture::formField(fixture.forumPosts().first(), "content"),
+             QString(kShopWithViperSuit));
+
+    // Another clean refresh with nothing changed: the website's list of
+    // tabs is read again to see that, and nothing is posted.
+    const qsizetype asked_before = fixture.websiteRequests().size();
+    const auto unchanged = fixture.refresh([&] { refresh_checked->trigger(); });
+    QVERIFY(AppFixture::isClean(unchanged));
+    QVERIFY(QTest::qWaitFor([&] { return fixture.websiteRequests().size() > asked_before; }, 15000));
+    QTest::qWait(1500);
+    QCOMPARE(fixture.websiteRequests().mid(asked_before),
+             QStringList({"GET /character-window/get-stash-items"}));
+    QCOMPARE(fixture.forumPosts().size(), 1);
+
+    QCOMPARE(surprisesBeyond(fixture, 0), QString());
 }
 
 ACQ_TEST_GUI_SCENARIO_MAIN(AppSmokeTest)

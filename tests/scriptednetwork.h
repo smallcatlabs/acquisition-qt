@@ -54,6 +54,7 @@ public:
         QNetworkAccessManager::Operation op;
         QUrl url;
         bool claimed;
+        QByteArray body; // what a POST or PUT sent, as sent
     };
 
     // The rule added last is asked first, so a scenario's rule overrides the
@@ -101,7 +102,7 @@ public:
 protected:
     QNetworkReply *createRequest(QNetworkAccessManager::Operation op,
                                  const QNetworkRequest &request,
-                                 QIODevice *) override
+                                 QIODevice *outgoing) override
     {
         std::optional<Answer> found;
         for (const Rule &rule : m_rules) {
@@ -110,7 +111,8 @@ protected:
                 break;
             }
         }
-        m_requests.push_back({op, request.url(), found.has_value()});
+        m_requests.push_back(
+            {op, request.url(), found.has_value(), outgoing ? outgoing->readAll() : QByteArray()});
         if (!found) {
             found = Answer{.status = 404, .error = QNetworkReply::ContentNotFoundError};
         }

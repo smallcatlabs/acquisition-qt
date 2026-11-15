@@ -169,7 +169,9 @@ smoke list: starting from cached items (2); Refresh Checked and Refresh
 Selected (3); a price saved with Enter, the status line for text that is not
 a price, the lock on an item priced in the game and a tab's price as one
 stored row (part of 4); a note's price and a tab name's price (5, 6); the
-Priced filter (7); one number field (8).
+Priced filter (7); one number field (8); a manual shop update, "Copy shop data
+to clipboard" and an automatic update, against forum pages captured from the
+real site (part of 9).
 
 Not covered by them, and checked by hand before a release:
 
@@ -178,14 +180,16 @@ Not covered by them, and checked by hand before a release:
   selecting other rows, closing) and the red field (the rest of 4), which
   `tst_mainwindow` tests on a window wired by hand, not on the real
   application;
-- the first manual shop update, what the forum shows afterwards, and "Copy
-  shop data to clipboard" (9);
+- that the real forum accepts the post, and what the thread shows
+  afterwards (the rest of 9): the scenarios answer the post with a captured
+  page, whatever was sent;
 - a run on Windows (10);
 - anything the offscreen platform does not draw.
 
 The scripted network stands in for `NetworkManager::createRequest`, so the
 User-Agent and the bearer token it adds to a request are not exercised
-either.
+either, nor is the session cookie sent with a forum request; the shop
+scenario checks that the cookie is set for the site.
 
 ### Golden files
 
