@@ -5,16 +5,22 @@
 
 #include <QApplication>
 #include <QBuffer>
+#include <QCheckBox>
+#include <QComboBox>
 #include <QDateTime>
+#include <QDialog>
 #include <QDir>
 #include <QFile>
 #include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLabel>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QStatusBar>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
@@ -23,10 +29,14 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 
 #include "application.h"
 #include "applicationtestaccess.h"
+#include "buyout.h"
+#include "currency.h"
+#include "datastore/buyoutrepo.h"
 #include "datastore/stashrepo.h"
 #include "datastore/userstore.h"
 #include "itemsmanager.h"
@@ -92,11 +102,24 @@ public:
         answerApi();
 
         // A modal dialog would block the test until CTest's timeout; close it
-        // and keep its text, so the scenario fails with what the dialog said.
+        // and keep its title and text, so the scenario fails with what it said.
         QObject::connect(&m_dialog_watch, &QTimer::timeout, &m_dialog_watch, [this] {
-            if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
-                dialogs << box->text();
-                box->reject();
+            for (QWidget *window : QApplication::topLevelWidgets()) {
+                if (!window->isVisible() || !window->isModal()) {
+                    continue;
+                }
+                const auto *box = qobject_cast<QMessageBox *>(window);
+                const QString said = window->windowTitle() + (box ? ": " + box->text() : QString());
+                if (dialogs.isEmpty() || (dialogs.last() != said)) {
+                    dialogs << said;
+                }
+                // done(), not close(): a message box with no single escape
+                // button ignores a close, and no button is clicked this way.
+                if (auto *dialog = qobject_cast<QDialog *>(window)) {
+                    dialog->done(QDialog::Rejected);
+                } else {
+                    window->close();
+                }
             }
         });
         m_dialog_watch.start(100);
@@ -137,6 +160,7 @@ public:
     }
 
     // The first row, a tab's header or an item, whose name contains `text`.
+    // A scenario names rows it knows are shown, so none found is fatal.
     QModelIndex row(const QString &text) const
     {
         const QAbstractItemModel &model = *tree().model();
@@ -152,7 +176,7 @@ public:
                 }
             }
         }
-        return {};
+        qFatal("AppFixture: the tree shows no row named %s", qPrintable(text));
     }
 
     // Makes `text`'s row the current row and the only selected one, as a
@@ -204,6 +228,118 @@ public:
         return paths;
     }
 
+    // The price box under the tree, with the type and the currency chosen
+    // the way a user picks them from the two lists.
+    QLineEdit &priceBox(int type = Buyout::BUYOUT_TYPE_BUYOUT,
+                        int currency = Currency::CURRENCY_CHAOS_ORB) const
+    {
+        auto *types = window().findChild<QComboBox *>("buyoutTypeComboBox");
+        auto *currencies = window().findChild<QComboBox *>("buyoutCurrencyComboBox");
+        auto *value = window().findChild<QLineEdit *>("buyoutValueLineEdit");
+        if (!types || !currencies || !value) {
+            qFatal("AppFixture: the main window has no price editor");
+        }
+        if (types->isEnabled()) {
+            types->setCurrentIndex(type);
+            emit types->activated(type);
+            currencies->setCurrentIndex(currency);
+            emit currencies->activated(currency);
+        }
+        return *value;
+    }
+
+    // Types `text` into the price box for the selected rows and presses Enter.
+    void typePrice(const QString &text)
+    {
+        QLineEdit &box = priceBox();
+        box.selectAll();
+        QTest::keyClicks(&box, text);
+        QTest::keyClick(&box, Qt::Key_Return);
+    }
+
+    // The two boxes, minimum and maximum, of the search form's number filter
+    // labelled `caption`.
+    QList<QLineEdit *> numberBoxes(const QString &caption) const
+    {
+        for (const QLabel *label : window().findChildren<QLabel *>()) {
+            if ((label->text() == caption) && label->parentWidget()) {
+                const auto boxes = label->parentWidget()->findChildren<QLineEdit *>();
+                if (boxes.size() == 2) {
+                    return boxes;
+                }
+            }
+        }
+        qFatal("AppFixture: no number filter labelled %s", qPrintable(caption));
+    }
+
+    // The search form's Priced checkbox.
+    QCheckBox &pricedBox() const
+    {
+        for (const QLabel *label : window().findChildren<QLabel *>()) {
+            if ((label->text() == "Priced") && label->parentWidget()) {
+                if (auto *box = label->parentWidget()->findChild<QCheckBox *>()) {
+                    return *box;
+                }
+            }
+        }
+        qFatal("AppFixture: the search form has no Priced checkbox");
+    }
+
+    // The status bar's message and labels, joined.
+    QString statusText() const
+    {
+        QStringList texts{window().statusBar()->currentMessage()};
+        for (const QLabel *label : window().statusBar()->findChildren<QLabel *>()) {
+            texts.append(label->text());
+        }
+        return texts.join('|');
+    }
+
+    // What is in the user store on disk, read through a second connection:
+    // the prices of items by item id, and of tabs by tab id.
+    std::unordered_map<QString, Buyout> storedItemPrices() const
+    {
+        UserStore store(QDir(dir.filePath("data")), kAccount);
+        return store.buyouts().loadItemBuyouts().value();
+    }
+    std::unordered_map<QString, Buyout> storedTabPrices() const
+    {
+        UserStore store(QDir(dir.filePath("data")), kAccount);
+        return store.buyouts().loadLocationBuyouts().value();
+    }
+
+    // One stored price as the application writes it out ("b/o 7 chaos"), or
+    // "(none)".
+    static QString priceText(const std::unordered_map<QString, Buyout> &prices, const QString &id)
+    {
+        const auto it = prices.find(id);
+        return (it == prices.end()) ? QString("(none)") : it->second.AsText();
+    }
+
+    // The id of the item named `name` in tab `index` of the scene.
+    QString itemId(size_t index, const QString &name) const
+    {
+        const QJsonArray items
+            = QJsonDocument::fromJson(tabs.at(index).reply).object().value("items").toArray();
+        for (const QJsonValue &item : items) {
+            if (item.toObject().value("name").toString() == name) {
+                return item.toObject().value("id").toString();
+            }
+        }
+        qFatal("AppFixture: tab %zu has no item named %s", index, qPrintable(name));
+    }
+
+    // Renames tab `index` from now on, in the list and in its own reply.
+    void renameTab(size_t index, const QString &name)
+    {
+        Tab &tab = tabs.at(index);
+        QJsonObject stash = QJsonDocument::fromJson(tab.reply).object();
+        stash.insert("name", name);
+        tab.name = name;
+        tab.reply = QJsonDocument(stash).toJson(QJsonDocument::Compact);
+        answerApi();
+    }
+
     // Replaces what the API serves for one tab from now on.
     void serveStash(const QString &id, const QByteArray &stash_object)
     {
@@ -225,7 +361,7 @@ public:
     QTemporaryDir dir;
     std::vector<Tab> tabs;
     ScriptedNetwork *network = nullptr; // owned by the application
-    QStringList dialogs;                // the text of every modal box that opened
+    QStringList dialogs;                // every modal dialog that opened
     std::unique_ptr<Application> app;
 
 private:

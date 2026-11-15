@@ -144,6 +144,33 @@ Tests workflow uploads the directory when a run fails.
 ACQ_TEST_SCREENSHOT_DIR=$PWD/build/dev/screenshots ctest --preset dev -R tst_mainwindow
 ```
 
+### Application scenarios
+
+`tests/tst_appsmoke.cpp` runs the release smoke list on the real
+`Application` (`tests/appfixture.h`): everything `main()` builds, over a
+temporary data directory, with the network answered from files by
+`tests/scriptednetwork.h`. The scene is three stash tabs from
+`tests/fixtures/payloads`, in the user store before the application starts
+and served again to a refresh. Each scenario is its own process and its own
+CTest entry, `tst_appsmoke.<scenario>`; a new one is a slot in that file and
+its name in `acq_add_scenario_test(tst_appsmoke ...)`.
+
+```sh
+ctest --preset dev -R tst_appsmoke
+QT_QPA_PLATFORM=offscreen build/dev/tests/acq_tests tst_appsmoke refreshCheckedKeepsTheView
+```
+
+A refresh runs on the rate limiter's real timers, about a quarter of a
+second for each request. A scenario fails if the application asked the
+network for something the script does not answer, or opened a dialog box.
+
+The scenarios cover starting from cached items, Refresh Checked and Refresh
+Selected, the price editor, prices set in the game, the Priced filter and
+the number fields. Still checked by hand before a release: the first login
+(it needs a browser), the first manual shop update and what the forum shows
+afterwards, a run on Windows, and anything the offscreen platform does not
+draw.
+
 ### Live capture (hand-run, not a test)
 
 `live_capture` (`tests/live_capture.cpp`) builds the real `Application` on a

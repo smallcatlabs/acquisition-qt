@@ -12,7 +12,6 @@
 
 #include <functional>
 #include <optional>
-#include <utility>
 #include <vector>
 
 #include "fakesender.h"
@@ -67,17 +66,6 @@ public:
         });
     }
 
-    // While held, requests are recorded and their replies stay in flight;
-    // release() completes them, and everything after it, as usual.
-    void hold() { m_held = true; }
-    void release()
-    {
-        m_held = false;
-        for (const auto &pending : std::exchange(m_pending, {})) {
-            complete(pending.first, pending.second);
-        }
-    }
-
     const std::vector<Request> &requests() const { return m_requests; }
 
     // "GET https://..." for each request with this operation whose URL
@@ -121,29 +109,17 @@ protected:
             found = Answer{.status = 404, .error = QNetworkReply::ContentNotFoundError};
         }
         auto *reply = new InFlightReply(request, this);
-        if (m_held) {
-            m_pending.emplace_back(reply, *found);
-        } else {
-            complete(reply, *found);
-        }
+        // Completed from the event loop; the reply may be gone by then.
+        const QPointer<InFlightReply> guarded(reply);
+        QTimer::singleShot(0, reply, [guarded, answer = *found] {
+            if (guarded && !guarded->isFinished()) {
+                guarded->finish(answer.headers, answer.status, answer.error, answer.body);
+            }
+        });
         return reply;
     }
 
 private:
-    static void complete(const QPointer<InFlightReply> &reply, const Answer &answer)
-    {
-        if (!reply) {
-            return; // released by its owner while it was held
-        }
-        QTimer::singleShot(0, reply.data(), [reply, answer] {
-            if (reply && !reply->isFinished()) {
-                reply->finish(answer.headers, answer.status, answer.error, answer.body);
-            }
-        });
-    }
-
     std::vector<Rule> m_rules;
     std::vector<Request> m_requests;
-    std::vector<std::pair<QPointer<InFlightReply>, Answer>> m_pending;
-    bool m_held = false;
 };

@@ -28,6 +28,16 @@ private slots:
     // Step 3: a refresh keeps selection, the current row and collapsed tabs.
     void refreshCheckedKeepsTheView();
     void refreshSelectedKeepsTheView();
+    // Step 4: the price editor saves on Enter, not per keystroke.
+    void typedPriceIsSavedOnEnter();
+    // Steps 5 and 6: a price set in the game is the one in force, and the
+    // user's own price returns when it goes.
+    void notePriceOverridesAndGivesWay();
+    void tabNamePriceOverridesAndGivesWay();
+    // Step 7: the Priced filter follows the prices.
+    void pricedFilterFollowsPrices();
+    // Step 8: number fields take a decimal comma and refuse a percent sign.
+    void numberFieldsTakeACommaAndRefuseAPercent();
 
 private:
     std::shared_ptr<spdlog::logger> m_main_logger;
@@ -47,6 +57,59 @@ namespace {
     QString changed(const QStringList &before, const AppFixture &fixture)
     {
         return viewTranscriptChanges(before, shown(fixture), {}).join('\n');
+    }
+
+    // What a scenario must end without: a request the script did not
+    // answer, or a dialog box. Empty when there was neither.
+    QString surprises(const AppFixture &fixture)
+    {
+        QStringList found;
+        for (const QString &url : fixture.network->unanswered()) {
+            found << "unanswered request: " + url;
+        }
+        for (const QString &dialog : fixture.dialogs) {
+            found << "dialog: " + dialog;
+        }
+        return found.join('\n');
+    }
+
+    // What the tree shows, as one text.
+    QString text(const AppFixture &fixture)
+    {
+        return shown(fixture).join('\n');
+    }
+
+    // The line of the row named `name`, without its marks and indentation.
+    QString line(const AppFixture &fixture, const QString &name)
+    {
+        for (const QString &row : shown(fixture)) {
+            if (row.contains(name)) {
+                return row.mid(2).trimmed();
+            }
+        }
+        return "(no row named " + name + ")";
+    }
+
+    // The reply for a tab with `note` set on the item named `name`, as the
+    // game sets it when the item is priced there.
+    QByteArray withNote(const AppFixture::Tab &tab, const QString &name, const QString &note)
+    {
+        QJsonObject stash = QJsonDocument::fromJson(tab.reply).object();
+        QJsonArray items = stash.value("items").toArray();
+        bool found = false;
+        for (qsizetype i = 0; i < items.size(); ++i) {
+            QJsonObject item = items.at(i).toObject();
+            if (item.value("name").toString() == name) {
+                item.insert("note", note);
+                items.replace(i, item);
+                found = true;
+            }
+        }
+        if (!found) {
+            qFatal("withNote: tab %s has no item named %s", qPrintable(tab.name), qPrintable(name));
+        }
+        stash.insert("items", items);
+        return QJsonDocument(stash).toJson(QJsonDocument::Compact);
     }
 
     // The reply for a tab with the item named `name` taken out of it.
@@ -116,9 +179,8 @@ void AppSmokeTest::startsWithCachedItems()
              }));
 
     // Starting from the cache asks the API for nothing.
-    QCOMPARE(fixture.apiGets(), QStringList());
-    QCOMPARE(fixture.network->unanswered(), QStringList());
-    QCOMPARE(fixture.dialogs, QStringList());
+    QCOMPARE(fixture.apiGets().join(' '), QString());
+    QCOMPARE(surprises(fixture), QString());
 }
 
 void AppSmokeTest::refreshCheckedKeepsTheView()
@@ -151,18 +213,13 @@ void AppSmokeTest::refreshCheckedKeepsTheView()
 
     // Every tab is checked, so every tab was fetched. (No character is
     // known, and a checked refresh does not go looking for one.)
-    QCOMPARE(fixture.apiGets(),
-             QStringList({
-                 "/stash/Hardcore",
-                 "/stash/Hardcore/" + fixture.tabs[0].id,
-                 "/stash/Hardcore/" + fixture.tabs[1].id,
-                 "/stash/Hardcore/" + fixture.tabs[2].id,
-             }));
+    QCOMPARE(fixture.apiGets().join(' '),
+             QString("/stash/Hardcore /stash/Hardcore/%1 /stash/Hardcore/%2 /stash/Hardcore/%3")
+                 .arg(fixture.tabs[0].id, fixture.tabs[1].id, fixture.tabs[2].id));
     // The item is gone and nothing else changed: the selection, the current
     // row and the collapsed tabs are as they were.
     QCOMPARE(changed(before, fixture), QString("-         Sol Buckle Chain Belt | price 2 chaos"));
-    QCOMPARE(fixture.network->unanswered(), QStringList());
-    QCOMPARE(fixture.dialogs, QStringList());
+    QCOMPARE(surprises(fixture), QString());
 }
 
 void AppSmokeTest::refreshSelectedKeepsTheView()
@@ -187,11 +244,214 @@ void AppSmokeTest::refreshSelectedKeepsTheView()
     saveTestScreenshot(fixture.window(), "refreshed");
 
     // Only the selected tab was fetched.
-    QCOMPARE(fixture.apiGets(),
-             QStringList({"/stash/Hardcore", "/stash/Hardcore/" + fixture.tabs[0].id}));
+    QCOMPARE(fixture.apiGets().join(' '),
+             QString("/stash/Hardcore /stash/Hardcore/%1").arg(fixture.tabs[0].id));
     QCOMPARE(changed(before, fixture), QString("-         Hollow Vision Hypnotic Eye Jewel"));
-    QCOMPARE(fixture.network->unanswered(), QStringList());
-    QCOMPARE(fixture.dialogs, QStringList());
+    QCOMPARE(surprises(fixture), QString());
+}
+
+void AppSmokeTest::typedPriceIsSavedOnEnter()
+{
+    AppFixture fixture;
+    QVERIFY(fixture.logInAndLoad());
+    ScreenshotOnFailure screenshot{fixture.window()};
+    fixture.tree().expandAll();
+    const QString viper = fixture.itemId(0, "Viper Suit");
+
+    // Typing alone saves nothing.
+    fixture.select("Viper Suit");
+    QLineEdit &box = fixture.priceBox();
+    QVERIFY(box.isEnabled());
+    QTest::keyClicks(&box, "7");
+    QCOMPARE(line(fixture, "Viper Suit"), QString("Viper Suit Loricated Ringmail"));
+    QCOMPARE(AppFixture::priceText(fixture.storedItemPrices(), viper), QString("(none)"));
+
+    // Enter saves it: the row shows it and it is in the store on disk.
+    QTest::keyClick(&box, Qt::Key_Return);
+    QCOMPARE(line(fixture, "Viper Suit"), QString("Viper Suit Loricated Ringmail | b/o 7 chaos"));
+    QCOMPARE(AppFixture::priceText(fixture.storedItemPrices(), viper), QString("b/o 7 chaos"));
+
+    // Text that is not a price changes nothing, and the status line says so.
+    fixture.typePrice("abc");
+    QVERIFY2(fixture.statusText().contains("not a price"), qPrintable(fixture.statusText()));
+    QCOMPARE(AppFixture::priceText(fixture.storedItemPrices(), viper), QString("b/o 7 chaos"));
+
+    // An item priced in the game is locked.
+    fixture.select("Dragon Crown");
+    QVERIFY(!fixture.priceBox().isEnabled());
+
+    // A tab's price is one row in the store, not one for each of its items.
+    fixture.select("KB/CF Champ");
+    fixture.typePrice("3");
+    saveTestScreenshot(fixture.window(), "tab-priced");
+    QCOMPARE(text(fixture),
+             QString("*>[-] #16, \"KB/CF Champ\" [b/o 3 chaos]\n"
+                     "        Viper Suit Loricated Ringmail | b/o 7 chaos\n"
+                     "        Iron Will Support | b/o 3 chaos\n"
+                     "        Hollow Vision Hypnotic Eye Jewel | b/o 3 chaos\n"
+                     "  [-] #22, \"~price 2 chaos\" [price 2 chaos]\n"
+                     "        Sol Buckle Chain Belt | price 2 chaos\n"
+                     "        Hypnotic Finger Moonstone Ring | price 2 chaos\n"
+                     "        Grim Arbiter Searching Eye Jewel | price 2 chaos\n"
+                     "  [-] #24, \"Market\"\n"
+                     "        Dragon Crown Close Helmet | price 3 chaos"));
+    QCOMPARE(fixture.storedTabPrices().size(), size_t(1));
+    QCOMPARE(fixture.storedItemPrices().size(), size_t(1));
+    QCOMPARE(surprises(fixture), QString());
+}
+
+void AppSmokeTest::notePriceOverridesAndGivesWay()
+{
+    AppFixture fixture;
+    QVERIFY(fixture.logInAndLoad());
+    ScreenshotOnFailure screenshot{fixture.window()};
+    fixture.tree().expandAll();
+    const QString viper = fixture.itemId(0, "Viper Suit");
+    fixture.select("Viper Suit");
+    fixture.typePrice("7");
+    QCOMPARE(line(fixture, "Viper Suit"), QString("Viper Suit Loricated Ringmail | b/o 7 chaos"));
+    const auto refresh_selected = [&] {
+        QVERIFY(QMetaObject::invokeMethod(&fixture.window(), "OnRefreshSelected"));
+    };
+
+    // The item is priced in the game, in a currency that is not one of the
+    // original nineteen: the note's price is the one in force.
+    fixture.serveStash(fixture.tabs[0].id,
+                       withNote(fixture.tabs[0], "Viper Suit", "~b/o 5 jewellers"));
+    QVERIFY(AppFixture::isClean(fixture.refresh(refresh_selected)));
+    saveTestScreenshot(fixture.window(), "noted");
+    QCOMPARE(line(fixture, "Viper Suit"), QString("Viper Suit Loricated Ringmail | b/o 5 jew"));
+
+    // The note goes: the user's own price is back, and was never dropped.
+    fixture.serveStash(fixture.tabs[0].id, fixture.tabs[0].reply);
+    QVERIFY(AppFixture::isClean(fixture.refresh(refresh_selected)));
+    QCOMPARE(line(fixture, "Viper Suit"), QString("Viper Suit Loricated Ringmail | b/o 7 chaos"));
+    QCOMPARE(AppFixture::priceText(fixture.storedItemPrices(), viper), QString("b/o 7 chaos"));
+    QCOMPARE(surprises(fixture), QString());
+}
+
+void AppSmokeTest::tabNamePriceOverridesAndGivesWay()
+{
+    AppFixture fixture;
+    QVERIFY(fixture.logInAndLoad());
+    ScreenshotOnFailure screenshot{fixture.window()};
+    fixture.tree().expandAll();
+    auto *refresh_checked = fixture.window().findChild<QAction *>("actionRefreshCheckedTabs");
+    QVERIFY(refresh_checked);
+    const auto refresh = [&] { refresh_checked->trigger(); };
+
+    // The user prices a tab; its items take that price.
+    fixture.select("KB/CF Champ");
+    fixture.typePrice("3");
+    QCOMPARE(line(fixture, "#16"), QString("[-] #16, \"KB/CF Champ\" [b/o 3 chaos]"));
+    QCOMPARE(line(fixture, "Hollow Vision"),
+             QString("Hollow Vision Hypnotic Eye Jewel | b/o 3 chaos"));
+
+    // The tab is renamed in the game to a name that is a price: that price
+    // is the one in force.
+    fixture.renameTab(0, "~price 9 chaos");
+    QVERIFY(AppFixture::isClean(fixture.refresh(refresh)));
+    saveTestScreenshot(fixture.window(), "priced-by-name");
+    QCOMPARE(line(fixture, "#16"), QString("[-] #16, \"~price 9 chaos\" [price 9 chaos]"));
+    QCOMPARE(line(fixture, "Hollow Vision"),
+             QString("Hollow Vision Hypnotic Eye Jewel | price 9 chaos"));
+
+    // Renamed back, the user's price for the tab returns; it was never
+    // dropped from the store.
+    fixture.renameTab(0, "KB/CF Champ");
+    QVERIFY(AppFixture::isClean(fixture.refresh(refresh)));
+    QCOMPARE(line(fixture, "#16"), QString("[-] #16, \"KB/CF Champ\" [b/o 3 chaos]"));
+    QCOMPARE(line(fixture, "Hollow Vision"),
+             QString("Hollow Vision Hypnotic Eye Jewel | b/o 3 chaos"));
+    QCOMPARE(AppFixture::priceText(fixture.storedTabPrices(), fixture.tabs[0].id),
+             QString("b/o 3 chaos"));
+    QCOMPARE(surprises(fixture), QString());
+}
+
+void AppSmokeTest::pricedFilterFollowsPrices()
+{
+    AppFixture fixture;
+    QVERIFY(fixture.logInAndLoad());
+    ScreenshotOnFailure screenshot{fixture.window()};
+    fixture.tree().expandAll();
+    fixture.select("Viper Suit");
+    fixture.typePrice("7");
+    fixture.select("Hollow Vision");
+    fixture.typePrice("8");
+
+    // Only what has a price is shown.
+    fixture.pricedBox().click();
+    fixture.tree().expandAll();
+    fixture.tree().collapse(fixture.row("Market"));
+    fixture.select("Hollow Vision");
+    QCOMPARE(text(fixture),
+             QString("  [-] #16, \"KB/CF Champ\"\n"
+                     "        Viper Suit Loricated Ringmail | b/o 7 chaos\n"
+                     "*>      Hollow Vision Hypnotic Eye Jewel | b/o 8 chaos\n"
+                     "  [-] #22, \"~price 2 chaos\" [price 2 chaos]\n"
+                     "        Sol Buckle Chain Belt | price 2 chaos\n"
+                     "        Hypnotic Finger Moonstone Ring | price 2 chaos\n"
+                     "        Grim Arbiter Searching Eye Jewel | price 2 chaos\n"
+                     "  [+] #24, \"Market\""));
+
+    // Its price cleared, the row leaves.
+    fixture.priceBox(Buyout::BUYOUT_TYPE_INHERIT);
+    QTRY_COMPARE(line(fixture, "Hollow Vision"), QString("(no row named Hollow Vision)"));
+
+    // The tab priced, its other items join; the header stays selected and
+    // the collapsed tab stays collapsed.
+    fixture.select("KB/CF Champ");
+    fixture.typePrice("3");
+    saveTestScreenshot(fixture.window(), "tab-priced");
+    QTRY_COMPARE(text(fixture),
+                 QString("*>[-] #16, \"KB/CF Champ\" [b/o 3 chaos]\n"
+                         "        Viper Suit Loricated Ringmail | b/o 7 chaos\n"
+                         "        Iron Will Support | b/o 3 chaos\n"
+                         "        Hollow Vision Hypnotic Eye Jewel | b/o 3 chaos\n"
+                         "  [-] #22, \"~price 2 chaos\" [price 2 chaos]\n"
+                         "        Sol Buckle Chain Belt | price 2 chaos\n"
+                         "        Hypnotic Finger Moonstone Ring | price 2 chaos\n"
+                         "        Grim Arbiter Searching Eye Jewel | price 2 chaos\n"
+                         "  [+] #24, \"Market\""));
+    QCOMPARE(surprises(fixture), QString());
+}
+
+void AppSmokeTest::numberFieldsTakeACommaAndRefuseAPercent()
+{
+    AppFixture fixture;
+    QVERIFY(fixture.logInAndLoad());
+    ScreenshotOnFailure screenshot{fixture.window()};
+    // Every row, with every tab opened; without the selection marks, which
+    // this scenario is not about.
+    const auto rows = [&fixture] {
+        fixture.tree().expandAll();
+        QStringList lines;
+        for (const QString &row : shown(fixture)) {
+            lines << row.mid(2);
+        }
+        return lines.join('\n');
+    };
+    const QString everything = rows();
+    QLineEdit *minimum = fixture.numberBoxes("ilvl").first();
+    const auto marked = [](const QLineEdit *box) {
+        return !box->toolTip().isEmpty() && !box->styleSheet().isEmpty();
+    };
+
+    // A decimal comma is a number: only the items at or above it are shown.
+    QTest::keyClicks(minimum, "75,5");
+    QTRY_COMPARE(rows(),
+                 QString("[-] #22, \"~price 2 chaos\" [price 2 chaos]\n"
+                         "      Sol Buckle Chain Belt | price 2 chaos\n"
+                         "      Hypnotic Finger Moonstone Ring | price 2 chaos"));
+    QVERIFY(!marked(minimum));
+
+    // A percent sign is not: the box is marked and nothing is filtered out.
+    minimum->selectAll();
+    QTest::keyClicks(minimum, "5%");
+    saveTestScreenshot(fixture.window(), "percent");
+    QTRY_VERIFY(marked(minimum));
+    QTRY_COMPARE(rows(), everything);
+    QCOMPARE(surprises(fixture), QString());
 }
 
 ACQ_TEST_GUI_SCENARIO_MAIN(AppSmokeTest)

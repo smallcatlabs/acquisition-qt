@@ -192,4 +192,9 @@ acq_add_scenario_test(tst_workerintegration
 acq_add_scenario_test(tst_appsmoke
     startsWithCachedItems
     refreshCheckedKeepsTheView
-    refreshSelectedKeepsTheView)
+    refreshSelectedKeepsTheView
+    typedPriceIsSavedOnEnter
+    notePriceOverridesAndGivesWay
+    tabNamePriceOverridesAndGivesWay
+    pricedFilterFollowsPrices
+    numberFieldsTakeACommaAndRefuseAPercent)
