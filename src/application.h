@@ -49,7 +49,10 @@ class Application : public QObject
 {
     Q_OBJECT
 public:
-    explicit Application(const QDir &appDataDir);
+    // The network manager is the application's only way out to the network,
+    // so whoever builds the application supplies it: main() a NetworkManager,
+    // a test one that answers from files (#377).
+    Application(const QDir &appDataDir, std::unique_ptr<NetworkManager> network_manager);
     ~Application();
     Application(const Application &) = delete;
     Application &operator=(const Application &) = delete;
@@ -69,7 +72,7 @@ private:
 
     struct CoreServices
     {
-        CoreServices(const QDir &appDataDir);
+        CoreServices(const QDir &appDataDir, std::unique_ptr<NetworkManager> network);
 
         const QDir dir;
         std::unique_ptr<QSettings> settings;
@@ -130,7 +133,7 @@ private:
     inline CurrencyManager &currency_manager() const { return *session().currency_manager; }
     inline MainWindow &main_window() const { return *session().main_window; }
 
-    void InitCoreServices();
+    void InitCoreServices(std::unique_ptr<NetworkManager> network_manager);
     void InitUserSession(const SessionIdentity &identity);
 
     std::unique_ptr<CoreServices> m_core;

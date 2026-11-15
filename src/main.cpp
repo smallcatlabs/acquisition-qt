@@ -28,6 +28,7 @@
 #include "util/crashreporting.h"
 #include "util/datadirlock.h"
 #include "util/logging.h"
+#include "util/networkmanager.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "version_defines.h"
 
@@ -305,7 +306,7 @@ int main(int argc, char *argv[])
     spdlog::info("Running application...");
 
     // Construct an instance of Application.
-    Application app(appDataDir);
+    Application app(appDataDir, std::make_unique<NetworkManager>());
 
     // Start the main event loop.
     spdlog::trace("main(): starting the event loop");

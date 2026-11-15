@@ -24,6 +24,7 @@ private slots:
     void hiddenColumnIsLeftOut();
     void hiddenRowIsLeftOut();
     void columnsPrintInVisualOrder();
+    void onlyTheFirstColumnsWhenAsked();
 
     void unchangedTranscriptHasNoChanges();
     void changeIsNamedByItsLine();
@@ -135,6 +136,16 @@ void ViewTranscriptTest::columnsPrintInVisualOrder()
     m_view->expand(m_model->index(0, 0));
     m_view->header()->moveSection(1, 0);
     QCOMPARE(viewTranscript(*m_view).at(1), QString("        ~b/o 5 chaos | Chaos Orb"));
+}
+
+void ViewTranscriptTest::onlyTheFirstColumnsWhenAsked()
+{
+    m_view->expand(m_model->index(0, 0));
+    QCOMPARE(viewTranscript(*m_view, 1).at(1), QString("        Chaos Orb"));
+    QCOMPARE(viewTranscript(*m_view, 2).at(1), QString("        Chaos Orb | ~b/o 5 chaos"));
+    // Counted among the visible columns, in the order they are shown.
+    m_view->header()->moveSection(1, 0);
+    QCOMPARE(viewTranscript(*m_view, 1).at(1), QString("        ~b/o 5 chaos"));
 }
 
 void ViewTranscriptTest::unchangedTranscriptHasNoChanges()
