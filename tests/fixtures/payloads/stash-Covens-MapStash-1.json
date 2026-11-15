@@ -1,0 +1,125 @@
+{
+ "id": "03be721af3",
+ "parent": "8600326411",
+ "name": "1",
+ "type": "MapStash",
+ "metadata": {
+  "items": 2,
+  "map": {
+   "section": "tier12",
+   "name": "Map (Tier 12)",
+   "index": 0
+  }
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI4LDE0LHsiZiI6IjJESXRlbXMvTWFwcy9BdGxhczJNYXBzL05ldy9NYXBOdW1iZXJzMTIiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MSwibW4iOjI0LCJtdCI6MH1d/0d3cb107a7/MapNumbers12.png",
+   "league": "Covens",
+   "id": "1e75e75ec6bdaa839a00c6ff48b2661370711eff2fed88decaebbd6aa3f1544e",
+   "name": "",
+   "typeLine": "Map (Tier 12)",
+   "baseType": "Map (Tier 12)",
+   "rarity": "Normal",
+   "ilvl": 79,
+   "identified": true,
+   "monsterLevel": 79,
+   "descrText": "Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. ",
+   "frameType": 0,
+   "frameTypeId": "Normal",
+   "x": 0,
+   "y": 1,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI4LDE0LHsiZiI6IjJESXRlbXMvTWFwcy9BdGxhczJNYXBzL05ldy9NYXBOdW1iZXJzMTIiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MSwibW4iOjI0LCJtdCI6MH1d/0d3cb107a7/MapNumbers12.png",
+   "league": "Covens",
+   "id": "9c1f5318b0498a1805982f72dd7ac059e195901ade3b8baf663af4d7f6d4f379",
+   "name": "Damnation Solace",
+   "typeLine": "Map (Tier 12)",
+   "baseType": "Map (Tier 12)",
+   "rarity": "Rare",
+   "ilvl": 80,
+   "identified": true,
+   "corrupted": true,
+   "properties": [
+    {
+     "name": "[AtlasDropScaling|Atlas Drops]",
+     "values": [
+      [
+       "+78%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 112
+    },
+    {
+     "name": "Item Rarity",
+     "values": [
+      [
+       "+47%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 3
+    },
+    {
+     "name": "Monster Pack Size",
+     "values": [
+      [
+       "+30%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 4
+    }
+   ],
+   "monsterLevel": 79,
+   "implicitMods": [
+    {
+     "description": "Area is affected by 9 additional random Unallocated Notable Atlas Passives"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "Area is inhabited by Humanoids"
+    },
+    {
+     "description": "45% more Monster Life"
+    },
+    {
+     "description": "28% increased Monster Movement Speed"
+    },
+    {
+     "description": "43% increased Monster Attack Speed"
+    },
+    {
+     "description": "43% increased Monster Cast Speed"
+    },
+    {
+     "description": "Monsters take 38% reduced Extra Damage from Critical Strikes"
+    },
+    {
+     "description": "Buffs on Players expire 70% faster"
+    },
+    {
+     "description": "Players have 60% reduced effect of Non-Curse Auras from Skills"
+    }
+   ],
+   "descrText": "Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. ",
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 0,
+   "y": 0,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

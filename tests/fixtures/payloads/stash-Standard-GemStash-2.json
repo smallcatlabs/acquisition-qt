@@ -1,0 +1,471 @@
+{
+ "id": "3ef4f9ceac",
+ "name": "Gems (Remove-only)",
+ "type": "GemStash",
+ "index": 18,
+ "metadata": {
+  "colour": "638000",
+  "layout": {
+   "filters": [
+    "S",
+    "D",
+    "I",
+    "G"
+   ],
+   "sections": [
+    {
+     "min": 21,
+     "max": 100
+    },
+    {
+     "min": 20,
+     "max": 20
+    },
+    {
+     "min": 2,
+     "max": 19
+    },
+    {
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "layout": {
+    "12,1": {
+     "filter": "I",
+     "section": 0
+    },
+    "13,0": {
+     "filter": "S",
+     "section": 3
+    },
+    "31,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "5,0": {
+     "filter": "S",
+     "section": 2
+    },
+    "3,0": {
+     "filter": "I",
+     "section": 2
+    },
+    "6,0": {
+     "filter": "S",
+     "section": 2
+    },
+    "2,1": {
+     "filter": "S",
+     "section": 2
+    },
+    "36,0": {
+     "filter": "S",
+     "section": 3
+    },
+    "8,0": {
+     "filter": "D",
+     "section": 2
+    },
+    "4,1": {
+     "filter": "S",
+     "section": 2
+    },
+    "6,1": {
+     "filter": "D",
+     "section": 2
+    },
+    "7,1": {
+     "filter": "D",
+     "section": 2
+    },
+    "32,1": {
+     "filter": "S",
+     "section": 3
+    },
+    "10,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "33,0": {
+     "filter": "S",
+     "section": 3
+    },
+    "13,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "16,1": {
+     "filter": "S",
+     "section": 3
+    },
+    "16,0": {
+     "filter": "S",
+     "section": 3
+    },
+    "37,0": {
+     "filter": "S",
+     "section": 3
+    },
+    "15,1": {
+     "filter": "S",
+     "section": 3
+    },
+    "21,1": {
+     "filter": "I",
+     "section": 0
+    },
+    "4,0": {
+     "filter": "D",
+     "section": 2
+    },
+    "20,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "19,0": {
+     "filter": "D",
+     "section": 0
+    },
+    "3,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "24,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "22,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "21,0": {
+     "filter": "D",
+     "section": 0
+    },
+    "39,0": {
+     "filter": "S",
+     "section": 3
+    },
+    "10,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "11,0": {
+     "filter": "I",
+     "section": 2
+    },
+    "2,0": {
+     "filter": "S",
+     "section": 2
+    },
+    "7,0": {
+     "filter": "S",
+     "section": 2
+    },
+    "0,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "23,0": {
+     "filter": "I",
+     "section": 0
+    },
+    "14,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "20,0": {
+     "filter": "I",
+     "section": 0
+    },
+    "14,1": {
+     "filter": "S",
+     "section": 3
+    },
+    "15,0": {
+     "filter": "S",
+     "section": 3
+    },
+    "0,0": {
+     "filter": "I",
+     "section": 2
+    },
+    "17,0": {
+     "filter": "S",
+     "section": 3
+    },
+    "12,0": {
+     "filter": "S",
+     "section": 3
+    },
+    "9,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "8,1": {
+     "filter": "S",
+     "section": 2
+    },
+    "9,0": {
+     "filter": "D",
+     "section": 2
+    },
+    "5,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "17,1": {
+     "filter": "S",
+     "section": 3
+    },
+    "44,0": {
+     "filter": "S",
+     "section": 3
+    },
+    "28,0": {
+     "filter": "S",
+     "section": 0
+    },
+    "47,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "29,0": {
+     "filter": "S",
+     "section": 0
+    },
+    "29,1": {
+     "filter": "I",
+     "section": 0
+    },
+    "28,1": {
+     "filter": "S",
+     "section": 0
+    },
+    "30,0": {
+     "filter": "S",
+     "section": 0
+    },
+    "30,1": {
+     "filter": "I",
+     "section": 0
+    },
+    "31,0": {
+     "filter": "I",
+     "section": 0
+    },
+    "1,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "23,1": {
+     "filter": "I",
+     "section": 0
+    },
+    "32,0": {
+     "filter": "D",
+     "section": 1
+    },
+    "27,1": {
+     "filter": "S",
+     "section": 3
+    },
+    "19,1": {
+     "filter": "D",
+     "section": 0
+    },
+    "18,0": {
+     "filter": "I",
+     "section": 1
+    },
+    "1,0": {
+     "filter": "I",
+     "section": 2
+    },
+    "24,1": {
+     "filter": "I",
+     "section": 1
+    },
+    "22,1": {
+     "filter": "S",
+     "section": 1
+    },
+    "11,1": {
+     "filter": "G",
+     "section": 3
+    },
+    "27,0": {
+     "filter": "D",
+     "section": 1
+    },
+    "25,1": {
+     "filter": "I",
+     "section": 1
+    },
+    "26,0": {
+     "filter": "D",
+     "section": 1
+    },
+    "33,1": {
+     "filter": "D",
+     "section": 1
+    },
+    "18,1": {
+     "filter": "I",
+     "section": 1
+    },
+    "26,1": {
+     "filter": "D",
+     "section": 1
+    },
+    "25,0": {
+     "filter": "D",
+     "section": 1
+    },
+    "34,0": {
+     "filter": "D",
+     "section": 1
+    }
+   },
+   "scale": 0.6085192697768763
+  }
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzMwLDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9DeWNsb25lIiwidyI6MSwiaCI6MSwic2NhbGUiOjEsImltYnVlZCI6dHJ1ZX1d/d8ece0bb35/Cyclone.png",
+   "support": false,
+   "league": "Standard",
+   "id": "19dd2353e63e9ff08fc5fad79ff61e47251776cea3fb36253f8022c2efac85cd",
+   "name": "",
+   "typeLine": "Cyclone",
+   "baseType": "Cyclone",
+   "ilvl": 0,
+   "identified": true,
+   "corrupted": true,
+   "properties": [
+    {
+     "name": "Attack, AoE, Melee, Movement, Channelling",
+     "values": [],
+     "displayMode": 0
+    },
+    {
+     "name": "Level",
+     "values": [
+      [
+       "20 (Max)",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 5
+    },
+    {
+     "name": "Cost",
+     "values": [
+      [
+       "3 Mana",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Attack Speed",
+     "values": [
+      [
+       "300% of base",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Attack Damage",
+     "values": [
+      [
+       "150% of base",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Effectiveness of Added Damage",
+     "values": [
+      [
+       "150%",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Quality",
+     "values": [
+      [
+       "+20%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 6
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "70",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Str",
+     "values": [
+      [
+       "68",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 63
+    },
+    {
+     "name": "Dex",
+     "values": [
+      [
+       "98",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 64
+    }
+   ],
+   "secDescrText": "Channel this skill to move towards a targeted location while spinning constantly attacking enemies in an area around you. While channelling this skill, you cannot be knocked back.",
+   "builtInSupport": "Supported by Level 1 [SupportManaLeech|Mana Leech]",
+   "explicitMods": [
+    {
+     "description": "20% increased Area of Effect per 0.1 metre additional Melee Strike Range"
+    },
+    {
+     "description": "20% less Movement Speed"
+    }
+   ],
+   "descrText": "Place into an item socket to gain this skill. Right click to remove from a socket.",
+   "frameType": 4,
+   "frameTypeId": "Gem",
+   "x": 32,
+   "y": 0,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

@@ -1,0 +1,121 @@
+{
+ "id": "11ecbfa123",
+ "name": "Market",
+ "type": "PremiumStash",
+ "index": 23,
+ "metadata": {
+  "public": true,
+  "colour": "638000"
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 2,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9IZWxtZXRzL0hlbG1ldFN0cjQiLCJ3IjoyLCJoIjoyLCJzY2FsZSI6MX1d/0a862ec4b2/HelmetStr4.png",
+   "league": "Hardcore",
+   "id": "a84df7a078daaee8089b209fdb12e99250dad802c54753a23a4752655cba550b",
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 0,
+     "attr": "S",
+     "sColour": "R"
+    },
+    {
+     "group": 0,
+     "attr": "S",
+     "sColour": "R"
+    }
+   ],
+   "name": "Dragon Crown",
+   "typeLine": "Close Helmet",
+   "baseType": "Close Helmet",
+   "rarity": "Rare",
+   "ilvl": 46,
+   "identified": true,
+   "note": "~price 3 chaos",
+   "properties": [
+    {
+     "name": "Quality",
+     "values": [
+      [
+       "+20%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 6
+    },
+    {
+     "name": "Armour",
+     "values": [
+      [
+       "244",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 16
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "60",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Str",
+     "values": [
+      [
+       "58",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 63
+    }
+   ],
+   "enchantMods": [
+    "24% increased Firestorm explosion Area of Effect"
+   ],
+   "explicitMods": [
+    {
+     "description": "+100 to Accuracy Rating"
+    },
+    {
+     "description": "+20 to maximum Life"
+    },
+    {
+     "description": "+26% to Fire Resistance"
+    },
+    {
+     "description": "+18% to Cold Resistance"
+    },
+    {
+     "description": "+73 to Armour",
+     "flags": {
+      "crafted": true
+     }
+    }
+   ],
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 7,
+   "y": 2,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  }
+ ]
+}

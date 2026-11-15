@@ -1,0 +1,425 @@
+{
+ "id": "5d51f2b1cf",
+ "name": "Dump Tab",
+ "type": "QuadStash",
+ "index": 0,
+ "metadata": {
+  "colour": "638000",
+  "layout": true
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvVG9wYXpSdWJ5IiwidyI6MSwiaCI6MSwic2NhbGUiOjF9XQ/8878077651/TopazRuby.png",
+   "league": "Covens",
+   "id": "9f647f558ae6bea4bbe1c8ff5da183a6616683dfbd256fc147759ff29d43c84f",
+   "name": "",
+   "typeLine": "Fated Two-Stone Ring",
+   "baseType": "Two-Stone Ring",
+   "rarity": "Rare",
+   "ilvl": 71,
+   "identified": false,
+   "implicitMods": [
+    {
+     "description": "+16% to Fire and Lightning Resistances"
+    }
+   ],
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 0,
+   "y": 0,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 2,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9IZWxtZXRzL0hlbG1ldEludDEwIiwidyI6MiwiaCI6Miwic2NhbGUiOjF9XQ/79abe1a202/HelmetInt10.png",
+   "league": "Covens",
+   "id": "3287d1b685c331291c729bef90e44415ba161d611a4d35029aa51fb7cc0c693d",
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    },
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    },
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    },
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    }
+   ],
+   "name": "",
+   "typeLine": "Mazarine Mind Cage of Adamantite Skin",
+   "baseType": "Mind Cage",
+   "rarity": "Magic",
+   "ilvl": 71,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Energy Shield",
+     "values": [
+      [
+       "78",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 18
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "65",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Int",
+     "values": [
+      [
+       "138",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 65
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+62 to maximum Mana"
+    },
+    {
+     "description": "23% increased Stun and Block Recovery"
+    }
+   ],
+   "frameType": 1,
+   "frameTypeId": "Magic",
+   "x": 0,
+   "y": 5,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvUmluZzEiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MX1d/bf29c9d45e/Ring1.png",
+   "league": "Covens",
+   "id": "6b8d74ec6f49522b787e37391b4dd48ddebbc93dbe4bfe34f05a82a32d4aa482",
+   "name": "Cataclysm Spiral",
+   "typeLine": "Iron Ring",
+   "baseType": "Iron Ring",
+   "rarity": "Rare",
+   "ilvl": 72,
+   "identified": true,
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "32",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "Adds 1 to 4 Physical Damage to Attacks"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+26 to Intelligence"
+    },
+    {
+     "description": "Adds 1 to 2 Physical Damage to Attacks"
+    },
+    {
+     "description": "Gain 25 Life per Enemy Killed"
+    }
+   ],
+   "veiledMods": [
+    "Suffix06"
+   ],
+   "veiled": true,
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 0,
+   "y": 4,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 2,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvVmlzY2VyYS9BY3Q0L1Zpc2NlcmFTcGluZGx5TGVncyIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/d42b510c5d/VisceraSpindlyLegs.png",
+   "league": "Covens",
+   "id": "df6b3a2482f75fd0fe08dee55f5317b9e4d767599ead5e83db00ef31e8f8cf8a",
+   "name": "",
+   "typeLine": "Chitinous Leg",
+   "baseType": "Chitinous Leg",
+   "rarity": "Normal",
+   "ilvl": 71,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Lower Limb",
+     "values": [],
+     "displayMode": 0
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "Corpses you Spawn have 8% increased Maximum Life"
+    }
+   ],
+   "descrText": "Take this to the Wickerman in a town or hideout to attach it.",
+   "frameType": 15,
+   "frameTypeId": "Viscera",
+   "x": 1,
+   "y": 0,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 3,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvV2VhcG9ucy9PbmVIYW5kV2VhcG9ucy9EYWdnZXJzL0RhZ2dlcjMiLCJ3IjoxLCJoIjozLCJzY2FsZSI6MX1d/fbc18a1b4f/Dagger3.png",
+   "league": "Covens",
+   "id": "bba723d7d2553606d04f04275ed4f11bb93d781bdf9974129c569a7a5d80c74d",
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    },
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    },
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    }
+   ],
+   "name": "",
+   "typeLine": "Polar Slaughter Knife",
+   "baseType": "Slaughter Knife",
+   "rarity": "Magic",
+   "ilvl": 81,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Rune Dagger",
+     "values": [],
+     "displayMode": 0
+    },
+    {
+     "name": "Physical Damage",
+     "values": [
+      [
+       "10-86",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 9
+    },
+    {
+     "name": "Elemental Damage",
+     "values": [
+      [
+       "55-123",
+       5
+      ]
+     ],
+     "displayMode": 0,
+     "type": 10
+    },
+    {
+     "name": "Critical Strike Chance",
+     "values": [
+      [
+       "8.50%",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 12
+    },
+    {
+     "name": "Attacks per Second",
+     "values": [
+      [
+       "1.40",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 13
+    },
+    {
+     "name": "Weapon Range: {0} metre",
+     "values": [
+      [
+       "1",
+       0
+      ]
+     ],
+     "displayMode": 3,
+     "type": 14
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "58",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Dex",
+     "values": [
+      [
+       "81",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 64
+    },
+    {
+     "name": "Int",
+     "values": [
+      [
+       "117",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 65
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "45% increased Global Critical Strike Chance"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "Adds 55 to 123 Cold Damage"
+    }
+   ],
+   "frameType": 1,
+   "frameTypeId": "Magic",
+   "x": 0,
+   "y": 9,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQW11bGV0cy9BbXVsZXQ3IiwidyI6MSwiaCI6MSwic2NhbGUiOjF9XQ/58942b1ab3/Amulet7.png",
+   "league": "Covens",
+   "id": "4d95a7ae1d5a6d40e853303ba026336604b2dbf271871db3f8f9114e60753073",
+   "name": "",
+   "typeLine": "Onyx Amulet",
+   "baseType": "Onyx Amulet",
+   "rarity": "Magic",
+   "ilvl": 72,
+   "identified": false,
+   "unidentifiedTier": 3,
+   "implicitMods": [
+    {
+     "description": "+10 to all Attributes"
+    }
+   ],
+   "frameType": 1,
+   "frameTypeId": "Magic",
+   "x": 0,
+   "y": 2,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvSmV3ZWxzL05ld0dlbUJhc2UyIiwidyI6MSwiaCI6MSwic2NhbGUiOjF9XQ/78f6bf8356/NewGemBase2.png",
+   "league": "Covens",
+   "id": "cdc81c575be74e320f3b5471eed7ffa0d8be7c8b80a519ba715780e09aaf474e",
+   "name": "Spirit Hope",
+   "typeLine": "Medium Cluster Jewel",
+   "baseType": "Medium Cluster Jewel",
+   "rarity": "Rare",
+   "ilvl": 78,
+   "identified": true,
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "54",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    }
+   ],
+   "enchantMods": [
+    "Adds 5 Passive Skills",
+    "1 Added Passive Skill is a Jewel Socket",
+    "Added Small Passive Skills grant: 10% increased Projectile Damage"
+   ],
+   "explicitMods": [
+    {
+     "description": "Added Small Passive Skills also grant: 2% increased Damage"
+    },
+    {
+     "description": "Added Small Passive Skills also grant: +3% to all Elemental Resistances"
+    },
+    {
+     "description": "1 Added Passive Skill is [affliction_notable_streamlined|Streamlined]"
+    }
+   ],
+   "descrText": "Place into an allocated Medium or Large Jewel Socket on the Passive Skill Tree. Added passives do not interact with jewel radiuses. Right click to remove from the Socket.",
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 0,
+   "y": 12,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

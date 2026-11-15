@@ -1,0 +1,1167 @@
+{
+ "id": "11a8e02121",
+ "name": "Flasks",
+ "type": "FlaskStash",
+ "index": 11,
+ "metadata": {
+  "colour": "638000",
+  "layout": {
+   "filters": [
+    "life",
+    "mana",
+    "hybrid",
+    "utility",
+    "unique"
+   ],
+   "sections": [
+    {
+     "min": 85,
+     "max": 100
+    },
+    {
+     "min": 81,
+     "max": 84
+    },
+    {
+     "min": 71,
+     "max": 80
+    },
+    {
+     "min": 61,
+     "max": 70
+    },
+    {
+     "min": 51,
+     "max": 60
+    },
+    {
+     "min": 41,
+     "max": 50
+    },
+    {
+     "min": 31,
+     "max": 40
+    },
+    {
+     "min": 21,
+     "max": 30
+    },
+    {
+     "min": 11,
+     "max": 20
+    },
+    {
+     "min": 1,
+     "max": 10
+    }
+   ],
+   "layout": {
+    "18,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "32,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "28,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "10,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "14,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "16,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "2,2": {
+     "filter": "life",
+     "section": 2
+    },
+    "13,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "8,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "24,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "42,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "27,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "41,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "45,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "30,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "11,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "28,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "33,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "26,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "20,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "34,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "29,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "23,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "21,0": {
+     "filter": "utility",
+     "section": 0
+    },
+    "19,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "22,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "40,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "9,2": {
+     "filter": "utility",
+     "section": 7
+    },
+    "46,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "29,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "44,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "27,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "18,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "10,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "5,0": {
+     "filter": "mana",
+     "section": 2
+    },
+    "5,2": {
+     "filter": "mana",
+     "section": 2
+    },
+    "1,0": {
+     "filter": "mana",
+     "section": 2
+    },
+    "2,0": {
+     "filter": "life",
+     "section": 2
+    },
+    "4,2": {
+     "filter": "life",
+     "section": 2
+    },
+    "6,2": {
+     "filter": "mana",
+     "section": 2
+    },
+    "6,0": {
+     "filter": "life",
+     "section": 2
+    },
+    "3,2": {
+     "filter": "hybrid",
+     "section": 2
+    },
+    "11,0": {
+     "filter": "utility",
+     "section": 3
+    },
+    "25,0": {
+     "filter": "utility",
+     "section": 3
+    },
+    "0,0": {
+     "filter": "life",
+     "section": 2
+    },
+    "0,2": {
+     "filter": "mana",
+     "section": 2
+    },
+    "7,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "1,2": {
+     "filter": "mana",
+     "section": 2
+    },
+    "3,0": {
+     "filter": "life",
+     "section": 3
+    },
+    "4,0": {
+     "filter": "life",
+     "section": 2
+    },
+    "115,0": {
+     "filter": "utility",
+     "section": 5
+    },
+    "103,2": {
+     "filter": "utility",
+     "section": 3
+    },
+    "100,2": {
+     "filter": "utility",
+     "section": 3
+    },
+    "67,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "63,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "72,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "86,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "69,2": {
+     "filter": "unique",
+     "section": 2
+    },
+    "107,0": {
+     "filter": "utility",
+     "section": 3
+    },
+    "104,0": {
+     "filter": "life",
+     "section": 3
+    },
+    "117,2": {
+     "filter": "utility",
+     "section": 9
+    },
+    "112,2": {
+     "filter": "unique",
+     "section": 4
+    },
+    "101,0": {
+     "filter": "utility",
+     "section": 3
+    },
+    "106,2": {
+     "filter": "utility",
+     "section": 3
+    },
+    "44,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "62,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "91,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "70,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "119,0": {
+     "filter": "utility",
+     "section": 5
+    },
+    "78,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "119,2": {
+     "filter": "utility",
+     "section": 4
+    },
+    "77,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "114,0": {
+     "filter": "utility",
+     "section": 4
+    },
+    "90,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "85,0": {
+     "filter": "life",
+     "section": 2
+    },
+    "111,0": {
+     "filter": "life",
+     "section": 4
+    },
+    "118,0": {
+     "filter": "utility",
+     "section": 7
+    },
+    "71,0": {
+     "filter": "unique",
+     "section": 2
+    },
+    "111,2": {
+     "filter": "utility",
+     "section": 4
+    },
+    "89,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "116,0": {
+     "filter": "utility",
+     "section": 8
+    },
+    "105,0": {
+     "filter": "life",
+     "section": 3
+    },
+    "105,2": {
+     "filter": "life",
+     "section": 3
+    },
+    "76,0": {
+     "filter": "life",
+     "section": 2
+    },
+    "90,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "73,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "113,2": {
+     "filter": "mana",
+     "section": 3
+    },
+    "83,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "97,2": {
+     "filter": "life",
+     "section": 2
+    },
+    "81,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "113,0": {
+     "filter": "life",
+     "section": 4
+    },
+    "82,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "84,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "106,0": {
+     "filter": "mana",
+     "section": 3
+    },
+    "87,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "73,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "75,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "67,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "79,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "116,2": {
+     "filter": "utility",
+     "section": 9
+    },
+    "76,2": {
+     "filter": "mana",
+     "section": 2
+    },
+    "115,2": {
+     "filter": "utility",
+     "section": 5
+    },
+    "61,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "104,2": {
+     "filter": "mana",
+     "section": 3
+    },
+    "107,2": {
+     "filter": "mana",
+     "section": 3
+    },
+    "7,2": {
+     "filter": "utility",
+     "section": 5
+    },
+    "43,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "81,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "50,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "83,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "82,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "51,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "17,2": {
+     "filter": "unique",
+     "section": 0
+    },
+    "49,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "49,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "108,2": {
+     "filter": "mana",
+     "section": 3
+    },
+    "43,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "62,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "52,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "57,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "98,2": {
+     "filter": "unique",
+     "section": 2
+    },
+    "53,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "95,0": {
+     "filter": "life",
+     "section": 2
+    },
+    "64,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "94,2": {
+     "filter": "life",
+     "section": 2
+    },
+    "66,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "96,0": {
+     "filter": "mana",
+     "section": 2
+    },
+    "86,0": {
+     "filter": "life",
+     "section": 2
+    },
+    "93,0": {
+     "filter": "life",
+     "section": 2
+    },
+    "70,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "103,0": {
+     "filter": "life",
+     "section": 3
+    },
+    "55,2": {
+     "filter": "unique",
+     "section": 1
+    },
+    "100,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "77,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "101,2": {
+     "filter": "unique",
+     "section": 2
+    },
+    "102,2": {
+     "filter": "utility",
+     "section": 3
+    },
+    "21,2": {
+     "filter": "utility",
+     "section": 0
+    },
+    "85,2": {
+     "filter": "unique",
+     "section": 2
+    },
+    "72,0": {
+     "filter": "unique",
+     "section": 2
+    },
+    "50,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "68,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "60,0": {
+     "filter": "unique",
+     "section": 1
+    },
+    "51,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "45,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "88,0": {
+     "filter": "unique",
+     "section": 2
+    },
+    "48,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "110,0": {
+     "filter": "life",
+     "section": 3
+    },
+    "80,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "39,0": {
+     "filter": "mana",
+     "section": 0
+    },
+    "54,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "59,0": {
+     "filter": "life",
+     "section": 1
+    },
+    "87,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "92,0": {
+     "filter": "life",
+     "section": 2
+    },
+    "65,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "74,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "46,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "114,2": {
+     "filter": "unique",
+     "section": 4
+    },
+    "108,0": {
+     "filter": "life",
+     "section": 3
+    },
+    "47,0": {
+     "filter": "unique",
+     "section": 1
+    },
+    "65,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "40,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "9,0": {
+     "filter": "unique",
+     "section": 0
+    },
+    "96,2": {
+     "filter": "life",
+     "section": 2
+    },
+    "63,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "92,2": {
+     "filter": "life",
+     "section": 2
+    },
+    "112,0": {
+     "filter": "life",
+     "section": 4
+    },
+    "39,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "66,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "75,2": {
+     "filter": "unique",
+     "section": 2
+    },
+    "71,2": {
+     "filter": "life",
+     "section": 2
+    },
+    "94,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "97,0": {
+     "filter": "life",
+     "section": 2
+    },
+    "22,2": {
+     "filter": "utility",
+     "section": 0
+    },
+    "93,2": {
+     "filter": "life",
+     "section": 2
+    },
+    "99,0": {
+     "filter": "mana",
+     "section": 2
+    },
+    "15,2": {
+     "filter": "unique",
+     "section": 0
+    },
+    "47,2": {
+     "filter": "utility",
+     "section": 0
+    },
+    "74,2": {
+     "filter": "life",
+     "section": 2
+    },
+    "118,2": {
+     "filter": "utility",
+     "section": 5
+    },
+    "89,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "53,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "95,2": {
+     "filter": "life",
+     "section": 2
+    },
+    "64,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "60,2": {
+     "filter": "mana",
+     "section": 1
+    },
+    "57,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "69,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "102,0": {
+     "filter": "utility",
+     "section": 3
+    },
+    "109,0": {
+     "filter": "utility",
+     "section": 3
+    },
+    "110,2": {
+     "filter": "life",
+     "section": 3
+    },
+    "79,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "52,0": {
+     "filter": "mana",
+     "section": 1
+    },
+    "88,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "42,2": {
+     "filter": "life",
+     "section": 1
+    },
+    "91,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "55,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "48,0": {
+     "filter": "unique",
+     "section": 1
+    },
+    "12,0": {
+     "filter": "unique",
+     "section": 0
+    },
+    "41,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "98,0": {
+     "filter": "unique",
+     "section": 2
+    },
+    "117,0": {
+     "filter": "utility",
+     "section": 9
+    },
+    "84,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "109,2": {
+     "filter": "life",
+     "section": 3
+    },
+    "59,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "58,0": {
+     "filter": "life",
+     "section": 1
+    },
+    "54,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "68,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "99,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "56,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "78,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "56,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "58,2": {
+     "filter": "utility",
+     "section": 1
+    },
+    "61,0": {
+     "filter": "utility",
+     "section": 1
+    },
+    "80,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "34,0": {
+     "filter": "utility",
+     "section": 3
+    },
+    "33,2": {
+     "filter": "utility",
+     "section": 3
+    },
+    "38,0": {
+     "filter": "utility",
+     "section": 7
+    },
+    "8,0": {
+     "filter": "utility",
+     "section": 6
+    },
+    "126,0": {
+     "filter": "utility",
+     "section": 9
+    },
+    "120,2": {
+     "filter": "unique",
+     "section": 2
+    },
+    "123,2": {
+     "filter": "mana",
+     "section": 4
+    },
+    "124,2": {
+     "filter": "utility",
+     "section": 5
+    },
+    "125,2": {
+     "filter": "utility",
+     "section": 8
+    },
+    "122,0": {
+     "filter": "utility",
+     "section": 3
+    },
+    "126,2": {
+     "filter": "utility",
+     "section": 9
+    },
+    "121,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "123,0": {
+     "filter": "utility",
+     "section": 3
+    },
+    "125,0": {
+     "filter": "utility",
+     "section": 5
+    },
+    "121,2": {
+     "filter": "life",
+     "section": 3
+    },
+    "120,0": {
+     "filter": "mana",
+     "section": 2
+    },
+    "122,2": {
+     "filter": "unique",
+     "section": 2
+    },
+    "124,0": {
+     "filter": "mana",
+     "section": 4
+    },
+    "19,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "35,2": {
+     "filter": "utility",
+     "section": 3
+    },
+    "17,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "26,0": {
+     "filter": "utility",
+     "section": 3
+    },
+    "35,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "16,2": {
+     "filter": "utility",
+     "section": 3
+    },
+    "20,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "13,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "25,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "30,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "24,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "15,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "23,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "31,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "37,2": {
+     "filter": "utility",
+     "section": 3
+    },
+    "12,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "14,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "32,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "38,2": {
+     "filter": "utility",
+     "section": 3
+    },
+    "31,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "36,0": {
+     "filter": "utility",
+     "section": 2
+    },
+    "36,2": {
+     "filter": "utility",
+     "section": 2
+    },
+    "37,0": {
+     "filter": "utility",
+     "section": 2
+    }
+   },
+   "scale": 0.6085192697768763
+  }
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzksMTQseyJmIjoiMkRJdGVtcy9GbGFza3MvbGlmZWZsYXNrMTIiLCJ3IjoxLCJoIjoyLCJzY2FsZSI6MSwibGV2ZWwiOjEsImR1cGxpY2F0ZWQiOnRydWV9XQ/3b1de2e9c5/lifeflask12.png",
+   "league": "Solo Self-Found",
+   "id": "ff25dedf3e43cc977830da625d26ec826ef0fba8718fd6f024f88f7fedc6b3ef",
+   "name": "",
+   "typeLine": "Superior Eternal Life Flask",
+   "baseType": "Eternal Life Flask",
+   "rarity": "Normal",
+   "ilvl": 78,
+   "identified": true,
+   "duplicated": true,
+   "corrupted": true,
+   "properties": [
+    {
+     "name": "Quality",
+     "values": [
+      [
+       "+21%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 6
+    },
+    {
+     "name": "Recovers {0} Life over {1} Seconds",
+     "values": [
+      [
+       "2517",
+       1
+      ],
+      [
+       "2",
+       0
+      ]
+     ],
+     "displayMode": 3
+    },
+    {
+     "name": "Consumes {0} of {1} Charges on use",
+     "values": [
+      [
+       "15",
+       0
+      ],
+      [
+       "45",
+       0
+      ]
+     ],
+     "displayMode": 3
+    },
+    {
+     "name": "Currently has {0} Charges",
+     "values": [
+      [
+       "0",
+       0
+      ]
+     ],
+     "displayMode": 3
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "65",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    }
+   ],
+   "descrText": "Right click to drink. Can only hold charges while in belt. Refills as you kill monsters.",
+   "frameType": 0,
+   "frameTypeId": "Normal",
+   "x": 97,
+   "y": 0,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

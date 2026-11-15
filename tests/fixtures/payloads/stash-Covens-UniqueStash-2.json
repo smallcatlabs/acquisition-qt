@@ -1,0 +1,40 @@
+{
+ "id": "663128e9c2",
+ "name": "~price 4554 chaos",
+ "type": "UniqueStash",
+ "index": 13,
+ "metadata": {
+  "colour": "7c5436",
+  "layout": {}
+ },
+ "items": [],
+ "children": [
+  {
+   "id": "331e960beb",
+   "parent": "663128e9c2",
+   "name": "",
+   "type": "UniqueStash",
+   "metadata": {
+    "items": 2
+   }
+  },
+  {
+   "id": "41b7040cf9",
+   "parent": "663128e9c2",
+   "name": "",
+   "type": "UniqueStash",
+   "metadata": {
+    "items": 5
+   }
+  },
+  {
+   "id": "a1b87d184f",
+   "parent": "663128e9c2",
+   "name": "",
+   "type": "UniqueStash",
+   "metadata": {
+    "items": 2
+   }
+  }
+ ]
+}

@@ -1,0 +1,432 @@
+{
+ "id": "01852f3a72",
+ "name": "Delve",
+ "type": "DelveStash",
+ "index": 4,
+ "metadata": {
+  "colour": "638000",
+  "layout": {
+   "0": {
+    "x": 322.51521298174447,
+    "y": 45.63894523326572,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "1": {
+    "x": 203.2454361054767,
+    "y": 45.63894523326572,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "2": {
+    "x": 382.7586206896552,
+    "y": 45.63894523326572,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "3": {
+    "x": 83.36713995943205,
+    "y": 45.63894523326572,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "4": {
+    "x": 262.8803245436106,
+    "y": 45.63894523326572,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "5": {
+    "x": 442.39350912778906,
+    "y": 45.63894523326572,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "6": {
+    "x": 143.00202839756594,
+    "y": 45.63894523326572,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "7": {
+    "x": 83.97565922920893,
+    "y": 105.2738336713996,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "8": {
+    "x": 203.2454361054767,
+    "y": 105.2738336713996,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "9": {
+    "x": 322.51521298174447,
+    "y": 105.2738336713996,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "10": {
+    "x": 442.39350912778906,
+    "y": 105.2738336713996,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "11": {
+    "x": 382.7586206896552,
+    "y": 105.2738336713996,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "12": {
+    "x": 502.02839756592294,
+    "y": 105.2738336713996,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "13": {
+    "x": 23.732251521298178,
+    "y": 105.2738336713996,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "14": {
+    "x": 143.61054766734281,
+    "y": 105.2738336713996,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "15": {
+    "x": 262.8803245436106,
+    "y": 105.2738336713996,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "16": {
+    "x": 262.8803245436106,
+    "y": 164.90872210953347,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "17": {
+    "x": 442.39350912778906,
+    "y": 224.54361054766736,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "18": {
+    "x": 112.57606490872212,
+    "y": 164.90872210953347,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "19": {
+    "x": 412.5760649087221,
+    "y": 164.90872210953347,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "20": {
+    "x": 472.210953346856,
+    "y": 164.90872210953347,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "21": {
+    "x": 83.36713995943205,
+    "y": 224.54361054766736,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "22": {
+    "x": 52.94117647058824,
+    "y": 164.90872210953347,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "23": {
+    "x": 322.51521298174447,
+    "y": 164.90872210953347,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "24": {
+    "x": 202.63691683569982,
+    "y": 164.90872210953347,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "25": {
+    "x": 0,
+    "y": 281.13590263691685,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958,
+    "hidden": true
+   },
+   "26": {
+    "x": 0,
+    "y": 350.5070993914808,
+    "w": 1,
+    "h": 2,
+    "scale": 0.8205128312110901,
+    "hidden": true
+   },
+   "27": {
+    "x": 65.72008113590265,
+    "y": 304.25963488843814,
+    "w": 2,
+    "h": 2,
+    "scale": 0.8205128312110901,
+    "hidden": true
+   },
+   "29": {
+    "x": 389.4523326572008,
+    "y": 304.25963488843814,
+    "w": 2,
+    "h": 2,
+    "scale": 0.8205128312110901,
+    "hidden": true
+   },
+   "31": {
+    "x": 135.6997971602434,
+    "y": 453.95537525354973,
+    "w": 1,
+    "h": 1,
+    "scale": 0.9230769276618958
+   },
+   "32": {
+    "x": 196.55172413793105,
+    "y": 438.74239350912785,
+    "w": 1,
+    "h": 2,
+    "scale": 0.8205128312110901
+   },
+   "33": {
+    "x": 256.7951318458418,
+    "y": 438.74239350912785,
+    "w": 2,
+    "h": 2,
+    "scale": 0.8205128312110901
+   },
+   "35": {
+    "x": 351.72413793103453,
+    "y": 438.74239350912785,
+    "w": 2,
+    "h": 2,
+    "scale": 0.8205128312110901
+   },
+   "37": {
+    "x": 195.94320486815417,
+    "y": 242.79918864097365,
+    "w": 2,
+    "h": 4,
+    "scale": 0.8205128312110901
+   },
+   "39": {
+    "x": 295.7403651115619,
+    "y": 242.79918864097365,
+    "w": 2,
+    "h": 4,
+    "scale": 0.8205128312110901
+   }
+  }
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 2,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvRGVsdmUvVXBncmFkZTJ4MkEiLCJ3IjoyLCJoIjoyLCJzY2FsZSI6MX1d/30b32cdb00/Upgrade2x2A.png",
+   "stackSize": 1,
+   "maxStackSize": 10000,
+   "league": "Hardcore",
+   "id": "1cf2edcdaae27cf4649c640adf14a93c00ed29cc159e4ea89ae61d811cf4f337",
+   "delve": true,
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "DV",
+     "sColour": "DV"
+    },
+    {
+     "group": 1,
+     "attr": "DV",
+     "sColour": "DV"
+    },
+    {
+     "group": 2,
+     "attr": "DV",
+     "sColour": "DV"
+    }
+   ],
+   "name": "",
+   "typeLine": "Powerful Alchemical Resonator",
+   "baseType": "Powerful Alchemical Resonator",
+   "ilvl": 0,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Stack Size",
+     "values": [
+      [
+       "1/10",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 32
+    },
+    {
+     "name": "Requires {0} Socketed Fossils",
+     "values": [
+      [
+       "3",
+       2
+      ]
+     ],
+     "displayMode": 3
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "Upgrades a normal item to a rare item"
+    }
+   ],
+   "descrText": "All sockets must be filled with Fossils before this item can be used.",
+   "frameType": 5,
+   "frameTypeId": "Currency",
+   "x": 27,
+   "y": 0,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvRGVsdmUvU2VycmF0ZWRGb3NzaWwiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MX1d/42d7279694/SerratedFossil.png",
+   "stackSize": 1,
+   "maxStackSize": 10000,
+   "league": "Hardcore",
+   "id": "8af22020c78f70733a48fa498bd0e2a9de01f13c736019b6bfa17eba6051afd9",
+   "name": "",
+   "typeLine": "Serrated Fossil",
+   "baseType": "Serrated Fossil",
+   "ilvl": 0,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Stack Size",
+     "values": [
+      [
+       "1/20",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 32
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "More Attack modifiers\r\nFewer Caster modifiers"
+    }
+   ],
+   "descrText": "Place in a Resonator to influence item crafting.",
+   "frameType": 5,
+   "frameTypeId": "Currency",
+   "x": 10,
+   "y": 0,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvRGVsdmUvUmVyb2xsMngxQSIsInciOjEsImgiOjIsInNjYWxlIjoxfV0/1aa8e1c365/Reroll2x1A.png",
+   "stackSize": 1,
+   "maxStackSize": 10000,
+   "league": "Hardcore",
+   "id": "02b4a476b9bb63f17eeb21433303a5ec4711d68944115ca44bc7d54f5caf0773",
+   "delve": true,
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "DV",
+     "sColour": "DV"
+    },
+    {
+     "group": 1,
+     "attr": "DV",
+     "sColour": "DV"
+    }
+   ],
+   "name": "",
+   "typeLine": "Potent Chaotic Resonator",
+   "baseType": "Potent Chaotic Resonator",
+   "ilvl": 0,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Stack Size",
+     "values": [
+      [
+       "1/10",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 32
+    },
+    {
+     "name": "Requires {0} Socketed Fossils",
+     "values": [
+      [
+       "2",
+       2
+      ]
+     ],
+     "displayMode": 3
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "Reforges a rare item with new random modifiers"
+    }
+   ],
+   "descrText": "All sockets must be filled with Fossils before this item can be used.",
+   "frameType": 5,
+   "frameTypeId": "Currency",
+   "x": 32,
+   "y": 0,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  }
+ ]
+}

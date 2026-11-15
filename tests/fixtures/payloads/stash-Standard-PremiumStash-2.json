@@ -1,0 +1,88 @@
+{
+ "id": "2778d557c8",
+ "name": "Special Gear (Remove-only)",
+ "type": "PremiumStash",
+ "index": 25,
+ "metadata": {
+  "colour": "638000"
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 2,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQmVsdHMvU291bGNvcmRCZWx0IiwidyI6MiwiaCI6MSwic2NhbGUiOjF9XQ/48ebd82bfa/SoulcordBelt.png",
+   "league": "Standard",
+   "id": "6be6b9832974a89ea8ead66e02af04228429feb1ef6580d1d60515fb87656048",
+   "name": "Skull Bond",
+   "typeLine": "Cord Belt",
+   "baseType": "Cord Belt",
+   "rarity": "Rare",
+   "ilvl": 78,
+   "identified": true,
+   "split": true,
+   "properties": [
+    {
+     "name": "Quality (Prefix Modifiers)",
+     "values": [
+      [
+       "+20%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 6
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "45",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    }
+   ],
+   "enchantMods": [
+    "Allocates [totem_ranged_notable2670|Watchtowers]"
+   ],
+   "implicitMods": [
+    {
+     "description": "Can be Anointed"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "8% reduced Enemy Stun Threshold"
+    },
+    {
+     "description": "+288 to Armour"
+    },
+    {
+     "description": "+1 to maximum Energy Shield"
+    },
+    {
+     "description": "+152 to maximum Life"
+    },
+    {
+     "description": "+25% to Chaos Resistance"
+    },
+    {
+     "description": "+32% to Cold Resistance",
+     "flags": {
+      "crafted": true
+     }
+    }
+   ],
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 3,
+   "y": 1,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

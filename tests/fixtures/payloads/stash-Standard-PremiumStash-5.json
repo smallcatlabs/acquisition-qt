@@ -1,0 +1,165 @@
+{
+ "id": "d665132766",
+ "name": "Gear #2 (3.16)",
+ "type": "PremiumStash",
+ "index": 52,
+ "metadata": {
+  "colour": "638000"
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 2,
+   "h": 3,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9DaGVycnViaW1zQ3JhdmUiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MSwic2NvdXJnZWQiOjF9XQ/fd6e886f3e/CherrubimsCrave.png",
+   "league": "Standard",
+   "id": "13e42c3f72f166a44c26033757b0199fab5b63615420338859b6b0718e88ea6c",
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 0,
+     "attr": "S",
+     "sColour": "R"
+    },
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    }
+   ],
+   "name": "Cherrubim's Maleficence",
+   "typeLine": "Triumphant Lamellar",
+   "baseType": "Triumphant Lamellar",
+   "rarity": "Unique",
+   "ilvl": 86,
+   "identified": true,
+   "corrupted": true,
+   "properties": [
+    {
+     "name": "Quality",
+     "values": [
+      [
+       "+30%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 6
+    },
+    {
+     "name": "Armour",
+     "values": [
+      [
+       "1606",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 16
+    },
+    {
+     "name": "Evasion Rating",
+     "values": [
+      [
+       "2020",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 17
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "69",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Str",
+     "values": [
+      [
+       "95",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 63
+    },
+    {
+     "name": "Dex",
+     "values": [
+      [
+       "162",
+       1
+      ]
+     ],
+     "displayMode": 1,
+     "type": 64
+    }
+   ],
+   "scourgeMods": [
+    "+46 Dexterity Requirement",
+    "+20% to Fire Resistance"
+   ],
+   "explicitMods": [
+    {
+     "description": "69% increased Chaos Damage"
+    },
+    {
+     "description": "184% increased Armour and Evasion"
+    },
+    {
+     "description": "+79 to maximum Life"
+    },
+    {
+     "description": "100% increased total Recovery per second from Life Leech"
+    }
+   ],
+   "flavourText": [
+    "\"The Consort of Chaos descended,\r",
+    "swiftly, brutally, artfully, she consumed the living,\r",
+    "leaving naught behind but a Rosemarie bloom,\r",
+    "to celebrate the massacre.\"\r",
+    "- Blass, explorer, hunter, adventurer"
+   ],
+   "frameType": 3,
+   "frameTypeId": "Unique",
+   "x": 1,
+   "y": 0,
+   "inventoryId": "Stash1",
+   "socketedItems": [],
+   "scourged": {
+    "tier": 1,
+    "level": 68,
+    "progress": 3652,
+    "total": 179749
+   }
+  }
+ ]
+}

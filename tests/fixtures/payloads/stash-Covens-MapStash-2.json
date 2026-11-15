@@ -1,0 +1,55 @@
+{
+ "id": "8600326411",
+ "name": "Maps",
+ "type": "MapStash",
+ "index": 11,
+ "metadata": {
+  "colour": "638000",
+  "layout": {}
+ },
+ "items": [],
+ "children": [
+  {
+   "id": "4259f33ad9",
+   "parent": "8600326411",
+   "name": "1",
+   "type": "MapStash",
+   "metadata": {
+    "items": 14,
+    "map": {
+     "section": "tier3",
+     "name": "Map (Tier 3)",
+     "index": 0
+    }
+   }
+  },
+  {
+   "id": "4834502fda",
+   "parent": "8600326411",
+   "name": "1",
+   "type": "MapStash",
+   "metadata": {
+    "items": 5,
+    "map": {
+     "section": "tier6",
+     "name": "Map (Tier 6)",
+     "index": 0
+    }
+   }
+  },
+  {
+   "id": "03be721af3",
+   "parent": "8600326411",
+   "name": "1",
+   "type": "MapStash",
+   "metadata": {
+    "items": 2,
+    "map": {
+     "section": "tier12",
+     "name": "Map (Tier 12)",
+     "index": 0
+    }
+   }
+  }
+ ]
+}

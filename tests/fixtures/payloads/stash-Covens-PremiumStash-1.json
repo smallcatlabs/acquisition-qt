@@ -1,0 +1,160 @@
+{
+ "id": "25e6f19ded",
+ "name": "Special Gear",
+ "type": "PremiumStash",
+ "index": 16,
+ "metadata": {
+  "colour": "638000"
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 2,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9TaGllbGRzL0JlYXJUcmFwU2hpZWxkMiIsInciOjIsImgiOjIsInNjYWxlIjoxfV0/4d66593647/BearTrapShield2.png",
+   "league": "Covens",
+   "id": "65a525568f3755749650a339461b926119c13dbc75cc647a2966a1420b7ec94c",
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    },
+    {
+     "group": 0,
+     "attr": "I",
+     "sColour": "B"
+    }
+   ],
+   "name": "",
+   "typeLine": "Supreme Spiked Shield",
+   "baseType": "Supreme Spiked Shield",
+   "rarity": "Unique",
+   "ilvl": 72,
+   "identified": false,
+   "properties": [
+    {
+     "name": "Chance to Block",
+     "values": [
+      [
+       "24%",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 15
+    },
+    {
+     "name": "Evasion Rating",
+     "values": [
+      [
+       "263",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 17
+    },
+    {
+     "name": "Energy Shield",
+     "values": [
+      [
+       "54",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 18
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Dex",
+     "values": [
+      [
+       "85",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 64
+    },
+    {
+     "name": "Int",
+     "values": [
+      [
+       "85",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 65
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "+5% chance to Suppress Spell Damage"
+    }
+   ],
+   "frameType": 3,
+   "frameTypeId": "Unique",
+   "x": 0,
+   "y": 0,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  },
+  {
+   "verified": false,
+   "w": 2,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9IZWxtZXRzL0hlbG1ldFN0cjExIiwidyI6MiwiaCI6Miwic2NhbGUiOjF9XQ/d288bbe11b/HelmetStr11.png",
+   "league": "Covens",
+   "id": "0464516ca6f6c43a4f08188f59923d75c40afc8a5e3cfb3c69a436b4ba02619c",
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    }
+   ],
+   "name": "",
+   "typeLine": "Eternal Burgonet",
+   "baseType": "Eternal Burgonet",
+   "rarity": "Rare",
+   "ilvl": 72,
+   "identified": false,
+   "properties": [
+    {
+     "name": "Armour",
+     "values": [
+      [
+       "411",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 16
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Strength",
+     "values": [
+      [
+       "138",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 63
+    }
+   ],
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 0,
+   "y": 6,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  }
+ ]
+}

@@ -1,0 +1,109 @@
+{
+ "id": "4259f33ad9",
+ "parent": "8600326411",
+ "name": "1",
+ "type": "MapStash",
+ "metadata": {
+  "items": 14,
+  "map": {
+   "section": "tier3",
+   "name": "Map (Tier 3)",
+   "index": 0
+  }
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI4LDE0LHsiZiI6IjJESXRlbXMvTWFwcy9BdGxhczJNYXBzL05ldy9NYXBOdW1iZXJzMyIsInciOjEsImgiOjEsInNjYWxlIjoxLCJtbiI6MjQsIm10IjowLCJtbSI6dHJ1ZX1d/3dab6042be/MapNumbers3.png",
+   "league": "Covens",
+   "id": "2d6aa475e6d601322336732edab302529c960ae00eafbaae145f73605d46148e",
+   "memoryItem": true,
+   "name": "Foul Incitement",
+   "typeLine": "Map (Tier 3)",
+   "baseType": "Map (Tier 3)",
+   "rarity": "Rare",
+   "ilvl": 70,
+   "identified": true,
+   "properties": [
+    {
+     "name": "[AtlasDropScaling|Atlas Drops]",
+     "values": [
+      [
+       "+55%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 112
+    },
+    {
+     "name": "Item Rarity",
+     "values": [
+      [
+       "+49%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 3
+    },
+    {
+     "name": "Monster Pack Size",
+     "values": [
+      [
+       "+21%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 4
+    },
+    {
+     "name": "More Currency",
+     "values": [
+      [
+       "+94%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 90
+    }
+   ],
+   "monsterLevel": 70,
+   "implicitMods": [
+    {
+     "description": "Area is Influenced by the Originator's Memories"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "Players are Cursed with Vulnerability"
+    },
+    {
+     "description": "Monsters cannot be Stunned"
+    },
+    {
+     "description": "Monsters' Action Speed cannot be modified to below Base Value"
+    },
+    {
+     "description": "Monsters' Movement Speed cannot be modified to below Base Value"
+    },
+    {
+     "description": "Players have 52% reduced Maximum total Life, Mana and Energy Shield Recovery per second from Leech"
+    },
+    {
+     "description": "Players are assaulted by Bloodstained Sawblades"
+    }
+   ],
+   "descrText": "Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. ",
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 1,
+   "y": 5,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

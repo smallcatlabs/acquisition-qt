@@ -1,0 +1,656 @@
+{
+ "id": "f5625b2bc9",
+ "name": "3.28 KF Totems (Remove-only)",
+ "type": "PremiumStash",
+ "index": 26,
+ "metadata": {
+  "colour": "638000"
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 2,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9IZWxtZXRzL0hlbG1ldFN0ckludDkiLCJ3IjoyLCJoIjoyLCJzY2FsZSI6MSwic2VhcmluZyI6dHJ1ZSwidGFuZ2xlZCI6dHJ1ZX1d/2b60fc8f84/HelmetStrInt9.png",
+   "league": "Standard",
+   "id": "27a4277fad1e5d542ed7a408a8b82d285a0aa8897bb2dec1fce83d997726d9a3",
+   "searing": true,
+   "tangled": true,
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 0,
+     "attr": "S",
+     "sColour": "R"
+    }
+   ],
+   "name": "Glyph Corona",
+   "typeLine": "Divine Crown",
+   "baseType": "Divine Crown",
+   "rarity": "Rare",
+   "ilvl": 84,
+   "identified": true,
+   "split": true,
+   "properties": [
+    {
+     "name": "Quality",
+     "values": [
+      [
+       "+28%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 6
+    },
+    {
+     "name": "Armour",
+     "values": [
+      [
+       "1019",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 16
+    },
+    {
+     "name": "Energy Shield",
+     "values": [
+      [
+       "203",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 18
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "84",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Str",
+     "values": [
+      [
+       "155",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 63,
+     "suffix": "(gem)"
+    },
+    {
+     "name": "Dex",
+     "values": [
+      [
+       "138",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 64,
+     "suffix": "(gem)"
+    },
+    {
+     "name": "Int",
+     "values": [
+      [
+       "132",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 65
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "6% of Physical Damage from Hits taken as Cold Damage"
+    },
+    {
+     "description": "22% reduced Mana Cost of Attacks"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+26 to Intelligence"
+    },
+    {
+     "description": "96% increased Armour and Energy Shield"
+    },
+    {
+     "description": "+141 to maximum Life"
+    },
+    {
+     "description": "Regenerate 18.9 Life per second"
+    },
+    {
+     "description": "+35% to Chaos Resistance"
+    },
+    {
+     "description": "21% increased Armour and Energy Shield",
+     "flags": {
+      "crafted": true
+     }
+    },
+    {
+     "description": "+15 to maximum Life",
+     "flags": {
+      "crafted": true
+     }
+    }
+   ],
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 5,
+   "y": 1,
+   "inventoryId": "Stash1",
+   "socketedItems": [
+    {
+     "verified": false,
+     "w": 1,
+     "h": 1,
+     "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9TdXBwb3J0L01vbWVudHVtU3VwcG9ydEdlbSIsInciOjEsImgiOjEsInNjYWxlIjoxfV0/ccdd57e05a/MomentumSupportGem.png",
+     "support": true,
+     "league": "Standard",
+     "id": "57a72f869e959bbd4fa3f6329341742ee19e39da39d6a6a28de1663e4fc16f92",
+     "name": "",
+     "typeLine": "Momentum Support",
+     "baseType": "Momentum Support",
+     "ilvl": 0,
+     "identified": true,
+     "properties": [
+      {
+       "name": "Attack, Support, Duration",
+       "values": [],
+       "displayMode": 0
+      },
+      {
+       "name": "Level",
+       "values": [
+        [
+         "20 (Max)",
+         0
+        ]
+       ],
+       "displayMode": 0,
+       "type": 5
+      },
+      {
+       "name": "Cost & Reservation Multiplier",
+       "values": [
+        [
+         "110%",
+         0
+        ]
+       ],
+       "displayMode": 0
+      },
+      {
+       "name": "Quality",
+       "values": [
+        [
+         "+20%",
+         1
+        ]
+       ],
+       "displayMode": 0,
+       "type": 6
+      }
+     ],
+     "requirements": [
+      {
+       "name": "Level",
+       "values": [
+        [
+         "70",
+         0
+        ]
+       ],
+       "displayMode": 0,
+       "type": 62
+      },
+      {
+       "name": "Str",
+       "values": [
+        [
+         "48",
+         0
+        ]
+       ],
+       "displayMode": 1,
+       "type": 63
+      },
+      {
+       "name": "Dex",
+       "values": [
+        [
+         "70",
+         0
+        ]
+       ],
+       "displayMode": 1,
+       "type": 64
+      }
+     ],
+     "secDescrText": "Supports attack skills that aren't triggered.",
+     "explicitMods": [
+      {
+       "description": "Gain 1 Momentum when you Use a Supported Skill\nGain 1 Momentum every 0.51 seconds while Channelling a Supported Skill\nLose all Momentum if you Move"
+      },
+      {
+       "description": "Supported Skills have 20% increased Attack Speed per Momentum"
+      },
+      {
+       "description": "When you reach 5 Momentum, lose all Momentum and gain\nSwiftness for 2.0 seconds"
+      },
+      {
+       "description": "Swiftness grants 15% increased Movement Speed per Momentum lost"
+      }
+     ],
+     "descrText": "This is a Support Gem. It does not grant a bonus to your character, but to skills in sockets connected to it. Place into an item socket connected to a socket containing the Skill Gem you wish to augment. Right click to remove from a socket.",
+     "frameType": 4,
+     "frameTypeId": "Gem",
+     "socket": 0,
+     "colour": "D"
+    },
+    {
+     "verified": false,
+     "w": 1,
+     "h": 1,
+     "icon": "https://web.poecdn.com/gen/image/WzMwLDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9GcmVuenkiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MX1d/6eaf6bf70d/Frenzy.png",
+     "support": false,
+     "league": "Standard",
+     "id": "30fead6dbcf1ad6d07a07ad53dd5eb19de1132e9b603299b6fe83642afee7b0b",
+     "name": "",
+     "typeLine": "Frenzy",
+     "baseType": "Frenzy",
+     "ilvl": 0,
+     "identified": true,
+     "properties": [
+      {
+       "name": "Attack, Projectile, Bow",
+       "values": [],
+       "displayMode": 0
+      },
+      {
+       "name": "Level",
+       "values": [
+        [
+         "16",
+         0
+        ]
+       ],
+       "displayMode": 0,
+       "type": 5
+      },
+      {
+       "name": "Cost",
+       "values": [
+        [
+         "10 Mana",
+         0
+        ]
+       ],
+       "displayMode": 0
+      },
+      {
+       "name": "Attack Damage",
+       "values": [
+        [
+         "130.8% of base",
+         0
+        ]
+       ],
+       "displayMode": 0
+      },
+      {
+       "name": "Effectiveness of Added Damage",
+       "values": [
+        [
+         "131%",
+         0
+        ]
+       ],
+       "displayMode": 0
+      },
+      {
+       "name": "Quality",
+       "values": [
+        [
+         "+20%",
+         1
+        ]
+       ],
+       "displayMode": 0,
+       "type": 6
+      }
+     ],
+     "requirements": [
+      {
+       "name": "Level",
+       "values": [
+        [
+         "62",
+         0
+        ]
+       ],
+       "displayMode": 0,
+       "type": 62
+      },
+      {
+       "name": "Dex",
+       "values": [
+        [
+         "138",
+         0
+        ]
+       ],
+       "displayMode": 1,
+       "type": 64
+      }
+     ],
+     "additionalProperties": [
+      {
+       "name": "Experience",
+       "values": [
+        [
+         "15264208/15264208",
+         0
+        ]
+       ],
+       "displayMode": 2,
+       "progress": 1,
+       "type": 20
+      }
+     ],
+     "nextLevelRequirements": [
+      {
+       "name": "Level",
+       "values": [
+        [
+         "64",
+         0
+        ]
+       ],
+       "displayMode": 0
+      },
+      {
+       "name": "Dex",
+       "values": [
+        [
+         "142",
+         0
+        ]
+       ],
+       "displayMode": 1
+      }
+     ],
+     "secDescrText": "Performs an attack with a ranged weapon that gives the character a frenzy charge if it hits. Frenzy charges increase your attack speed.",
+     "explicitMods": [
+      {
+       "description": "7% more Attack Damage per Frenzy Charge"
+      },
+      {
+       "description": "7% more Attack Speed per Frenzy Charge"
+      }
+     ],
+     "descrText": "Place into an item socket to gain this skill. Right click to remove from a socket.",
+     "frameType": 4,
+     "frameTypeId": "Gem",
+     "socket": 1,
+     "colour": "D"
+    },
+    {
+     "verified": false,
+     "w": 1,
+     "h": 1,
+     "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9TdXBwb3J0L0Zhc3RlckF0dGFja3MiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MX1d/c3e1544a95/FasterAttacks.png",
+     "support": true,
+     "league": "Standard",
+     "id": "977f4c23b3f834292605c7e56e3f666ad111c6981dd0981beff5ee1f8a431706",
+     "name": "",
+     "typeLine": "Faster Attacks Support",
+     "baseType": "Faster Attacks Support",
+     "ilvl": 0,
+     "identified": true,
+     "properties": [
+      {
+       "name": "Attack, Support",
+       "values": [],
+       "displayMode": 0
+      },
+      {
+       "name": "Level",
+       "values": [
+        [
+         "20 (Max)",
+         0
+        ]
+       ],
+       "displayMode": 0,
+       "type": 5
+      },
+      {
+       "name": "Cost & Reservation Multiplier",
+       "values": [
+        [
+         "110%",
+         0
+        ]
+       ],
+       "displayMode": 0
+      },
+      {
+       "name": "Quality",
+       "values": [
+        [
+         "+20%",
+         1
+        ]
+       ],
+       "displayMode": 0,
+       "type": 6
+      }
+     ],
+     "requirements": [
+      {
+       "name": "Level",
+       "values": [
+        [
+         "70",
+         0
+        ]
+       ],
+       "displayMode": 0,
+       "type": 62
+      },
+      {
+       "name": "Dex",
+       "values": [
+        [
+         "111",
+         0
+        ]
+       ],
+       "displayMode": 1,
+       "type": 64
+      }
+     ],
+     "secDescrText": "Supports attack skills.",
+     "explicitMods": [
+      {
+       "description": "Supported Skills have 54% increased Attack Speed"
+      }
+     ],
+     "descrText": "This is a Support Gem. It does not grant a bonus to your character, but to skills in sockets connected to it. Place into an item socket connected to a socket containing the Skill Gem you wish to augment. Right click to remove from a socket.",
+     "frameType": 4,
+     "frameTypeId": "Gem",
+     "socket": 2,
+     "colour": "D"
+    },
+    {
+     "verified": false,
+     "w": 1,
+     "h": 1,
+     "icon": "https://web.poecdn.com/gen/image/WzMwLDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9TaGllbGRDaGFyZ2UiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MX1d/6d2723f822/ShieldCharge.png",
+     "support": false,
+     "league": "Standard",
+     "id": "d6be9659fd88aa8add9b7af2d00a6ba34478d43d4275a92ab324fc41ef1dc5ab",
+     "name": "",
+     "typeLine": "Shield Charge",
+     "baseType": "Shield Charge",
+     "ilvl": 0,
+     "identified": true,
+     "properties": [
+      {
+       "name": "Attack, Melee, AoE, Movement, Travel, Physical",
+       "values": [],
+       "displayMode": 0
+      },
+      {
+       "name": "Level",
+       "values": [
+        [
+         "20 (Max)",
+         0
+        ]
+       ],
+       "displayMode": 0,
+       "type": 5
+      },
+      {
+       "name": "Cost",
+       "values": [
+        [
+         "10 Mana",
+         0
+        ]
+       ],
+       "displayMode": 0
+      },
+      {
+       "name": "Attack Time",
+       "values": [
+        [
+         "0.50 sec",
+         0
+        ]
+       ],
+       "displayMode": 0
+      },
+      {
+       "name": "Critical Strike Chance",
+       "values": [
+        [
+         "5.00%",
+         0
+        ]
+       ],
+       "displayMode": 0
+      },
+      {
+       "name": "Attack Damage",
+       "values": [
+        [
+         "100% of base",
+         0
+        ]
+       ],
+       "displayMode": 0
+      },
+      {
+       "name": "Quality",
+       "values": [
+        [
+         "+20%",
+         1
+        ]
+       ],
+       "displayMode": 0,
+       "type": 6
+      }
+     ],
+     "requirements": [
+      {
+       "name": "Level",
+       "values": [
+        [
+         "70",
+         0
+        ]
+       ],
+       "displayMode": 0,
+       "type": 62
+      },
+      {
+       "name": "Str",
+       "values": [
+        [
+         "155",
+         0
+        ]
+       ],
+       "displayMode": 1,
+       "type": 63
+      }
+     ],
+     "secDescrText": "Charges at a targeted location or enemy, pushing away enemies in your path and repeatedly dealing off-hand damage in a small area in front of you. You deal damage in a larger area when you reach the target. The further you travel, the more damage you deal, and the greater your chance of stunning enemies.",
+     "explicitMods": [
+      {
+       "description": "252 to 378 Base Off Hand Physical Damage"
+      },
+      {
+       "description": "8 to 12 Added Physical Damage per 15 Armour or Evasion Rating on Shield"
+      },
+      {
+       "description": "75% increased Stun Threshold reduction on enemies at Maximum charge distance"
+      },
+      {
+       "description": "100% more Damage with Hits at Maximum Charge Distance"
+      },
+      {
+       "description": "129% increased Movement Speed"
+      }
+     ],
+     "descrText": "Place into an item socket to gain this skill. Right click to remove from a socket.",
+     "frameType": 4,
+     "frameTypeId": "Gem",
+     "socket": 3,
+     "colour": "S"
+    }
+   ],
+   "incubatedItem": {
+    "name": "Soul Core or Gold",
+    "level": 68,
+    "progress": 0,
+    "total": 10530
+   }
+  }
+ ]
+}

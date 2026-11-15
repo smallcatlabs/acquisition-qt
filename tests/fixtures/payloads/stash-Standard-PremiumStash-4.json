@@ -1,0 +1,90 @@
+{
+ "id": "bb030e0e61",
+ "name": "Gear #1 (3.16)",
+ "type": "PremiumStash",
+ "index": 50,
+ "metadata": {
+  "colour": "638000"
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 2,
+   "h": 3,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyM0NVbmlxdWUiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MSwic2NvdXJnZWQiOjN9XQ/b4d1623a91/BodyStr3CUnique.png",
+   "league": "Standard",
+   "id": "35a2758249431ccdbac0a8ea55512c60a788a3231f984f516b6dbe1654d799df",
+   "name": "Kaom's Heart",
+   "typeLine": "Glorious Plate",
+   "baseType": "Glorious Plate",
+   "rarity": "Unique",
+   "ilvl": 74,
+   "identified": true,
+   "corrupted": true,
+   "properties": [
+    {
+     "name": "Armour",
+     "values": [
+      [
+       "776",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 16
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "68",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Str",
+     "values": [
+      [
+       "158",
+       1
+      ]
+     ],
+     "displayMode": 1,
+     "type": 63
+    }
+   ],
+   "scourgeMods": [
+    "17% reduced Attribute Requirements",
+    "-27% to Fire Resistance"
+   ],
+   "explicitMods": [
+    {
+     "description": "Has no Sockets"
+    },
+    {
+     "description": "25% increased Fire Damage"
+    },
+    {
+     "description": "+500 to maximum Life"
+    }
+   ],
+   "flavourText": [
+    "The warrior who\r",
+    "fears will fall."
+   ],
+   "frameType": 3,
+   "frameTypeId": "Unique",
+   "x": 4,
+   "y": 9,
+   "inventoryId": "Stash1",
+   "scourged": {
+    "tier": 3
+   }
+  }
+ ]
+}

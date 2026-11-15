@@ -1,0 +1,202 @@
+{
+ "id": "9065b5f529",
+ "parent": "cfbd48234d",
+ "name": "1 (Remove-only)",
+ "type": "MapStash",
+ "metadata": {
+  "items": 5,
+  "map": {
+   "section": "special",
+   "name": "Valdo Map",
+   "index": 0
+  }
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI4LDE0LHsiZiI6IjJESXRlbXMvTWFwcy9BdGxhczJNYXBzL05ldy9CcmFtYmxlZmFsbCIsInciOjEsImgiOjEsInNjYWxlIjoxLCJtbiI6MjIsIm10IjowLCJyZWxpYyI6MTB9XQ/38cdf1c975/Bramblefall.png",
+   "league": "Standard",
+   "id": "aecad936776e698ccea00526de32fe10b54468d4fb88e32e0239e63cb28ddc92",
+   "isRelic": true,
+   "foilVariation": 10,
+   "name": "Desolate Solitude",
+   "typeLine": "Valdo Map",
+   "baseType": "Valdo Map",
+   "rarity": "Rare",
+   "ilvl": 100,
+   "identified": true,
+   "unmodifiable": true,
+   "properties": [
+    {
+     "name": "Map Area",
+     "values": [
+      [
+       "Bramble Valley",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 105
+    },
+    {
+     "name": "Reward",
+     "values": [
+      [
+       "Foil Bramblejack",
+       10
+      ]
+     ],
+     "displayMode": 0,
+     "type": 76
+    },
+    {
+     "name": "Item Quantity",
+     "values": [
+      [
+       "+20%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 2
+    },
+    {
+     "name": "[AtlasDropScaling|Atlas Drops]",
+     "values": [
+      [
+       "+152%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 112
+    },
+    {
+     "name": "Monster Pack Size",
+     "values": [
+      [
+       "+20%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 4
+    },
+    {
+     "name": "Quality (Quantity)",
+     "values": [
+      [
+       "+20%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 6
+    },
+    {
+     "name": "",
+     "values": [],
+     "displayMode": 4
+    },
+    {
+     "name": "",
+     "values": [
+      [
+       "Chance for dropped Maps to convert to:",
+       24
+      ]
+     ],
+     "displayMode": 1,
+     "type": 77
+    },
+    {
+     "name": "Shaper Map",
+     "values": [
+      [
+       "5%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 80
+    },
+    {
+     "name": "Elder Map",
+     "values": [
+      [
+       "5%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 81
+    },
+    {
+     "name": "Conqueror Map",
+     "values": [
+      [
+       "20%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 82
+    },
+    {
+     "name": "Unique Map",
+     "values": [
+      [
+       "5%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 83
+    },
+    {
+     "name": "[Thread|Threads]",
+     "values": [
+      [
+       "24%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 84
+    }
+   ],
+   "monsterLevel": 84,
+   "explicitMods": [
+    {
+     "description": "Rare Monsters have [PhysicalThorns|Physical Thorns] reflecting 100 Physical Damage"
+    },
+    {
+     "description": "Rare Monsters have [ElementalThorns|Elemental Thorns] reflecting 100 Elemental Damage"
+    },
+    {
+     "description": "Monsters inflict Petrification for 4 seconds on hit"
+    },
+    {
+     "description": "Area contains The Feared"
+    },
+    {
+     "description": "Area contains Sirus' Deatomisation Storms"
+    },
+    {
+     "description": "Players gain Instability on Kill\nUnstable Players eventually detonate"
+    },
+    {
+     "description": "Players who Die in area are sent to the Void"
+    }
+   ],
+   "descrText": "Travel to this Map by using it in a personal Map Device. Maps can only be used once. Defeat 90% of all monsters in this Map, including all Rare and Unique enemies to obtain the Reward. The area created is not affected by your Atlas Passive Tree, and cannot be augmented via the Map Device.",
+   "frameType": 10,
+   "frameTypeId": "SupporterFoil",
+   "x": 0,
+   "y": 0,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

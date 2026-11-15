@@ -1,0 +1,230 @@
+{
+ "id": "92245fb181",
+ "name": "Flasks",
+ "type": "FlaskStash",
+ "index": 8,
+ "metadata": {
+  "colour": "638000",
+  "layout": {
+   "filters": [
+    "life",
+    "mana",
+    "hybrid",
+    "utility",
+    "unique"
+   ],
+   "sections": [
+    {
+     "min": 85,
+     "max": 100
+    },
+    {
+     "min": 81,
+     "max": 84
+    },
+    {
+     "min": 71,
+     "max": 80
+    },
+    {
+     "min": 61,
+     "max": 70
+    },
+    {
+     "min": 51,
+     "max": 60
+    },
+    {
+     "min": 41,
+     "max": 50
+    },
+    {
+     "min": 31,
+     "max": 40
+    },
+    {
+     "min": 21,
+     "max": 30
+    },
+    {
+     "min": 11,
+     "max": 20
+    },
+    {
+     "min": 1,
+     "max": 10
+    }
+   ],
+   "layout": {
+    "0,0": {
+     "filter": "unique",
+     "section": 3
+    },
+    "0,2": {
+     "filter": "utility",
+     "section": 2
+    }
+   },
+   "scale": 0.6085192697768763
+  }
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzksMTQseyJmIjoiMkRJdGVtcy9GbGFza3MvS2lhcmFzRGV0ZXJtaW5hdGlvbiIsInciOjEsImgiOjIsInNjYWxlIjoxLCJsZXZlbCI6MX1d/591dcd7979/KiarasDetermination.png",
+   "league": "Covens",
+   "id": "362a674c03e318bb89b96283e177a0c1f94b60b60c8fb5d95ec9c64809264e23",
+   "name": "Kiara's Determination",
+   "typeLine": "Silver Flask",
+   "baseType": "Silver Flask",
+   "rarity": "Unique",
+   "ilvl": 70,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Lasts {0} Seconds",
+     "values": [
+      [
+       "2.30",
+       1
+      ]
+     ],
+     "displayMode": 3
+    },
+    {
+     "name": "Consumes {0} of {1} Charges on use",
+     "values": [
+      [
+       "40",
+       0
+      ],
+      [
+       "60",
+       0
+      ]
+     ],
+     "displayMode": 3
+    },
+    {
+     "name": "Currently has {0} Charges",
+     "values": [
+      [
+       "0",
+       0
+      ]
+     ],
+     "displayMode": 3
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "27",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    }
+   ],
+   "utilityMods": [
+    "[Onslaught]"
+   ],
+   "explicitMods": [
+    {
+     "description": "61% reduced Duration"
+    },
+    {
+     "description": "Immunity to Freeze, Chill, Curses and Stuns during Effect"
+    }
+   ],
+   "descrText": "Right click to drink. Can only hold charges while in belt. Refills as you kill monsters.",
+   "flavourText": [
+    "Travelers of the deep wood speak of a witch\r",
+    "whose ale provides a different kind\r",
+    "of liquid courage."
+   ],
+   "frameType": 3,
+   "frameTypeId": "Unique",
+   "x": 0,
+   "y": 0,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzksMTQseyJmIjoiMkRJdGVtcy9GbGFza3MvQW1ldGh5c3QiLCJ3IjoxLCJoIjoyLCJzY2FsZSI6MSwibGV2ZWwiOjF9XQ/0f93f9050a/Amethyst.png",
+   "league": "Covens",
+   "id": "5818e5971121cc2be63b0becad188abf32a95bb98374c4c1a51556c2f5a3d237",
+   "name": "",
+   "typeLine": "Amethyst Flask",
+   "baseType": "Amethyst Flask",
+   "rarity": "Normal",
+   "ilvl": 79,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Lasts {0} Seconds",
+     "values": [
+      [
+       "6.50",
+       0
+      ]
+     ],
+     "displayMode": 3
+    },
+    {
+     "name": "Consumes {0} of {1} Charges on use",
+     "values": [
+      [
+       "35",
+       0
+      ],
+      [
+       "65",
+       0
+      ]
+     ],
+     "displayMode": 3
+    },
+    {
+     "name": "Currently has {0} Charges",
+     "values": [
+      [
+       "0",
+       0
+      ]
+     ],
+     "displayMode": 3
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "18",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    }
+   ],
+   "utilityMods": [
+    "+35% to Chaos Resistance"
+   ],
+   "descrText": "Right click to drink. Can only hold charges while in belt. Refills as you kill monsters.",
+   "frameType": 0,
+   "frameTypeId": "Normal",
+   "x": 0,
+   "y": 2,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

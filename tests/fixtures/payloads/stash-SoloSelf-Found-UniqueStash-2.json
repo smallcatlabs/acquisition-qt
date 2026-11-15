@@ -1,0 +1,132 @@
+{
+ "id": "d634d6ab5d",
+ "parent": "b85d614bdb",
+ "name": " (Remove-only)",
+ "type": "UniqueStash",
+ "metadata": {
+  "items": 30
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvU3ludGhlc2lzQ29sZCIsInciOjEsImgiOjEsInNjYWxlIjoxLCJzeW50aGVzaXNlZCI6dHJ1ZX1d/f2a949365a/SynthesisCold.png",
+   "league": "Solo Self-Found",
+   "id": "787103ebf637fe36f379d16f9f1c7343308366b410ec3dd45ccaa0de983c6324",
+   "synthesised": true,
+   "name": "Circle of Fear",
+   "typeLine": "Synthesised Sapphire Ring",
+   "baseType": "Sapphire Ring",
+   "rarity": "Unique",
+   "ilvl": 83,
+   "identified": true,
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "52",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "13% increased Lightning Damage"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+28 to Dexterity"
+    },
+    {
+     "description": "Adds 23 to 33 Cold Damage"
+    },
+    {
+     "description": "+24% to Cold Resistance"
+    },
+    {
+     "description": "52% increased Cold Damage while affected by Herald of Ice"
+    },
+    {
+     "description": "+60% to Cold Resistance while affected by Herald of Ice"
+    }
+   ],
+   "flavourText": [
+    "My subordinates circled me eternally, attuned to the slightest weakness,\r",
+    "ready to tear me apart for their own gains."
+   ],
+   "frameType": 3,
+   "frameTypeId": "Unique",
+   "x": 68,
+   "y": 0,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvU3ludGhlc2lzUGh5c2ljYWwiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MSwic3ludGhlc2lzZWQiOnRydWV9XQ/91f50b535b/SynthesisPhysical.png",
+   "league": "Solo Self-Found",
+   "id": "31b82f1e21ee1fb6907178688603a554663767d3c6d3560f2062a5624bbb2aba",
+   "synthesised": true,
+   "name": "Circle of Nostalgia",
+   "typeLine": "Synthesised Amethyst Ring",
+   "baseType": "Amethyst Ring",
+   "rarity": "Unique",
+   "ilvl": 83,
+   "identified": true,
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "52",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "13% increased Lightning Damage"
+    },
+    {
+     "description": "15% increased Evasion Rating"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+18 to all Attributes"
+    },
+    {
+     "description": "Adds 20 to 28 Chaos Damage"
+    },
+    {
+     "description": "+20% to Chaos Resistance"
+    },
+    {
+     "description": "54% increased Chaos Damage while affected by Herald of Agony"
+    },
+    {
+     "description": "Herald of Agony has 31% increased Mana Reservation Efficiency"
+    }
+   ],
+   "flavourText": [
+    "I was a happy child, before the cruel truth was revealed to me.\r",
+    "I fight so that the children may remain ignorant."
+   ],
+   "frameType": 3,
+   "frameTypeId": "Unique",
+   "x": 70,
+   "y": 0,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

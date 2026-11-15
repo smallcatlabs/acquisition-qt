@@ -1,0 +1,68 @@
+{
+ "id": "359cb5fa4c",
+ "parent": "8bbb802776",
+ "name": " (Remove-only)",
+ "type": "UniqueStash",
+ "metadata": {
+  "items": 12
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvSmV3ZWxzL1B1enpsZVBpZWNlSmV3ZWxfQ2xlYW5zaW5nRmlyZSIsInciOjEsImgiOjEsInNjYWxlIjoxLCJyZWxpYyI6MTB9XQ/2f38f1bec5/PuzzlePieceJewel_CleansingFire.png",
+   "league": "Standard",
+   "id": "abcff07295e63b8dcd2143a4e739cae7b8cf4fbea074678d93036b52c75be8f6",
+   "isRelic": true,
+   "foilVariation": 10,
+   "name": "Forbidden Flame",
+   "typeLine": "Crimson Jewel",
+   "baseType": "Crimson Jewel",
+   "rarity": "Unique",
+   "ilvl": 84,
+   "identified": true,
+   "corrupted": true,
+   "properties": [
+    {
+     "name": "Limited to",
+     "values": [
+      [
+       "1",
+       0
+      ]
+     ],
+     "displayMode": 0
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Class:",
+     "values": [
+      [
+       "Scion",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 57
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "Allocates [AscendancyAscendant38|Elementalist] if you have the matching modifier on Forbidden Flesh"
+    }
+   ],
+   "descrText": "Place into an allocated Jewel Socket on the Passive Skill Tree. Right click to remove from the Socket.",
+   "flavourText": [
+    "The minds of those studied utterly by the Cleansing Fire\r",
+    "continue to think and dream and beg for silence..."
+   ],
+   "frameType": 10,
+   "frameTypeId": "SupporterFoil",
+   "x": 167,
+   "y": 0,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

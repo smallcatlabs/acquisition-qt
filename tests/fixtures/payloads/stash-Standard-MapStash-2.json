@@ -1,0 +1,130 @@
+{
+ "id": "27725fbcb7",
+ "parent": "cfbd48234d",
+ "name": "5 (Remove-only)",
+ "type": "MapStash",
+ "metadata": {
+  "items": 4,
+  "map": {
+   "section": "special",
+   "name": "Nightmare Map",
+   "index": 4
+  }
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI4LDE0LHsiZiI6IjJESXRlbXMvTWFwcy9BdGxhczJNYXBzL05ldy9VYmVyUHJpbW9yZGlhbEJsb2NrcyIsInciOjEsImgiOjEsInNjYWxlIjoxLCJtbiI6MjIsIm10IjowLCJtbm0iOnRydWV9XQ/7908e28bc9/UberPrimordialBlocks.png",
+   "league": "Standard",
+   "id": "a40e6f6dd7fb5f7cfb65905893cb906d0281bcfb1cd868879715049fdb81a774",
+   "name": "Buried Cavern",
+   "typeLine": "Nightmare Map",
+   "baseType": "Nightmare Map",
+   "rarity": "Rare",
+   "ilvl": 84,
+   "identified": true,
+   "unmodifiableExceptChaos": true,
+   "properties": [
+    {
+     "name": "[AtlasDropScaling|Atlas Drops]",
+     "values": [
+      [
+       "+118%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 112
+    },
+    {
+     "name": "Item Rarity",
+     "values": [
+      [
+       "+133%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 3
+    },
+    {
+     "name": "Monster Pack Size",
+     "values": [
+      [
+       "+38%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 4
+    },
+    {
+     "name": "More Maps",
+     "values": [
+      [
+       "+100%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 88
+    },
+    {
+     "name": "More [Thread|Threads]",
+     "values": [
+      [
+       "+50%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 89
+    }
+   ],
+   "monsterLevel": 83,
+   "explicitMods": [
+    {
+     "description": "Players are Cursed with Vulnerability"
+    },
+    {
+     "description": "Players are Cursed with Temporal Chains"
+    },
+    {
+     "description": "Players are Cursed with Elemental Weakness"
+    },
+    {
+     "description": "35% increased Monster Damage"
+    },
+    {
+     "description": "Rare Monsters have [ElementalThorns|Elemental Thorns] reflecting 18 Elemental Damage"
+    },
+    {
+     "description": "Monsters have +1 to Maximum Endurance Charges"
+    },
+    {
+     "description": "Monsters have +1 to Maximum Power Charges"
+    },
+    {
+     "description": "Monsters gain a Power Charge on Hit"
+    },
+    {
+     "description": "Monsters' skills Chain 3 additional times"
+    },
+    {
+     "description": "Monsters gain an Endurance Charge when hit"
+    },
+    {
+     "description": "Monsters' Projectiles can Chain when colliding with Terrain"
+    }
+   ],
+   "descrText": "Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. ",
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 0,
+   "y": 1,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

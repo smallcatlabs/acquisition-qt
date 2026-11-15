@@ -1,0 +1,323 @@
+{
+ "id": "99cce54b31",
+ "parent": "ca318115d9",
+ "name": " (Remove-only)",
+ "type": "UniqueStash",
+ "metadata": {
+  "items": 14
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 2,
+   "h": 3,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvV2VhcG9ucy9PbmVIYW5kV2VhcG9ucy9PbmVIYW5kU3dvcmRzL0NydWNpYmxlU3dvcmQiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/1815fee8b5/CrucibleSword.png",
+   "league": "Standard",
+   "id": "8afecd7f0d6bc29609cfdf70f8a23bfeccc48280c92b5c784492282e19100d86",
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "S",
+     "sColour": "R"
+    },
+    {
+     "group": 1,
+     "attr": "D",
+     "sColour": "G"
+    }
+   ],
+   "name": "The Redblade",
+   "typeLine": "Gladius",
+   "baseType": "Gladius",
+   "rarity": "Unique",
+   "ilvl": 83,
+   "identified": true,
+   "properties": [
+    {
+     "name": "One Handed Sword",
+     "values": [],
+     "displayMode": 0
+    },
+    {
+     "name": "Physical Damage",
+     "values": [
+      [
+       "192-307",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 9
+    },
+    {
+     "name": "Elemental Damage",
+     "values": [
+      [
+       "4-6",
+       5
+      ]
+     ],
+     "displayMode": 0,
+     "type": 10
+    },
+    {
+     "name": "Critical Strike Chance",
+     "values": [
+      [
+       "5.00%",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 12
+    },
+    {
+     "name": "Attacks per Second",
+     "values": [
+      [
+       "1.35",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 13
+    },
+    {
+     "name": "Weapon Range: {0} metres",
+     "values": [
+      [
+       "1.1",
+       0
+      ]
+     ],
+     "displayMode": 3,
+     "type": 14
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "60",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Str",
+     "values": [
+      [
+       "113",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 63
+    },
+    {
+     "name": "Dex",
+     "values": [
+      [
+       "113",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 64
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "40% increased Global Accuracy Rating"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "160% increased Physical Damage"
+    },
+    {
+     "description": "Adds 20 to 40 Physical Damage"
+    },
+    {
+     "description": "Gain 100 Life per Enemy Killed"
+    },
+    {
+     "description": "+483 to Accuracy Rating"
+    },
+    {
+     "description": "Has a Two Handed Sword Crucible Passive Skill Tree\nCrucible Passive Skill Tree is removed if this Modifier is removed"
+    }
+   ],
+   "crucibleMods": [
+    "Adds 4 to 6 Cold Damage",
+    "4% increased Attack Speed"
+   ],
+   "flavourText": [
+    "Its forging marked the melding of man\r",
+    "and Titan against the rising darkness."
+   ],
+   "frameType": 3,
+   "frameTypeId": "Unique",
+   "x": 130,
+   "y": 0,
+   "inventoryId": "Stash1",
+   "socketedItems": [],
+   "crucible": {
+    "layout": "https://web.poecdn.com/gen/image/WzI5LDE0LHsiYiI6ODk1LCJhIjoxLCJsIjozMTY2OCwiciI6MTU4MTh9XQ/e190de4d13/WeaponTree.png",
+    "nodes": {
+     "0": {
+      "orbit": 0,
+      "orbitIndex": 0,
+      "icon": "Art/2DArt/SkillIcons/passives/ColdWeaponDmg.png",
+      "allocated": true,
+      "stats": [
+       "Adds 4 to 6 Cold Damage",
+       "4% increased Attack Speed"
+      ],
+      "in": [],
+      "out": [
+       "1",
+       "2"
+      ],
+      "skill": 21944,
+      "tier": 1
+     },
+     "1": {
+      "orbit": 1,
+      "orbitIndex": 0,
+      "icon": "Art/2DArt/SkillIcons/passives/strongarm.png",
+      "stats": [
+       "+12% to Quality"
+      ],
+      "in": [
+       "0"
+      ],
+      "out": [
+       "3",
+       "4"
+      ],
+      "skill": 36830,
+      "tier": 2
+     },
+     "2": {
+      "orbit": 1,
+      "orbitIndex": 1,
+      "icon": "Art/2DArt/SkillIcons/passives/newnewattackspeed.png",
+      "stats": [
+       "10% increased Attack Speed"
+      ],
+      "in": [
+       "0"
+      ],
+      "out": [
+       "5"
+      ],
+      "skill": 11316,
+      "tier": 3
+     },
+     "3": {
+      "orbit": 2,
+      "orbitIndex": 0,
+      "icon": "Art/2DArt/SkillIcons/passives/StunMastery.png",
+      "stats": [
+       "30% increased Enemy Stun Threshold",
+       "35% chance to double Stun Duration"
+      ],
+      "in": [
+       "1"
+      ],
+      "out": [
+       "6"
+      ],
+      "skill": 56505,
+      "tier": 1
+     },
+     "4": {
+      "orbit": 2,
+      "orbitIndex": 1,
+      "icon": "Art/2DArt/SkillIcons/CruciblePassives/CrucibleSellPriceMagmaticOre.png",
+      "isReward": true,
+      "stats": [
+       "Item sells for an additional Magmatic Ore"
+      ],
+      "in": [
+       "1"
+      ],
+      "out": [
+       "8"
+      ],
+      "skill": 47181,
+      "tier": 1
+     },
+     "5": {
+      "orbit": 2,
+      "orbitIndex": 2,
+      "icon": "Art/2DArt/SkillIcons/passives/plusintelligencedexterity.png",
+      "stats": [
+       "10% increased Dexterity",
+       "10% increased Intelligence"
+      ],
+      "in": [
+       "2"
+      ],
+      "out": [
+       "8",
+       "9"
+      ],
+      "skill": 40721,
+      "tier": 2
+     },
+     "6": {
+      "orbit": 3,
+      "orbitIndex": 0,
+      "icon": "Art/2DArt/SkillIcons/passives/plusdexterity.png",
+      "stats": [
+       "+120 to Dexterity",
+       "Gain no inherent bonuses from Dexterity"
+      ],
+      "in": [
+       "3"
+      ],
+      "out": [],
+      "skill": 4318,
+      "tier": 2
+     },
+     "8": {
+      "orbit": 3,
+      "orbitIndex": 2,
+      "icon": "Art/2DArt/SkillIcons/passives/FlaskNotableFlasksLastLonger.png",
+      "stats": [
+       "20% reduced Flask Charges gained",
+       "Flasks applied to you have 15% increased Effect"
+      ],
+      "in": [
+       "4",
+       "5"
+      ],
+      "out": [],
+      "skill": 17815,
+      "tier": 2
+     },
+     "9": {
+      "orbit": 3,
+      "orbitIndex": 3,
+      "icon": "Art/2DArt/SkillIcons/passives/ImpaleNotable1.png",
+      "stats": [
+       "24% increased Impale Effect",
+       "Attack Hits against you have 40% chance to Impale"
+      ],
+      "in": [
+       "5"
+      ],
+      "out": [],
+      "skill": 42291,
+      "tier": 2
+     }
+    }
+   }
+  }
+ ]
+}
