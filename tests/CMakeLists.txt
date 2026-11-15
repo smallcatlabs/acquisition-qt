@@ -211,4 +211,6 @@ acq_add_scenario_test(tst_appsmoke
     notePriceOverridesAndGivesWay
     tabNamePriceOverridesAndGivesWay
     pricedFilterFollowsPrices
-    numberFieldsTakeACommaAndRefuseAPercent)
+    numberFieldsTakeACommaAndRefuseAPercent
+    manualShopUpdatePostsTheUsersPrices
+    automaticShopUpdateWaitsForACleanRefresh)
