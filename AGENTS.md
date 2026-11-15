@@ -67,7 +67,7 @@ for the change in hand:
   `8.00%` and `20 (Max)`; item classes are named `rings` and
   `one hand swords`; requirements arrive as both `Int` and `Intelligence`.
   Tests built on invented formats have hidden real defects here.
-- **Pull requests** must pass the Tests check, and nothing else gates a merge.
+- **Pull requests** must pass the Tests check; no other check gates a merge.
   CodeQL and the sanitizer run happen on release tags (the sanitizer job also
   runs, without gating, on a pull request that touches the refresh or network
   code); a finding on a beta tag is fixed before the final release. Keep one
@@ -89,7 +89,7 @@ for the change in hand:
 
 | Area | Code | Read first | Must not break |
 |---|---|---|---|
-| Refresh pipeline | `src/itemsmanagerworker.*`, `src/itemsmanager.*` | `docs/design/items-pipeline.md`; the M2 spec's D1–D8 and D10 | An update's identity is its `std::stop_token`, checked after every await. A reply replaces its source atomically. Nothing the worker discards is persisted. |
+| Refresh pipeline | `src/itemsmanagerworker.*`, `src/itemsmanager.*` | `docs/design/items-pipeline.md`; D1–D8 and D10 in `docs/design/items-pipeline-m2.md` | An update's identity is its `std::stop_token`, checked after every await. A reply replaces its source atomically. Nothing the worker discards is persisted. |
 | Rate limiting and network | `src/ratelimit/`, `src/poe/poeapiclient.*`, `src/util/networkmanager.*` | `docs/design/network-redesign.md` (frozen); `docs/design/network-ground-truth.md` (N-claims) | One HEAD in flight at a time (F5). The hub lives on the main thread. Every API request carries the transfer timeout. Owners are destroyed only after the event loop stops. |
 | Search and model | `src/search.*`, `src/bucket.*`, `src/items_model.*`, `src/column.*`, `src/filters/` | `docs/design/items-pipeline-m3.md`; `docs/design/folder-tree.md` | Refresh deltas reach the model as row operations, never a reset. `src/filters/` stays free of widgets (the `filters_boundary` test). |
 | Items | `src/item.*`, `src/modlist.*`, `src/pseudomods.*`, `src/repoe/`, `src/poe/types/` | Issues labelled `area:items` | Game data (RePoE) is loaded before any `Item` is built. |
@@ -103,13 +103,5 @@ for the change in hand:
 for the areas they cover; cite their decision numbers, the F-numbers, and the
 N- and T-claims instead of restating them.
 
-## Project Map
-
-- `src/` is the application. `src/ui/` holds the widgets; `src/filters/` is a
-  separate library with no UI dependency.
-- `tests/` is the Qt Test suite (see Test, above).
-- `assets/` holds bundled icons and Path of Exile-style UI images.
-- `docs/` holds the user guide, design specs, ADRs, and the findings register.
-- `deps/qdarkstyle/` is vendored. Other third-party libraries are fetched by
-  CMake.
-- Release packaging is defined in `.github/workflows/`.
+`assets/` holds the bundled icons and UI images. `deps/qdarkstyle/` is
+vendored; other third-party libraries are fetched by CMake.
