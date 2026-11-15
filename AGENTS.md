@@ -6,7 +6,7 @@ maintained indefinitely. A Rust implementation is developed separately in
 `smallcatlabs/acquisition` (`docs/adr/0003-rewrite-vs-evolve.md`); nothing
 there binds work here.
 
-## Build, Run, Test
+## Build and Run
 
 Read `BUILD.md` before changing build, packaging, or platform setup.
 
@@ -23,11 +23,33 @@ cmake --preset dev && cmake --build --preset dev && ctest --preset dev
   distribution's Qt usually ships neither, and configuring fails in
   `_deps/qxlsx-src` with `Failed to find required Qt component "GuiPrivate"`.
   Point `CMAKE_PREFIX_PATH` at an official Qt kit. Linux also requires OpenSSL.
-- Run the app only with `--data-dir <temporary directory>`. Never read or
-  write a real Acquisition data directory (the platform's application-data
-  location), in the app, in tests, or in investigation scripts. It holds the
-  user's tokens, prices and account data.
+- Never read or write a real Acquisition data directory (the platform's
+  application-data location), in the app, in tests, or in investigation
+  scripts. It holds the user's tokens, prices and account data.
+- Run the `acquisition` executable only with `--data-dir <temporary
+  directory>`. To exercise the application, use the app fixture below.
 - Enable the commit hook once per clone: `git config core.hooksPath .githooks`.
+
+## Test
+
+`BUILD.md`, "Tests", has the detail. Use the smallest of these that can fail
+for the change in hand:
+
+- **A suite.** `tests/tst_<name>.cpp`. All suites link into one executable:
+  `acq_tests <suite> [function]` runs one, `ctest --preset dev` runs all.
+- **What the window shows.** `tests/viewtranscript.h` prints the item tree as
+  text, with its selection, current row and collapsed tabs. A test compares
+  the print before and after and names the lines allowed to change.
+  `ACQ_TEST_SCREENSHOT_DIR=<dir>` saves PNGs.
+- **The whole application.** `tests/appfixture.h` builds the real
+  `Application` over a temporary data directory, with the network answered
+  from files. `tests/tst_appsmoke.cpp` runs the release smoke list this way.
+- **The live API.** `live_capture` (`BUILD.md`, "Live capture") refreshes once
+  against the real API. Run it only with a live directory and an account the
+  user names for it, and never on a branch that changes the refresh or network
+  code (the `src/` paths in `.github/workflows/sanitizers.yml`). The directory
+  and the account are local settings: they stay out of the repository, issues,
+  pull requests and commits.
 
 ## Working Rules
 
@@ -39,7 +61,9 @@ cmake --preset dev && cmake --build --preset dev && ctest --preset dev
 - **A change in behaviour comes with a test that fails without it.** Run the
   test and see it fail before writing the fix. A test that passes at once has
   proved nothing.
-- **Fixtures use what the game actually sends.** Property values look like
+- **Fixtures use what the game actually sends.** Take them from
+  `tests/fixtures/payloads`, real replies with character and account names
+  scrubbed. Property values look like
   `8.00%` and `20 (Max)`; item classes are named `rings` and
   `one hand swords`; requirements arrive as both `Int` and `Intelligence`.
   Tests built on invented formats have hidden real defects here.
@@ -83,8 +107,7 @@ N- and T-claims instead of restating them.
 
 - `src/` is the application. `src/ui/` holds the widgets; `src/filters/` is a
   separate library with no UI dependency.
-- `tests/` is the Qt Test suite, with fakes for the network (`fake*.h`) and a
-  main-window fixture.
+- `tests/` is the Qt Test suite (see Test, above).
 - `assets/` holds bundled icons and Path of Exile-style UI images.
 - `docs/` holds the user guide, design specs, ADRs, and the findings register.
 - `deps/qdarkstyle/` is vendored. Other third-party libraries are fetched by
