@@ -16,6 +16,7 @@
 #include <glaze/glaze.hpp>
 
 #include "datastore/sqlitedatastore.h"
+#include "testsuite.h"
 #include "util/glaze_qt.h" // IWYU pragma: keep
 #include "util/oauthtoken.h"
 
@@ -111,6 +112,6 @@ void SqliteDataStoreTest::clearedTokenLeavesNoBytesInTheFile()
     QVERIFY(!bytes.contains(token.refresh_token.toLatin1()));
 }
 
-QTEST_GUILESS_MAIN(SqliteDataStoreTest)
+ACQ_TEST_GUILESS_MAIN(SqliteDataStoreTest)
 
 #include "tst_sqlitedatastore.moc"

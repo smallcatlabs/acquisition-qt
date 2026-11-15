@@ -35,6 +35,7 @@
 #include "items_model.h"
 #include "mainwindowfixture.h"
 #include "modelprobes.h"
+#include "testsuite.h"
 
 class FolderTreeTest : public QObject
 {
@@ -1858,6 +1859,6 @@ void FolderTreeTest::buyoutEditSkipsFolderRows()
     QVERIFY(!buyouts.GetTab(h.world.tab("tab-b")).IsActive());
 }
 
-QTEST_MAIN(FolderTreeTest)
+ACQ_TEST_MAIN(FolderTreeTest)
 
 #include "tst_foldertree.moc"

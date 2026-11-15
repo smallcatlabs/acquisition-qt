@@ -12,6 +12,7 @@
 #include "poe/poeapiclient.h"
 #include "ratelimit/fetcherror.h"
 #include "replytimeout.h"
+#include "testsuite.h"
 #include "util/networkmanager.h"
 
 // The typed facade (network-redesign spec, the facade section): request
@@ -293,6 +294,6 @@ void PoeApiClientTest::garbageBodyBecomesParseError()
     QVERIFY(!consumer.payload.has_value());
 }
 
-QTEST_GUILESS_MAIN(PoeApiClientTest)
+ACQ_TEST_GUILESS_MAIN(PoeApiClientTest)
 
 #include "tst_poeapiclient.moc"

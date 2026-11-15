@@ -15,6 +15,7 @@
 #include "fakenetworkmanager.h"
 #include "itemcategories.h"
 #include "repoe/repoe.h"
+#include "testsuite.h"
 
 // #261: RePoE always finishes. Item loading waits for RePoE::finished, so
 // every outcome of Init — a failed or refused version check, a data file that
@@ -263,6 +264,6 @@ void RePoETest::successfulUpdateWritesFilesAndVersion()
     QCOMPARE(GetItemCategory(kBaseType), QString("fresh rings"));
 }
 
-QTEST_GUILESS_MAIN(RePoETest)
+ACQ_TEST_GUILESS_MAIN(RePoETest)
 
 #include "tst_repoe.moc"

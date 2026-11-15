@@ -22,10 +22,11 @@
 #include "modlist.h"
 #include "search.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 #include "ui/modsfilterform.h"
 #include "ui/searchform.h"
 
-class SearchTest : public QObject
+class SearchFormTest : public QObject
 {
     Q_OBJECT
 
@@ -182,7 +183,7 @@ static std::shared_ptr<Item> makeFormItem(const QString &id,
     return std::make_shared<Item>(makeTestItem(json.constData(), location));
 }
 
-void SearchTest::filterStateRestoresAcrossTabSwitch()
+void SearchFormTest::filterStateRestoresAcrossTabSwitch()
 {
     SearchHarness harness;
     auto *tab = harness.findByLabel<QLineEdit>("Tab");
@@ -242,7 +243,7 @@ void SearchTest::filterStateRestoresAcrossTabSwitch()
 // refilter of A must still use A's saved query. The old shared activity flag
 // lived on the Filter object, so an empty form made the name filter inactive
 // for every search and A came back with both items.
-void SearchTest::backgroundSearchIgnoresCurrentFormState()
+void SearchFormTest::backgroundSearchIgnoresCurrentFormState()
 {
     SearchHarness harness;
     const ItemLocation firstTab = makeTestStashLocation("stash-a", "Alpha Tab", 0);
@@ -273,7 +274,7 @@ void SearchTest::backgroundSearchIgnoresCurrentFormState()
     QCOMPARE(background.items().front()->id(), "alpha-item");
 }
 
-void SearchTest::categoryAnySentinelDeactivatesFilter()
+void SearchFormTest::categoryAnySentinelDeactivatesFilter()
 {
     SearchHarness harness;
     const ItemLocation tab = makeTestStashLocation("stash-a", "Alpha Tab", 0);
@@ -317,7 +318,7 @@ void SearchTest::categoryAnySentinelDeactivatesFilter()
     QCOMPARE(search.items().size(), 2);
 }
 
-void SearchTest::booleanFormAdapterRoundTrip()
+void SearchFormTest::booleanFormAdapterRoundTrip()
 {
     SearchHarness harness;
     auto *corrupted = harness.findByLabel<QCheckBox>("Corrupted");
@@ -342,7 +343,7 @@ void SearchTest::booleanFormAdapterRoundTrip()
     QCOMPARE(harness.delayedChanges, 0);
 }
 
-void SearchTest::minMaxFormAdapterRoundTrip()
+void SearchFormTest::minMaxFormAdapterRoundTrip()
 {
     SearchHarness harness;
     auto *critMin = harness.findByLabel<QLineEdit>("Crit.", [](const QLineEdit *edit) {
@@ -389,7 +390,7 @@ void SearchTest::minMaxFormAdapterRoundTrip()
     QCOMPARE(harness.delayedChanges, 1);
 }
 
-void SearchTest::colorsFormAdapterRoundTrip()
+void SearchFormTest::colorsFormAdapterRoundTrip()
 {
     SearchHarness harness;
     const qsizetype socketsIndex = findColorsFilterIndex(harness.catalog, ColorsMatchKind::Sockets);
@@ -513,7 +514,7 @@ void SearchTest::colorsFormAdapterRoundTrip()
 // one global debounced refresh. Switching tabs before it fires gives that
 // refresh to the other search, so the edited one must refilter when it is shown
 // again — otherwise it displays a mod criterion its buckets do not reflect.
-void SearchTest::modsEditSurvivesTabSwitchBeforeDebouncedRefresh()
+void SearchFormTest::modsEditSurvivesTabSwitchBeforeDebouncedRefresh()
 {
     mod_list_model().setStringList({"Saved mod"});
     SearchHarness harness;
@@ -556,7 +557,7 @@ void SearchTest::modsEditSurvivesTabSwitchBeforeDebouncedRefresh()
     QCOMPARE(searchA.GetCaption(), "A [0]");
 }
 
-void SearchTest::modsFormAdapterRoundTrip()
+void SearchFormTest::modsFormAdapterRoundTrip()
 {
     mod_list_model().setStringList({"Default mod", "Saved mod"});
     SearchHarness harness;
@@ -637,7 +638,7 @@ void SearchTest::modsFormAdapterRoundTrip()
     QVERIFY(rowsContainer->isHidden());
 }
 
-void SearchTest::modsFormAdapterFreeTextPersistsAndRestoresIndex()
+void SearchFormTest::modsFormAdapterFreeTextPersistsAndRestoresIndex()
 {
     mod_list_model().setStringList({"First mod", "Saved mod"});
     SearchHarness harness;
@@ -688,7 +689,7 @@ void SearchTest::modsFormAdapterFreeTextPersistsAndRestoresIndex()
 // #271: a mods row whose text is only whitespace is the same as a row with
 // no mod chosen — inactive, and it rejects nothing. Text that names no mod
 // still filters.
-void SearchTest::modsFormAdapterBlankTextChoosesNoMod()
+void SearchFormTest::modsFormAdapterBlankTextChoosesNoMod()
 {
     mod_list_model().setStringList({"First mod"});
     SearchHarness harness;
@@ -725,7 +726,7 @@ void SearchTest::modsFormAdapterBlankTextChoosesNoMod()
 // the mod row keeps no bound — and show the text marked (red, with a
 // tooltip saying what is accepted). Valid text, a decimal comma included,
 // sets the bound and clears the mark.
-void SearchTest::numberFieldsRejectTextThatIsNotANumber()
+void SearchFormTest::numberFieldsRejectTextThatIsNotANumber()
 {
     mod_list_model().setStringList({"First mod"});
     SearchHarness harness;
@@ -796,7 +797,7 @@ void SearchTest::numberFieldsRejectTextThatIsNotANumber()
     QVERIFY(!marked(modMin));
 }
 
-void SearchTest::modsFormAdapterDoesNotArmCompleterOnProgrammaticRows()
+void SearchFormTest::modsFormAdapterDoesNotArmCompleterOnProgrammaticRows()
 {
     mod_list_model().setStringList({"Default mod", "Saved mod"});
     SearchHarness harness;
@@ -830,7 +831,7 @@ void SearchTest::modsFormAdapterDoesNotArmCompleterOnProgrammaticRows()
     QCOMPARE(restoredRowTimeouts.count(), 0);
 }
 
-void SearchTest::modsFormAdapterRepacksRows()
+void SearchFormTest::modsFormAdapterRepacksRows()
 {
     mod_list_model().setStringList({"Saved mod"});
     SearchHarness harness;
@@ -859,7 +860,7 @@ void SearchTest::modsFormAdapterRepacksRows()
     }
 }
 
-void SearchTest::modsFormAdapterDisconnectsOnDestruction()
+void SearchFormTest::modsFormAdapterDisconnectsOnDestruction()
 {
     QWidget host;
     QVBoxLayout layout{&host};
@@ -886,7 +887,7 @@ void SearchTest::modsFormAdapterDisconnectsOnDestruction()
     QCOMPARE(delayedChanges, 0);
 }
 
-void SearchTest::searchFormUnbindsDeletedSearch()
+void SearchFormTest::searchFormUnbindsDeletedSearch()
 {
     mod_list_model().setStringList({"Saved mod"});
     SearchHarness harness;
@@ -906,7 +907,7 @@ void SearchTest::searchFormUnbindsDeletedSearch()
     addButton->click();
 }
 
-void SearchTest::textAndComboFormAdapterRoundTrip()
+void SearchFormTest::textAndComboFormAdapterRoundTrip()
 {
     SearchHarness harness;
     const qsizetype tabIndex = findTextFilterIndex(harness.catalog, "Tab");
@@ -1019,6 +1020,6 @@ void SearchTest::textAndComboFormAdapterRoundTrip()
     QCOMPARE(rarity->currentText(), "Rare");
 }
 
-QTEST_MAIN(SearchTest)
+ACQ_TEST_MAIN(SearchFormTest)
 
 #include "tst_searchform.moc"

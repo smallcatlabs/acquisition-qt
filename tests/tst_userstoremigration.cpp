@@ -15,6 +15,7 @@
 #include "poe/types/character.h"
 #include "poe/types/stashtab.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 #include "util/json_writers.h"
 
 // Pins for the schema migration ladder: the 1 -> 2 step that introduced
@@ -512,5 +513,5 @@ void UserStoreMigrationTest::newerSchemaReceivesNoPriceWrites()
     QCOMPARE(rowCount(dir, "location_buyouts"), 0);
 }
 
-QTEST_MAIN(UserStoreMigrationTest)
+ACQ_TEST_MAIN(UserStoreMigrationTest)
 #include "tst_userstoremigration.moc"

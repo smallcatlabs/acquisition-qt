@@ -11,6 +11,7 @@
 #include "fakescheduler.h"
 #include "ratelimit/scheduler.h"
 #include "ratelimit/stopsleep.h"
+#include "testsuite.h"
 
 // Standalone tests for the stop-interruptible sleep (network-redesign spec,
 // "Testing plan" item 4): one token per wait; wakes on stop; completes on
@@ -196,6 +197,6 @@ void StopSleepTest::twoWaitsOnOneTokenBothWake()
     QCOMPARE(*second.result, RateLimit::SleepResult::Stopped);
 }
 
-QTEST_GUILESS_MAIN(StopSleepTest)
+ACQ_TEST_GUILESS_MAIN(StopSleepTest)
 
 #include "tst_stopsleep.moc"

@@ -7,6 +7,7 @@
 #include "influence.h"
 #include "itemconstants.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 #include "ui/itemtooltip.h"
 #include "ui/mainwindowhelpers.h"
 
@@ -339,5 +340,5 @@ void UiSmallTest::infColumnDrawsInfluenceIcons()
 }
 
 // GenerateItemIcon paints on a QPixmap, which needs a GUI application.
-QTEST_MAIN(UiSmallTest)
+ACQ_TEST_MAIN(UiSmallTest)
 #include "tst_uismall.moc"

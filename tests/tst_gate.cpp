@@ -10,6 +10,7 @@
 
 #include "fakescheduler.h"
 #include "ratelimit/gate.h"
+#include "testsuite.h"
 
 // Standalone tests for the gate (network-redesign spec, D5 and "Testing
 // plan" item 4): in-flight cap, HEAD exclusivity with writer preference,
@@ -525,6 +526,6 @@ void GateTest::releaseWithoutDispatchChargesNoSpacing()
     QVERIFY(c.done && c.permit.valid());
 }
 
-QTEST_GUILESS_MAIN(GateTest)
+ACQ_TEST_GUILESS_MAIN(GateTest)
 
 #include "tst_gate.moc"

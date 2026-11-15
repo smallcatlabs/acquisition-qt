@@ -14,6 +14,7 @@
 #include "modelprobes.h"
 #include "search.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 
 class ItemsModelTest : public QObject
 {
@@ -387,6 +388,6 @@ void ItemsModelTest::indexLooksInTheItemsBucketOnly()
     probes.reset();
 }
 
-QTEST_MAIN(ItemsModelTest)
+ACQ_TEST_MAIN(ItemsModelTest)
 
 #include "tst_itemsmodel.moc"

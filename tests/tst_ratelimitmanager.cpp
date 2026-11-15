@@ -28,6 +28,7 @@
 #include "ratelimit/ratelimit.h"
 #include "ratelimit/ratelimitmanager.h"
 #include "ratelimit/ratelimitpolicy.h"
+#include "testsuite.h"
 
 // Phase-3 harness for the network redesign (docs/design/network-redesign.md,
 // "Testing plan" item 2): the coroutine pump against the same fake sender as
@@ -1513,6 +1514,6 @@ void RateLimitManagerTest::unparseableDateIsStillAnError()
              QDateTime(QDate(2026, 11, 11), QTime(12, 0), QTimeZone::UTC).toLocalTime());
 }
 
-QTEST_GUILESS_MAIN(RateLimitManagerTest)
+ACQ_TEST_GUILESS_MAIN(RateLimitManagerTest)
 
 #include "tst_ratelimitmanager.moc"

@@ -8,6 +8,7 @@
 
 #include "buyout.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 #include "ui/buyoutpanel.h"
 
 // The price editor on its own (#252): what it commits, when, and to which
@@ -385,6 +386,6 @@ void BuyoutPanelTest::currencyBoxSelectsByTag()
     QCOMPARE(committedBuyout(committed).value, 2.0);
 }
 
-QTEST_MAIN(BuyoutPanelTest)
+ACQ_TEST_MAIN(BuyoutPanelTest)
 
 #include "tst_buyoutpanel.moc"

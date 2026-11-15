@@ -9,6 +9,7 @@
 #include "applybuyout.h"
 #include "itemsmanager.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 
 // The price-edit command without a window (#298): the selection policy is
 // the caller's; what is locked, what is saved and how the edit reaches the
@@ -292,6 +293,6 @@ void ApplyBuyoutTest::noticeStatesEveryReason()
     QVERIFY2(notice.contains("4 row(s)"), qPrintable(notice));
 }
 
-QTEST_GUILESS_MAIN(ApplyBuyoutTest)
+ACQ_TEST_GUILESS_MAIN(ApplyBuyoutTest)
 
 #include "tst_applybuyout.moc"

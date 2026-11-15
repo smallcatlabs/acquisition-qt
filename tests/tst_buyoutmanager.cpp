@@ -8,6 +8,7 @@
 #include "itemsmanager.h"
 #include "shoprender.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 
 class BuyoutManagerTest : public QObject
 {
@@ -1028,6 +1029,6 @@ void BuyoutManagerTest::priceNamedFolderStaysUnlocked()
     QVERIFY(!fixture.buyouts.manager->GetRefreshLocked(folder));
 }
 
-QTEST_GUILESS_MAIN(BuyoutManagerTest)
+ACQ_TEST_GUILESS_MAIN(BuyoutManagerTest)
 
 #include "tst_buyoutmanager.moc"

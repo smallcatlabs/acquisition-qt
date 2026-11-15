@@ -20,6 +20,7 @@
 
 #include "poe/types/character.h"
 #include "poe/types/stashtab.h"
+#include "testsuite.h"
 #include "util/glaze_qt.h" // IWYU pragma: keep
 #include "util/json_readers.h"
 
@@ -154,5 +155,5 @@ void PayloadsTest::applicationReadToleratesAnUnmodelledKey()
     QVERIFY(json::readStash(payloadWithAnUnmodelledKey()).has_value());
 }
 
-QTEST_GUILESS_MAIN(PayloadsTest)
+ACQ_TEST_GUILESS_MAIN(PayloadsTest)
 #include "tst_payloads.moc"

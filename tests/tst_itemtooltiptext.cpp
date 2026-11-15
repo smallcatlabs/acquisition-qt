@@ -3,6 +3,7 @@
 #include <QtTest/QtTest>
 
 #include "testfixtures.h"
+#include "testsuite.h"
 #include "ui/itemtooltiptext.h"
 
 class ItemTooltipTextTest : public QObject
@@ -253,6 +254,6 @@ void ItemTooltipTextTest::vestigialAndDesecratedModsAreShown()
     QCOMPARE(GenerateItemInfo(item, "Rare", true), expected);
 }
 
-QTEST_GUILESS_MAIN(ItemTooltipTextTest)
+ACQ_TEST_GUILESS_MAIN(ItemTooltipTextTest)
 
 #include "tst_itemtooltiptext.moc"

@@ -13,6 +13,7 @@
 #include <spdlog/spdlog.h>
 
 #include "fakenetwork.h"
+#include "testsuite.h"
 #include "util/networkmanager.h"
 
 // Observation-only logging for the OAuth token endpoint (ground truth N33):
@@ -152,6 +153,6 @@ void OAuthRateLimitLoggingTest::quietOnHeaderlessReply()
     QVERIFY(output.contains("no parseable rate-limit policy"));
 }
 
-QTEST_GUILESS_MAIN(OAuthRateLimitLoggingTest)
+ACQ_TEST_GUILESS_MAIN(OAuthRateLimitLoggingTest)
 
 #include "tst_oauthratelimitlogging.moc"

@@ -37,6 +37,7 @@
 #include "fakenetworkmanager.h"
 #include "imagecache.h"
 #include "mainwindowfixture.h"
+#include "testsuite.h"
 #include "ui/logindialog.h"
 #include "ui/mainwindow_bridge.h"
 #include "util/checkmsvc.h"
@@ -1079,10 +1080,12 @@ void ShellTest::dataDirLockTakesOverStaleLock()
     QVERIFY(dir.isValid());
     const QDir data_dir(dir.path());
 
-    // A process that has exited: this test binary, asked only for its help
-    // text, which needs no shell or other program on any platform.
+    // A process that has exited: this suite, asked only for its help text,
+    // which needs no shell or other program on any platform. The application
+    // name is the suite's name (testsuite.h).
     QProcess child;
-    child.start(QCoreApplication::applicationFilePath(), {"-help"});
+    child.start(QCoreApplication::applicationFilePath(),
+                {QCoreApplication::applicationName(), "-help"});
     QVERIFY(child.waitForStarted());
     const qint64 dead_pid = child.processId();
     QVERIFY(child.waitForFinished());
@@ -1188,5 +1191,5 @@ void ShellTest::dataDirLockRefusalNamesHolderAndFile()
              qPrintable(unknown));
 }
 
-QTEST_MAIN(ShellTest)
+ACQ_TEST_MAIN(ShellTest)
 #include "tst_shell.moc"

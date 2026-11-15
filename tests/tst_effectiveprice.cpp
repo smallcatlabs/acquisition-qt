@@ -11,6 +11,7 @@
 #include "filters/filterspec.h"
 #include "itemsmanager.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 
 // #293 step 1: what every reader of an item's price returns, for each way
 // an item can come by a price. The reader values were recorded from the
@@ -506,6 +507,6 @@ void EffectivePriceTest::activeGameRowsAreIgnoredAndReplaced()
     QCOMPARE(manager.EffectiveTab(tab).buyout.value, 2.0);
 }
 
-QTEST_MAIN(EffectivePriceTest)
+ACQ_TEST_MAIN(EffectivePriceTest)
 
 #include "tst_effectiveprice.moc"

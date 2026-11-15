@@ -26,6 +26,8 @@
 #include <memory>
 #include <vector>
 
+#include "testsuite.h"
+
 namespace {
 
     // A two-level-plus-items tree encoded the way ItemsModel encodes its
@@ -314,6 +316,6 @@ void QtAssumptionsTest::partialCheckboxClickDeliversChecked()
     QCOMPARE(model.received.back().toInt(), static_cast<int>(Qt::Unchecked));
 }
 
-QTEST_MAIN(QtAssumptionsTest)
+ACQ_TEST_MAIN(QtAssumptionsTest)
 
 #include "tst_qtassumptions.moc"

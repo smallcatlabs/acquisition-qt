@@ -5,6 +5,7 @@
 #include "itemlocation.h"
 #include "poe/types/character.h"
 #include "poe/types/stashtab.h"
+#include "testsuite.h"
 
 // Pins the fetch-source id contract (items-pipeline M1): the fetch id keys
 // the per-reply atomic item replacement in ItemsManagerWorker, defaults to
@@ -150,6 +151,6 @@ void ItemLocationTest::folderIdDoesNotAffectIdentity()
     QCOMPARE(a.GetHeader(), b.GetHeader());
 }
 
-QTEST_GUILESS_MAIN(ItemLocationTest)
+ACQ_TEST_GUILESS_MAIN(ItemLocationTest)
 
 #include "tst_itemlocation.moc"

@@ -12,6 +12,7 @@
 #include <memory>
 
 #include "liveguards.h"
+#include "testsuite.h"
 
 // The refusals of a live run (#378). A live run uses the real API and a real
 // login, so what it refuses is what keeps it away from the user's own data
@@ -170,5 +171,5 @@ void LiveGuardsTest::refusesASessionWithShopAutoUpdate()
     QVERIFY(!LiveSessionRefusal(ACCOUNT, ACCOUNT, {}, true).isEmpty());
 }
 
-QTEST_GUILESS_MAIN(LiveGuardsTest)
+ACQ_TEST_GUILESS_MAIN(LiveGuardsTest)
 #include "tst_liveguards.moc"

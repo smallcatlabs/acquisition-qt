@@ -14,6 +14,7 @@
 #include "poe/types/character.h"
 #include "poe/types/stashtab.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 
 // Repo-level pins for the F53 list reconciliation: rows the server no
 // longer lists are deleted so deleted tabs and characters cannot resurrect
@@ -306,6 +307,6 @@ void ReconcileTest::savedCharacterBytesAreStoredVerbatim()
     QCOMPARE(q.value(0).toByteArray(), bytes);
 }
 
-QTEST_GUILESS_MAIN(ReconcileTest)
+ACQ_TEST_GUILESS_MAIN(ReconcileTest)
 
 #include "tst_reconcile.moc"

@@ -16,6 +16,7 @@
 #include <spdlog/sinks/ostream_sink.h>
 #include <spdlog/spdlog.h>
 
+#include "testsuite.h"
 #include "util/json_readers.h"
 #include "util/networkmanager.h"
 #include "util/oauthtoken.h"
@@ -156,6 +157,6 @@ void SecurityLoggingTest::apiRequestWithoutBearerLogsNoError()
     QVERIFY(!reply->request().hasRawHeader("Authorization"));
 }
 
-QTEST_GUILESS_MAIN(SecurityLoggingTest)
+ACQ_TEST_GUILESS_MAIN(SecurityLoggingTest)
 
 #include "tst_securitylogging.moc"

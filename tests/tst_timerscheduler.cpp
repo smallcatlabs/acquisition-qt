@@ -10,6 +10,7 @@
 
 #include "ratelimit/scheduler.h"
 #include "ratelimit/stopsleep.h"
+#include "testsuite.h"
 
 // Smoke tests for TimerScheduler, the production Scheduler adapter. This is
 // real-timer code, so these tests live apart from the primitive suites
@@ -90,6 +91,6 @@ void TimerSchedulerTest::sleepComposesWithProductionScheduler()
     QCOMPARE(*probe.result, RateLimit::SleepResult::Deadline);
 }
 
-QTEST_GUILESS_MAIN(TimerSchedulerTest)
+ACQ_TEST_GUILESS_MAIN(TimerSchedulerTest)
 
 #include "tst_timerscheduler.moc"

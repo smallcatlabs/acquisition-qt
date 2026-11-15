@@ -90,6 +90,36 @@ ctest --preset dev
 
 GUI-dependent tests are configured by CMake to use Qt's offscreen platform.
 
+Every suite is linked into one executable, `acq_tests`, and CTest runs each
+suite in a process of its own under the suite's name (`tst_search`). To run
+one suite, or one test function of it, name the suite first and pass Qt Test's
+arguments after it; `acq_tests` with no argument lists the suites:
+
+```sh
+ctest --preset dev -R '^tst_search$'
+QT_QPA_PLATFORM=offscreen ./build/dev/tests/acq_tests tst_search
+QT_QPA_PLATFORM=offscreen ./build/dev/tests/acq_tests tst_search <function> -v2
+```
+
+### Adding a test
+
+A suite is a file `tests/tst_<name>.cpp` holding one Qt Test class. It
+includes `testsuite.h` and ends with one registration line where a Qt Test
+program has `QTEST_MAIN`, before its `#include "tst_<name>.moc"`:
+`ACQ_TEST_MAIN(Class)` when it needs a `QApplication` (widgets), otherwise
+`ACQ_TEST_GUILESS_MAIN(Class)`. Then add `acq_add_test(tst_<name>)` to
+`tests/CMakeLists.txt`. A suite that must run one test function per process
+registers with `ACQ_TEST_SCENARIO_MAIN` and `acq_add_scenario_test`, as
+`tst_workerintegration` does.
+
+All suites share one link. Keep a file's helper classes and functions in an
+anonymous namespace or `static`, and give the test class a name no other suite
+uses: two different definitions of one name at namespace scope compile and
+link without an error, and the program uses one of them for both. A file that
+still ends with `QTEST_MAIN` fails the link with a second `main`. A
+`tst_*.cpp` that `tests/CMakeLists.txt` does not name is neither built nor
+run.
+
 `.github/workflows/tests.yml` builds the `release` preset on Linux and runs the
 whole suite on every pull request and every push to `master`. Run the suite
 locally before opening a pull request; a change to behaviour comes with a test
@@ -174,8 +204,8 @@ cmake --build --preset asan
 ASAN_OPTIONS=abort_on_error=1 ctest --preset asan
 ```
 
-The build preset builds only `acq_tests`, every executable `ctest` runs, and
-leaves out the app. The
+The build preset builds only `acq_tests`, the executable that holds every
+suite, and leaves out the app. The
 preset sets `ACQ_SANITIZE=address,undefined`, the same as CI, and the knob
 builds with `-fno-sanitize-recover=all`, so an UndefinedBehaviorSanitizer
 report aborts its test and fails it; no `UBSAN_OPTIONS` setting is needed for

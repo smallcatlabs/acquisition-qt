@@ -27,6 +27,7 @@
 #include "ratelimit/gate.h"
 #include "ratelimit/ratelimiter.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 #include "workertestaccess.h"
 
 // Phase-5 full-chain integration, shutdown, and retention (network-redesign
@@ -932,37 +933,15 @@ void WorkerIntegrationTest::i_retention()
     QVERIFY2(rig.sweep.destroyed >= 1 + kTabs, "the sweep must reclaim every completed handle");
 }
 
-// A custom main instead of QTEST_GUILESS_MAIN: each destructive shutdown
-// scenario MUST run in its own process (§6). It leaves detached QCoro frames and
-// forbids any event-loop turn after owner destruction, so a second scenario in
-// the same process would pump events over the first's detached frames and resume
-// them into freed memory. QTest::qExec run with no positional argument executes
-// every slot in one process, and with several arguments runs several — both
-// violate that. CTest registers exactly one scenario per invocation
-// (acq_add_scenario_test); this guard makes the executable itself reject any
-// other usage rather than silently running an unsafe multi-scenario process.
-int main(int argc, char *argv[])
-{
-    QCoreApplication app(argc, argv);
-
-    int scenarios = 0;
-    for (int i = 1; i < argc; ++i) {
-        if (argv[i][0] != '-') {
-            ++scenarios;
-        }
-    }
-    if (scenarios != 1) {
-        fprintf(stderr,
-                "tst_workerintegration: run exactly one scenario per process — each destructive "
-                "shutdown scenario must be isolated (network-redesign verification §6). Got %d "
-                "scenario argument(s); run via ctest or pass a single slot name.\n",
-                scenarios);
-        return 2;
-    }
-
-    WorkerIntegrationTest tc;
-    QTEST_SET_MAIN_SOURCE_PATH
-    return QTest::qExec(&tc, argc, argv);
-}
+// Each destructive shutdown scenario MUST run in its own process (§6). It
+// leaves detached QCoro frames and forbids any event-loop turn after owner
+// destruction, so a second scenario in the same process would pump events over
+// the first's detached frames and resume them into freed memory. QTest::qExec
+// run with no positional argument executes every slot in one process, and with
+// several arguments runs several — both violate that. CTest registers exactly
+// one scenario per invocation (acq_add_scenario_test), and a scenario suite
+// makes the runner reject any other usage rather than silently running an
+// unsafe multi-scenario process.
+ACQ_TEST_SCENARIO_MAIN(WorkerIntegrationTest)
 
 #include "tst_workerintegration.moc"

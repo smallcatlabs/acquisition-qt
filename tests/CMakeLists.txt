@@ -1,9 +1,14 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Every executable that ctest runs, and nothing else: the sanitizer job
-# (.github/workflows/sanitizers.yml) builds this target so that the
-# `acquisition` app, which must never be built sanitized, is not built at all.
-add_custom_target(acq_tests)
+# Every suite (tst_*.cpp) is compiled into this one executable, which runs the
+# suite its first argument names: `acq_tests tst_search [Qt Test arguments]`
+# (testsuite.h). It is every executable ctest runs, so the sanitizer job
+# (.github/workflows/sanitizers.yml) builds this target, and the `acquisition`
+# app, which must never be built sanitized, is not built at all.
+qt_add_executable(acq_tests testrunner.cpp)
+acq_first_party(acq_tests)
+target_include_directories(acq_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(acq_tests PRIVATE acquisition_core Qt6::Test)
 
 function(_acq_test_environment out_var)
     set(test_environment "QT_QPA_PLATFORM=offscreen")
@@ -25,38 +30,33 @@ function(_acq_test_dll_path test_name)
     endif()
 endfunction()
 
-function(acq_add_test name)
-    qt_add_executable(${name} ${name}.cpp)
-    acq_first_party(${name})
-    target_include_directories(${name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-    target_link_libraries(${name} PRIVATE acquisition_core Qt6::Test)
-    add_dependencies(acq_tests ${name})
-    add_test(NAME ${name} COMMAND ${name})
+# One CTest entry, running acq_tests with the arguments given.
+function(_acq_add_ctest test_name)
+    add_test(NAME ${test_name} COMMAND acq_tests ${ARGN})
     _acq_test_environment(test_environment)
-    set_tests_properties(${name} PROPERTIES
+    set_tests_properties(${test_name} PROPERTIES
         ENVIRONMENT "${test_environment}")
-    _acq_test_dll_path(${name})
+    _acq_test_dll_path(${test_name})
 endfunction()
 
-# Build one runner executable and register each named scenario as its OWN CTest
-# invocation (network-redesign phase 5, verification §6): each shutdown proof
+# Adds the suite ${name}.cpp to acq_tests and registers it with CTest as
+# ${name}; the file ends with its registration line (testsuite.h).
+function(acq_add_test name)
+    target_sources(acq_tests PRIVATE ${name}.cpp)
+    _acq_add_ctest(${name} ${name})
+endfunction()
+
+# Adds a suite and registers each named scenario as its OWN CTest invocation
+# (network-redesign phase 5, verification §6): each shutdown proof
 # intentionally leaves detached QCoro frames and forbids any event-loop turn
 # after owner destruction, so exactly one destructive scenario may run per
-# process. The runner's custom main() forwards the single slot-name argument to
-# QTest::qExec (and rejects any other count), so `COMMAND ${name} <scenario>`
-# runs only that slot.
+# process. The suite registers with ACQ_TEST_SCENARIO_MAIN, so the runner
+# passes the single slot-name argument to QTest::qExec (and rejects any other
+# count), and `acq_tests ${name} <scenario>` runs only that slot.
 function(acq_add_scenario_test name)
-    qt_add_executable(${name} ${name}.cpp)
-    acq_first_party(${name})
-    target_include_directories(${name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-    target_link_libraries(${name} PRIVATE acquisition_core Qt6::Test)
-    add_dependencies(acq_tests ${name})
-    _acq_test_environment(test_environment)
+    target_sources(acq_tests PRIVATE ${name}.cpp)
     foreach(scenario ${ARGN})
-        add_test(NAME ${name}.${scenario} COMMAND ${name} ${scenario})
-        set_tests_properties(${name}.${scenario} PROPERTIES
-            ENVIRONMENT "${test_environment}")
-        _acq_test_dll_path(${name}.${scenario})
+        _acq_add_ctest(${name}.${scenario} ${name} ${scenario})
     endforeach()
 endfunction()
 

@@ -14,6 +14,7 @@
 #include "itemcategories.h"
 #include "modlist.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 #include "util/util.h"
 
 // Item is built once from a wire item; these tests pin what its constructor
@@ -702,6 +703,6 @@ void ItemTest::pseudoModNeedsAValue()
     QCOMPARE(table.at("+#% total to Cold Resistance"), 15.0);
 }
 
-QTEST_GUILESS_MAIN(ItemTest)
+ACQ_TEST_GUILESS_MAIN(ItemTest)
 
 #include "tst_item.moc"

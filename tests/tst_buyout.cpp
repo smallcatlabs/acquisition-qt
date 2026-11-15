@@ -3,6 +3,7 @@
 #include <QtTest/QtTest>
 
 #include "buyout.h"
+#include "testsuite.h"
 
 class BuyoutTest : public QObject
 {
@@ -80,6 +81,6 @@ void BuyoutTest::statePredicates()
     QVERIFY(noPrice.RequiresRefresh());
 }
 
-QTEST_GUILESS_MAIN(BuyoutTest)
+ACQ_TEST_GUILESS_MAIN(BuyoutTest)
 
 #include "tst_buyout.moc"
