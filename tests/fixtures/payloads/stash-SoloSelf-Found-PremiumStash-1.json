@@ -1,0 +1,87 @@
+{
+ "id": "c0500ca76c",
+ "name": "Foulborn Uniques (Remove-only)",
+ "type": "PremiumStash",
+ "index": 27,
+ "metadata": {
+  "colour": "638000"
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 2,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9IZWxtZXRzL0hlbG1ldERleFVuaXF1ZTIiLCJ3IjoyLCJoIjoyLCJzY2FsZSI6MSwibXV0YXRlZCI6dHJ1ZX1d/0704e687eb/HelmetDexUnique2.png",
+   "league": "Solo Self-Found",
+   "id": "b8254f31af604c10830af0ff7503c4d08e68e66ffb239131f830e67764ae3de7",
+   "mutated": true,
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    }
+   ],
+   "name": "Foulborn Goldrim",
+   "typeLine": "Leather Cap",
+   "baseType": "Leather Cap",
+   "rarity": "Unique",
+   "ilvl": 68,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Evasion Rating",
+     "values": [
+      [
+       "70",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 17
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+47 to Evasion Rating"
+    },
+    {
+     "description": "10% increased Rarity of Items found"
+    },
+    {
+     "description": "Reflects 4 Physical Damage to Melee Attackers"
+    },
+    {
+     "description": "+67% to Chaos Resistance",
+     "flags": {
+      "mutated": true
+     }
+    }
+   ],
+   "flavourText": [
+    "No metal slips as easily through the fingers as gold."
+   ],
+   "frameType": 3,
+   "frameTypeId": "Unique",
+   "x": 10,
+   "y": 0,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  }
+ ]
+}

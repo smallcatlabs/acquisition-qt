@@ -1,0 +1,251 @@
+{
+ "id": "78b2aca40d",
+ "name": ">> Dump",
+ "type": "QuadStash",
+ "index": 5,
+ "metadata": {
+  "colour": "638000",
+  "layout": true
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 2,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzU3RyRGV4MiIsInciOjIsImgiOjIsInNjYWxlIjoxLCJzZWFyaW5nIjp0cnVlfV0/550615bb63/GlovesStrDex2.png",
+   "league": "Solo Self-Found",
+   "id": "7e9ba5949731502e3244b10f1d1036fc90881ab0d58f9dfa6d1a6f5186d8ae1f",
+   "searing": true,
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 1,
+     "attr": "S",
+     "sColour": "R"
+    }
+   ],
+   "name": "Ghoul Mitts",
+   "typeLine": "Hydrascale Gauntlets",
+   "baseType": "Hydrascale Gauntlets",
+   "rarity": "Rare",
+   "ilvl": 82,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Armour",
+     "values": [
+      [
+       "185",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 16
+    },
+    {
+     "name": "Evasion Rating",
+     "values": [
+      [
+       "202",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 17
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "65",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Str",
+     "values": [
+      [
+       "45",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 63
+    },
+    {
+     "name": "Dex",
+     "values": [
+      [
+       "45",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 64
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "8% increased Attack Speed"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+55 to Strength"
+    },
+    {
+     "description": "+46 to Dexterity"
+    },
+    {
+     "description": "+64 to Armour"
+    },
+    {
+     "description": "+81 to Evasion Rating"
+    },
+    {
+     "description": "+30% to Cold Resistance"
+    }
+   ],
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 0,
+   "y": 5,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  },
+  {
+   "verified": false,
+   "w": 2,
+   "h": 3,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RyNEEiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MSwiZnJhY3R1cmVkIjp0cnVlfV0/826920aaa8/BodyStr4A.png",
+   "league": "Solo Self-Found",
+   "id": "43e001e777260221a421210cd3d81d5fc018fdbf2a7cd7c02b65c77646779981",
+   "fractured": true,
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 1,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 2,
+     "attr": "D",
+     "sColour": "G"
+    }
+   ],
+   "name": "Rage Shelter",
+   "typeLine": "Triumphant Lamellar",
+   "baseType": "Triumphant Lamellar",
+   "rarity": "Rare",
+   "ilvl": 85,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Armour",
+     "values": [
+      [
+       "726",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 16
+    },
+    {
+     "name": "Evasion Rating",
+     "values": [
+      [
+       "736",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 17
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "69",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Str",
+     "values": [
+      [
+       "95",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 63
+    },
+    {
+     "name": "Dex",
+     "values": [
+      [
+       "116",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 64
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+53 to Armour"
+    },
+    {
+     "description": "+89 to maximum Life"
+    },
+    {
+     "description": "+20% to Lightning Resistance"
+    },
+    {
+     "description": "+267 to Armour",
+     "flags": {
+      "fractured": true
+     }
+    },
+    {
+     "description": "+226 to Evasion Rating",
+     "flags": {
+      "fractured": true
+     }
+    }
+   ],
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 0,
+   "y": 2,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  }
+ ]
+}

@@ -1,0 +1,881 @@
+{
+ "id": "b8f48f6ff6",
+ "folder": "57b8d6fdc2",
+ "name": "Gems 1 (Remove-only)",
+ "type": "GemStash",
+ "index": 160,
+ "metadata": {
+  "colour": "638000",
+  "layout": {
+   "filters": [
+    "S",
+    "D",
+    "I",
+    "G"
+   ],
+   "sections": [
+    {
+     "min": 21,
+     "max": 100
+    },
+    {
+     "min": 20,
+     "max": 20
+    },
+    {
+     "min": 2,
+     "max": 19
+    },
+    {
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "layout": {
+    "4,1": {
+     "filter": "S",
+     "section": 3
+    },
+    "31,0": {
+     "filter": "I",
+     "section": 2
+    },
+    "8,0": {
+     "filter": "S",
+     "section": 2
+    },
+    "16,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "17,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "31,1": {
+     "filter": "I",
+     "section": 1
+    },
+    "20,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "4,0": {
+     "filter": "S",
+     "section": 2
+    },
+    "33,0": {
+     "filter": "S",
+     "section": 1
+    },
+    "5,0": {
+     "filter": "I",
+     "section": 2
+    },
+    "2,1": {
+     "filter": "D",
+     "section": 2
+    },
+    "3,0": {
+     "filter": "S",
+     "section": 3
+    },
+    "20,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "6,1": {
+     "filter": "D",
+     "section": 2
+    },
+    "3,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "45,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "1,1": {
+     "filter": "S",
+     "section": 2
+    },
+    "9,1": {
+     "filter": "D",
+     "section": 2
+    },
+    "8,1": {
+     "filter": "D",
+     "section": 2
+    },
+    "10,1": {
+     "filter": "D",
+     "section": 2
+    },
+    "7,0": {
+     "filter": "D",
+     "section": 2
+    },
+    "10,0": {
+     "filter": "D",
+     "section": 2
+    },
+    "19,1": {
+     "filter": "S",
+     "section": 0
+    },
+    "11,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "56,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "64,0": {
+     "filter": "I",
+     "section": 2
+    },
+    "66,1": {
+     "filter": "D",
+     "section": 2
+    },
+    "58,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "61,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "59,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "26,0": {
+     "filter": "S",
+     "section": 2
+    },
+    "70,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "63,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "48,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "61,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "59,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "57,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "41,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "65,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "60,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "71,0": {
+     "filter": "I",
+     "section": 1
+    },
+    "57,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "67,0": {
+     "filter": "S",
+     "section": 2
+    },
+    "72,1": {
+     "filter": "D",
+     "section": 1
+    },
+    "2,0": {
+     "filter": "I",
+     "section": 2
+    },
+    "68,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "47,0": {
+     "filter": "S",
+     "section": 3
+    },
+    "71,1": {
+     "filter": "D",
+     "section": 2
+    },
+    "70,1": {
+     "filter": "D",
+     "section": 1
+    },
+    "72,0": {
+     "filter": "D",
+     "section": 2
+    },
+    "67,1": {
+     "filter": "I",
+     "section": 1
+    },
+    "63,0": {
+     "filter": "S",
+     "section": 1
+    },
+    "46,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "51,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "73,1": {
+     "filter": "S",
+     "section": 3
+    },
+    "0,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "58,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "62,1": {
+     "filter": "I",
+     "section": 1
+    },
+    "60,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "45,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "50,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "49,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "69,0": {
+     "filter": "S",
+     "section": 3
+    },
+    "62,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "47,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "69,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "74,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "56,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "15,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "66,0": {
+     "filter": "I",
+     "section": 2
+    },
+    "11,0": {
+     "filter": "S",
+     "section": 2
+    },
+    "65,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "64,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "26,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "73,0": {
+     "filter": "S",
+     "section": 1
+    },
+    "25,0": {
+     "filter": "I",
+     "section": 1
+    },
+    "18,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "6,0": {
+     "filter": "D",
+     "section": 2
+    },
+    "30,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "21,0": {
+     "filter": "D",
+     "section": 1
+    },
+    "13,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "32,0": {
+     "filter": "D",
+     "section": 1
+    },
+    "16,0": {
+     "filter": "I",
+     "section": 2
+    },
+    "21,1": {
+     "filter": "S",
+     "section": 2
+    },
+    "17,1": {
+     "filter": "S",
+     "section": 2
+    },
+    "18,0": {
+     "filter": "I",
+     "section": 2
+    },
+    "12,1": {
+     "filter": "S",
+     "section": 1
+    },
+    "12,0": {
+     "filter": "S",
+     "section": 1
+    },
+    "13,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "36,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "7,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "41,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "1,0": {
+     "filter": "I",
+     "section": 2
+    },
+    "0,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "27,0": {
+     "filter": "S",
+     "section": 0
+    },
+    "22,1": {
+     "filter": "S",
+     "section": 2
+    },
+    "23,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "52,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "23,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "29,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "30,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "29,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "32,1": {
+     "filter": "D",
+     "section": 1
+    },
+    "28,0": {
+     "filter": "D",
+     "section": 0
+    },
+    "24,1": {
+     "filter": "S",
+     "section": 2
+    },
+    "5,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "22,0": {
+     "filter": "S",
+     "section": 3
+    },
+    "24,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "36,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "9,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "38,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "33,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "35,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "37,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "37,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "38,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "34,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "35,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "34,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "39,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "44,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "43,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "42,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "40,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "27,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "25,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "40,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "28,1": {
+     "filter": "G",
+     "section": 3
+    },
+    "44,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "43,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "42,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "50,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "48,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "54,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "46,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "49,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "51,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "54,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "52,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "39,0": {
+     "filter": "D",
+     "section": 2
+    },
+    "53,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "53,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "55,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "55,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "14,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "15,0": {
+     "filter": "I",
+     "section": 1
+    },
+    "14,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "19,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "68,0": {
+     "filter": "S",
+     "section": 2
+    }
+   },
+   "scale": 0.6085192697768763
+  }
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzMwLDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9Gcm96ZW5MZWdpb25Ta2lsbEdlbSIsInciOjEsImgiOjEsInNjYWxlIjoxfV0/a81f249f21/FrozenLegionSkillGem.png",
+   "support": false,
+   "league": "Standard",
+   "id": "7526c8827480afb86b65c3a5099aa47e1b578e6bceccaca6117849cc25ad4557",
+   "name": "",
+   "typeLine": "Frozen Sweep",
+   "baseType": "Frozen Legion",
+   "ilvl": 0,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Spell, Cold, Attack, Melee, AoE",
+     "values": [],
+     "displayMode": 0
+    },
+    {
+     "name": "Level",
+     "values": [
+      [
+       "1",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 5
+    },
+    {
+     "name": "Cost",
+     "values": [
+      [
+       "12 Mana",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Cooldown Time",
+     "values": [
+      [
+       "0.80 sec (6 uses)",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Cast Time",
+     "values": [
+      [
+       "0.70 sec",
+       0
+      ]
+     ],
+     "displayMode": 0
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "34",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Str",
+     "values": [
+      [
+       "50",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 63
+    },
+    {
+     "name": "Int",
+     "values": [
+      [
+       "35",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 65
+    }
+   ],
+   "additionalProperties": [
+    {
+     "name": "Experience",
+     "values": [
+      [
+       "121113/252595",
+       0
+      ]
+     ],
+     "displayMode": 2,
+     "progress": 0.48,
+     "type": 20
+    }
+   ],
+   "secDescrText": "This spell consumes multiple cooldown uses to summon icy Statues in a ring. Each Statue uses your Frozen Sweep attack once before vanishing. Requires an Axe, Mace, Sceptre, or Staff. This skill cannot be triggered, supported by Spell Echo or Unleash, or used by Totems, Traps, or Mines. ",
+   "explicitMods": [
+    {
+     "description": "Consumes one Cooldown Use per Statue Summoned"
+    }
+   ],
+   "descrText": "Place into an item socket to gain this skill. Right click to remove from a socket.",
+   "frameType": 4,
+   "frameTypeId": "Gem",
+   "x": 4,
+   "y": 1,
+   "inventoryId": "Stash1",
+   "hybrid": {
+    "baseTypeName": "Frozen Legion",
+    "properties": [
+     {
+      "name": "Attack Speed",
+      "values": [
+       [
+        "70% of base",
+        0
+       ]
+      ],
+      "displayMode": 0
+     },
+     {
+      "name": "Attack Damage",
+      "values": [
+       [
+        "194.6% of base",
+        0
+       ]
+      ],
+      "displayMode": 0
+     },
+     {
+      "name": "Effectiveness of Added Damage",
+      "values": [
+       [
+        "194%",
+        0
+       ]
+      ],
+      "displayMode": 0
+     }
+    ],
+    "explicitMods": [
+     "100% of Physical Damage Converted to Cold Damage",
+     "You cannot use this Skill yourself, your Statues will use this Skill for you"
+    ],
+    "secDescrText": "This attack is used by your Statues to deal damage in an area around them while stepping forward. This skill cannot repeat and can only be used by Statues from Frozen Legion."
+   }
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9TdXBwb3J0L1N1cHBvcnRQbHVzL0FkZGVkQ2hhb3NEYW1hZ2VQbHVzIiwidyI6MSwiaCI6MSwic2NhbGUiOjF9XQ/61d2d11bfb/AddedChaosDamagePlus.png",
+   "support": true,
+   "league": "Standard",
+   "id": "7d095976e6706beeb54561390130211aafb8e667a466d672b8be0f6c3471b124",
+   "name": "",
+   "typeLine": "Awakened Added Chaos Damage Support",
+   "baseType": "Awakened Added Chaos Damage Support",
+   "ilvl": 0,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Chaos, Support",
+     "values": [],
+     "displayMode": 0
+    },
+    {
+     "name": "Level",
+     "values": [
+      [
+       "5 (Max)",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 5
+    },
+    {
+     "name": "Cost & Reservation Multiplier",
+     "values": [
+      [
+       "120%",
+       0
+      ]
+     ],
+     "displayMode": 0
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "80",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Int",
+     "values": [
+      [
+       "126",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 65
+    }
+   ],
+   "secDescrText": "Supports any skill that hits enemies.",
+   "explicitMods": [
+    {
+     "description": "+1 to Level of Supported Skill Gems"
+    },
+    {
+     "description": "Supported Skills have 189 to 284 added Chaos Damage"
+    }
+   ],
+   "descrText": "This is a Support Gem. It does not grant a bonus to your character, but to skills in sockets connected to it. Place into an item socket connected to a socket containing the Skill Gem you wish to augment. Right click to remove from a socket.",
+   "frameType": 4,
+   "frameTypeId": "Gem",
+   "x": 31,
+   "y": 0,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

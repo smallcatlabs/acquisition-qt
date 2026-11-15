@@ -1,0 +1,105 @@
+{
+ "id": "592192994e",
+ "name": "Keepers (Remove-only)",
+ "type": "NormalStash",
+ "index": 0,
+ "metadata": {
+  "colour": "7c5436"
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQ2hheXVsYS9CcmVhY2hGcnVpdDIiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MX1d/987d6835e4/BreachFruit2.png",
+   "league": "Standard",
+   "id": "b55db0cab4c31139545460577e0e350b91a8581ca09de3125910e81761856c3d",
+   "name": "",
+   "typeLine": "Lavish Wombgift",
+   "baseType": "Lavish Wombgift",
+   "ilvl": 83,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Item Level",
+     "values": [
+      [
+       "83",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 78
+    },
+    {
+     "name": "Requires {0} Hiveblood",
+     "values": [
+      [
+       "1583",
+       0
+      ]
+     ],
+     "displayMode": 3
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "Can grow into a Currency item on the Genesis Tree"
+    }
+   ],
+   "descrText": "Place this item into an allocated currency item womb on the Genesis Tree. Right click to retrieve from the Genesis Tree.",
+   "frameType": 5,
+   "frameTypeId": "Currency",
+   "x": 3,
+   "y": 0,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQ2hheXVsYS9CcmVhY2hGcnVpdDEiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MX1d/ce4bc605b5/BreachFruit1.png",
+   "league": "Standard",
+   "id": "ca3c0823d22f4c8655a6f12349148d8dd4251e153f3e6ee3562ca076cfa6879b",
+   "name": "",
+   "typeLine": "Provisioning Wombgift",
+   "baseType": "Provisioning Wombgift",
+   "ilvl": 83,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Item Level",
+     "values": [
+      [
+       "83",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 78
+    },
+    {
+     "name": "Requires {0} Hiveblood",
+     "values": [
+      [
+       "1239",
+       0
+      ]
+     ],
+     "displayMode": 3
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "Can grow into an Armour or Jewellery item on the Genesis Tree"
+    }
+   ],
+   "descrText": "Place this item into an allocated equipment item womb on the Genesis Tree. Right click to retrieve from the Genesis Tree.",
+   "frameType": 5,
+   "frameTypeId": "Currency",
+   "x": 9,
+   "y": 0,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

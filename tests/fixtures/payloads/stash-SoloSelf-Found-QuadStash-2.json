@@ -1,0 +1,73 @@
+{
+ "id": "e8008b3f15",
+ "name": "Belts",
+ "type": "QuadStash",
+ "index": 48,
+ "metadata": {
+  "colour": "638000",
+  "layout": true
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 2,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQmVsdHMvQmVsdDEiLCJ3IjoyLCJoIjoxLCJzY2FsZSI6MX1d/6b67d971e8/Belt1.png",
+   "league": "Solo Self-Found",
+   "id": "22efcda04f31c0abe91e5a2a9a7367efa981beacbf6781ab9d3442418c6bc929",
+   "influences": {
+    "shaper": true
+   },
+   "shaper": true,
+   "name": "Glyph Bind",
+   "typeLine": "Rustic Sash",
+   "baseType": "Rustic Sash",
+   "rarity": "Rare",
+   "ilvl": 76,
+   "identified": true,
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "60",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "17% increased Global Physical Damage"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+17 to Strength"
+    },
+    {
+     "description": "You take 25% reduced Extra Damage from Critical Strikes"
+    },
+    {
+     "description": "14% reduced Enemy Stun Threshold"
+    },
+    {
+     "description": "+5 to Armour"
+    },
+    {
+     "description": "+43 to maximum Energy Shield"
+    },
+    {
+     "description": "20% increased Mana Recovery rate"
+    }
+   ],
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 2,
+   "y": 20,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

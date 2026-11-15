@@ -1,0 +1,303 @@
+{
+ "id": "334e2297b2",
+ "name": "KB/CF Champ",
+ "type": "PremiumStash",
+ "index": 15,
+ "metadata": {
+  "colour": "638000"
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 2,
+   "h": 3,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb2R5QXJtb3Vycy9Cb2R5U3RySW50MUIiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/61293d71af/BodyStrInt1B.png",
+   "league": "Hardcore",
+   "id": "70895d2a191bf741fc55e844ceae8ef64d8df13268c3a628a22600a0c1cb1edc",
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "I",
+     "sColour": "B"
+    },
+    {
+     "group": 0,
+     "attr": "I",
+     "sColour": "B"
+    },
+    {
+     "group": 0,
+     "attr": "S",
+     "sColour": "R"
+    },
+    {
+     "group": 0,
+     "attr": "I",
+     "sColour": "B"
+    },
+    {
+     "group": 0,
+     "attr": "S",
+     "sColour": "R"
+    },
+    {
+     "group": 0,
+     "attr": "S",
+     "sColour": "R"
+    }
+   ],
+   "name": "Viper Suit",
+   "typeLine": "Loricated Ringmail",
+   "baseType": "Loricated Ringmail",
+   "rarity": "Rare",
+   "ilvl": 69,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Quality",
+     "values": [
+      [
+       "+20%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 6
+    },
+    {
+     "name": "Armour",
+     "values": [
+      [
+       "644",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 16
+    },
+    {
+     "name": "Energy Shield",
+     "values": [
+      [
+       "131",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 18
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "68",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62,
+     "suffix": "(gem)"
+    },
+    {
+     "name": "Str",
+     "values": [
+      [
+       "108",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 63,
+     "suffix": "(gem)"
+    },
+    {
+     "name": "Int",
+     "values": [
+      [
+       "84",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 65
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "65% increased Armour and Energy Shield"
+    },
+    {
+     "description": "+124 to maximum Life"
+    },
+    {
+     "description": "Regenerate 3.9 Life per second"
+    },
+    {
+     "description": "+10% to Fire Resistance"
+    },
+    {
+     "description": "+11% to Cold and Chaos Resistances",
+     "flags": {
+      "crafted": true
+     }
+    }
+   ],
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 5,
+   "y": 2,
+   "inventoryId": "Stash1",
+   "socketedItems": [
+    {
+     "verified": false,
+     "w": 1,
+     "h": 1,
+     "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9TdXBwb3J0L0lyb25XaWxsIiwidyI6MSwiaCI6MSwic2NhbGUiOjF9XQ/fe7bad1137/IronWill.png",
+     "support": true,
+     "league": "Hardcore",
+     "id": "49c607d98b94266f7b26d29b8e2022c5ae6ddc82ec1729cd2cd0eb1c989c0159",
+     "name": "",
+     "typeLine": "Iron Will Support",
+     "baseType": "Iron Will Support",
+     "ilvl": 0,
+     "identified": true,
+     "properties": [
+      {
+       "name": "Spell, Support",
+       "values": [],
+       "displayMode": 0
+      },
+      {
+       "name": "Level",
+       "values": [
+        [
+         "19",
+         0
+        ]
+       ],
+       "displayMode": 0,
+       "type": 5
+      },
+      {
+       "name": "Cost & Reservation Multiplier",
+       "values": [
+        [
+         "110%",
+         0
+        ]
+       ],
+       "displayMode": 0
+      }
+     ],
+     "requirements": [
+      {
+       "name": "Level",
+       "values": [
+        [
+         "68",
+         0
+        ]
+       ],
+       "displayMode": 0,
+       "type": 62
+      },
+      {
+       "name": "Str",
+       "values": [
+        [
+         "108",
+         0
+        ]
+       ],
+       "displayMode": 1,
+       "type": 63
+      }
+     ],
+     "additionalProperties": [
+      {
+       "name": "Experience",
+       "values": [
+        [
+         "123194240/212002638",
+         0
+        ]
+       ],
+       "displayMode": 2,
+       "progress": 0.58,
+       "type": 20
+      }
+     ],
+     "secDescrText": "Supports spell skills, making the increase to physical melee damage from strength also increase their spell damage.",
+     "explicitMods": [
+      {
+       "description": "Strength's Damage bonus applies to all Spell Damage as well for Supported Skills"
+      },
+      {
+       "description": "Supported Skills deal 36% increased Spell Damage"
+      }
+     ],
+     "descrText": "This is a Support Gem. It does not grant a bonus to your character, but to skills in sockets connected to it. Place into an item socket connected to a socket containing the Skill Gem you wish to augment. Right click to remove from a socket.",
+     "frameType": 4,
+     "frameTypeId": "Gem",
+     "socket": 5,
+     "colour": "S"
+    }
+   ]
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvSmV3ZWxzL1JpdmV0ZWRFeWUiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MX1d/a17c4bcc60/RivetedEye.png",
+   "league": "Hardcore",
+   "id": "baa8c9d58f5dda4dad1faa44a694dde93ffb5635b6f40031d57a4f8d2dfaa150",
+   "abyssJewel": true,
+   "name": "Hollow Vision",
+   "typeLine": "Hypnotic Eye Jewel",
+   "baseType": "Hypnotic Eye Jewel",
+   "rarity": "Rare",
+   "ilvl": 72,
+   "identified": true,
+   "corrupted": true,
+   "properties": [
+    {
+     "name": "Abyss",
+     "values": [],
+     "displayMode": 0
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "28",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+13 to Strength"
+    },
+    {
+     "description": "+30 to maximum Life"
+    },
+    {
+     "description": "3% chance to Hinder Enemies on Hit with Spells"
+    }
+   ],
+   "descrText": "Place into an Abyssal Socket on an Item or into an allocated Jewel Socket on the Passive Skill Tree. Right click to remove from the Socket.",
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 4,
+   "y": 6,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

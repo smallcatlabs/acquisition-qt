@@ -1,0 +1,89 @@
+{
+ "id": "4834502fda",
+ "parent": "8600326411",
+ "name": "1",
+ "type": "MapStash",
+ "metadata": {
+  "items": 5,
+  "map": {
+   "section": "tier6",
+   "name": "Map (Tier 6)",
+   "index": 0
+  }
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI4LDE0LHsiZiI6IjJESXRlbXMvTWFwcy9BdGxhczJNYXBzL05ldy9NYXBOdW1iZXJzNiIsInciOjEsImgiOjEsInNjYWxlIjoxLCJtbiI6MjQsIm10IjowfV0/0a0ad13351/MapNumbers6.png",
+   "league": "Covens",
+   "id": "1dac6eed8d86f0569b5b604e483b84ba496da89012d58e85980ef1093d1a83a1",
+   "name": "Malevolent Progression",
+   "typeLine": "Map (Tier 6)",
+   "baseType": "Map (Tier 6)",
+   "rarity": "Rare",
+   "ilvl": 74,
+   "identified": true,
+   "properties": [
+    {
+     "name": "[AtlasDropScaling|Atlas Drops]",
+     "values": [
+      [
+       "+58%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 112
+    },
+    {
+     "name": "Item Rarity",
+     "values": [
+      [
+       "+35%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 3
+    },
+    {
+     "name": "Monster Pack Size",
+     "values": [
+      [
+       "+22%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 4
+    }
+   ],
+   "monsterLevel": 73,
+   "explicitMods": [
+    {
+     "description": "19% increased Monster Damage"
+    },
+    {
+     "description": "Monsters gain a Power Charge on Hit"
+    },
+    {
+     "description": "Players have 20% less Accuracy Rating"
+    },
+    {
+     "description": "Area contains a Mirror of Delirium",
+     "flags": {
+      "rareonly": true
+     }
+    }
+   ],
+   "descrText": "Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. ",
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 0,
+   "y": 2,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

@@ -1,0 +1,129 @@
+{
+ "id": "52ae170cf1",
+ "parent": "ad80fe57de",
+ "name": " (Remove-only)",
+ "type": "UniqueStash",
+ "metadata": {
+  "items": 33
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 2,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9IZWxtZXRzL1RoZURldm91cmluZ0RpYWRlbSIsInciOjIsImgiOjIsInNjYWxlIjoxLCJyZWxpYyI6NX1d/37eee8c172/TheDevouringDiadem.png",
+   "league": "Standard",
+   "id": "09490f50f2c63a9b301e5fab7bed3a641f2e18fd59b04a247dbd1c986024d775",
+   "isRelic": true,
+   "foilVariation": 5,
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 0,
+     "attr": "S",
+     "sColour": "R"
+    },
+    {
+     "group": 0,
+     "attr": "I",
+     "sColour": "B"
+    }
+   ],
+   "name": "The Devouring Diadem",
+   "typeLine": "Necromancer Circlet",
+   "baseType": "Necromancer Circlet",
+   "rarity": "Unique",
+   "ilvl": 75,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Quality",
+     "values": [
+      [
+       "+20%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 6
+    },
+    {
+     "name": "Energy Shield",
+     "values": [
+      [
+       "237",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 18
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "54",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Int",
+     "values": [
+      [
+       "112",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 65
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+1 to Level of Socketed Gems"
+    },
+    {
+     "description": "Socketed Gems have 25% increased Reservation Efficiency"
+    },
+    {
+     "description": "Trigger Level 15 [FeastOfFlesh::15|Feast of Flesh] every 5 seconds"
+    },
+    {
+     "description": "214% increased Energy Shield"
+    },
+    {
+     "description": "10% chance for Energy Shield Recharge to start when you use a Skill"
+    },
+    {
+     "description": "+20% to Lightning and Chaos Resistances"
+    },
+    {
+     "description": "Eldritch Battery"
+    }
+   ],
+   "flavourText": [
+    "The spirit hungers for the flesh."
+   ],
+   "frameType": 10,
+   "frameTypeId": "SupporterFoil",
+   "x": 134,
+   "y": 0,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  }
+ ]
+}

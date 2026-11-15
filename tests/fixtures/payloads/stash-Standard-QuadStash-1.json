@@ -1,0 +1,479 @@
+{
+ "id": "cf637748c0",
+ "folder": "0a2feafd9c",
+ "name": "3.13 Gems (Remove-only)",
+ "type": "QuadStash",
+ "index": 279,
+ "metadata": {
+  "colour": "638000",
+  "layout": true
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9TdXBwb3J0L0JvbmVDaGlsbFN1cHBvcnQiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MX1d/9aa30460fd/BoneChillSupport.png",
+   "support": true,
+   "league": "Standard",
+   "id": "282d0c034e943adae8baac7fb398137af04056816e2c6ba91c8bb478419de8bd",
+   "name": "",
+   "typeLine": "Bonechill Support",
+   "baseType": "Bonechill Support",
+   "ilvl": 0,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Cold, Support",
+     "values": [],
+     "displayMode": 0
+    },
+    {
+     "name": "Level",
+     "values": [
+      [
+       "10",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 5
+    },
+    {
+     "name": "Cost & Reservation Multiplier",
+     "values": [
+      [
+       "130%",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Quality",
+     "values": [
+      [
+       "+20%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 6
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "56",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Dex",
+     "values": [
+      [
+       "39",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 64
+    },
+    {
+     "name": "Int",
+     "values": [
+      [
+       "57",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 65
+    }
+   ],
+   "additionalProperties": [
+    {
+     "name": "Experience",
+     "values": [
+      [
+       "2621316/3655184",
+       0
+      ]
+     ],
+     "displayMode": 2,
+     "progress": 0.72,
+     "type": 20
+    }
+   ],
+   "secDescrText": "Supports any skill that can chill enemies or create chilling areas.",
+   "explicitMods": [
+    {
+     "description": "34% increased Effect of Chill inflicted with Supported Skills"
+    },
+    {
+     "description": "Enemies Chilled by Supported Skills increase Cold Damage taken by Chill Effect"
+    },
+    {
+     "description": "Enemies in Chilling Areas from Supported Skills increase Cold Damage taken by Chill Effect"
+    },
+    {
+     "description": "Supported Skills deal 10% increased Cold Damage"
+    },
+    {
+     "description": "Supported Skills deal 9% more Cold Damage"
+    }
+   ],
+   "descrText": "This is a Support Gem. It does not grant a bonus to your character, but to skills in sockets connected to it. Place into an item socket connected to a socket containing the Skill Gem you wish to augment. Right click to remove from a socket.",
+   "frameType": 4,
+   "frameTypeId": "Gem",
+   "x": 1,
+   "y": 20,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzMwLDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9TcGlubmluZ0V0aGVyZWFsQmxhZGVzR2VtIiwidyI6MSwiaCI6MSwic2NhbGUiOjF9XQ/b3a08a5b58/SpinningEtherealBladesGem.png",
+   "support": false,
+   "league": "Standard",
+   "id": "948f1a23d4e79fc2b95062f31952291fbcf7d139d9c837733179efc8b48df65f",
+   "name": "",
+   "typeLine": "Blade Vortex",
+   "baseType": "Blade Vortex",
+   "ilvl": 0,
+   "identified": true,
+   "corrupted": true,
+   "properties": [
+    {
+     "name": "Spell, AoE, Duration, Physical",
+     "values": [],
+     "displayMode": 0
+    },
+    {
+     "name": "Level",
+     "values": [
+      [
+       "21 (Max)",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 5
+    },
+    {
+     "name": "Cost",
+     "values": [
+      [
+       "17 Mana",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Cast Time",
+     "values": [
+      [
+       "0.50 sec",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Critical Strike Chance",
+     "values": [
+      [
+       "10.00%",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Effectiveness of Added Damage",
+     "values": [
+      [
+       "30%",
+       0
+      ]
+     ],
+     "displayMode": 0
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "72",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Dex",
+     "values": [
+      [
+       "159",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 64
+    }
+   ],
+   "secDescrText": "This spell creates ethereal blades which orbit in an area around you, dealing damage every 0.6 seconds to all enemies in their radius. As more blades are added, the damage becomes greater and more frequent.",
+   "explicitMods": [
+    {
+     "description": "Deals 157 to 235 Physical Damage"
+    },
+    {
+     "description": "Base duration is 4.00 seconds"
+    },
+    {
+     "description": "+0.2 metres to radius"
+    },
+    {
+     "description": "30% increased Hit Rate for each blade"
+    },
+    {
+     "description": "30% more Damage for each blade"
+    },
+    {
+     "description": "Can have up to 10 active spinning blades"
+    }
+   ],
+   "descrText": "Place into an item socket to gain this skill. Right click to remove from a socket.",
+   "frameType": 4,
+   "frameTypeId": "Gem",
+   "x": 5,
+   "y": 15,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzMwLDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9WYWFsR2Vtcy9WYWFsQXJjIiwidyI6MSwiaCI6MSwic2NhbGUiOjF9XQ/72aafca740/VaalArc.png",
+   "support": false,
+   "league": "Standard",
+   "id": "31e1ca0aeb6df2caf4d5c421fd78740e872b30de93effe9ba9ef18fc2f37a16e",
+   "name": "",
+   "typeLine": "Vaal Arc",
+   "baseType": "Vaal Arc",
+   "ilvl": 0,
+   "identified": true,
+   "corrupted": true,
+   "properties": [
+    {
+     "name": "Spell, Chaining, Vaal, Lightning, Duration",
+     "values": [],
+     "displayMode": 0
+    },
+    {
+     "name": "Level",
+     "values": [
+      [
+       "1",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 5
+    },
+    {
+     "name": "Cost",
+     "values": [
+      [
+       "10 Mana",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Cast Time",
+     "values": [
+      [
+       "0.60 sec",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Critical Strike Chance",
+     "values": [
+      [
+       "6.00%",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Effectiveness of Added Damage",
+     "values": [
+      [
+       "120%",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Quality",
+     "values": [
+      [
+       "+14%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 6
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "12",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Int",
+     "values": [
+      [
+       "33",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 65
+    }
+   ],
+   "additionalProperties": [
+    {
+     "name": "Experience",
+     "values": [
+      [
+       "1/15249",
+       0
+      ]
+     ],
+     "displayMode": 2,
+     "progress": 0,
+     "type": 20
+    }
+   ],
+   "secDescrText": "An arc of lightning reaches from the caster to a targeted enemy and chains to other enemies, but not immediately back. Each time the arc chains, it will also chain a secondary arc to another enemy that the main arc has not already hit, which cannot chain further.",
+   "explicitMods": [
+    {
+     "description": "Deals 6 to 32 Lightning Damage"
+    },
+    {
+     "description": "Chains +4 Times"
+    },
+    {
+     "description": "15% more Damage with Hits and Ailments for each remaining Chain"
+    }
+   ],
+   "descrText": "Place into an item socket to gain this skill. Right click to remove from a socket.",
+   "frameType": 4,
+   "frameTypeId": "Gem",
+   "x": 0,
+   "y": 0,
+   "inventoryId": "Stash1",
+   "hybrid": {
+    "isVaalGem": true,
+    "baseTypeName": "Arc",
+    "properties": [
+     {
+      "name": "Souls Per Use",
+      "values": [
+       [
+        "25",
+        0
+       ]
+      ],
+      "displayMode": 0
+     },
+     {
+      "name": "Can Store {0} Use",
+      "values": [
+       [
+        "1",
+        0
+       ]
+      ],
+      "displayMode": 3
+     },
+     {
+      "name": "Soul Gain Prevention",
+      "values": [
+       [
+        "2 sec",
+        0
+       ]
+      ],
+      "displayMode": 0
+     },
+     {
+      "name": "Cast Time",
+      "values": [
+       [
+        "0.70 sec",
+        0
+       ]
+      ],
+      "displayMode": 0
+     },
+     {
+      "name": "Critical Strike Chance",
+      "values": [
+       [
+        "6.00%",
+        0
+       ]
+      ],
+      "displayMode": 0
+     },
+     {
+      "name": "Effectiveness of Added Damage",
+      "values": [
+       [
+        "220%",
+        0
+       ]
+      ],
+      "displayMode": 0
+     }
+    ],
+    "explicitMods": [
+     "Deals 38 to 64 Lightning Damage",
+     "100% increased Duration of Lightning Ailments",
+     "Base duration is 4.00 seconds",
+     "Chains +5 Times",
+     "100% chance to Shock enemies",
+     "15% more Damage with Hits and Ailments for each remaining Chain",
+     "100% increased Effect of Lightning Ailments"
+    ],
+    "secDescrText": "A shocking arc of lightning reaches from the caster to a targeted enemy and chains to other enemies. Each time the arc chains from an enemy, it will do so simultaneously to two further enemies, but never to enemies that have already been hit by any of these chains. Also grants a buff making your Arc damage lucky for a short duration."
+   }
+  }
+ ]
+}

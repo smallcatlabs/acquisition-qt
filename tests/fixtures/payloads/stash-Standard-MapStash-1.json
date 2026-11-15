@@ -1,0 +1,110 @@
+{
+ "id": "26550ea79a",
+ "parent": "95cfd26df7",
+ "name": "5 (Remove-only)",
+ "type": "MapStash",
+ "metadata": {
+  "items": 2,
+  "map": {
+   "section": "special",
+   "name": "Nightmare Map",
+   "index": 4
+  }
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI4LDE0LHsiZiI6IjJESXRlbXMvTWFwcy9BdGxhczJNYXBzL05ldy9VYmVyTWF1c29sZXVtIiwidyI6MSwiaCI6MSwic2NhbGUiOjEsIm1uIjoyMywibXQiOjAsIm1ubSI6dHJ1ZX1d/b99874e0e1/UberMausoleum.png",
+   "league": "Standard",
+   "id": "8c70309cb6674dea338c7a2672bce29a2495ef90e4c3f13e078780472613c974",
+   "name": "Arcane Slough",
+   "typeLine": "Nightmare Map",
+   "baseType": "Nightmare Map",
+   "rarity": "Rare",
+   "ilvl": 84,
+   "identified": true,
+   "unmodifiableExceptChaos": true,
+   "properties": [
+    {
+     "name": "[AtlasDropScaling|Atlas Drops]",
+     "values": [
+      [
+       "+81%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 112
+    },
+    {
+     "name": "Item Rarity",
+     "values": [
+      [
+       "+97%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 3
+    },
+    {
+     "name": "Monster Pack Size",
+     "values": [
+      [
+       "+31%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 4
+    },
+    {
+     "name": "More [Thread|Threads]",
+     "values": [
+      [
+       "+90%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 89
+    }
+   ],
+   "monsterLevel": 83,
+   "explicitMods": [
+    {
+     "description": "Players have -9% to all maximum Resistances"
+    },
+    {
+     "description": "All Monster Damage can Ignite, Freeze and Shock"
+    },
+    {
+     "description": "Monsters cannot be Taunted"
+    },
+    {
+     "description": "Monsters' Action Speed cannot be modified to below Base Value\nMonsters' Movement Speed cannot be modified to below Base Value"
+    },
+    {
+     "description": "Monsters Ignite, Freeze and Shock on Hit"
+    },
+    {
+     "description": "Players have 30% less Armour"
+    },
+    {
+     "description": "Players have 40% reduced Chance to Block"
+    },
+    {
+     "description": "Players have 27% less Area of Effect"
+    }
+   ],
+   "descrText": "Travel to a Map of this tier or lower by using this in a personal Map Device. Maps can only be used once. ",
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 0,
+   "y": 0,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

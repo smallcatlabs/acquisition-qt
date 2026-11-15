@@ -1,0 +1,143 @@
+{
+ "id": "565767d0e8",
+ "folder": "17dd4a81be",
+ "name": "Heist (Remove-only)",
+ "type": "NormalStash",
+ "index": 274,
+ "metadata": {
+  "colour": "7c5436"
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvSGVpc3QvRW5hbWVsQnJvb2NoIiwidyI6MSwiaCI6MSwic2NhbGUiOjF9XQ/0d1e9c956e/EnamelBrooch.png",
+   "league": "Standard",
+   "id": "e70d82f74b05bbc5894f046fd1e6861cd1508ef7d91c36e0269de3fc77f228cf",
+   "name": "Armageddon Collar",
+   "typeLine": "Enamel Brooch",
+   "baseType": "Enamel Brooch",
+   "rarity": "Rare",
+   "ilvl": 81,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Any Heist member can equip this item.",
+     "values": [
+      [
+       "",
+       0
+      ]
+     ],
+     "displayMode": 3
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level {0} in {1}",
+     "values": [
+      [
+       "4",
+       0
+      ],
+      [
+       "Any Job",
+       0
+      ]
+     ],
+     "displayMode": 3
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "21% increased Rarity of Items dropped in Heists"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "Heist Chests have a 7% chance to Duplicate contained Essences"
+    },
+    {
+     "description": "Heist Chests have a 10% chance to Duplicate contained Legion Splinters"
+    },
+    {
+     "description": "8% increased Job Experience gain"
+    },
+    {
+     "description": "14% increased Rogue's Marker value of primary Heist Target"
+    }
+   ],
+   "descrText": "Can only be equipped to Heist members.",
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 6,
+   "y": 0,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 2,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvSGVpc3QvQXJyb3doZWFkRnJhZ21lbnRpbmciLCJ3IjoyLCJoIjoyLCJzY2FsZSI6MX1d/14b9a9dba3/ArrowheadFragmenting.png",
+   "league": "Standard",
+   "id": "fe3f4ec13454526c9dd8a925eab6cde374079f7255f593eaf38669ac936716ef",
+   "name": "Dusk Material",
+   "typeLine": "Fragmenting Arrowhead",
+   "baseType": "Fragmenting Arrowhead",
+   "rarity": "Rare",
+   "ilvl": 75,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Any Heist member can equip this item.",
+     "values": [
+      [
+       "",
+       0
+      ]
+     ],
+     "displayMode": 3
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level {0} in {1}",
+     "values": [
+      [
+       "3",
+       0
+      ],
+      [
+       "Any Job",
+       0
+      ]
+     ],
+     "displayMode": 3
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "19% increased Projectile Attack Damage"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "32% increased Projectile Attack Damage"
+    },
+    {
+     "description": "The Ring's Cut reduced by 8%"
+    },
+    {
+     "description": "9% reduced Hiring Fee"
+    }
+   ],
+   "descrText": "Can only be equipped to Heist members.",
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 0,
+   "y": 0,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

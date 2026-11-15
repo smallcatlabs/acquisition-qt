@@ -1,0 +1,65 @@
+{
+ "id": "5834ef6d84",
+ "name": "Endgame Bases",
+ "type": "PremiumStash",
+ "index": 50,
+ "metadata": {
+  "colour": "638000"
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvVG9wYXpSdWJ5IiwidyI6MSwiaCI6MSwic2NhbGUiOjF9XQ/8878077651/TopazRuby.png",
+   "league": "Solo Self-Found",
+   "id": "b38f729fb97d148810860d830a11075fa691b5f4fbab966b8c29d91b87f832c5",
+   "influences": {
+    "warlord": true
+   },
+   "name": "Doom Grip",
+   "typeLine": "Two-Stone Ring",
+   "baseType": "Two-Stone Ring",
+   "rarity": "Rare",
+   "ilvl": 78,
+   "identified": true,
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "60",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "+13% to Fire and Lightning Resistances"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+23 to maximum Energy Shield"
+    },
+    {
+     "description": "+9% to all Elemental Resistances"
+    },
+    {
+     "description": "Gain 4 Life per Enemy Killed"
+    },
+    {
+     "description": "Curse Enemies with Flammability on Hit"
+    }
+   ],
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 3,
+   "y": 1,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

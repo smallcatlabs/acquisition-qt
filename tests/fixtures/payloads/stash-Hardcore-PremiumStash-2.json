@@ -1,0 +1,141 @@
+{
+ "id": "9d17e33ace",
+ "name": "Weapons & Armour",
+ "type": "PremiumStash",
+ "index": 17,
+ "metadata": {
+  "colour": "638000"
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 2,
+   "h": 4,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9TaGllbGRzL1NoaWVsZFN0cjciLCJ3IjoyLCJoIjo0LCJzY2FsZSI6MX1d/80f9f1abea/ShieldStr7.png",
+   "league": "Hardcore",
+   "id": "f9fee6e224a0d0186da187266ebd88637d491764aa6d8ac98b2076931ccec570",
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 0,
+     "attr": "S",
+     "sColour": "R"
+    },
+    {
+     "group": 0,
+     "attr": "S",
+     "sColour": "R"
+    }
+   ],
+   "name": "Rapture Aegis",
+   "typeLine": "Crested Tower Shield",
+   "baseType": "Crested Tower Shield",
+   "rarity": "Rare",
+   "ilvl": 72,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Quality",
+     "values": [
+      [
+       "+20%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 6
+    },
+    {
+     "name": "Chance to Block",
+     "values": [
+      [
+       "25%",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 15
+    },
+    {
+     "name": "Armour",
+     "values": [
+      [
+       "784",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 16
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "60",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Str",
+     "values": [
+      [
+       "132",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 63
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "+30 to maximum Life"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+89 to Armour"
+    },
+    {
+     "description": "+108 to maximum Life"
+    },
+    {
+     "description": "+15% to all Elemental Resistances"
+    },
+    {
+     "description": "+20% to Fire Resistance"
+    },
+    {
+     "description": "+43% to Lightning Resistance"
+    },
+    {
+     "description": "71% increased Armour",
+     "flags": {
+      "crafted": true
+     }
+    }
+   ],
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 2,
+   "y": 4,
+   "inventoryId": "Stash1",
+   "socketedItems": [],
+   "incubatedItem": {
+    "name": "Fragment Item",
+    "level": 63,
+    "progress": 4802,
+    "total": 7898
+   }
+  }
+ ]
+}

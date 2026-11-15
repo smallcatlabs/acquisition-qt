@@ -1,0 +1,1148 @@
+{
+ "id": "439cdc05be",
+ "folder": "44d6d31502",
+ "name": "Special Gear (Remove-only)",
+ "type": "PremiumStash",
+ "index": 17,
+ "metadata": {
+  "colour": "638000"
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvQm9uZVJpbmciLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MSwiZnJhY3R1cmVkIjp0cnVlfV0/2ebeade2ef/BoneRing.png",
+   "league": "Standard",
+   "id": "092c6ef8a761b38adc72dc4f3d2cc9d362159f719ebc22aed3b67e684be067d1",
+   "fractured": true,
+   "name": "Fate Finger",
+   "typeLine": "Bone Ring",
+   "baseType": "Bone Ring",
+   "rarity": "Rare",
+   "ilvl": 83,
+   "identified": true,
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "57",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "Minions have +15% to all Elemental Resistances"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+43% to Lightning Resistance",
+     "flags": {
+      "fractured": true
+     }
+    },
+    {
+     "description": "Adds 2 to 43 Lightning Damage to Attacks"
+    },
+    {
+     "description": "+35% to Fire Resistance"
+    },
+    {
+     "description": "Minions have 18% increased maximum Life"
+    }
+   ],
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 5,
+   "y": 6,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 2,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQmVsdHMvQmVsdDQiLCJ3IjoyLCJoIjoxLCJzY2FsZSI6MX1d/fce1729448/Belt4.png",
+   "league": "Standard",
+   "id": "686f31b0507cf25f864d327b3475cb1fafccef49afc00bcb07637d0eeb87b931",
+   "name": "",
+   "typeLine": "Glittering Cloth Belt of the Brute",
+   "baseType": "Cloth Belt",
+   "rarity": "Magic",
+   "ilvl": 34,
+   "identified": true,
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "16",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "18% increased Stun and Block Recovery"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+8 to Strength"
+    },
+    {
+     "description": "+12 to maximum Energy Shield"
+    }
+   ],
+   "frameType": 1,
+   "frameTypeId": "Magic",
+   "x": 8,
+   "y": 11,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvTWVyY2VuYXJ5V2FycmFudCIsInciOjEsImgiOjEsInNjYWxlIjoxfV0/5cf435d2d3/MercenaryWarrant.png",
+   "iconStackLevel": "L:83",
+   "league": "Standard",
+   "id": "be0015536ceb2b71ec272194624fab931b094439421a94e669de77acb10bc0c7",
+   "name": "",
+   "typeLine": "Mercenary Warrant",
+   "baseType": "Mercenary Warrant",
+   "ilvl": 0,
+   "identified": true,
+   "properties": [
+    {
+     "name": "",
+     "values": [
+      [
+       "Syla, the Unscrupulous",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "",
+     "values": [],
+     "displayMode": 4
+    },
+    {
+     "name": "Build",
+     "values": [
+      [
+       "Withertouch",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Mercenary Level",
+     "values": [
+      [
+       "83",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 78
+    }
+   ],
+   "mercenarySkills": [
+    {
+     "hash": 63468,
+     "icon": "https://web.poecdn.com/gen/image/WzIxLDE0LHsiayI6IjJEQXJ0L1NraWxsSWNvbnMvRGFya1JpdHVhbCJ9XQ/37f16e0b32/DarkRitual.png",
+     "name": "Bane",
+     "supports": [
+      {
+       "hash": 64281,
+       "name": "Swift Affliction",
+       "tier": 2
+      },
+      {
+       "hash": 53342,
+       "name": "Increased Area of Effect",
+       "tier": 2
+      }
+     ]
+    },
+    {
+     "hash": 7383,
+     "icon": "https://web.poecdn.com/gen/image/WzIxLDE0LHsiayI6IjJEQXJ0L1NraWxsSWNvbnMvdGVtcG9yYWxjaGFpbnMifV0/d1820272f7/temporalchains.png",
+     "name": "Temporal Chains",
+     "supports": [
+      {
+       "hash": 8607,
+       "name": "Greater Faster Casting",
+       "tier": 3
+      },
+      {
+       "hash": 3263,
+       "name": "Greater Curse Effect",
+       "tier": 3
+      }
+     ]
+    },
+    {
+     "hash": 39669,
+     "icon": "https://web.poecdn.com/gen/image/WzIxLDE0LHsiayI6IjJEQXJ0L1NraWxsSWNvbnMvU2lwaG9uIn1d/9864bfe02d/Siphon.png",
+     "name": "Essence Drain of Wickedness",
+     "supports": [
+      {
+       "hash": 64281,
+       "name": "Swift Affliction",
+       "tier": 2
+      },
+      {
+       "hash": 6927,
+       "name": "DoT Multiplier",
+       "tier": 2
+      },
+      {
+       "hash": 49419,
+       "name": "Greater Multiple Projectiles",
+       "tier": 3
+      },
+      {
+       "hash": 31052,
+       "name": "Chain",
+       "tier": 2
+      },
+      {
+       "hash": 50222,
+       "name": "More Duration",
+       "tier": 2
+      }
+     ]
+    },
+    {
+     "hash": 13441,
+     "icon": "https://web.poecdn.com/gen/image/WzIxLDE0LHsiayI6IjJEQXJ0L1NraWxsSWNvbnMvSG91c2VCYXJkaXlhU2tpbGwifV0/8e78c633c6/HouseBardiyaSkill.png",
+     "name": "Scourstorm",
+     "supports": [
+      {
+       "hash": 48875,
+       "name": "Cooldown Recovery",
+       "tier": 2
+      },
+      {
+       "hash": 53342,
+       "name": "Increased Area of Effect",
+       "tier": 2
+      },
+      {
+       "hash": 50222,
+       "name": "More Duration",
+       "tier": 2
+      }
+     ]
+    },
+    {
+     "hash": 40470,
+     "icon": "https://web.poecdn.com/gen/image/WzIxLDE0LHsiayI6IjJEQXJ0L1NraWxsSWNvbnMvRnJvc3RibGluayJ9XQ/74813da9e2/Frostblink.png",
+     "name": "Frostblink",
+     "supports": [
+      {
+       "hash": 19113,
+       "name": "Greater Area of Effect",
+       "tier": 3
+      },
+      {
+       "hash": 12387,
+       "name": "Greater Freeze Chance",
+       "tier": 3
+      }
+     ]
+    },
+    {
+     "hash": 28785,
+     "icon": "https://web.poecdn.com/gen/image/WzIxLDE0LHsiayI6IjJEQXJ0L1NraWxsSWNvbnMvYXVyYW1hbmEifV0/f4901ddcd1/auramana.png",
+     "name": "Clarity"
+    }
+   ],
+   "descrText": "Right click this item to view Mercenary details.\r\nOpen a portal to the Proving Grounds by using this item in a personal Map Device. This previously fought Mercenary will reappear in the area for a rematch. While viewing your Atlas, Right-click this item to pinpoint its location.",
+   "frameType": 0,
+   "frameTypeId": "Normal",
+   "x": 11,
+   "y": 1,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 2,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvUGFsZUNvdW5jaWxHbG92ZXMiLCJ3IjoyLCJoIjoyLCJzY2FsZSI6MX1d/3271f5441a/PaleCouncilGloves.png",
+   "league": "Standard",
+   "id": "618dafba5453776a8779b3b57b73928c0a9703ae99d0245c1c404d7292724780",
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    }
+   ],
+   "name": "Replica Volkuur's Guidance",
+   "typeLine": "Zealot Gloves",
+   "baseType": "Zealot Gloves",
+   "rarity": "Unique",
+   "ilvl": 85,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Armour",
+     "values": [
+      [
+       "79",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 16
+    },
+    {
+     "name": "Energy Shield",
+     "values": [
+      [
+       "16",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 18
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "43",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Str",
+     "values": [
+      [
+       "34",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 63
+    },
+    {
+     "name": "Int",
+     "values": [
+      [
+       "34",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 65
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "Adds 19 to 31 Chaos Damage"
+    },
+    {
+     "description": "+56 to maximum Life"
+    },
+    {
+     "description": "+40% to Chaos Resistance"
+    },
+    {
+     "description": "Your Chaos Damage can Ignite"
+    },
+    {
+     "description": "Chaos Skills have 20% chance to Ignite"
+    },
+    {
+     "description": "50% less Ignite Duration"
+    }
+   ],
+   "flavourText": [
+    "\"Prototype #73 is a near perfect opposite of the original. Perhaps our failures\r",
+    "are due to some unknown polarity we have yet to discover.\""
+   ],
+   "replica": true,
+   "frameType": 3,
+   "frameTypeId": "Unique",
+   "x": 0,
+   "y": 3,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvSGVpc3RSaW5nMkRhcmsiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MX1d/087a05ad4a/HeistRing2Dark.png",
+   "league": "Standard",
+   "id": "e9f98d5d6ce61ed1dbc9f7ebe09ab035176337b1606b746a23b07ac37ea24a74",
+   "influences": {
+    "shaper": true
+   },
+   "shaper": true,
+   "name": "",
+   "typeLine": "The Shaper's Manifold Ring",
+   "baseType": "Manifold Ring",
+   "rarity": "Magic",
+   "ilvl": 85,
+   "identified": true,
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "68",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "+1 Prefix Modifier allowed"
+    },
+    {
+     "description": "-2 Suffix Modifiers allowed"
+    },
+    {
+     "description": "Implicit Modifiers Cannot Be Changed"
+    },
+    {
+     "description": "50% increased Prefix Modifier magnitudes"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "4% increased Experience gain"
+    }
+   ],
+   "frameType": 1,
+   "frameTypeId": "Magic",
+   "x": 5,
+   "y": 11,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 2,
+   "h": 3,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvV2VhcG9ucy9PbmVIYW5kV2VhcG9ucy9PbmVIYW5kTWFjZXMvRnJvc3RCcmVhdGgiLCJ3IjoyLCJoIjozLCJzY2FsZSI6MX1d/8a6b305388/FrostBreath.png",
+   "league": "Standard",
+   "id": "3ba9bb93a211e579a8e9c656877c93c0727ba85c97642c23faffba34ee95e22a",
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    },
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    }
+   ],
+   "name": "Replica Frostbreath",
+   "typeLine": "Ornate Mace",
+   "baseType": "Ornate Mace",
+   "rarity": "Unique",
+   "ilvl": 86,
+   "identified": true,
+   "properties": [
+    {
+     "name": "One Handed Mace",
+     "values": [],
+     "displayMode": 0
+    },
+    {
+     "name": "Physical Damage",
+     "values": [
+      [
+       "53-67",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 9
+    },
+    {
+     "name": "Chaos Damage",
+     "values": [
+      [
+       "53-73",
+       7
+      ]
+     ],
+     "displayMode": 0,
+     "type": 11
+    },
+    {
+     "name": "Critical Strike Chance",
+     "values": [
+      [
+       "5.00%",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 12
+    },
+    {
+     "name": "Attacks per Second",
+     "values": [
+      [
+       "1.30",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 13
+    },
+    {
+     "name": "Weapon Range: {0} metres",
+     "values": [
+      [
+       "1.1",
+       0
+      ]
+     ],
+     "displayMode": 3,
+     "type": 14
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "50",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Str",
+     "values": [
+      [
+       "161",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 63
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "15% reduced Enemy Stun Threshold"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "Adds 53 to 73 Chaos Damage"
+    },
+    {
+     "description": "8% increased Attack Speed"
+    },
+    {
+     "description": "+26% to Chaos Resistance"
+    },
+    {
+     "description": "Your Chaos Damage can Chill"
+    },
+    {
+     "description": "Attacks with this Weapon deal Double Damage to Chilled Enemies"
+    }
+   ],
+   "flavourText": [
+    "\"Three test subjects confirmed Prototype #495 creates an additional\r",
+    "debilitating effect from poisons. This could be very useful.\""
+   ],
+   "replica": true,
+   "frameType": 3,
+   "frameTypeId": "Unique",
+   "x": 2,
+   "y": 4,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  },
+  {
+   "verified": false,
+   "w": 2,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9IZWxtZXRzL0hlbG1ldERleEludFVuaXF1ZTEiLCJ3IjoyLCJoIjoyLCJzY2FsZSI6MSwibXV0YXRlZCI6dHJ1ZX1d/8bf43e588c/HelmetDexIntUnique1.png",
+   "league": "Standard",
+   "id": "6506609ee3e98ae5674897e945354a87d84f99a4d5d812d98fe6007bd891d3a9",
+   "mutated": true,
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    },
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    },
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    },
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    }
+   ],
+   "name": "Foulborn Rime Gaze",
+   "typeLine": "Mind Cage",
+   "baseType": "Mind Cage",
+   "rarity": "Unique",
+   "ilvl": 83,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Energy Shield",
+     "values": [
+      [
+       "120",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 18
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "65",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Int",
+     "values": [
+      [
+       "138",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 65
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+50% to Cold Damage over Time Multiplier"
+    },
+    {
+     "description": "50% increased Energy Shield"
+    },
+    {
+     "description": "50% reduced Energy Shield Recharge Rate"
+    },
+    {
+     "description": "+69 to maximum Mana"
+    },
+    {
+     "description": "Socketed Gems are Supported by Level 25 [SupportFrigidBond::25|Frigid Bond Support]",
+     "flags": {
+      "mutated": true
+     }
+    }
+   ],
+   "flavourText": [
+    "The malice in her gaze froze blood and shattered bone."
+   ],
+   "frameType": 3,
+   "frameTypeId": "Unique",
+   "x": 10,
+   "y": 4,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvUmluZ3MvTWlycm9yUmluZyIsInciOjEsImgiOjEsInNjYWxlIjoxLCJkdXBsaWNhdGVkIjp0cnVlfV0/2cbd02eced/MirrorRing.png",
+   "league": "Standard",
+   "id": "4c1814b1bfe6e56a1378c880439a3c31c738d0484b9cef4e61036198d8af2ed9",
+   "name": "Kalandra's Touch",
+   "typeLine": "Ring",
+   "baseType": "Ring",
+   "rarity": "Unique",
+   "ilvl": 80,
+   "identified": true,
+   "duplicated": true,
+   "explicitMods": [
+    {
+     "description": "Reflects opposite Ring"
+    }
+   ],
+   "flavourText": [
+    "On one hand, you have a choice.\r",
+    "On the other, you have its twin."
+   ],
+   "frameType": 3,
+   "frameTypeId": "Unique",
+   "x": 4,
+   "y": 11,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvU2FuY3R1bS9TYW5jdHVtRmxvb3IyIiwidyI6MSwiaCI6MSwic2NhbGUiOjF9XQ/e25fdf35c9/SanctumFloor2.png",
+   "league": "Standard",
+   "id": "4b72da3703f23765b8b03f846af6898129f7454026dd68279187504aa307f256",
+   "name": "",
+   "typeLine": "Sanctum Vaults Research",
+   "baseType": "Sanctum Vaults Research",
+   "rarity": "Normal",
+   "ilvl": 85,
+   "identified": true,
+   "unmodifiable": true,
+   "properties": [
+    {
+     "name": "Area Level",
+     "values": [
+      [
+       "83",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 34
+    },
+    {
+     "name": "Resolve: {0}/{1}",
+     "values": [
+      [
+       "225",
+       0
+      ],
+      [
+       "300",
+       0
+      ]
+     ],
+     "displayMode": 3,
+     "type": 68
+    },
+    {
+     "name": "Inspiration: {0}",
+     "values": [
+      [
+       "0",
+       0
+      ]
+     ],
+     "displayMode": 3,
+     "type": 69
+    },
+    {
+     "name": "Aureus: {0}",
+     "values": [
+      [
+       "400",
+       0
+      ]
+     ],
+     "displayMode": 3,
+     "type": 70
+    },
+    {
+     "name": "Minor Boons",
+     "values": [
+      [
+       "Gold Mine",
+       21
+      ]
+     ],
+     "displayMode": 0,
+     "type": 71
+    },
+    {
+     "name": "Minor Afflictions",
+     "values": [
+      [
+       "Unquenched Thirst",
+       22
+      ],
+      [
+       "Concealed Anomaly",
+       22
+      ],
+      [
+       "Rusted Coin",
+       22
+      ]
+     ],
+     "displayMode": 0,
+     "type": 73
+    }
+   ],
+   "rewards": [
+    {
+     "label": "Rewards on Floor Completion",
+     "rewards": {
+      "blessed": 8
+     }
+    },
+    {
+     "label": "Rewards on Sanctum Completion",
+     "rewards": {
+      "alt": 30
+     }
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "Gain 18 Resolve when you kill a Boss"
+    }
+   ],
+   "descrText": "Right click this item to view details of the Sanctum in progress. Take this item to the Relic Altar in the Forbidden Sanctum to enter.",
+   "flavourText": [
+    "The treasures within are tainted by a black spirit."
+   ],
+   "frameType": 0,
+   "frameTypeId": "Normal",
+   "x": 11,
+   "y": 0,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 2,
+   "h": 4,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvV2VhcG9ucy9Ud29IYW5kV2VhcG9ucy9Ud29IYW5kQXhlcy9Ud29IYW5kQXhlNyIsInciOjIsImgiOjQsInNjYWxlIjoxfV0/931ad5cc29/TwoHandAxe7.png",
+   "league": "Standard",
+   "id": "bb67b5e4fd9fcb19a59bd527c2ed84fad4e6174049ab22265b46ae610e83da1f",
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    },
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    },
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    },
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    }
+   ],
+   "name": "Rapture Hunger",
+   "typeLine": "Shadow Axe",
+   "baseType": "Shadow Axe",
+   "rarity": "Rare",
+   "ilvl": 38,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Two Handed Axe",
+     "values": [],
+     "displayMode": 0
+    },
+    {
+     "name": "Physical Damage",
+     "values": [
+      [
+       "100-153",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 9
+    },
+    {
+     "name": "Critical Strike Chance",
+     "values": [
+      [
+       "5.00%",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 12
+    },
+    {
+     "name": "Attacks per Second",
+     "values": [
+      [
+       "1.43",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 13
+    },
+    {
+     "name": "Weapon Range: {0} metres",
+     "values": [
+      [
+       "1.3",
+       0
+      ]
+     ],
+     "displayMode": 3,
+     "type": 14
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "33",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Str",
+     "values": [
+      [
+       "80",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 63
+    },
+    {
+     "name": "Dex",
+     "values": [
+      [
+       "37",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 64
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+18 to Strength"
+    },
+    {
+     "description": "18% increased Physical Damage"
+    },
+    {
+     "description": "Adds 8 to 14 Physical Damage"
+    },
+    {
+     "description": "14% increased Attack Speed"
+    },
+    {
+     "description": "+20 to Accuracy Rating"
+    },
+    {
+     "description": "58% increased Physical Damage",
+     "flags": {
+      "crafted": true
+     }
+    }
+   ],
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 4,
+   "y": 0,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  },
+  {
+   "verified": false,
+   "w": 2,
+   "h": 3,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvV2VhcG9ucy9PbmVIYW5kV2VhcG9ucy9PbmVIYW5kTWFjZXMvT25lSGFuZE1hY2U5IiwidyI6MiwiaCI6Mywic2NhbGUiOjF9XQ/f2a493ef7a/OneHandMace9.png",
+   "league": "Standard",
+   "id": "d74339b765b4182bb2e797da1ede6b62bf3a3f627557af96e8ed467accdfe5f2",
+   "memoryItem": true,
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "S",
+     "sColour": "R"
+    },
+    {
+     "group": 0,
+     "attr": "S",
+     "sColour": "R"
+    },
+    {
+     "group": 0,
+     "attr": "G",
+     "sColour": "W"
+    }
+   ],
+   "name": "Honour Mangler",
+   "typeLine": "Behemoth Mace",
+   "baseType": "Behemoth Mace",
+   "rarity": "Rare",
+   "ilvl": 85,
+   "identified": true,
+   "properties": [
+    {
+     "name": "One Handed Mace",
+     "values": [],
+     "displayMode": 0
+    },
+    {
+     "name": "Physical Damage",
+     "values": [
+      [
+       "165-270",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 9
+    },
+    {
+     "name": "Critical Strike Chance",
+     "values": [
+      [
+       "5.00%",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 12
+    },
+    {
+     "name": "Attacks per Second",
+     "values": [
+      [
+       "1.80",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 13
+    },
+    {
+     "name": "Weapon Range: {0} metres",
+     "values": [
+      [
+       "1.1",
+       0
+      ]
+     ],
+     "displayMode": 3,
+     "type": 14
+    },
+    {
+     "name": "Memory Strands",
+     "values": [
+      [
+       "70",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 99
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "70",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Str",
+     "values": [
+      [
+       "220",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 63
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "6% increased Attack Speed"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+2 to Level of Socketed Melee Gems"
+    },
+    {
+     "description": "+49 to Strength"
+    },
+    {
+     "description": "139% increased Physical Damage"
+    },
+    {
+     "description": "Adds 20 to 39 Physical Damage"
+    },
+    {
+     "description": "27% increased Attack Speed"
+    },
+    {
+     "description": "Gain 69 Life per Enemy Killed"
+    }
+   ],
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 0,
+   "y": 0,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  }
+ ]
+}

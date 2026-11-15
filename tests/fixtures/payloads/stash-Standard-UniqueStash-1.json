@@ -1,0 +1,255 @@
+{
+ "id": "256022a2bb",
+ "parent": "ca318115d9",
+ "name": " (Remove-only)",
+ "type": "UniqueStash",
+ "metadata": {
+  "items": 7
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 2,
+   "h": 4,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvV2VhcG9ucy9Ud29IYW5kV2VhcG9ucy9Cb3dzL0luZnJhY3RlbSIsInciOjIsImgiOjQsInNjYWxlIjoxfV0/ea06e13fb8/Infractem.png",
+   "league": "Standard",
+   "id": "876064bb7f23d70ef2c1988f8f2710a2d495caf6a866a1a5f9af05c50fd00db1",
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    },
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    }
+   ],
+   "name": "Infractem",
+   "typeLine": "Decimation Bow",
+   "baseType": "Decimation Bow",
+   "rarity": "Unique",
+   "ilvl": 86,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Bow",
+     "values": [],
+     "displayMode": 0
+    },
+    {
+     "name": "Physical Damage",
+     "values": [
+      [
+       "131-278",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 9
+    },
+    {
+     "name": "Elemental Damage",
+     "values": [
+      [
+       "24-35",
+       4
+      ]
+     ],
+     "displayMode": 0,
+     "type": 10
+    },
+    {
+     "name": "Critical Strike Chance",
+     "values": [
+      [
+       "7.50%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 12
+    },
+    {
+     "name": "Attacks per Second",
+     "values": [
+      [
+       "1.20",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 13
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "53",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Dex",
+     "values": [
+      [
+       "170",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 64
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "50% increased Critical Strike Chance"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+25 to Dexterity"
+    },
+    {
+     "description": "77% increased Physical Damage"
+    },
+    {
+     "description": "Adds 30 to 41 Physical Damage"
+    },
+    {
+     "description": "10% increased Movement Speed"
+    },
+    {
+     "description": "+377 to Accuracy Rating"
+    },
+    {
+     "description": "Cannot Leech Life"
+    },
+    {
+     "description": "Arrows Pierce all Targets"
+    }
+   ],
+   "crucibleMods": [
+    "Adds 24 to 35 Fire Damage"
+   ],
+   "flavourText": [
+    "Mark us with mercy, then press on with care,\r",
+    "Execute us steadily, notch away at our despair."
+   ],
+   "frameType": 3,
+   "frameTypeId": "Unique",
+   "x": 12,
+   "y": 0,
+   "inventoryId": "Stash1",
+   "socketedItems": [],
+   "crucible": {
+    "layout": "https://web.poecdn.com/gen/image/WzI5LDE0LHsiYiI6ODUwMSwiYSI6MSwibCI6MzE0MTIsInIiOjE1ODM0fV0/538c68abe8/WeaponTree.png",
+    "nodes": {
+     "0": {
+      "orbit": 0,
+      "orbitIndex": 0,
+      "icon": "Art/2DArt/SkillIcons/passives/lavalash.png",
+      "allocated": true,
+      "stats": [
+       "Adds 24 to 35 Fire Damage"
+      ],
+      "in": [],
+      "out": [
+       "2"
+      ],
+      "skill": 5561,
+      "tier": 3
+     },
+     "2": {
+      "orbit": 1,
+      "orbitIndex": 1,
+      "icon": "Art/2DArt/SkillIcons/passives/accuracydex.png",
+      "stats": [
+       "10% increased Dexterity",
+       "+240 to Accuracy Rating"
+      ],
+      "in": [
+       "0"
+      ],
+      "out": [
+       "4",
+       "5"
+      ],
+      "skill": 35595,
+      "tier": 3
+     },
+     "4": {
+      "orbit": 2,
+      "orbitIndex": 1,
+      "icon": "Art/2DArt/SkillIcons/passives/BarragingProjectilesNotable.png",
+      "stats": [
+       "55% increased Projectile Speed",
+       "30% reduced Projectile Damage"
+      ],
+      "in": [
+       "2"
+      ],
+      "out": [],
+      "skill": 14571,
+      "tier": 2
+     },
+     "5": {
+      "orbit": 2,
+      "orbitIndex": 2,
+      "icon": "Art/2DArt/SkillIcons/passives/IncreasedPhysicalDamage.png",
+      "stats": [
+       "Overwhelm 24% Physical Damage Reduction",
+       "Hits against you Overwhelm 10% of Physical Damage Reduction"
+      ],
+      "in": [
+       "2"
+      ],
+      "out": [
+       "8"
+      ],
+      "skill": 61314,
+      "tier": 1
+     },
+     "8": {
+      "orbit": 3,
+      "orbitIndex": 2,
+      "icon": "Art/2DArt/SkillIcons/passives/AttackDamangeAndEvasionNotableIcon.png",
+      "stats": [
+       "20% reduced Effect of [Onslaught] on you",
+       "30% chance to gain [Onslaught] for 4 seconds on Kill"
+      ],
+      "in": [
+       "5"
+      ],
+      "out": [
+       "13"
+      ],
+      "skill": 42653,
+      "tier": 2
+     },
+     "13": {
+      "orbit": 4,
+      "orbitIndex": 3,
+      "icon": "Art/2DArt/SkillIcons/CruciblePassives/CruciblePassiveIcon7Active.png",
+      "isNotable": true,
+      "stats": [
+       "Barrage and Frenzy have 40% increased Critical Strike Chance per Endurance Charge"
+      ],
+      "in": [
+       "8"
+      ],
+      "out": [],
+      "skill": 13505,
+      "tier": 1
+     }
+    }
+   }
+  }
+ ]
+}

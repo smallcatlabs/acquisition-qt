@@ -1,0 +1,297 @@
+{
+ "id": "2e12a4def8",
+ "name": "Ice Nova",
+ "type": "PremiumStash",
+ "index": 31,
+ "metadata": {
+  "colour": "638000"
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 2,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9HbG92ZXMvR2xvdmVzRGV4SW50MyIsInciOjIsImgiOjIsInNjYWxlIjoxLCJzZWFyaW5nIjp0cnVlfV0/bfe2614360/GlovesDexInt3.png",
+   "league": "Solo Self-Found",
+   "id": "f650822c69f69074d3293270a92604a87edd4765a4792369b081412d87d17eea",
+   "searing": true,
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "I",
+     "sColour": "B"
+    },
+    {
+     "group": 0,
+     "attr": "S",
+     "sColour": "R"
+    },
+    {
+     "group": 0,
+     "attr": "I",
+     "sColour": "B"
+    },
+    {
+     "group": 0,
+     "attr": "I",
+     "sColour": "B"
+    }
+   ],
+   "name": "Ghoul Claw",
+   "typeLine": "Carnal Mitts",
+   "baseType": "Carnal Mitts",
+   "rarity": "Rare",
+   "ilvl": 61,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Quality",
+     "values": [
+      [
+       "+20%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 6
+    },
+    {
+     "name": "Evasion Rating",
+     "values": [
+      [
+       "108",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 17
+    },
+    {
+     "name": "Energy Shield",
+     "values": [
+      [
+       "23",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 18
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "60",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Dex",
+     "values": [
+      [
+       "39",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 64
+    },
+    {
+     "name": "Int",
+     "values": [
+      [
+       "39",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 65
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "8% increased Attack Speed"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+55 to maximum Life"
+    },
+    {
+     "description": "Regenerate 34.3 Life per second"
+    },
+    {
+     "description": "+28% to Fire Resistance"
+    },
+    {
+     "description": "+27% to Cold Resistance"
+    },
+    {
+     "description": "+52 to maximum Mana",
+     "flags": {
+      "crafted": true
+     }
+    }
+   ],
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 9,
+   "y": 1,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  },
+  {
+   "verified": false,
+   "w": 2,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQXJtb3Vycy9Cb290cy9Ud29Ub25lZEJvb3RzIiwidyI6MiwiaCI6Miwic2NhbGUiOjEsInNlYXJpbmciOnRydWUsInRhbmdsZWQiOnRydWV9XQ/79153b71ea/TwoTonedBoots.png",
+   "league": "Solo Self-Found",
+   "id": "a5ceab9006daa7f81d5c2fa30b84ba8196e179c0f9b5ab58c112647b35f1ef9b",
+   "searing": true,
+   "tangled": true,
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "I",
+     "sColour": "B"
+    },
+    {
+     "group": 0,
+     "attr": "S",
+     "sColour": "R"
+    },
+    {
+     "group": 0,
+     "attr": "I",
+     "sColour": "B"
+    },
+    {
+     "group": 0,
+     "attr": "I",
+     "sColour": "B"
+    }
+   ],
+   "name": "Grim Spur",
+   "typeLine": "Two-Toned Boots",
+   "baseType": "Two-Toned Boots",
+   "rarity": "Rare",
+   "ilvl": 73,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Quality",
+     "values": [
+      [
+       "+20%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 6
+    },
+    {
+     "name": "Evasion Rating",
+     "values": [
+      [
+       "285",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 17
+    },
+    {
+     "name": "Energy Shield",
+     "values": [
+      [
+       "88",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 18
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "70",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Dex",
+     "values": [
+      [
+       "62",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 64
+    },
+    {
+     "name": "Int",
+     "values": [
+      [
+       "62",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 65
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "6% increased Rallying Cry Buff Effect"
+    },
+    {
+     "description": "Drops Scorched Ground while moving, lasting 2 seconds"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+40 to Dexterity"
+    },
+    {
+     "description": "84% increased Evasion and Energy Shield"
+    },
+    {
+     "description": "+13 to maximum Energy Shield"
+    },
+    {
+     "description": "+28 to maximum Life"
+    },
+    {
+     "description": "+44% to Cold Resistance"
+    },
+    {
+     "description": "30% increased Movement Speed"
+    },
+    {
+     "description": "+20% to Fire and Lightning Resistances",
+     "flags": {
+      "crafted": true
+     }
+    }
+   ],
+   "frameType": 2,
+   "frameTypeId": "Rare",
+   "x": 4,
+   "y": 1,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  }
+ ]
+}

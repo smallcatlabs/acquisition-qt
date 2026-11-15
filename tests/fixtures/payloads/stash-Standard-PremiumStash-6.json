@@ -1,0 +1,60 @@
+{
+ "id": "ec7a2db14a",
+ "name": "X (Remove-only)",
+ "type": "PremiumStash",
+ "index": 83,
+ "metadata": {
+  "colour": "638000"
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 3,
+   "h": 2,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQ3VycmVuY3kvQXptZXJpL09ha0NvcnBzZSIsInciOjMsImgiOjIsInNjYWxlIjoxfV0/9a9c4d9ada/OakCorpse.png",
+   "league": "Standard",
+   "id": "438f6384103a0ee4eda3735d59386bd556fc86e9375ce70748e2a05dc39f6846",
+   "name": "",
+   "typeLine": "Warlord",
+   "baseType": "Warlord",
+   "ilvl": 83,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Corpse Level",
+     "values": [
+      [
+       "83",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 78
+    },
+    {
+     "name": "Monster Category",
+     "values": [
+      [
+       "Humanoid",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 79,
+     "suffix": "humanoid"
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "Uses Leap Slam\r\nUses Sweep\r\nUses Enduring Cry\r\nUses Immortal call\r\nCasts Vitality"
+    }
+   ],
+   "descrText": "Right click this item to create this corpse.",
+   "frameType": 5,
+   "frameTypeId": "Currency",
+   "x": 7,
+   "y": 10,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

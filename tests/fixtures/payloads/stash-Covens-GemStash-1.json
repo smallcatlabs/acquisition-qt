@@ -1,0 +1,632 @@
+{
+ "id": "ae6d51b49c",
+ "name": "Gems",
+ "type": "GemStash",
+ "index": 9,
+ "metadata": {
+  "colour": "638000",
+  "layout": {
+   "filters": [
+    "S",
+    "D",
+    "I",
+    "G"
+   ],
+   "sections": [
+    {
+     "min": 21,
+     "max": 100
+    },
+    {
+     "min": 20,
+     "max": 20
+    },
+    {
+     "min": 2,
+     "max": 19
+    },
+    {
+     "min": 1,
+     "max": 1
+    }
+   ],
+   "layout": {
+    "8,0": {
+     "filter": "I",
+     "section": 2
+    },
+    "9,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "9,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "18,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "17,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "12,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "18,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "16,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "15,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "16,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "17,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "19,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "14,0": {
+     "filter": "S",
+     "section": 2
+    },
+    "1,1": {
+     "filter": "G",
+     "section": 3
+    },
+    "14,1": {
+     "filter": "S",
+     "section": 3
+    },
+    "15,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "7,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "5,0": {
+     "filter": "S",
+     "section": 2
+    },
+    "12,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "24,0": {
+     "filter": "S",
+     "section": 3
+    },
+    "24,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "25,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "6,0": {
+     "filter": "I",
+     "section": 2
+    },
+    "0,0": {
+     "filter": "S",
+     "section": 2
+    },
+    "8,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "3,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "2,1": {
+     "filter": "S",
+     "section": 3
+    },
+    "2,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "0,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "5,1": {
+     "filter": "S",
+     "section": 3
+    },
+    "4,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "19,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "13,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "13,0": {
+     "filter": "S",
+     "section": 3
+    },
+    "6,1": {
+     "filter": "I",
+     "section": 2
+    },
+    "22,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "21,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "23,1": {
+     "filter": "S",
+     "section": 3
+    },
+    "20,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "23,0": {
+     "filter": "S",
+     "section": 3
+    },
+    "21,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "20,1": {
+     "filter": "D",
+     "section": 3
+    },
+    "22,0": {
+     "filter": "I",
+     "section": 3
+    },
+    "4,0": {
+     "filter": "S",
+     "section": 2
+    },
+    "7,0": {
+     "filter": "I",
+     "section": 2
+    },
+    "1,0": {
+     "filter": "I",
+     "section": 2
+    },
+    "3,0": {
+     "filter": "I",
+     "section": 2
+    },
+    "11,1": {
+     "filter": "I",
+     "section": 3
+    },
+    "10,1": {
+     "filter": "S",
+     "section": 3
+    },
+    "11,0": {
+     "filter": "D",
+     "section": 3
+    },
+    "10,0": {
+     "filter": "S",
+     "section": 3
+    }
+   },
+   "scale": 0.6085192697768763
+  }
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzMwLDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9JY2VTcGVhciIsInciOjEsImgiOjEsInNjYWxlIjoxLCJnZCI6MTN9XQ/1cd4d303ae/IceSpear.png",
+   "support": false,
+   "league": "Covens",
+   "id": "7ca35da9e35e007358375f74067658385cf44d925fb573e5894f48b928bd57b9",
+   "name": "",
+   "typeLine": "Ice Spear of Splitting",
+   "baseType": "Ice Spear of Splitting",
+   "ilvl": 0,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Spell, Projectile, Cold",
+     "values": [],
+     "displayMode": 0
+    },
+    {
+     "name": "Level",
+     "values": [
+      [
+       "2",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 5
+    },
+    {
+     "name": "Cost",
+     "values": [
+      [
+       "9 Mana",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Cast Time",
+     "values": [
+      [
+       "0.70 sec",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Critical Strike Chance",
+     "values": [
+      [
+       "7.50%",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Effectiveness of Added Damage",
+     "values": [
+      [
+       "330%",
+       0
+      ]
+     ],
+     "displayMode": 0
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "15",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Int",
+     "values": [
+      [
+       "39",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 65
+    }
+   ],
+   "additionalProperties": [
+    {
+     "name": "Experience",
+     "values": [
+      [
+       "18402/41517",
+       0
+      ]
+     ],
+     "displayMode": 2,
+     "progress": 0.44,
+     "type": 20
+    }
+   ],
+   "secDescrText": "Launches a shard of ice that splits on hitting terrain or enemies. After splitting, the projectiles are in second form, which moves much faster and pierces through enemies.",
+   "explicitMods": [
+    {
+     "description": "Deals 72 to 108 Cold Damage"
+    },
+    {
+     "description": "Modifiers to number of Projectiles instead apply to\nthe number of targets Projectile Splits towards"
+    },
+    {
+     "description": "Projectiles Split towards 4 targets"
+    },
+    {
+     "description": "Second form has 300% more Projectile Speed"
+    },
+    {
+     "description": "Projectiles can Split from hitting terrain"
+    }
+   ],
+   "descrText": "Place into an item socket to gain this skill. Right click to remove from a socket.",
+   "frameType": 4,
+   "frameTypeId": "Gem",
+   "x": 8,
+   "y": 0,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzMwLDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9MaWdodGVuaW5nVG91Y2giLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MX1d/7304d6b566/LighteningTouch.png",
+   "support": false,
+   "league": "Covens",
+   "id": "e4748ff1f1c6fc953b28263766030306512170b3d5dccd9d738e9b187d030493",
+   "name": "",
+   "typeLine": "Lightning Tendrils",
+   "baseType": "Lightning Tendrils",
+   "ilvl": 0,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Critical, Spell, AoE, Lightning, Channelling",
+     "values": [],
+     "displayMode": 0
+    },
+    {
+     "name": "Level",
+     "values": [
+      [
+       "1",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 5
+    },
+    {
+     "name": "Cost",
+     "values": [
+      [
+       "1 Mana",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Cast Time",
+     "values": [
+      [
+       "0.20 sec",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Critical Strike Chance",
+     "values": [
+      [
+       "6.00%",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Effectiveness of Added Damage",
+     "values": [
+      [
+       "80%",
+       0
+      ]
+     ],
+     "displayMode": 0
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "1",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    }
+   ],
+   "additionalProperties": [
+    {
+     "name": "Experience",
+     "values": [
+      [
+       "1/70",
+       0
+      ]
+     ],
+     "displayMode": 2,
+     "progress": 0.01,
+     "type": 20
+    }
+   ],
+   "secDescrText": "While you channel this skill, it releases pulses of electrical energy, dealing lightning damage in a semicircular area in front of you.",
+   "explicitMods": [
+    {
+     "description": "Deals 1 to 6 Lightning Damage"
+    },
+    {
+     "description": "Releases a Stronger Pulse every 3 Pulses\nStronger Pulses always Critically Strike"
+    },
+    {
+     "description": "Base radius is 2.6 metres"
+    }
+   ],
+   "descrText": "Place into an item socket to gain this skill. Right click to remove from a socket.",
+   "frameType": 4,
+   "frameTypeId": "Gem",
+   "x": 9,
+   "y": 0,
+   "inventoryId": "Stash1"
+  },
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzMwLDE0LHsiZiI6IjJESXRlbXMvR2Vtcy9DbGFyaXR5IiwidyI6MSwiaCI6MSwic2NhbGUiOjF9XQ/6a0df6b3db/Clarity.png",
+   "support": false,
+   "league": "Covens",
+   "id": "49da23ac279008714a166648789081933a184d3c7422481440c6a0b715c5d226",
+   "name": "",
+   "typeLine": "Clarity",
+   "baseType": "Clarity",
+   "ilvl": 0,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Aura, Spell, AoE",
+     "values": [],
+     "displayMode": 0
+    },
+    {
+     "name": "Level",
+     "values": [
+      [
+       "5",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 5
+    },
+    {
+     "name": "Reservation",
+     "values": [
+      [
+       "89 Mana",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Cooldown Time",
+     "values": [
+      [
+       "1.20 sec",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Cast Time",
+     "values": [
+      [
+       "Instant",
+       0
+      ]
+     ],
+     "displayMode": 0
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "25",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Int",
+     "values": [
+      [
+       "46",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 65
+    }
+   ],
+   "additionalProperties": [
+    {
+     "name": "Experience",
+     "values": [
+      [
+       "193800/193800",
+       0
+      ]
+     ],
+     "displayMode": 2,
+     "progress": 1,
+     "type": 20
+    }
+   ],
+   "nextLevelRequirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "29",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Int",
+     "values": [
+      [
+       "53",
+       0
+      ]
+     ],
+     "displayMode": 1
+    }
+   ],
+   "secDescrText": "Casts an aura that grants mana regeneration to you and your allies.",
+   "explicitMods": [
+    {
+     "description": "+0.4 metres to radius"
+    },
+    {
+     "description": "You and nearby Allies Regenerate 10.4 Mana per second"
+    }
+   ],
+   "descrText": "Place into an item socket to gain this skill. Right click to remove from a socket.",
+   "frameType": 4,
+   "frameTypeId": "Gem",
+   "x": 6,
+   "y": 1,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

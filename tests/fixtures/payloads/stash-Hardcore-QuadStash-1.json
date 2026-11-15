@@ -1,0 +1,119 @@
+{
+ "id": "d9b2101952",
+ "name": "Dump Tab",
+ "type": "QuadStash",
+ "index": 1,
+ "metadata": {
+  "colour": "638000",
+  "layout": true
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvTWFwcy9VbHRpbWF0dW1UcmlhbEJhc2UiLCJ3IjoxLCJoIjoxLCJzY2FsZSI6MX1d/b65f1edffb/UltimatumTrialBase.png",
+   "league": "Hardcore",
+   "id": "071365f4f0be3ae30f4fb3e0c6b27d7afceead3ed397b228192048ac23b1b17c",
+   "name": "",
+   "typeLine": "Inscribed Ultimatum",
+   "baseType": "Inscribed Ultimatum",
+   "ilvl": 0,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Challenge",
+     "values": [
+      [
+       "Stand in the Stone Circles",
+       0
+      ]
+     ],
+     "displayMode": 0
+    },
+    {
+     "name": "Area Level",
+     "values": [
+      [
+       "70",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 34
+    },
+    {
+     "name": "Requires Sacrifice: {0} {1}",
+     "values": [
+      [
+       "Orb of Regret",
+       18
+      ],
+      [
+       "x20",
+       0
+      ]
+     ],
+     "displayMode": 3,
+     "type": 51
+    },
+    {
+     "name": "Reward: {0}",
+     "values": [
+      [
+       "Doubles sacrificed Currency",
+       0
+      ]
+     ],
+     "displayMode": 3,
+     "type": 52
+    }
+   ],
+   "ultimatumMods": [
+    {
+     "type": "ChokingMiasma",
+     "tier": 1
+    },
+    {
+     "type": "Revenant",
+     "tier": 1
+    },
+    {
+     "type": "Sawblade",
+     "tier": 3
+    },
+    {
+     "type": "LessCooldownRecovery",
+     "tier": 1
+    },
+    {
+     "type": "HinderingFlasks",
+     "tier": 1
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "Choking Miasma"
+    },
+    {
+     "description": "Stalking Ruin"
+    },
+    {
+     "description": "Razor Dance III"
+    },
+    {
+     "description": "Less Cooldown Recovery"
+    },
+    {
+     "description": "Hindering Flasks"
+    }
+   ],
+   "descrText": "Can be used in a personal map device to open portals to the Trialmaster's Domain and attempt his challenge. Portals will close once the challenge begins. While viewing your Atlas, Right-click this item to pinpoint its location.",
+   "frameType": 5,
+   "frameTypeId": "Currency",
+   "x": 0,
+   "y": 6,
+   "inventoryId": "Stash1"
+  }
+ ]
+}

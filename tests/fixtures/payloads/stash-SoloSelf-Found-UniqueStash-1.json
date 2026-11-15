@@ -1,0 +1,135 @@
+{
+ "id": "5bf2daa132",
+ "parent": "b85d614bdb",
+ "name": " (Remove-only)",
+ "type": "UniqueStash",
+ "metadata": {
+  "items": 9
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 2,
+   "h": 4,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvV2VhcG9ucy9Ud29IYW5kV2VhcG9ucy9Cb3dzL0ZvcnRpZmljYXRpb25zVW5pcXVlIiwidyI6MiwiaCI6NCwic2NhbGUiOjF9XQ/b95b104d3e/FortificationsUnique.png",
+   "league": "Solo Self-Found",
+   "id": "fa04c65ffab4dc8a55fff8c6b780972c21d6cb2ec958a42e73c260b22e30d27f",
+   "sockets": [
+    {
+     "group": 0,
+     "attr": "D",
+     "sColour": "G"
+    }
+   ],
+   "name": "The Crimson Storm",
+   "typeLine": "Steelwood Bow",
+   "baseType": "Steelwood Bow",
+   "rarity": "Unique",
+   "ilvl": 85,
+   "identified": true,
+   "properties": [
+    {
+     "name": "Bow",
+     "values": [],
+     "displayMode": 0
+    },
+    {
+     "name": "Physical Damage",
+     "values": [
+      [
+       "104-154",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 9
+    },
+    {
+     "name": "Critical Strike Chance",
+     "values": [
+      [
+       "7.09%",
+       1
+      ]
+     ],
+     "displayMode": 0,
+     "type": 12
+    },
+    {
+     "name": "Attacks per Second",
+     "values": [
+      [
+       "1.40",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 13
+    }
+   ],
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "57",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    },
+    {
+     "name": "Dex",
+     "values": [
+      [
+       "190",
+       0
+      ]
+     ],
+     "displayMode": 1,
+     "type": 64
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "6% increased Movement Speed"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "79% increased Physical Damage"
+    },
+    {
+     "description": "29% increased Critical Strike Chance"
+    },
+    {
+     "description": "50% chance to inflict Bleeding on Critical Strike with Attacks"
+    },
+    {
+     "description": "Enemies you inflict Bleeding on grant 70% increased Flask Charges"
+    },
+    {
+     "description": "Adds 116 to 151 Physical Damage against Bleeding Enemies"
+    },
+    {
+     "description": "50% chance to Maim Enemies on Critical Strike with Attacks"
+    }
+   ],
+   "veiledMods": [
+    "Suffix06"
+   ],
+   "veiled": true,
+   "flavourText": [
+    "\"There were no survivors. It had only been fired twice.\"\r",
+    "- Order of the Djinn inscription"
+   ],
+   "frameType": 3,
+   "frameTypeId": "Unique",
+   "x": 42,
+   "y": 0,
+   "inventoryId": "Stash1",
+   "socketedItems": []
+  }
+ ]
+}

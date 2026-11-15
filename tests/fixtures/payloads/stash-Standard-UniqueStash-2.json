@@ -1,0 +1,76 @@
+{
+ "id": "2c0b990119",
+ "parent": "8bbb802776",
+ "name": " (Remove-only)",
+ "type": "UniqueStash",
+ "metadata": {
+  "items": 33
+ },
+ "items": [
+  {
+   "verified": false,
+   "w": 1,
+   "h": 1,
+   "icon": "https://web.poecdn.com/gen/image/WzI1LDE0LHsiZiI6IjJESXRlbXMvQW11bGV0cy9Wb2lkY29yZUFtdWxldCIsInciOjEsImgiOjEsInNjYWxlIjoxLCJzZWFyaW5nIjp0cnVlLCJ0YW5nbGVkIjp0cnVlfV0/3ca1f8ecb5/VoidcoreAmulet.png",
+   "league": "Standard",
+   "id": "b520cd24862842b96b37a93f0fd1f655f64109b3a7d232656871417b54df9f66",
+   "searing": true,
+   "tangled": true,
+   "name": "The Eternal Struggle",
+   "typeLine": "Onyx Amulet",
+   "baseType": "Onyx Amulet",
+   "rarity": "Unique",
+   "ilvl": 85,
+   "identified": true,
+   "requirements": [
+    {
+     "name": "Level",
+     "values": [
+      [
+       "61",
+       0
+      ]
+     ],
+     "displayMode": 0,
+     "type": 62
+    }
+   ],
+   "implicitMods": [
+    {
+     "description": "12% increased maximum Energy Shield"
+    },
+    {
+     "description": "+1% to all maximum Resistances"
+    }
+   ],
+   "explicitMods": [
+    {
+     "description": "+39 to Strength"
+    },
+    {
+     "description": "+27 to Dexterity"
+    },
+    {
+     "description": "+38 to Intelligence"
+    },
+    {
+     "description": "13% increased Global Defences"
+    },
+    {
+     "description": "Critical Strikes inflict Malignant Madness if The Eater of Worlds is dominant"
+    },
+    {
+     "description": "Kill Enemies that have 15% or lower Life on Hit if The Searing Exarch is dominant"
+    }
+   ],
+   "flavourText": [
+    "Simply the way it must be, so that existence may be."
+   ],
+   "frameType": 3,
+   "frameTypeId": "Unique",
+   "x": 103,
+   "y": 0,
+   "inventoryId": "Stash1"
+  }
+ ]
+}
