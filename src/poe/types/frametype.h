@@ -21,7 +21,12 @@ namespace poe {
         SupporterFoil = 10, // Supporter Foil frame
         Necropolis = 11,    // Necropolis frame
         Gold = 12,          // Gold frame
-        BreachSkill = 13    // Breach Skill frame
+        BreachSkill = 13,   // Breach Skill frame
+        // The reference stopped at 13 when these two were added (November
+        // 2026). The API sends them; each is named after the frameTypeId
+        // sent with it. Examples are in tests/fixtures/payloads.
+        CocoonedItem = 14, // an Enshrouded item
+        Viscera = 15       // a part to attach to the Wickerman
     };
 
 } // namespace poe
