@@ -121,7 +121,20 @@ jobs:
       - name: Compiler cache statistics
         run: ccache --show-stats
 
+      # Window tests save screenshots into ACQ_TEST_SCREENSHOT_DIR (BUILD.md,
+      # "Window tests"), and one named "failed" when a test fails; the directory
+      # is kept with a failed run.
       - name: Test
         env:
           ACQ_REQUIRE_COMMA_LOCALE: '1'
+          ACQ_TEST_SCREENSHOT_DIR: ${{ github.workspace }}/build/test-screenshots
         run: ctest --preset release
+
+      - name: Upload test screenshots
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-screenshots
+          path: build/test-screenshots
+          if-no-files-found: ignore
+          retention-days: 14

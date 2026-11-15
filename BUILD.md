@@ -95,6 +95,25 @@ whole suite on every pull request and every push to `master`. Run the suite
 locally before opening a pull request; a change to behaviour comes with a test
 that fails without it.
 
+### Window tests
+
+`tests/viewtranscript.h` prints what a `QTreeView` shows, one line per
+visible row with marks for expanded or collapsed, selected and current. A
+window test takes the print before and after the operation it is about and
+checks that only the lines it names changed (`viewTranscriptChanges`), so a
+dropped selection or a re-opened tab fails a test written about something
+else. Keep the scenes small and the expected text inline in the test.
+
+Set `ACQ_TEST_SCREENSHOT_DIR` to a directory and a window test saves PNGs
+there (`QWidget::grab()`) at the steps it names (`saveTestScreenshot`) and,
+with a `ScreenshotOnFailure` in scope, when it fails; unset, nothing is
+saved. The offscreen platform does not draw native dialogs. The
+Tests workflow uploads the directory when a run fails.
+
+```sh
+ACQ_TEST_SCREENSHOT_DIR=$PWD/build/dev/screenshots ctest --preset dev -R tst_mainwindow
+```
+
 ### Live capture (hand-run, not a test)
 
 `live_capture` (`tests/live_capture.cpp`) builds the real `Application` on a
