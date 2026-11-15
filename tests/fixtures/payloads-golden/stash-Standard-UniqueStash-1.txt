@@ -1,0 +1,69 @@
+1 item(s)
+
+=== Infractem Decimation Bow
+id: 876064bb7f23d70ef2c1988f8f2710a2d495caf6a866a1a5f9af05c50fd00db1
+location: #1, " (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="12" y="0" realm="pc"]
+frame type 3, category 'bows', item level 86, 2x4, count 1
+flags: identified, path of building item
+sockets: G-G (2 sockets, 2 linked; r0 g2 b0 w0)
+socket groups: r0 g0 b0 w0; r0 g2 b0 w0
+properties:
+  Attacks per Second = 1.20 (number 1.2)
+  Critical Strike Chance = 7.50% (number 7.5)
+  Physical Damage = 131-278
+elemental damage: 24-35 (type 4)
+dps: 280.8 (physical 245.4, elemental 35.4, chaos 0)
+requirements: Dex 170, Level 53
+mod table:
+  #% increased Critical Strike Chance = 50
+  #% increased Movement Speed = 10
+  #% increased Physical Damage = 77
+  +# to Accuracy Rating = 377
+  +# to Dexterity = 25
+  +# total to Dexterity = 25
+  +#% total increased Physical Damage = 77
+  Adds # to # Physical Damage = 35.5
+  Arrows Pierce all Targets = 0
+  Cannot Leech Life = 0
+path of building:
+  Rarity: UNIQUE
+  Infractem
+  Decimation Bow
+  Unique ID: 876064bb7f23d70ef2c1988f8f2710a2d495caf6a866a1a5f9af05c50fd00db1
+  Item Level: 86
+  Sockets: G-G
+  LevelReq: 53
+  Implicits: 1
+  50% increased Critical Strike Chance
+  +25 to Dexterity
+  77% increased Physical Damage
+  Adds 30 to 41 Physical Damage
+  10% increased Movement Speed
+  +377 to Accuracy Rating
+  Cannot Leech Life
+  Arrows Pierce all Targets
+tooltip:
+  <center><font color='#fff'>Infractem Decimation Bow</font><hr>
+  Bow<br>
+  Physical Damage: <font color='#88f'>131-278</font><br>
+  Elemental Damage: <font color='#960000'>24-35</font><br>
+  Critical Strike Chance: <font color='#88f'>7.50%</font><br>
+  Attacks per Second: <font color='#fff'>1.20</font><br>
+  <hr>
+  Requires Level <font color='#fff'>53</font>, Dex <font color='#fff'>170</font><br>
+  <hr>
+  <font color='#88f'>50% increased Critical Strike Chance</font><br>
+  <hr>
+  <font color='#88f'>+25 to Dexterity<br>
+  77% increased Physical Damage<br>
+  Adds 30 to 41 Physical Damage<br>
+  10% increased Movement Speed<br>
+  +377 to Accuracy Rating<br>
+  Cannot Leech Life<br>
+  Arrows Pierce all Targets</font></center>
+hash: 43ad0615b9a7870655f522b31826cbd1
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="12" y="0" realm="pc"][/spoiler]

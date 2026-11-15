@@ -1,0 +1,43 @@
+1 item(s)
+
+=== Kaom's Heart Glorious Plate
+id: 35a2758249431ccdbac0a8ea55512c60a788a3231f984f516b6dbe1654d799df
+location: #51, "Gear #1 (3.16)"
+forum code: [linkItem location="Stash1" league="Corpus" x="4" y="9" realm="pc"]
+frame type 3, category 'body armours', item level 74, 2x3, count 1
+flags: identified, corrupted, path of building item
+properties:
+  Armour = 776 (number 776)
+requirements: Level 68, Str 158
+mod table:
+  #% increased Fire Damage = 25
+  +# to maximum Life = 500
+  Has no Sockets = 0
+path of building:
+  Rarity: UNIQUE
+  Kaom's Heart
+  Glorious Plate
+  Unique ID: 35a2758249431ccdbac0a8ea55512c60a788a3231f984f516b6dbe1654d799df
+  Item Level: 74
+  LevelReq: 68
+  Implicits: 0
+  Has no Sockets
+  25% increased Fire Damage
+  +500 to maximum Life
+  Corrupted
+tooltip:
+  <center><font color='#fff'>Kaom's Heart Glorious Plate</font><hr>
+  Armour: <font color='#fff'>776</font><br>
+  <hr>
+  Requires Level <font color='#fff'>68</font>, Str <font color='#88f'>158</font><br>
+  <hr>
+  <font color='#88f'>Has no Sockets<br>
+  25% increased Fire Damage<br>
+  +500 to maximum Life</font><br>
+  <hr>
+  <font color='#d20000'>Corrupted</font></center>
+hash: 22ba9e75011b3e5bfd5cc5f999d7cca6
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="4" y="9" realm="pc"][/spoiler]

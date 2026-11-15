@@ -1,0 +1,63 @@
+1 item(s)
+
+=== The Crimson Storm Steelwood Bow
+id: fa04c65ffab4dc8a55fff8c6b780972c21d6cb2ec958a42e73c260b22e30d27f
+location: #1, " (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="42" y="0" realm="pc"]
+frame type 3, category 'bows', item level 85, 2x4, count 1
+flags: identified, path of building item
+sockets: G (1 sockets, 1 linked; r0 g1 b0 w0)
+socket groups: r0 g0 b0 w0; r0 g1 b0 w0
+properties:
+  Attacks per Second = 1.40 (number 1.4)
+  Critical Strike Chance = 7.09% (number 7.09)
+  Physical Damage = 104-154
+dps: 180.6 (physical 180.6, elemental 0, chaos 0)
+requirements: Dex 190, Level 57
+mod table:
+  #% chance to Maim Enemies on Critical Strike with Attacks = 50
+  #% chance to inflict Bleeding on Critical Strike with Attacks = 50
+  #% increased Critical Strike Chance = 29
+  #% increased Movement Speed = 6
+  #% increased Physical Damage = 79
+  +#% total increased Physical Damage = 79
+  Adds # to # Physical Damage against Bleeding Enemies = 133.5
+  Enemies you inflict Bleeding on grant #% increased Flask Charges = 70
+path of building:
+  Rarity: UNIQUE
+  The Crimson Storm
+  Steelwood Bow
+  Unique ID: fa04c65ffab4dc8a55fff8c6b780972c21d6cb2ec958a42e73c260b22e30d27f
+  Item Level: 85
+  Sockets: G
+  LevelReq: 57
+  Implicits: 1
+  6% increased Movement Speed
+  79% increased Physical Damage
+  29% increased Critical Strike Chance
+  50% chance to inflict Bleeding on Critical Strike with Attacks
+  Enemies you inflict Bleeding on grant 70% increased Flask Charges
+  Adds 116 to 151 Physical Damage against Bleeding Enemies
+  50% chance to Maim Enemies on Critical Strike with Attacks
+tooltip:
+  <center><font color='#fff'>The Crimson Storm Steelwood Bow</font><hr>
+  Bow<br>
+  Physical Damage: <font color='#88f'>104-154</font><br>
+  Critical Strike Chance: <font color='#88f'>7.09%</font><br>
+  Attacks per Second: <font color='#fff'>1.40</font><br>
+  <hr>
+  Requires Level <font color='#fff'>57</font>, Dex <font color='#fff'>190</font><br>
+  <hr>
+  <font color='#88f'>6% increased Movement Speed</font><br>
+  <hr>
+  <font color='#88f'>79% increased Physical Damage<br>
+  29% increased Critical Strike Chance<br>
+  50% chance to inflict Bleeding on Critical Strike with Attacks<br>
+  Enemies you inflict Bleeding on grant 70% increased Flask Charges<br>
+  Adds 116 to 151 Physical Damage against Bleeding Enemies<br>
+  50% chance to Maim Enemies on Critical Strike with Attacks</font></center>
+hash: 0b82ccfa9a63e89398eacec1cce90fe9
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="42" y="0" realm="pc"][/spoiler]

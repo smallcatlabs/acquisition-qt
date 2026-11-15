@@ -1,0 +1,262 @@
+items, with those socketed in others: 202
+items without a category: 4
+  Breach Thread
+  Chitinous Leg
+  Expedition Thread
+  Mycelium Core
+mod lines read into mod tables: 777
+mod lines that reach no mod name: 263, 229 of them different
+  
+  +0.2 metres to radius
+  +0.3 metres to radius
+  +0.4 metres to radius
+  +0.55 seconds to Attack Time
+  +0.6 metres to radius
+  +0.9 metres to radius
+  +1 metre to radius
+  +1.7 metres to radius
+  +1.9 metres to radius
+  +14% to [PlayerItemRarity|Item Rarity]
+  +20% to [PlayerItemRarity|Item Rarity]
+  +31% to [PlayerItemRarity|Item Rarity]
+  1 Added Passive Skill is [affliction_notable_bodyguards|Bodyguards]
+  1 Added Passive Skill is [affliction_notable_enduring_composure|Enduring Composure]
+  1 Added Passive Skill is [affliction_notable_life_from_death|Life from Death]
+  1 Added Passive Skill is [affliction_notable_prismatic_heart|Prismatic Heart]
+  1 Added Passive Skill is [affliction_notable_sleepless_sentries|Sleepless Sentries]
+  1 Added Passive Skill is [affliction_notable_streamlined|Streamlined]
+  10% increased Effect of Curse
+  10% increased Effect of Offering
+  100% more Damage with Hits at Maximum Charge Distance
+  14% increased Rogue's Marker value of primary Heist Target
+  15% more Damage with Hits and Ailments for each remaining Chain
+  19% increased Cooldown Recovery Rate for each Normal or Magic Enemy in Area\n98% increased Cooldown Recovery Rate for each Rare or Unique Enemy in Area
+  2% increased Volley frequency per 100 maximum Mana
+  20% chance to Summon a Phantasm when Supported Skills, or Non-Phantasm Minions\nfrom Supported Skills, Hit a Rare or Unique Enemy
+  20% chance to Summon a Sentinel of Purity when you Hit a Rare or Unique Enemy
+  20% increased Area of Effect per 0.1 metre additional Melee Strike Range
+  20% increased Buff Effect
+  21% less Area Damage
+  25% chance to Summon a Sentinel of Absolution on Hitting a Rare or Unique Enemy
+  252 to 378 Base Off Hand Physical Damage
+  30% increased Hit Rate for each blade
+  30% more Damage for each blade
+  34% increased Effect of Chill inflicted with Supported Skills
+  36% increased maximum travel distance
+  5 Blades fall per Volley, which will then Linger in the ground
+  55% more Minion Movement Speed
+  68% chance to Summon a Phantasm when Supported Skills, or Non-Phantasm Minions\nfrom Supported Skills, deal a Killing Blow
+  7% more Attack Damage per Frenzy Charge
+  70% of Damage from Hits is taken from the Buff before Life or Energy Shield\nBuff can take 2209 Damage
+  75% increased Stun Threshold reduction on enemies at Maximum charge distance
+  75% of Damage from Hits is taken from Buff before your Life or Energy Shield\nBuff can take Damage equal to Mana Spent by this Skill's effect
+  79% chance to Summon a Phantasm when Supported Skills, or Non-Phantasm Minions\nfrom Supported Skills, deal a Killing Blow
+  8 to 12 Added Physical Damage per 15 Armour or Evasion Rating on Shield
+  8% increased Job Experience gain
+  9% reduced Hiring Fee
+  <currencyitem>{20x Orb of Fusing}
+  <currencyitem>{5x Currency}
+  <gemitem>{Portal}\r\n<default>{Quality:} <augmented>{+1-20%}
+  A Volley of blades falls every 0.7 seconds
+  A stack of unknown divination cards
+  Added Small Passive Skills grant: 10% increased Projectile Damage
+  Added Small Passive Skills grant: 12% increased Lightning Damage
+  Added Small Passive Skills grant: 12% increased Totem Damage
+  Added Small Passive Skills grant: 15% increased Armour
+  Added Small Passive Skills grant: Minions have 12% increased maximum Life
+  Additional 1.00 seconds Base Duration per extra corpse Consumed
+  Adds an incubated Map item to an equippable item\r\nItem drops after killing 3050 monsters
+  Adds quality that enhances Elemental Damage modifiers on a ring, amulet or belt\r\nReplaces other quality types
+  Allocates [AscendancyAscendant38|Elementalist] if you have the matching modifier on Forbidden Flesh
+  Allocates [additional_spectre278|Death Attunement]
+  Allocates [totem_ranged_notable2670|Watchtowers]
+  Amulet: (30-34)% increased Global Critical Strike Chance
+  Animated Lingering Blades become Bows
+  Animated Lingering Blades deal 17 to 80 Added Attack Physical Damage
+  Area contains a Mirror of Delirium
+  Area contains the Viridian Wildwood
+  Aura grants 10 to 195 added Lightning Damage
+  Aura grants 19% chance to Shock
+  Base Aura radius is 4.2 metres
+  Base Blade radius is 1 metre
+  Base Volley radius is 2.5 metres
+  Base duration is 1.50 seconds
+  Base duration is 11.40 seconds
+  Base duration is 11.80 seconds
+  Base duration is 12.00 seconds
+  Base duration is 2.00 seconds
+  Base duration is 3.00 seconds
+  Base duration is 4.00 seconds
+  Base duration is 40.00 seconds
+  Base duration is 5.00 seconds
+  Base duration is 6.00 seconds
+  Base radius is 1.5 metres
+  Base radius is 2.1 metres
+  Base radius is 2.6 metres
+  Base secondary duration is 15.00 seconds
+  Beam deals 250% more Damage with Hits per Stage after the first\nBeam deals 105% more Damage with Ailments per Stage after the first
+  Belt: (24-27)% increased Flask Life Recovery rate
+  Belt: (26-30)% increased Stun Duration on Enemies
+  Boots: (21-25)% chance to Avoid Elemental Ailments
+  Boots: (61-75) to maximum Life
+  Buff grants 12% more Physical Damage
+  Buff grants Added Lightning Damage equal to 10% of Mana Spent by this Skill's effect
+  Buff grants Immunity to Bleeding
+  Can grow into a Currency item on the Genesis Tree
+  Can grow into an Armour or Jewellery item on the Genesis Tree
+  Can have up to 10 active spinning blades
+  Can use Items requiring up to Level 100
+  Chains +4 Times
+  Choking Miasma
+  Consumes one Cooldown Use per Statue Summoned
+  Creates a portal to the Rogue Harbour from a Town or Hideout\nUsed as Currency for services in the Rogue Harbour
+  Creates a portal to town
+  Cursed enemies have -28% to Elemental Resistances
+  Cursed enemies have -30% to Chaos Resistance
+  Damages 5 nearby Enemies when you gain Stages
+  Damaging Hits always Stun Enemies that are on Full Life
+  Deals 8.2 Base Chaos Damage per second
+  Each Supported Spell will Trigger when its Cooldown is over
+  Enemies Chilled by Supported Skills increase Cold Damage taken by Chill Effect
+  Enemies in Chilling Areas from Supported Skills increase Cold Damage taken by Chill Effect
+  Gain 1 Momentum when you Use a Supported Skill\nGain 1 Momentum every 0.51 seconds while Channelling a Supported Skill\nLose all Momentum if you Move
+  Gain 18 Resolve when you kill a Boss
+  Gloves: (18-20)% increased Global Critical Strike Chance
+  Gloves: (61-75) to maximum Life
+  Golems grant 15% of Melee Damage is taken from your Stone Golems' Life before you
+  Grants Minions +34% Chance to Block Spell Damage
+  Grants Minions +35% Chance to Block Attack Damage
+  Grants Minions 4% of Life Regenerated per Second if they have Blocked recently
+  Grants an atlas passive skill refund point
+  Grows four random Passive Skills when Anointed\nPassive Skills grown are influenced by Oils used when Anointing
+  Helmet: (61-75) to maximum Life
+  Hindering Flasks
+  Identifies an item
+  Less Cooldown Recovery
+  Lightning strikes 1 target within 5 metres
+  Maximum 1 Summoned Golem
+  Maximum 10 Summoned Phantasm
+  Maximum 16 Animated Weapons
+  Maximum 2 Raised Spectres
+  Maximum 3 Summoned Sentinels of Absolution
+  Maximum 4 Summoned Sentinels of Purity
+  Maximum 40 Lingering Blades can be left in the ground at a time
+  Maximum 7 Raised Zombies
+  Maximum of 10 corpses allowed
+  Minion Movement Speed is Capped
+  Minion deals 40% more Damage
+  Minions deal 90% more Physical Damage
+  Minions from Supported Skills are Aggressive
+  Minions from Supported Skills deal 10% increased Damage
+  Minions from Supported Skills deal 38% more Damage
+  Minions from Supported Skills deal 39% more Damage
+  Minions from Supported Skills have 25% less Maximum Life
+  Minions from Supported Skills have 44% chance to grant Feeding Frenzy to you on Hit
+  Minions have 38% more Attack Speed
+  Minions' Attacks deal 126 to 184 additional Physical Damage
+  Modifiers to number of Projectiles instead apply to\nthe number of targets Projectile Splits towards
+  More Attack modifiers\r\nFewer Caster modifiers
+  Other Armour: (130-144) to maximum Life
+  Other Armour: (5-6)% increased Mana Reservation Efficiency of Skills
+  Other Jewellery: Regenerate (24.1-32) Life per second
+  Phantasms last 15 seconds
+  Players have -9% to all maximum Resistances
+  Projectiles Split towards 4 targets
+  Projectiles can Split from hitting terrain
+  Projectiles from Supported Skills Pierce 4 additional Targets
+  Quiver: (0.9-1.1)% of Physical Attack Damage Leeched as Life
+  Quiver: (30-34)% increased Global Critical Strike Chance
+  Raised Spectres are Level 70
+  Raised Spectres are Level 72
+  Razor Dance III
+  Reforges a rare Map item with a modifier making players in area Delirious\n[DeliriumRewardType|Delirium Reward Type]: Trinkets
+  Reforges a rare item with new random modifiers
+  Releases a Stronger Pulse every 3 Pulses\nStronger Pulses always Critically Strike
+  Ring: (18-20)% increased Global Critical Strike Chance
+  Shield: (100-114) to maximum Life
+  Shield: (58-63)% increased Chance to Block
+  Socketed Gems are Supported by Level 20 [SupportSpellTotem::20|Spell Totem Support]
+  Socketed Gems are Supported by Level 25 [SupportFrigidBond::25|Frigid Bond Support]
+  Socketed Gems are Supported by Level 29 [SupportAddedChaosDamage::29|Added Chaos Damage Support]
+  Spawned corpses' level matches the area level, up to a maximum of Level 20
+  Spawns 5 corpses
+  Spends 62% of current Mana
+  Stalking Ruin
+  Strength's Damage bonus applies to all Spell Damage as well for Supported Skills
+  Summon a Sentinel of Purity when you Kill an Enemy
+  Supported Skills Penetrate 32% Lightning Resistance
+  Supported Skills Summon two Totems instead of one
+  Supported Skills also count as Blessing Skills\nYou can only have one Aura on you from your Blessing Skills
+  Supported Skills deal 10% increased Chaos Damage
+  Supported Skills deal 10% increased Cold Damage
+  Supported Skills deal 10% increased Projectile Damage
+  Supported Skills deal 10% increased Spell Damage
+  Supported Skills deal 19% more Projectile Damage
+  Supported Skills deal 23% less Damage
+  Supported Skills deal 26% less Damage when Reoccurring
+  Supported Skills deal 34% more Chaos Damage
+  Supported Skills deal 36% increased Spell Damage
+  Supported Skills deal 39% more Spell Damage
+  Supported Skills deal 9% more Cold Damage
+  Supported Skills deal no Elemental Damage
+  Supported Skills have +2 to maximum number of Summoned Totems
+  Supported Skills have 11% increased Minion Movement Speed
+  Supported Skills have 189 to 284 added Chaos Damage
+  Supported Skills have 19 to 358 added Lightning Damage
+  Supported Skills have 20% increased Attack Speed per Momentum
+  Supported Skills have 20% increased Minion maximum Life
+  Supported Skills have 24% increased Aura effect
+  Supported Skills have 35% increased Attack Speed
+  Supported Skills have 36% more Skill Effect Duration
+  Supported Skills have 38% increased Cast Speed
+  Supported Skills have 39% increased Cast Speed
+  Supported Skills have 49% more Minion maximum Life
+  Supported Skills have 50% increased Attack Speed
+  Supported Skills have 54% increased Attack Speed
+  Supported Skills have 80% less Critical Strike Chance
+  Supported Skills have 9% increased Aura effect
+  Supported Skills have no Reservation
+  Supported Spells gain a Seal every 0.71 seconds, to a maximum of 3 Seals\nSupported Spells are Unsealed when cast, and their effects Reoccur for each Seal lost
+  Swiftness grants 15% increased Movement Speed per Momentum lost
+  This Skill's Cooldown does not recover during its effect
+  This Spell and Minions Convert 50% of Physical Damage to Lightning Damage
+  Trigger Level 15 [FeastOfFlesh::15|Feast of Flesh] every 5 seconds
+  Upgrades a normal item to a rare item
+  Upgrades a normal item to rare or reforges a rare item, guaranteeing one property
+  Uses Leap Slam\r\nUses Sweep\r\nUses Enduring Cry\r\nUses Immortal call\r\nCasts Vitality
+  Weapon: (25-29)% increased Critical Strike Chance
+  Weapon: (3.3-3.6)% of Physical Attack Damage Leeched as Life
+  When you reach 5 Momentum, lose all Momentum and gain\nSwiftness for 2.0 seconds
+  You and nearby Allies Regenerate 10.4 Mana per second
+  You and nearby allies are Immune to all Elemental Ailments
+  You and nearby allies deal 13 to 215 additional Lightning Damage with Attacks
+  You and nearby allies deal 20% more Spell Lightning Damage
+  You and nearby allies gain +39% to all Elemental Resistances
+  Your Non-Blessing Skills which Reserve Mana are Disabled while you have an Aura from a Supported Skill on you
+  [ThreadInfoBreach|Threads] Breaches into an Area
+  [ThreadInfoExpedition|Threads] an Expedition Encounter into an Area
+properties with a value: 477
+properties whose value is not one number: 134
+  
+  Any Heist member can equip this item.
+  Attack Damage
+  Attack Speed
+  Attack Time
+  Build
+  Cast Time
+  Challenge
+  Chaos Damage
+  Cooldown Time
+  Cost
+  Map Area
+  Minor Afflictions
+  Minor Boons
+  Monster Category
+  Original Unique
+  Physical Damage
+  Radius
+  Requires Sacrifice: {0} {1}
+  Reservation
+  Reward
+  Reward: {0}
+  Stack Size

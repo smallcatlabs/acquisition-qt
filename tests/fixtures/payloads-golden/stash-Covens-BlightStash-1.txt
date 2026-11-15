@@ -1,0 +1,30 @@
+2 item(s)
+
+=== Verdant Oil
+id: ee5d504719fcf58dc1360860e1b7c45d462e6ce5f1ddef410595f377f2a5a16a
+location: #4, "Blight"
+forum code: [linkItem location="Stash1" league="Corpus" x="3" y="0" realm="pc"]
+frame type 5, category 'stackable currency', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Stack Size = 1/10
+tooltip:
+  <center><font color='#fff'>Verdant Oil</font><hr>
+  Stack Size: <font color='#fff'>1/10</font></center>
+hash: 23748942f582b8f13c3ae0a50a8ddfd7
+
+=== Putrid Seed Mycelium Core
+id: d64175814267a7752e69acf0c5466ed20ed49247164b4b8e077867dcced40efa
+location: #4, "Blight"
+forum code: [linkItem location="Stash1" league="Corpus" x="13" y="0" realm="pc"]
+frame type 3, category '', item level 74, 1x1, count 1
+flags: identified
+tooltip:
+  <center><font color='#fff'>Putrid Seed Mycelium Core</font><hr>
+  <font color='#88f'>Grows four random Passive Skills when Anointed\nPassive Skills grown are influenced by Oils used when Anointing</font></center>
+hash: a722a2a9350b604feed984d8847add65
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="3" y="0" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="13" y="0" realm="pc"][/spoiler]

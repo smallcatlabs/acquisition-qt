@@ -1,0 +1,70 @@
+2 item(s)
+
+=== Kiara's Determination Silver Flask
+id: 362a674c03e318bb89b96283e177a0c1f94b60b60c8fb5d95ec9c64809264e23
+location: #9, "Flasks"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"]
+frame type 3, category 'utility flasks', item level 70, 1x2, count 1
+flags: identified, path of building item
+properties:
+  Consumes {0} of {1} Charges on use = 40 (number 40)
+  Currently has {0} Charges = 0 (number 0)
+  Lasts {0} Seconds = 2.30 (number 2.3)
+requirements: Level 27
+mod table:
+  #% reduced Duration = 61
+  Immunity to Freeze, Chill, Curses and Stuns during Effect = 0
+path of building:
+  Rarity: UNIQUE
+  Kiara's Determination
+  Silver Flask
+  Unique ID: 362a674c03e318bb89b96283e177a0c1f94b60b60c8fb5d95ec9c64809264e23
+  Item Level: 70
+  LevelReq: 27
+  Implicits: 0
+  61% reduced Duration
+  Immunity to Freeze, Chill, Curses and Stuns during Effect
+tooltip:
+  <center><font color='#fff'>Kiara's Determination Silver Flask</font><hr>
+  Lasts <font color='#88f'>2.30</font> Seconds<br>
+  Consumes <font color='#fff'>40</font> of <font color='#fff'>60</font> Charges on use<br>
+  Currently has <font color='#fff'>0</font> Charges<br>
+  <hr>
+  Requires Level <font color='#fff'>27</font><br>
+  <hr>
+  <font color='#88f'>61% reduced Duration<br>
+  Immunity to Freeze, Chill, Curses and Stuns during Effect</font></center>
+hash: 22d3cd9f1ed3e4eb29ea4da3eaeb783d
+
+=== Amethyst Flask
+id: 5818e5971121cc2be63b0becad188abf32a95bb98374c4c1a51556c2f5a3d237
+location: #9, "Flasks"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="2" realm="pc"]
+frame type 0, category 'utility flasks', item level 79, 1x2, count 1
+flags: identified, path of building item
+properties:
+  Consumes {0} of {1} Charges on use = 35 (number 35)
+  Currently has {0} Charges = 0 (number 0)
+  Lasts {0} Seconds = 6.50 (number 6.5)
+requirements: Level 18
+path of building:
+  Rarity: NORMAL
+  
+  Amethyst Flask
+  Unique ID: 5818e5971121cc2be63b0becad188abf32a95bb98374c4c1a51556c2f5a3d237
+  Item Level: 79
+  LevelReq: 18
+  Implicits: 0
+tooltip:
+  <center><font color='#fff'>Amethyst Flask</font><hr>
+  Lasts <font color='#fff'>6.50</font> Seconds<br>
+  Consumes <font color='#fff'>35</font> of <font color='#fff'>65</font> Charges on use<br>
+  Currently has <font color='#fff'>0</font> Charges<br>
+  <hr>
+  Requires Level <font color='#fff'>18</font></center>
+hash: 8d3febffdebbf435a5b09ffd8006d73e
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="2" realm="pc"][/spoiler]

@@ -1,0 +1,98 @@
+3 item(s)
+
+=== Ice Spear of Splitting
+id: 7ca35da9e35e007358375f74067658385cf44d925fb573e5894f48b928bd57b9
+location: #10, "Gems"
+forum code: [linkItem location="Stash1" league="Corpus" x="8" y="0" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cast Time = 0.70 sec
+  Cost = 9 Mana
+  Critical Strike Chance = 7.50% (number 7.5)
+  Effectiveness of Added Damage = 330% (number 330)
+  Level = 2 (number 2)
+requirements: Int 39, Level 15
+mod table:
+  Deals # to # Cold Damage = 90
+  Second form has #% more Projectile Speed = 300
+tooltip:
+  <center><font color='#fff'>Ice Spear of Splitting</font><hr>
+  Spell, Projectile, Cold<br>
+  Level: <font color='#fff'>2</font><br>
+  Cost: <font color='#fff'>9 Mana</font><br>
+  Cast Time: <font color='#fff'>0.70 sec</font><br>
+  Critical Strike Chance: <font color='#fff'>7.50%</font><br>
+  Effectiveness of Added Damage: <font color='#fff'>330%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>15</font>, Int <font color='#fff'>39</font><br>
+  <hr>
+  <font color='#88f'>Deals 72 to 108 Cold Damage<br>
+  Modifiers to number of Projectiles instead apply to\nthe number of targets Projectile Splits towards<br>
+  Projectiles Split towards 4 targets<br>
+  Second form has 300% more Projectile Speed<br>
+  Projectiles can Split from hitting terrain</font></center>
+hash: 09c21f8fefad75f9f1df5b2c437b8f28
+
+=== Lightning Tendrils
+id: e4748ff1f1c6fc953b28263766030306512170b3d5dccd9d738e9b187d030493
+location: #10, "Gems"
+forum code: [linkItem location="Stash1" league="Corpus" x="9" y="0" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cast Time = 0.20 sec
+  Cost = 1 Mana
+  Critical Strike Chance = 6.00% (number 6)
+  Effectiveness of Added Damage = 80% (number 80)
+  Level = 1 (number 1)
+requirements: Level 1
+mod table:
+  Deals # to # Lightning Damage = 3.5
+tooltip:
+  <center><font color='#fff'>Lightning Tendrils</font><hr>
+  Critical, Spell, AoE, Lightning, Channelling<br>
+  Level: <font color='#fff'>1</font><br>
+  Cost: <font color='#fff'>1 Mana</font><br>
+  Cast Time: <font color='#fff'>0.20 sec</font><br>
+  Critical Strike Chance: <font color='#fff'>6.00%</font><br>
+  Effectiveness of Added Damage: <font color='#fff'>80%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>1</font><br>
+  <hr>
+  <font color='#88f'>Deals 1 to 6 Lightning Damage<br>
+  Releases a Stronger Pulse every 3 Pulses\nStronger Pulses always Critically Strike<br>
+  Base radius is 2.6 metres</font></center>
+hash: 6c01887c09754de242389f91c88b5a41
+
+=== Clarity
+id: 49da23ac279008714a166648789081933a184d3c7422481440c6a0b715c5d226
+location: #10, "Gems"
+forum code: [linkItem location="Stash1" league="Corpus" x="6" y="1" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cast Time = Instant
+  Cooldown Time = 1.20 sec
+  Level = 5 (number 5)
+  Reservation = 89 Mana
+requirements: Int 46, Level 25
+tooltip:
+  <center><font color='#fff'>Clarity</font><hr>
+  Aura, Spell, AoE<br>
+  Level: <font color='#fff'>5</font><br>
+  Reservation: <font color='#fff'>89 Mana</font><br>
+  Cooldown Time: <font color='#fff'>1.20 sec</font><br>
+  Cast Time: <font color='#fff'>Instant</font><br>
+  <hr>
+  Requires Level <font color='#fff'>25</font>, Int <font color='#fff'>46</font><br>
+  <hr>
+  <font color='#88f'>+0.4 metres to radius<br>
+  You and nearby Allies Regenerate 10.4 Mana per second</font></center>
+hash: 1dd8ef904d003095b48685aa880e7e6f
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="8" y="0" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="9" y="0" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="6" y="1" realm="pc"][/spoiler]

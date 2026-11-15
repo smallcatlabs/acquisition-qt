@@ -1,0 +1,44 @@
+1 item(s)
+
+=== Foulborn Goldrim Leather Cap
+id: b8254f31af604c10830af0ff7503c4d08e68e66ffb239131f830e67764ae3de7
+location: #28, "Foulborn Uniques (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="10" y="0" realm="pc"]
+frame type 3, category 'helmets', item level 68, 2x2, count 1
+flags: identified, mutated, path of building item
+sockets: G-G-G-G (4 sockets, 4 linked; r0 g4 b0 w0)
+socket groups: r0 g0 b0 w0; r0 g4 b0 w0
+properties:
+  Evasion Rating = 70 (number 70)
+mod table:
+  #% increased Rarity of Items found = 10
+  +# to Evasion Rating = 47
+  +#% to Chaos Resistance = 67
+  +#% total Resistance = 67
+  +#% total to Chaos Resistance = 67
+  Reflects # Physical Damage to Melee Attackers = 4
+path of building:
+  Rarity: UNIQUE
+  Foulborn Goldrim
+  Leather Cap
+  Unique ID: b8254f31af604c10830af0ff7503c4d08e68e66ffb239131f830e67764ae3de7
+  Item Level: 68
+  Sockets: G-G-G-G
+  Implicits: 0
+  +47 to Evasion Rating
+  10% increased Rarity of Items found
+  Reflects 4 Physical Damage to Melee Attackers
+  {mutated}+67% to Chaos Resistance
+tooltip:
+  <center><font color='#fff'>Foulborn Goldrim Leather Cap</font><hr>
+  Evasion Rating: <font color='#88f'>70</font><br>
+  <hr>
+  <font color='#88f'>+47 to Evasion Rating<br>
+  10% increased Rarity of Items found<br>
+  Reflects 4 Physical Damage to Melee Attackers</font><br>
+  <font color='#cd2285'>+67% to Chaos Resistance</font></center>
+hash: fb0b571456ed84b8869dc43d4afe3554
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="10" y="0" realm="pc"][/spoiler]

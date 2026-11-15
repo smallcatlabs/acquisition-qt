@@ -1,0 +1,137 @@
+3 item(s)
+
+=== Dire Peak Eternal Burgonet
+id: 48767d984d12285573d6869ca6c50ca80885df42d503d5bdf181a0b7e8170d26
+location: #23, "~price 20 chaos"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="7" realm="pc"]
+frame type 2, category 'helmets', item level 77, 2x2, count 1
+flags: identified, path of building item
+influence: crusader, crusader
+sockets: R (1 sockets, 1 linked; r1 g0 b0 w0)
+socket groups: r0 g0 b0 w0; r1 g0 b0 w0
+properties:
+  Armour = 500 (number 500)
+requirements: Level 69, Str 138
+mod table:
+  #% increased Armour = 34
+  #% increased Stun and Block Recovery = 15
+  #% of Physical Damage from Hits taken as Lightning Damage = 6
+  +# to Strength = 42
+  +# to maximum Fortification = 3
+  +# total to Strength = 42
+path of building:
+  Rarity: RARE
+  Dire Peak
+  Eternal Burgonet
+  Unique ID: 48767d984d12285573d6869ca6c50ca80885df42d503d5bdf181a0b7e8170d26
+  Item Level: 77
+  Sockets: R
+  LevelReq: 69
+  Implicits: 0
+  +42 to Strength
+  34% increased Armour
+  15% increased Stun and Block Recovery
+  6% of Physical Damage from Hits taken as Lightning Damage
+  +3 to maximum Fortification
+tooltip:
+  <center><font color='#fff'>Dire Peak Eternal Burgonet</font><hr>
+  Armour: <font color='#88f'>500</font><br>
+  <hr>
+  Requires Level <font color='#fff'>69</font>, Str <font color='#fff'>138</font><br>
+  <hr>
+  <font color='#88f'>+42 to Strength<br>
+  34% increased Armour<br>
+  15% increased Stun and Block Recovery<br>
+  6% of Physical Damage from Hits taken as Lightning Damage<br>
+  +3 to maximum Fortification</font></center>
+hash: 9f67e1eed7d4752e34e80cbf77666ea6
+
+=== Grim Knot Gold Ring
+id: 4d00b6b4aa3a482416041f424e16f75e8050fa437764e456352f6c696796126a
+location: #23, "~price 20 chaos"
+forum code: [linkItem location="Stash1" league="Corpus" x="5" y="2" realm="pc"]
+frame type 2, category 'rings', item level 73, 1x1, count 1
+flags: identified, path of building item
+influence: hunter, hunter
+requirements: Level 54
+mod table:
+  #% increased Rarity of Items found = 9
+  #% of Physical Attack Damage Leeched as Mana = 0.4
+  +#% to Lightning Resistance = 19
+  +#% to all Elemental Resistances = 11
+  +#% total Elemental Resistance = 52
+  +#% total Resistance = 52
+  +#% total to Cold Resistance = 11
+  +#% total to Fire Resistance = 11
+  +#% total to Lightning Resistance = 30
+  You and your Minions take #% reduced Reflected Elemental Damage = 33
+path of building:
+  Rarity: RARE
+  Grim Knot
+  Gold Ring
+  Unique ID: 4d00b6b4aa3a482416041f424e16f75e8050fa437764e456352f6c696796126a
+  Item Level: 73
+  LevelReq: 54
+  Implicits: 1
+  9% increased Rarity of Items found
+  +11% to all Elemental Resistances
+  +19% to Lightning Resistance
+  0.4% of Physical Attack Damage Leeched as Mana
+  You and your Minions take 33% reduced Reflected Elemental Damage
+tooltip:
+  <center><font color='#fff'>Grim Knot Gold Ring</font><hr>
+  Requires Level <font color='#fff'>54</font><br>
+  <hr>
+  <font color='#88f'>9% increased Rarity of Items found</font><br>
+  <hr>
+  <font color='#88f'>+11% to all Elemental Resistances<br>
+  +19% to Lightning Resistance<br>
+  0.4% of Physical Attack Damage Leeched as Mana<br>
+  You and your Minions take 33% reduced Reflected Elemental Damage</font></center>
+hash: 93067f87d292fba49e936af058f134eb
+
+=== Ambush Cord Rustic Sash
+id: 89674cbe1d1ae679597b58653a4a52b64964358529236a15a07c939a3b718d4e
+location: #23, "~price 20 chaos"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="11" realm="pc"]
+frame type 2, category 'belts', item level 69, 2x1, count 1
+flags: identified, path of building item
+influence: elder, elder
+requirements: Level 54
+mod table:
+  #% increased Flask Mana Recovery rate = 20
+  #% increased Global Physical Damage = 16
+  #% increased Melee Damage during any Flask Effect = 22
+  +# to maximum Life = 65
+  +#% total increased Physical Damage = 16
+  Reflects # Physical Damage to Melee Attackers = 1
+path of building:
+  Rarity: RARE
+  Ambush Cord
+  Rustic Sash
+  Unique ID: 89674cbe1d1ae679597b58653a4a52b64964358529236a15a07c939a3b718d4e
+  Item Level: 69
+  LevelReq: 54
+  Implicits: 1
+  16% increased Global Physical Damage
+  +65 to maximum Life
+  20% increased Flask Mana Recovery rate
+  Reflects 1 Physical Damage to Melee Attackers
+  22% increased Melee Damage during any Flask Effect
+tooltip:
+  <center><font color='#fff'>Ambush Cord Rustic Sash</font><hr>
+  Requires Level <font color='#fff'>54</font><br>
+  <hr>
+  <font color='#88f'>16% increased Global Physical Damage</font><br>
+  <hr>
+  <font color='#88f'>+65 to maximum Life<br>
+  20% increased Flask Mana Recovery rate<br>
+  Reflects 1 Physical Damage to Melee Attackers<br>
+  22% increased Melee Damage during any Flask Effect</font></center>
+hash: 3bc12ebc75bea1ded463d3803422edb3
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="7" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="5" y="2" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="11" realm="pc"][/spoiler]

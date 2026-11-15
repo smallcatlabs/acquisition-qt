@@ -1,0 +1,60 @@
+2 item(s)
+
+=== Screaming Essence of Loathing
+id: 990181929243248cc125e389183e3e516a32a1ac0635e6b8bba3d9cead429ff4
+location: #7, "Essence"
+forum code: [linkItem location="Stash1" league="Corpus" x="77" y="0" realm="pc"]
+frame type 5, category 'stackable currency', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Stack Size = 1/10
+tooltip:
+  <center><font color='#fff'>Screaming Essence of Loathing</font><hr>
+  Stack Size: <font color='#fff'>1/10</font><br>
+  <hr>
+  <font color='#88f'>Upgrades a normal item to rare or reforges a rare item, guaranteeing one property<br>
+  <br>
+  Quiver: (30-34)% increased Global Critical Strike Chance<br>
+  Weapon: (25-29)% increased Critical Strike Chance<br>
+  <br>
+  Gloves: (18-20)% increased Global Critical Strike Chance<br>
+  Boots: (21-25)% chance to Avoid Elemental Ailments<br>
+  Shield: (58-63)% increased Chance to Block<br>
+  Other Armour: (5-6)% increased Mana Reservation Efficiency of Skills<br>
+  <br>
+  Amulet: (30-34)% increased Global Critical Strike Chance<br>
+  Ring: (18-20)% increased Global Critical Strike Chance<br>
+  Belt: (26-30)% increased Stun Duration on Enemies</font></center>
+hash: 9c89c31c3f25e941438a40d56e40a157
+
+=== Screaming Essence of Greed
+id: d55fd60b6ddfef077cde507b09c9b914440163f82cb35297f03b372e39ad2c6e
+location: #7, "Essence"
+forum code: [linkItem location="Stash1" league="Corpus" x="18" y="0" realm="pc"]
+frame type 5, category 'stackable currency', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Stack Size = 1/10
+tooltip:
+  <center><font color='#fff'>Screaming Essence of Greed</font><hr>
+  Stack Size: <font color='#fff'>1/10</font><br>
+  <hr>
+  <font color='#88f'>Upgrades a normal item to rare or reforges a rare item, guaranteeing one property<br>
+  <br>
+  Quiver: (0.9-1.1)% of Physical Attack Damage Leeched as Life<br>
+  Weapon: (3.3-3.6)% of Physical Attack Damage Leeched as Life<br>
+  <br>
+  Gloves: (61-75) to maximum Life<br>
+  Boots: (61-75) to maximum Life<br>
+  Helmet: (61-75) to maximum Life<br>
+  Shield: (100-114) to maximum Life<br>
+  Other Armour: (130-144) to maximum Life<br>
+  <br>
+  Belt: (24-27)% increased Flask Life Recovery rate<br>
+  Other Jewellery: Regenerate (24.1-32) Life per second</font></center>
+hash: f3bf298177f40ae98e38b2063a01f4be
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="77" y="0" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="18" y="0" realm="pc"][/spoiler]

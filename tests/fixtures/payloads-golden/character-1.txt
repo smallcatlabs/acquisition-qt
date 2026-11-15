@@ -1,0 +1,1445 @@
+42 item(s)
+
+=== The Black Cane Royal Sceptre
+id: f567596cb1b259e891fa10a858db20662a39d13d67f7d35466d78277b8b5b49b
+location: ExampleCharacter1
+forum code: [linkItem location="Offhand" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 3, category 'sceptres', item level 73, 2x3, count 1
+flags: identified, path of building item
+sockets: W-W-W (3 sockets, 3 linked; r0 g0 b0 w3)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w3
+properties:
+  Attacks per Second = 1.20 (number 1.2)
+  Critical Strike Chance = 7.00% (number 7)
+  Physical Damage = 34-80
+  Weapon Range: {0} metres = 1.1 (number 1.1)
+dps: 68.4 (physical 68.4, elemental 0, chaos 0)
+requirements: Int 148, Level 68, Str 95
+mod table:
+  #% increased Cast Speed = 15
+  #% increased Elemental Damage = 24
+  #% increased Mana Regeneration Rate = 59
+  +# to Intelligence = 25
+  +# total to Intelligence = 25
+  +#% total Cast Speed = 15
+  Each Summoned Phantasm grants you Phantasmal Might = 0
+  Minions deal #% increased Damage = 48
+path of building:
+  Rarity: UNIQUE
+  The Black Cane
+  Royal Sceptre
+  Unique ID: f567596cb1b259e891fa10a858db20662a39d13d67f7d35466d78277b8b5b49b
+  Item Level: 73
+  Sockets: W-W-W
+  LevelReq: 68
+  Implicits: 1
+  24% increased Elemental Damage
+  +25 to Intelligence
+  15% increased Cast Speed
+  59% increased Mana Regeneration Rate
+  Minions deal 48% increased Damage
+  Each Summoned Phantasm grants you Phantasmal Might
+tooltip:
+  <center><font color='#fff'>The Black Cane Royal Sceptre</font><hr>
+  Sceptre<br>
+  Physical Damage: <font color='#fff'>34-80</font><br>
+  Critical Strike Chance: <font color='#fff'>7.00%</font><br>
+  Attacks per Second: <font color='#fff'>1.20</font><br>
+  Weapon Range: <font color='#fff'>1.1</font> metres<br>
+  <hr>
+  Requires Level <font color='#fff'>68</font>, Str <font color='#fff'>95</font>, Int <font color='#fff'>148</font><br>
+  <hr>
+  <font color='#88f'>24% increased Elemental Damage</font><br>
+  <hr>
+  <font color='#88f'>+25 to Intelligence<br>
+  15% increased Cast Speed<br>
+  59% increased Mana Regeneration Rate<br>
+  Minions deal 48% increased Damage<br>
+  Each Summoned Phantasm grants you Phantasmal Might</font></center>
+hash: 0e09abdb9ee1f0cb32259949c32db3dc
+
+=== Herald of Purity
+id: 7390e694dbeff0e38721f7f32e6f6a2895e2834ac0a4bb8025d50beb541804aa
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="Offhand" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cast Time = Instant
+  Cooldown Time = 1.00 sec
+  Level = 19 (number 19)
+  Reservation = 25% Mana
+requirements: Int 66, Level 68, Str 95
+mod table:
+  Minions have #% more Maximum Life = 36
+tooltip:
+  <center><font color='#fff'>Herald of Purity</font><hr>
+  Spell, Herald, Minion, Duration, Physical<br>
+  Level: <font color='#fff'>19</font><br>
+  Reservation: <font color='#fff'>25% Mana</font><br>
+  Cooldown Time: <font color='#fff'>1.00 sec</font><br>
+  Cast Time: <font color='#fff'>Instant</font><br>
+  <hr>
+  Requires Level <font color='#fff'>68</font>, Str <font color='#fff'>95</font>, Int <font color='#fff'>66</font><br>
+  <hr>
+  <font color='#88f'>Base duration is 12.00 seconds<br>
+  Maximum 4 Summoned Sentinels of Purity<br>
+  Minions have 36% more Maximum Life<br>
+  Summon a Sentinel of Purity when you Kill an Enemy<br>
+  20% chance to Summon a Sentinel of Purity when you Hit a Rare or Unique Enemy<br>
+  Buff grants 12% more Physical Damage<br>
+  Minions deal 90% more Physical Damage</font></center>
+hash: df4b10cf673298c8e75da62bc29fde17
+
+=== Frostblink
+id: 5d659875816c3d43cbc0e136b6a82ede5d0628de5400c7b08d933df171fd49f2
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="Offhand" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cast Time = Instant
+  Cooldown Time = 2.65 sec
+  Cost = 22 Mana
+  Critical Strike Chance = 7.50% (number 7.5)
+  Effectiveness of Added Damage = 250% (number 250)
+  Level = 19 (number 19)
+requirements: Int 148, Level 67
+mod table:
+  Deals # to # Cold Damage = 1197.5
+tooltip:
+  <center><font color='#fff'>Frostblink</font><hr>
+  Spell, Movement, Duration, Cold, Travel, Blink, AoE<br>
+  Level: <font color='#fff'>19</font><br>
+  Cost: <font color='#fff'>22 Mana</font><br>
+  Cooldown Time: <font color='#fff'>2.65 sec</font><br>
+  Cast Time: <font color='#fff'>Instant</font><br>
+  Critical Strike Chance: <font color='#fff'>7.50%</font><br>
+  Effectiveness of Added Damage: <font color='#fff'>250%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>67</font>, Int <font color='#fff'>148</font><br>
+  <hr>
+  <font color='#88f'>Deals 958 to 1437 Cold Damage<br>
+  Base duration is 3.00 seconds<br>
+  +0.3 metres to radius<br>
+  19% increased Cooldown Recovery Rate for each Normal or Magic Enemy in Area\n98% increased Cooldown Recovery Rate for each Rare or Unique Enemy in Area<br>
+  36% increased maximum travel distance</font></center>
+hash: 0c2f76c0ac6de1c09787775992fdc4cb
+
+=== Crackling Lead Sceptre
+id: 826c1c7e89a52519614e2d1ed600ec75622c6031184f2c7a7b71f12fe7ab8e9f
+location: ExampleCharacter1
+forum code: [linkItem location="Weapon2" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 1, category 'sceptres', item level 47, 2x3, count 1
+flags: identified, path of building item
+sockets: W-W W (3 sockets, 2 linked; r0 g0 b0 w3)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w2; r0 g0 b0 w1
+properties:
+  Attacks per Second = 1.25 (number 1.25)
+  Critical Strike Chance = 7.00% (number 7)
+  Physical Damage = 38-57
+  Weapon Range: {0} metres = 1.1 (number 1.1)
+dps: 59.375 (physical 59.375, elemental 0, chaos 0)
+requirements: Int 105, Level 68, Str 95
+mod table:
+  #% increased Elemental Damage = 22
+  Adds # to # Lightning Damage to Spells = 27
+path of building:
+  Rarity: MAGIC
+  
+  Crackling Lead Sceptre
+  Unique ID: 826c1c7e89a52519614e2d1ed600ec75622c6031184f2c7a7b71f12fe7ab8e9f
+  Item Level: 47
+  Sockets: W-W W
+  LevelReq: 68
+  Implicits: 1
+  22% increased Elemental Damage
+  Adds 2 to 52 Lightning Damage to Spells
+tooltip:
+  <center><font color='#fff'>Crackling Lead Sceptre</font><hr>
+  Sceptre<br>
+  Physical Damage: <font color='#fff'>38-57</font><br>
+  Critical Strike Chance: <font color='#fff'>7.00%</font><br>
+  Attacks per Second: <font color='#fff'>1.25</font><br>
+  Weapon Range: <font color='#fff'>1.1</font> metres<br>
+  <hr>
+  Requires Level <font color='#fff'>68</font>, Str <font color='#fff'>95</font>, Int <font color='#fff'>105</font><br>
+  <hr>
+  <font color='#88f'>22% increased Elemental Damage</font><br>
+  <hr>
+  <font color='#88f'>Adds 2 to 52 Lightning Damage to Spells</font></center>
+hash: bd64746c94acc3b7adb7ad932700e67f
+
+=== Lightning Penetration Support
+id: 97646a813855f3acc9e5ea9e61ba9295c304824f33776658f2da47ee65e1c45d
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="Weapon2" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'support gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cost & Reservation Multiplier = 130% (number 130)
+  Level = 18 (number 18)
+requirements: Int 105, Level 66
+tooltip:
+  <center><font color='#fff'>Lightning Penetration Support</font><hr>
+  Lightning, Support<br>
+  Level: <font color='#fff'>18</font><br>
+  Cost & Reservation Multiplier: <font color='#fff'>130%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>66</font>, Int <font color='#fff'>105</font><br>
+  <hr>
+  <font color='#88f'>Supported Skills Penetrate 32% Lightning Resistance</font></center>
+hash: 7a25952f48df29794a7c0178b88c6d92
+
+=== Absolution
+id: ec65fec6d46dd19069b72ed127982fa7b4205557efa993007b38699cd949351a
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="Weapon2" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cast Time = 0.65 sec
+  Cost = 26 Mana
+  Critical Strike Chance = 6.00% (number 6)
+  Effectiveness of Added Damage = 200% (number 200)
+  Level = 19 (number 19)
+requirements: Int 66, Level 68, Str 95
+mod table:
+  Deals # to # Physical Damage = 977.5
+tooltip:
+  <center><font color='#fff'>Absolution</font><hr>
+  Spell, Minion, Duration, Physical, Lightning, AoE<br>
+  Level: <font color='#fff'>19</font><br>
+  Cost: <font color='#fff'>26 Mana</font><br>
+  Cast Time: <font color='#fff'>0.65 sec</font><br>
+  Critical Strike Chance: <font color='#fff'>6.00%</font><br>
+  Effectiveness of Added Damage: <font color='#fff'>200%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>68</font>, Str <font color='#fff'>95</font>, Int <font color='#fff'>66</font><br>
+  <hr>
+  <font color='#88f'>Deals 782 to 1173 Physical Damage<br>
+  Base duration is 3.00 seconds<br>
+  Base secondary duration is 15.00 seconds<br>
+  Maximum 3 Summoned Sentinels of Absolution<br>
+  +0.6 metres to radius<br>
+  25% chance to Summon a Sentinel of Absolution on Hitting a Rare or Unique Enemy<br>
+  This Spell and Minions Convert 50% of Physical Damage to Lightning Damage</font></center>
+hash: a441b93670035d873449b70990a54096
+
+=== Boarding Axe
+id: 6d6bc16215aefd456052d8d17456c99745b59230e294208773318797553f4655
+location: ExampleCharacter1
+forum code: [linkItem location="Offhand2" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 0, category 'one hand axes', item level 15, 2x3, count 1
+flags: identified, path of building item
+sockets: W-W-W (3 sockets, 3 linked; r0 g0 b0 w3)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w3
+properties:
+  Attacks per Second = 1.50 (number 1.5)
+  Critical Strike Chance = 5.00% (number 5)
+  Physical Damage = 11-21
+  Weapon Range: {0} metres = 1.1 (number 1.1)
+dps: 24 (physical 24, elemental 0, chaos 0)
+requirements: Dex 19, Level 11, Str 28
+path of building:
+  Rarity: NORMAL
+  
+  Boarding Axe
+  Unique ID: 6d6bc16215aefd456052d8d17456c99745b59230e294208773318797553f4655
+  Item Level: 15
+  Sockets: W-W-W
+  LevelReq: 11
+  Implicits: 0
+tooltip:
+  <center><font color='#fff'>Boarding Axe</font><hr>
+  One Handed Axe<br>
+  Physical Damage: <font color='#fff'>11-21</font><br>
+  Critical Strike Chance: <font color='#fff'>5.00%</font><br>
+  Attacks per Second: <font color='#fff'>1.50</font><br>
+  Weapon Range: <font color='#fff'>1.1</font> metres<br>
+  <hr>
+  Requires Level <font color='#fff'>11</font>, Str <font color='#fff'>28</font>, Dex <font color='#fff'>19</font></center>
+hash: d4f9c580bf4917963160c32198e10815
+
+=== Eternal Life Flask
+id: 6eb44ef49828efa1caf4fcc432ec77401c78f48b28458202dadb5d00cd3d03f8
+location: ExampleCharacter1
+forum code: [linkItem location="Flask" character="ExampleCharacter1" x="1" y="0" realm="pc"]
+frame type 0, category 'life flasks', item level 68, 1x2, count 1
+flags: identified, path of building item
+properties:
+  Consumes {0} of {1} Charges on use = 15 (number 15)
+  Currently has {0} Charges = 45 (number 45)
+  Recovers {0} Life over {1} Seconds = 2080 (number 2080)
+requirements: Level 65
+path of building:
+  Rarity: NORMAL
+  
+  Eternal Life Flask
+  Unique ID: 6eb44ef49828efa1caf4fcc432ec77401c78f48b28458202dadb5d00cd3d03f8
+  Item Level: 68
+  LevelReq: 65
+  Implicits: 0
+tooltip:
+  <center><font color='#fff'>Eternal Life Flask</font><hr>
+  Recovers <font color='#fff'>2080</font> Life over <font color='#fff'>2</font> Seconds<br>
+  Consumes <font color='#fff'>15</font> of <font color='#fff'>45</font> Charges on use<br>
+  Currently has <font color='#fff'>45</font> Charges<br>
+  <hr>
+  Requires Level <font color='#fff'>65</font></center>
+hash: e14444d1bf49c85195df24d09ae18a7d
+
+=== Divine Life Flask
+id: 82050b016b733b54b5c6cf4731a63d5c3a9316d0cc228759303605e45e14b1f8
+location: ExampleCharacter1
+forum code: [linkItem location="Flask" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 0, category 'life flasks', item level 61, 1x2, count 1
+flags: identified, path of building item
+properties:
+  Consumes {0} of {1} Charges on use = 15 (number 15)
+  Currently has {0} Charges = 45 (number 45)
+  Recovers {0} Life over {1} Seconds = 2400 (number 2400)
+requirements: Level 60
+path of building:
+  Rarity: NORMAL
+  
+  Divine Life Flask
+  Unique ID: 82050b016b733b54b5c6cf4731a63d5c3a9316d0cc228759303605e45e14b1f8
+  Item Level: 61
+  LevelReq: 60
+  Implicits: 0
+tooltip:
+  <center><font color='#fff'>Divine Life Flask</font><hr>
+  Recovers <font color='#fff'>2400</font> Life over <font color='#fff'>3.50</font> Seconds<br>
+  Consumes <font color='#fff'>15</font> of <font color='#fff'>45</font> Charges on use<br>
+  Currently has <font color='#fff'>45</font> Charges<br>
+  <hr>
+  Requires Level <font color='#fff'>60</font></center>
+hash: ed9bd7d2550f5331e8a2da91aafc3f13
+
+=== Eternal Mana Flask
+id: ac4835c95762b8338c844e61c770e1c5c7d627fd417827ff007d2b1c0ce5ce6d
+location: ExampleCharacter1
+forum code: [linkItem location="Flask" character="ExampleCharacter1" x="2" y="0" realm="pc"]
+frame type 0, category 'mana flasks', item level 68, 1x2, count 1
+flags: identified, path of building item
+properties:
+  Consumes {0} of {1} Charges on use = 8 (number 8)
+  Currently has {0} Charges = 42 (number 42)
+  Recovers {0} Mana over {1} Seconds = 1800 (number 1800)
+requirements: Level 65
+path of building:
+  Rarity: NORMAL
+  
+  Eternal Mana Flask
+  Unique ID: ac4835c95762b8338c844e61c770e1c5c7d627fd417827ff007d2b1c0ce5ce6d
+  Item Level: 68
+  LevelReq: 65
+  Implicits: 0
+tooltip:
+  <center><font color='#fff'>Eternal Mana Flask</font><hr>
+  Recovers <font color='#fff'>1800</font> Mana over <font color='#fff'>7</font> Seconds<br>
+  Consumes <font color='#fff'>8</font> of <font color='#fff'>42</font> Charges on use<br>
+  Currently has <font color='#fff'>42</font> Charges<br>
+  <hr>
+  Requires Level <font color='#fff'>65</font></center>
+hash: e46a620b7a85b8d2245869bcdf9c6537
+
+=== Medic's Quicksilver Flask of the Hare
+id: 5b44c2f87758b5dcfc67689fcdc75d34e8c89cdecd248809d396747e6c85fe2c
+location: ExampleCharacter1
+forum code: [linkItem location="Flask" character="ExampleCharacter1" x="3" y="0" realm="pc"]
+frame type 1, category 'utility flasks', item level 13, 1x2, count 1
+flags: identified, path of building item
+properties:
+  Consumes {0} of {1} Charges on use = 30 (number 30)
+  Currently has {0} Charges = 60 (number 60)
+  Lasts {0} Seconds = 6 (number 6)
+requirements: Level 6
+mod table:
+  #% chance to gain a Flask Charge when you deal a Critical Strike = 15
+  #% increased Movement Speed during Effect = 8
+path of building:
+  Rarity: MAGIC
+  
+  Medic's Quicksilver Flask of the Hare
+  Unique ID: 5b44c2f87758b5dcfc67689fcdc75d34e8c89cdecd248809d396747e6c85fe2c
+  Item Level: 13
+  LevelReq: 6
+  Implicits: 0
+  15% chance to gain a Flask Charge when you deal a Critical Strike
+  8% increased Movement Speed during Effect
+tooltip:
+  <center><font color='#fff'>Medic's Quicksilver Flask of the Hare</font><hr>
+  Lasts <font color='#fff'>6</font> Seconds<br>
+  Consumes <font color='#fff'>30</font> of <font color='#fff'>60</font> Charges on use<br>
+  Currently has <font color='#fff'>60</font> Charges<br>
+  <hr>
+  Requires Level <font color='#fff'>6</font><br>
+  <hr>
+  <font color='#88f'>15% chance to gain a Flask Charge when you deal a Critical Strike<br>
+  8% increased Movement Speed during Effect</font></center>
+hash: a5ee862e5a68f08b9c3869f19f6ab2b4
+
+=== Quicksilver Flask
+id: b6b56f388e209fab055fe06dd279edd226a8c9f3397f3422e055cf9290cf1781
+location: ExampleCharacter1
+forum code: [linkItem location="Flask" character="ExampleCharacter1" x="4" y="0" realm="pc"]
+frame type 0, category 'utility flasks', item level 4, 1x2, count 1
+flags: identified, path of building item
+properties:
+  Consumes {0} of {1} Charges on use = 30 (number 30)
+  Currently has {0} Charges = 60 (number 60)
+  Lasts {0} Seconds = 6 (number 6)
+requirements: Level 4
+path of building:
+  Rarity: NORMAL
+  
+  Quicksilver Flask
+  Unique ID: b6b56f388e209fab055fe06dd279edd226a8c9f3397f3422e055cf9290cf1781
+  Item Level: 4
+  LevelReq: 4
+  Implicits: 0
+tooltip:
+  <center><font color='#fff'>Quicksilver Flask</font><hr>
+  Lasts <font color='#fff'>6</font> Seconds<br>
+  Consumes <font color='#fff'>30</font> of <font color='#fff'>60</font> Charges on use<br>
+  Currently has <font color='#fff'>60</font> Charges<br>
+  <hr>
+  Requires Level <font color='#fff'>4</font></center>
+hash: 682d022042f0152b873141b08e964084
+
+=== Demon Crown Moonlit Circlet
+id: 1b68a1b7cae46b46d47d4d3ad1b1b0788a800f33cf15897c3932db9e3e261312
+location: ExampleCharacter1
+forum code: [linkItem location="Helm" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 2, category 'helmets', item level 81, 2x2, count 1
+flags: identified, crafted, path of building item
+sockets: B-W W (3 sockets, 2 linked; r0 g0 b1 w2)
+socket groups: r0 g0 b0 w0; r0 g0 b1 w1; r0 g0 b0 w1
+properties:
+  Energy Shield = 279 (number 279)
+  Quality = 20 (number 20)
+requirements: Int 170, Level 73, Str 90
+mod table:
+  #% increased Energy Shield = 71
+  #% increased Energy Shield Recharge Rate = 28
+  +# to Intelligence = 23
+  +# to maximum Energy Shield = 44
+  +# to maximum Life = 61
+  +# total to Intelligence = 23
+  +#% to Chaos Resistance = 21
+  +#% total Resistance = 21
+  +#% total to Chaos Resistance = 21
+path of building:
+  Rarity: RARE
+  Demon Crown
+  Moonlit Circlet
+  Unique ID: 1b68a1b7cae46b46d47d4d3ad1b1b0788a800f33cf15897c3932db9e3e261312
+  Item Level: 81
+  Quality: 20
+  Sockets: B-W W
+  LevelReq: 73
+  Implicits: 0
+  +23 to Intelligence
+  +44 to maximum Energy Shield
+  71% increased Energy Shield
+  28% increased Energy Shield Recharge Rate
+  +21% to Chaos Resistance
+  {crafted}+61 to maximum Life
+tooltip:
+  <center><font color='#fff'>Demon Crown Moonlit Circlet</font><hr>
+  Quality: <font color='#88f'>+20%</font><br>
+  Energy Shield: <font color='#88f'>279</font><br>
+  <hr>
+  Requires Level <font color='#fff'>73</font>, Str <font color='#fff'>90</font>, Int <font color='#fff'>170</font><br>
+  <hr>
+  <font color='#88f'>+23 to Intelligence<br>
+  +44 to maximum Energy Shield<br>
+  71% increased Energy Shield<br>
+  28% increased Energy Shield Recharge Rate<br>
+  +21% to Chaos Resistance</font><br>
+  <font color='#b4b4ff'>+61 to maximum Life</font></center>
+hash: f847e322e03a00f16a8214c47d8e9784
+
+=== Wrath
+id: 23dab5dd6533af699d478d3f3056071c6c588eb7d671ab9e82134f4c17425eb1
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="Helm" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cast Time = Instant
+  Cooldown Time = 1.20 sec
+  Level = 18 (number 18)
+  Reservation = 50% Mana
+requirements: Int 146, Level 66
+tooltip:
+  <center><font color='#fff'>Wrath</font><hr>
+  Aura, Spell, AoE, Lightning<br>
+  Level: <font color='#fff'>18</font><br>
+  Reservation: <font color='#fff'>50% Mana</font><br>
+  Cooldown Time: <font color='#fff'>1.20 sec</font><br>
+  Cast Time: <font color='#fff'>Instant</font><br>
+  <hr>
+  Requires Level <font color='#fff'>66</font>, Int <font color='#fff'>146</font><br>
+  <hr>
+  <font color='#88f'>+1.7 metres to radius<br>
+  You and nearby allies deal 13 to 215 additional Lightning Damage with Attacks<br>
+  You and nearby allies deal 20% more Spell Lightning Damage</font></center>
+hash: 34cdaadb94c4fe66dc23ba8c37444148
+
+=== Eternal Blessing Support
+id: 3a67a9e60caf49d7fb1713aa468b99f71f5e4ce06c59b39d7ba1c3b90bd9705a
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="Helm" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'support gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Level = 10 (number 10)
+requirements: Level 56, Str 90
+tooltip:
+  <center><font color='#fff'>Eternal Blessing Support</font><hr>
+  Support, Aura, Blessing<br>
+  Level: <font color='#fff'>10</font><br>
+  <hr>
+  Requires Level <font color='#fff'>56</font>, Str <font color='#fff'>90</font><br>
+  <hr>
+  <font color='#88f'>Supported Skills have 9% increased Aura effect<br>
+  Supported Skills have no Reservation<br>
+  Supported Skills also count as Blessing Skills\nYou can only have one Aura on you from your Blessing Skills<br>
+  Your Non-Blessing Skills which Reserve Mana are Disabled while you have an Aura from a Supported Skill on you</font></center>
+hash: 4cc72236c3ea00c4969564f44fff174f
+
+=== Elemental Weakness
+id: 8102a3cc59f33e44cad63d3cc553d5bed590321cb11e2e0c215331db8fb02c4d
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="Helm" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cast Time = 0.50 sec
+  Cost = 31 Mana
+  Level = 18 (number 18)
+requirements: Int 146, Level 66
+tooltip:
+  <center><font color='#fff'>Elemental Weakness</font><hr>
+  Spell, AoE, Duration, Curse, Hex<br>
+  Level: <font color='#fff'>18</font><br>
+  Cost: <font color='#fff'>31 Mana</font><br>
+  Cast Time: <font color='#fff'>0.50 sec</font><br>
+  <hr>
+  Requires Level <font color='#fff'>66</font>, Int <font color='#fff'>146</font><br>
+  <hr>
+  <font color='#88f'>Base duration is 11.40 seconds<br>
+  +0.9 metres to radius<br>
+  Cursed enemies have -28% to Elemental Resistances</font></center>
+hash: 68fc07f73eede0841c474510dc7263df
+
+=== Kikazaru Topaz Ring
+id: d32af85b9a9219ac2bb17e0309f5b01fbc128fbbb728d078633c877efcc56a6e
+location: ExampleCharacter1
+forum code: [linkItem location="Ring" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 3, category 'rings', item level 22, 1x1, count 1
+flags: identified, path of building item
+requirements: Level 20
+mod table:
+  #% increased Mana Regeneration Rate = 39
+  #% reduced Effect of Curses on you = 60
+  +# to all Attributes = 13
+  +# total to Dexterity = 13
+  +# total to Intelligence = 13
+  +# total to Strength = 13
+  +#% to Lightning Resistance = 22
+  +#% total Elemental Resistance = 22
+  +#% total Resistance = 22
+  +#% total to Lightning Resistance = 22
+  Regenerate # Life per second per Level = 3
+path of building:
+  Rarity: UNIQUE
+  Kikazaru
+  Topaz Ring
+  Unique ID: d32af85b9a9219ac2bb17e0309f5b01fbc128fbbb728d078633c877efcc56a6e
+  Item Level: 22
+  LevelReq: 20
+  Implicits: 1
+  +22% to Lightning Resistance
+  +13 to all Attributes
+  39% increased Mana Regeneration Rate
+  60% reduced Effect of Curses on you
+  Regenerate 3 Life per second per Level
+tooltip:
+  <center><font color='#fff'>Kikazaru Topaz Ring</font><hr>
+  Requires Level <font color='#fff'>20</font><br>
+  <hr>
+  <font color='#88f'>+22% to Lightning Resistance</font><br>
+  <hr>
+  <font color='#88f'>+13 to all Attributes<br>
+  39% increased Mana Regeneration Rate<br>
+  60% reduced Effect of Curses on you<br>
+  Regenerate 3 Life per second per Level</font></center>
+hash: e4a90b560cda67f753306d9cb12329f6
+
+=== Nycta's Lantern Crystal Sceptre
+id: 895e4d923b6d50fdcc99733318011a7336469da48c3368d882ae869ba7273ceb
+location: ExampleCharacter1
+forum code: [linkItem location="Weapon" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 3, category 'sceptres', item level 77, 2x3, count 1
+flags: identified, path of building item
+sockets: W-W-W (3 sockets, 3 linked; r0 g0 b0 w3)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w3
+properties:
+  Attacks per Second = 1.25 (number 1.25)
+  Critical Strike Chance = 8.00% (number 8)
+  Physical Damage = 108-160
+  Quality = 20 (number 20)
+  Weapon Range: {0} metres = 1.1 (number 1.1)
+elemental damage: 83-162 (type 4)
+dps: 320.625 (physical 167.5, elemental 153.125, chaos 0)
+requirements: Dex 64, Int 146, Level 66, Str 90
+mod table:
+  #% increased Elemental Damage = 30
+  #% increased Light Radius = 50
+  #% increased Physical Damage = 156
+  +#% total increased Physical Damage = 156
+  Adds # to # Fire Damage = 122.5
+  Battlemage = 0
+path of building:
+  Rarity: UNIQUE
+  Nycta's Lantern
+  Crystal Sceptre
+  Unique ID: 895e4d923b6d50fdcc99733318011a7336469da48c3368d882ae869ba7273ceb
+  Item Level: 77
+  Quality: 20
+  Sockets: W-W-W
+  LevelReq: 66
+  Implicits: 1
+  30% increased Elemental Damage
+  156% increased Physical Damage
+  Adds 83 to 162 Fire Damage
+  50% increased Light Radius
+  Battlemage
+tooltip:
+  <center><font color='#fff'>Nycta's Lantern Crystal Sceptre</font><hr>
+  Sceptre<br>
+  Quality: <font color='#88f'>+20%</font><br>
+  Physical Damage: <font color='#88f'>108-160</font><br>
+  Elemental Damage: <font color='#960000'>83-162</font><br>
+  Critical Strike Chance: <font color='#fff'>8.00%</font><br>
+  Attacks per Second: <font color='#fff'>1.25</font><br>
+  Weapon Range: <font color='#fff'>1.1</font> metres<br>
+  <hr>
+  Requires Level <font color='#fff'>66</font>, Str <font color='#fff'>90</font>, Dex <font color='#fff'>64</font>, Int <font color='#fff'>146</font><br>
+  <hr>
+  <font color='#88f'>30% increased Elemental Damage</font><br>
+  <hr>
+  <font color='#88f'>156% increased Physical Damage<br>
+  Adds 83 to 162 Fire Damage<br>
+  50% increased Light Radius<br>
+  Battlemage</font></center>
+hash: ca2885ae9be55e7dd6afacbfe92f4c42
+
+=== Arcane Cloak
+id: 76f92d6b6a6c1d076f6027ed7e925536921a5b725b136299713bcd0e7b1237b1
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="Weapon" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cast Time = Instant
+  Cooldown Time = 4.00 sec
+  Level = 18 (number 18)
+requirements: Int 146, Level 66
+tooltip:
+  <center><font color='#fff'>Arcane Cloak</font><hr>
+  Spell, Duration, Guard, Lightning, Arcane<br>
+  Level: <font color='#fff'>18</font><br>
+  Cooldown Time: <font color='#fff'>4.00 sec</font><br>
+  Cast Time: <font color='#fff'>Instant</font><br>
+  <hr>
+  Requires Level <font color='#fff'>66</font>, Int <font color='#fff'>146</font><br>
+  <hr>
+  <font color='#88f'>Base duration is 3.00 seconds<br>
+  Spends 62% of current Mana<br>
+  75% of Damage from Hits is taken from Buff before your Life or Energy Shield\nBuff can take Damage equal to Mana Spent by this Skill's effect<br>
+  Buff grants Added Lightning Damage equal to 10% of Mana Spent by this Skill's effect<br>
+  This Skill's Cooldown does not recover during its effect</font></center>
+hash: f6cc515fb7ed128c5fe4a18347c93ab1
+
+=== More Duration Support
+id: f0ac2f6e3c50d2da27b5e7301025c60eeb11661886704eb518f3c811aabb264e
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="Weapon" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'support gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cost & Reservation Multiplier = 130% (number 130)
+  Level = 13 (number 13)
+requirements: Level 56, Str 90
+tooltip:
+  <center><font color='#fff'>More Duration Support</font><hr>
+  Support, Duration<br>
+  Level: <font color='#fff'>13</font><br>
+  Cost & Reservation Multiplier: <font color='#fff'>130%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>56</font>, Str <font color='#fff'>90</font><br>
+  <hr>
+  <font color='#88f'>Supported Skills have 36% more Skill Effect Duration</font></center>
+hash: 94678b917ca980f9fef59bd2f6487b33
+
+=== Automation
+id: b1d035ae83504b331d03cb0148a13e7d0bd1fa54f5e53c6c05bf76177d622735
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="Weapon" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cast Time = Instant
+  Cooldown Time = 0.60 sec
+  Level = 18 (number 18)
+requirements: Dex 64, Int 92, Level 66
+tooltip:
+  <center><font color='#fff'>Automation</font><hr>
+  Trigger, Spell<br>
+  Level: <font color='#fff'>18</font><br>
+  Cooldown Time: <font color='#fff'>0.60 sec</font><br>
+  Cast Time: <font color='#fff'>Instant</font><br>
+  <hr>
+  Requires Level <font color='#fff'>66</font>, Dex <font color='#fff'>64</font>, Int <font color='#fff'>92</font><br>
+  <hr>
+  <font color='#88f'>Each Supported Spell will Trigger when its Cooldown is over</font></center>
+hash: a836f925d4dc1588cb5bd67942e2431d
+
+=== Soul Mantle Spidersilk Robe
+id: 08933affe3eb149fce121f88eb58489f9539cf8fac8dad0bd0ceb2c4d8831ca7
+location: ExampleCharacter1
+forum code: [linkItem location="BodyArmour" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 3, category 'body armours', item level 77, 2x3, count 1
+flags: identified, path of building item
+sockets: W-W-W-W (4 sockets, 4 linked; r0 g0 b0 w4)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w4
+properties:
+  Energy Shield = 290 (number 290)
+  Quality = 20 (number 20)
+requirements: Int 134, Level 72, Str 70
+mod table:
+  #% increased Energy Shield = 114
+  #% increased Spell Damage = 21
+  #% increased Totem Life = 22
+  Inflicts a random Hex on you when your Totems die = 0
+path of building:
+  Rarity: UNIQUE
+  Soul Mantle
+  Spidersilk Robe
+  Unique ID: 08933affe3eb149fce121f88eb58489f9539cf8fac8dad0bd0ceb2c4d8831ca7
+  Item Level: 77
+  Quality: 20
+  Sockets: W-W-W-W
+  LevelReq: 72
+  Implicits: 0
+  Socketed Gems are Supported by Level 20 [SupportSpellTotem::20|Spell Totem Support]
+  21% increased Spell Damage
+  114% increased Energy Shield
+  22% increased Totem Life
+  Inflicts a random Hex on you when your Totems die
+tooltip:
+  <center><font color='#fff'>Soul Mantle Spidersilk Robe</font><hr>
+  Quality: <font color='#88f'>+20%</font><br>
+  Energy Shield: <font color='#88f'>290</font><br>
+  <hr>
+  Requires Level <font color='#fff'>72</font>, Str <font color='#fff'>70</font>, Int <font color='#fff'>134</font><br>
+  <hr>
+  <font color='#88f'>Socketed Gems are Supported by Level 20 [SupportSpellTotem::20|Spell Totem Support]<br>
+  21% increased Spell Damage<br>
+  114% increased Energy Shield<br>
+  22% increased Totem Life<br>
+  Inflicts a random Hex on you when your Totems die</font></center>
+hash: e9af420d17c973ff8a58d04c7c5e070a
+
+=== Divine Ire
+id: 37d30ee6dee2008505c015205f2bfde3f3a547039a6a1d3ff7176430298189f2
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="BodyArmour" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified, corrupted
+properties:
+  Cast Time = 0.22 sec
+  Cost = 5 Mana
+  Critical Strike Chance = 6.00% (number 6)
+  Effectiveness of Added Damage = 75% (number 75)
+  Level = 21 (number 21)
+requirements: Int 100, Level 72, Str 70
+mod table:
+  #% of Physical Damage Converted to Lightning Damage = 50
+  Deals # to # Physical Damage = 452.5
+tooltip:
+  <center><font color='#fff'>Divine Ire</font><hr>
+  Lightning, Spell, AoE, Channelling, Physical<br>
+  Level: <font color='#fff'>21 (Max)</font><br>
+  Cost: <font color='#fff'>5 Mana</font><br>
+  Cast Time: <font color='#fff'>0.22 sec</font><br>
+  Critical Strike Chance: <font color='#fff'>6.00%</font><br>
+  Effectiveness of Added Damage: <font color='#fff'>75%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>72</font>, Str <font color='#fff'>70</font>, Int <font color='#fff'>100</font><br>
+  <hr>
+  <font color='#88f'>Deals 362 to 543 Physical Damage<br>
+  50% of Physical Damage Converted to Lightning Damage<br>
+  Damages 5 nearby Enemies when you gain Stages<br>
+  Beam deals 250% more Damage with Hits per Stage after the first\nBeam deals 105% more Damage with Ailments per Stage after the first</font><br>
+  <hr>
+  <font color='#d20000'>Corrupted</font></center>
+hash: 5c03752630782be9a87ffef2eeee1a5b
+
+=== Faster Casting Support
+id: 001a36d9ab51f0c3334676f886005484b103583192a44ad875ed89a235d9ab9a
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="BodyArmour" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'support gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cost & Reservation Multiplier = 110% (number 110)
+  Level = 19 (number 19)
+requirements: Int 108, Level 68
+tooltip:
+  <center><font color='#fff'>Faster Casting Support</font><hr>
+  Support, Spell<br>
+  Level: <font color='#fff'>19</font><br>
+  Cost & Reservation Multiplier: <font color='#fff'>110%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>68</font>, Int <font color='#fff'>108</font><br>
+  <hr>
+  <font color='#88f'>Supported Skills have 38% increased Cast Speed</font></center>
+hash: 8f96316ff99ab3e8a393d8d4812e5fe9
+
+=== Multiple Totems Support
+id: dfde0197f75254af0f32a06df10216453d27d37d964008c34e074f59f021c672
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="BodyArmour" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'support gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cost & Reservation Multiplier = 140% (number 140)
+  Level = 18 (number 18)
+requirements: Int 47, Level 68, Str 68
+tooltip:
+  <center><font color='#fff'>Multiple Totems Support</font><hr>
+  Totem, Support<br>
+  Level: <font color='#fff'>18</font><br>
+  Cost & Reservation Multiplier: <font color='#fff'>140%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>68</font>, Str <font color='#fff'>68</font>, Int <font color='#fff'>47</font><br>
+  <hr>
+  <font color='#88f'>Supported Skills have +2 to maximum number of Summoned Totems<br>
+  Supported Skills Summon two Totems instead of one<br>
+  Supported Skills deal 23% less Damage</font></center>
+hash: 394de81609579becb32dfb8ecbb79598
+
+=== Summon Phantasm Support
+id: 137475b1575fb2fed66b9f9cf03348fab731ee5145d11e5a8aa3acc43442672f
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="BodyArmour" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'support gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cost & Reservation Multiplier = 120% (number 120)
+  Level = 19 (number 19)
+requirements: Int 106, Level 67
+tooltip:
+  <center><font color='#fff'>Summon Phantasm Support</font><hr>
+  Support, Minion<br>
+  Level: <font color='#fff'>19</font><br>
+  Cost & Reservation Multiplier: <font color='#fff'>120%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>67</font>, Int <font color='#fff'>106</font><br>
+  <hr>
+  <font color='#88f'>68% chance to Summon a Phantasm when Supported Skills, or Non-Phantasm Minions\nfrom Supported Skills, deal a Killing Blow<br>
+  Maximum 10 Summoned Phantasm<br>
+  20% chance to Summon a Phantasm when Supported Skills, or Non-Phantasm Minions\nfrom Supported Skills, Hit a Rare or Unique Enemy<br>
+  Phantasms last 15 seconds</font></center>
+hash: 4e64d5cbdd04a194e9b9b4f056542f5f
+
+=== Phoenix Twine Chain Belt
+id: 62eb82b213f46c06f2ce41f2d05b2ac49aa738df2329712795a0142e2e702bee
+location: ExampleCharacter1
+forum code: [linkItem location="Belt" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 2, category 'belts', item level 74, 2x1, count 1
+flags: identified, crafted, path of building item
+requirements: Level 57
+mod table:
+  +# to maximum Energy Shield = 17
+  +# to maximum Life = 22
+  +# to maximum Mana = 41
+  +#% to Cold Resistance = 45
+  +#% to Fire Resistance = 40
+  +#% total Elemental Resistance = 85
+  +#% total Resistance = 85
+  +#% total to Cold Resistance = 45
+  +#% total to Fire Resistance = 40
+  Regenerate # Life per second = 13.4
+path of building:
+  Rarity: RARE
+  Phoenix Twine
+  Chain Belt
+  Unique ID: 62eb82b213f46c06f2ce41f2d05b2ac49aa738df2329712795a0142e2e702bee
+  Item Level: 74
+  LevelReq: 57
+  Implicits: 1
+  +17 to maximum Energy Shield
+  +22 to maximum Life
+  Regenerate 13.4 Life per second
+  +40% to Fire Resistance
+  +45% to Cold Resistance
+  {crafted}+41 to maximum Mana
+tooltip:
+  <center><font color='#fff'>Phoenix Twine Chain Belt</font><hr>
+  Requires Level <font color='#fff'>57</font><br>
+  <hr>
+  <font color='#88f'>+17 to maximum Energy Shield</font><br>
+  <hr>
+  <font color='#88f'>+22 to maximum Life<br>
+  Regenerate 13.4 Life per second<br>
+  +40% to Fire Resistance<br>
+  +45% to Cold Resistance</font><br>
+  <font color='#b4b4ff'>+41 to maximum Mana</font></center>
+hash: 821336a0c470af1e91b703cda5b29d95
+
+=== Demon Beads Onyx Amulet
+id: 1f490294ef3b185af4ce15ef6f2d7cecdc868a3a7d46705d5cac475a123d0fb7
+location: ExampleCharacter1
+forum code: [linkItem location="Amulet" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 2, category 'amulets', item level 74, 1x1, count 1
+flags: identified, crafted, path of building item
+requirements: Level 57
+mod table:
+  #% increased Lightning Damage = 25
+  +# to all Attributes = 38
+  +# to maximum Life = 55
+  +# total to Dexterity = 38
+  +# total to Intelligence = 38
+  +# total to Strength = 38
+  +#% to Fire Resistance = 44
+  +#% total Elemental Resistance = 44
+  +#% total Resistance = 44
+  +#% total to Fire Resistance = 44
+  Adds # to # Lightning Damage to Attacks = 7.5
+path of building:
+  Rarity: RARE
+  Demon Beads
+  Onyx Amulet
+  Unique ID: 1f490294ef3b185af4ce15ef6f2d7cecdc868a3a7d46705d5cac475a123d0fb7
+  Item Level: 74
+  LevelReq: 57
+  Implicits: 1
+  +16 to all Attributes
+  +22 to all Attributes
+  25% increased Lightning Damage
+  Adds 1 to 14 Lightning Damage to Attacks
+  +20% to [PlayerItemRarity|Item Rarity]
+  +44% to Fire Resistance
+  {crafted}+55 to maximum Life
+tooltip:
+  <center><font color='#fff'>Demon Beads Onyx Amulet</font><hr>
+  Requires Level <font color='#fff'>57</font><br>
+  <hr>
+  <font color='#88f'>+16 to all Attributes</font><br>
+  <hr>
+  <font color='#88f'>+22 to all Attributes<br>
+  25% increased Lightning Damage<br>
+  Adds 1 to 14 Lightning Damage to Attacks<br>
+  +20% to [PlayerItemRarity|Item Rarity]<br>
+  +44% to Fire Resistance</font><br>
+  <font color='#b4b4ff'>+55 to maximum Life</font></center>
+hash: 882e72d0903309baaca233a901786064
+
+=== Ventor's Gamble Gold Ring
+id: bcf56b7b814ee8118dcf2240ce6f1cd774997188d4c2ea5d144df68e7fea5fb0
+location: ExampleCharacter1
+forum code: [linkItem location="Ring2" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 3, category 'rings', item level 73, 1x1, count 1
+flags: identified, path of building item
+requirements: Level 65
+mod table:
+  #% increased Mana Reservation Efficiency of Skills = 2
+  +# to maximum Life = 53
+  +#% to Cold Resistance = 49
+  +#% to Fire Resistance = -1
+  +#% to Lightning Resistance = 39
+  +#% total Elemental Resistance = 87
+  +#% total Resistance = 87
+  +#% total to Cold Resistance = 49
+  +#% total to Fire Resistance = -1
+  +#% total to Lightning Resistance = 39
+path of building:
+  Rarity: UNIQUE
+  Ventor's Gamble
+  Gold Ring
+  Unique ID: bcf56b7b814ee8118dcf2240ce6f1cd774997188d4c2ea5d144df68e7fea5fb0
+  Item Level: 73
+  LevelReq: 65
+  Implicits: 1
+  +14% to [PlayerItemRarity|Item Rarity]
+  +53 to maximum Life
+  +31% to [PlayerItemRarity|Item Rarity]
+  -1% to Fire Resistance
+  +49% to Cold Resistance
+  +39% to Lightning Resistance
+  2% increased Mana Reservation Efficiency of Skills
+tooltip:
+  <center><font color='#fff'>Ventor's Gamble Gold Ring</font><hr>
+  Requires Level <font color='#fff'>65</font><br>
+  <hr>
+  <font color='#88f'>+14% to [PlayerItemRarity|Item Rarity]</font><br>
+  <hr>
+  <font color='#88f'>+53 to maximum Life<br>
+  +31% to [PlayerItemRarity|Item Rarity]<br>
+  -1% to Fire Resistance<br>
+  +49% to Cold Resistance<br>
+  +39% to Lightning Resistance<br>
+  2% increased Mana Reservation Efficiency of Skills</font></center>
+hash: a7b5b68e6d48e9b6ecfb170f34a839c0
+
+=== Rapture Spark Sorcerer Boots
+id: 84557be55802c42565278b15e4ed569d2eec1a76baefe1ac017dd56fdae08401
+location: ExampleCharacter1
+forum code: [linkItem location="Boots" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 2, category 'boots', item level 80, 2x2, count 1
+flags: identified, crafted, path of building item
+sockets: B-B-B-W (4 sockets, 4 linked; r0 g0 b3 w1)
+socket groups: r0 g0 b0 w0; r0 g0 b3 w1
+properties:
+  Energy Shield = 108 (number 108)
+  Quality = 8 (number 8)
+requirements: Dex 79, Int 123, Level 67, Str 94
+mod table:
+  #% increased Energy Shield = 82
+  #% increased Movement Speed = 30
+  +# to maximum Life = 62
+  +#% to Fire Resistance = 41
+  +#% to Lightning Resistance = 42
+  +#% total Elemental Resistance = 83
+  +#% total Resistance = 83
+  +#% total to Fire Resistance = 41
+  +#% total to Lightning Resistance = 42
+path of building:
+  Rarity: RARE
+  Rapture Spark
+  Sorcerer Boots
+  Unique ID: 84557be55802c42565278b15e4ed569d2eec1a76baefe1ac017dd56fdae08401
+  Item Level: 80
+  Quality: 8
+  Sockets: B-B-B-W
+  LevelReq: 67
+  Implicits: 0
+  82% increased Energy Shield
+  +41% to Fire Resistance
+  +42% to Lightning Resistance
+  30% increased Movement Speed
+  {crafted}+62 to maximum Life
+tooltip:
+  <center><font color='#fff'>Rapture Spark Sorcerer Boots</font><hr>
+  Quality: <font color='#88f'>+8%</font><br>
+  Energy Shield: <font color='#88f'>108</font><br>
+  <hr>
+  Requires Level <font color='#fff'>67</font>, Str <font color='#fff'>94</font>, Dex <font color='#fff'>79</font>, Int <font color='#fff'>123</font><br>
+  <hr>
+  <font color='#88f'>82% increased Energy Shield<br>
+  +41% to Fire Resistance<br>
+  +42% to Lightning Resistance<br>
+  30% increased Movement Speed</font><br>
+  <font color='#b4b4ff'>+62 to maximum Life</font></center>
+hash: d62b632cbc3ce0ca0688d7ea4c3a6b8a
+
+=== Leap Slam
+id: 4982b7033e9650806f96b2347853c23aa8d9f5eb197bce89fdda186351b17b06
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="Boots" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Attack Damage = 195.4% of base
+  Cost = 8 Mana
+  Effectiveness of Added Damage = 195% (number 195)
+  Level = 9 (number 9)
+requirements: Level 39, Str 90
+mod table:
+  #% increased Stun Duration against Enemies that are on Full Life = 28
+tooltip:
+  <center><font color='#fff'>Leap Slam</font><hr>
+  Attack, AoE, Melee, Movement, Travel, Slam<br>
+  Level: <font color='#fff'>9</font><br>
+  Cost: <font color='#fff'>8 Mana</font><br>
+  Attack Damage: <font color='#fff'>195.4% of base</font><br>
+  Effectiveness of Added Damage: <font color='#fff'>195%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>39</font>, Str <font color='#fff'>90</font><br>
+  <hr>
+  <font color='#88f'>28% increased Stun Duration against Enemies that are on Full Life<br>
+  +0.55 seconds to Attack Time<br>
+  Base radius is 1.5 metres<br>
+  Damaging Hits always Stun Enemies that are on Full Life</font></center>
+hash: 2e0c944c619d184d2bfd7ab4242110e7
+
+=== Faster Attacks Support
+id: 2796dd8360b3f8f44c058a4ea6b820a9076a4fe59d197925a111b24754389c55
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="Boots" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'support gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cost & Reservation Multiplier = 110% (number 110)
+  Level = 13 (number 13)
+requirements: Dex 79, Level 49
+tooltip:
+  <center><font color='#fff'>Faster Attacks Support</font><hr>
+  Attack, Support<br>
+  Level: <font color='#fff'>13</font><br>
+  Cost & Reservation Multiplier: <font color='#fff'>110%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>49</font>, Dex <font color='#fff'>79</font><br>
+  <hr>
+  <font color='#88f'>Supported Skills have 35% increased Attack Speed</font></center>
+hash: 94c20f654699edbd85a0ddfd36c57ecf
+
+=== Smite
+id: 80ac615d4391a044c0b85c336ea61d1588bac3731a5808fa4ad44223f00680f6
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="Boots" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Attack Damage = 469.8% of base
+  Attack Speed = 85% of base
+  Cost = 12 Mana
+  Effectiveness of Added Damage = 469% (number 469)
+  Level = 19 (number 19)
+requirements: Int 65, Level 67, Str 94
+mod table:
+  #% of Physical Damage Converted to Lightning Damage = 50
+tooltip:
+  <center><font color='#fff'>Smite</font><hr>
+  Lightning, Melee, Attack, AoE, Duration, Strike, Aura<br>
+  Level: <font color='#fff'>19</font><br>
+  Cost: <font color='#fff'>12 Mana</font><br>
+  Attack Speed: <font color='#fff'>85% of base</font><br>
+  Attack Damage: <font color='#fff'>469.8% of base</font><br>
+  Effectiveness of Added Damage: <font color='#fff'>469%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>67</font>, Str <font color='#fff'>94</font>, Int <font color='#fff'>65</font><br>
+  <hr>
+  <font color='#88f'>50% of Physical Damage Converted to Lightning Damage<br>
+  Base duration is 4.00 seconds<br>
+  21% less Area Damage<br>
+  Base radius is 2.1 metres<br>
+  Base Aura radius is 4.2 metres<br>
+  Lightning strikes 1 target within 5 metres<br>
+  Aura grants 10 to 195 added Lightning Damage<br>
+  Aura grants 19% chance to Shock</font></center>
+hash: 09df5e3360fa31b90d7d4ed3b7801d07
+
+=== Spirit Caress Conjurer Gloves
+id: 9b525dc58d0dcb0a5a000e43735864fee11eccc830b6eff0e5c4d629bb01094a
+location: ExampleCharacter1
+forum code: [linkItem location="Gloves" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 2, category 'gloves', item level 75, 2x2, count 1
+flags: identified, crafted, path of building item
+sockets: W-W-W-W (4 sockets, 4 linked; r0 g0 b0 w4)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w4
+properties:
+  Energy Shield = 94 (number 94)
+  Quality = 20 (number 20)
+requirements: Int 79, Level 57
+mod table:
+  #% increased Energy Shield = 27
+  #% increased Stun and Block Recovery = 12
+  +# to Intelligence = 20
+  +# to maximum Energy Shield = 18
+  +# total to Intelligence = 20
+  +#% to Chaos Resistance = 21
+  +#% to Cold Resistance = 42
+  +#% total Elemental Resistance = 42
+  +#% total Resistance = 63
+  +#% total to Chaos Resistance = 21
+  +#% total to Cold Resistance = 42
+path of building:
+  Rarity: RARE
+  Spirit Caress
+  Conjurer Gloves
+  Unique ID: 9b525dc58d0dcb0a5a000e43735864fee11eccc830b6eff0e5c4d629bb01094a
+  Item Level: 75
+  Quality: 20
+  Sockets: W-W-W-W
+  LevelReq: 57
+  Implicits: 0
+  +20 to Intelligence
+  27% increased Energy Shield
+  +42% to Cold Resistance
+  +21% to Chaos Resistance
+  12% increased Stun and Block Recovery
+  {crafted}+18 to maximum Energy Shield
+tooltip:
+  <center><font color='#fff'>Spirit Caress Conjurer Gloves</font><hr>
+  Quality: <font color='#88f'>+20%</font><br>
+  Energy Shield: <font color='#88f'>94</font><br>
+  <hr>
+  Requires Level <font color='#fff'>57</font>, Int <font color='#fff'>79</font><br>
+  <hr>
+  <font color='#88f'>+20 to Intelligence<br>
+  27% increased Energy Shield<br>
+  +42% to Cold Resistance<br>
+  +21% to Chaos Resistance<br>
+  12% increased Stun and Block Recovery</font><br>
+  <font color='#b4b4ff'>+18 to maximum Energy Shield</font></center>
+hash: d710d09e98b50d771754bfdc4cea1ffc
+
+=== Enhance Support
+id: cc7cf4b0a908ad9f3ad70dd79fa5a6b258f584fa04a9a56bec309289a97d677f
+location: ExampleCharacter1 (socketed)
+forum code: [linkItem location="Gloves" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+frame type 4, category 'support gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cost & Reservation Multiplier = 120% (number 120)
+  Level = 1 (number 1)
+  Quality = 6 (number 6)
+requirements: Level 1
+mod table:
+  This Gem gains #% increased Experience = 30
+tooltip:
+  <center><font color='#fff'>Enhance Support</font><hr>
+  Exceptional, Support<br>
+  Level: <font color='#fff'>1</font><br>
+  Cost & Reservation Multiplier: <font color='#fff'>120%</font><br>
+  Quality: <font color='#88f'>+6%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>1</font><br>
+  <hr>
+  <font color='#88f'>This Gem gains 30% increased Experience</font></center>
+hash: 95dde1604bd5b8e7dd05f9f18b66d2fc
+
+=== Scroll of Wisdom
+id: 92cde7aea21cbf44fe0701738c906dbdaaecab8340c6428bbb8214e7819813a7
+location: ExampleCharacter1
+forum code: [linkItem location="MainInventory" character="ExampleCharacter1" x="11" y="4" realm="pc"]
+frame type 5, category 'stackable currency', item level 0, 1x1, count 21
+flags: identified
+properties:
+  Stack Size = 21/40
+tooltip:
+  <center><font color='#fff'>Scroll of Wisdom</font><hr>
+  Stack Size: <font color='#fff'>21/40</font><br>
+  <hr>
+  <font color='#88f'>Identifies an item</font></center>
+hash: 176d4b90fb2609d4e6d4d9ac9c80c6d2
+
+=== Portal Scroll
+id: dba0da34b3ff15589a51c165dd0f2e44c60bca1403f58600d2bc554746c274fa
+location: ExampleCharacter1
+forum code: [linkItem location="MainInventory" character="ExampleCharacter1" x="0" y="4" realm="pc"]
+frame type 5, category 'stackable currency', item level 0, 1x1, count 9
+flags: identified
+properties:
+  Stack Size = 9/40
+tooltip:
+  <center><font color='#fff'>Portal Scroll</font><hr>
+  Stack Size: <font color='#fff'>9/40</font><br>
+  <hr>
+  <font color='#88f'>Creates a portal to town</font></center>
+hash: 69f151c940c0090e1e68e54049c254db
+
+=== Pain Abyss Map (Tier 6)
+id: da9fb4e04f8599315d204437c5f3549ca115b9b5915624651c5fad93a4d5fa99
+location: ExampleCharacter1
+forum code: [linkItem location="MainInventory" character="ExampleCharacter1" x="10" y="2" realm="pc"]
+frame type 2, category 'maps', item level 73, 1x1, count 1
+flags: identified
+properties:
+  Item Rarity = +32% (number 32)
+  Monster Pack Size = +20% (number 20)
+  [AtlasDropScaling|Atlas Drops] = +52% (number 52)
+number without a property: Map Tier = 6
+mod table:
+  #% more Monster Life = 20
+  Monsters cannot be Stunned = 0
+  Players are Cursed with Elemental Weakness = 0
+  Players have #% less Cooldown Recovery Rate = 30
+tooltip:
+  <center><font color='#fff'>Pain Abyss Map (Tier 6)</font><hr>
+  [AtlasDropScaling|Atlas Drops]: <font color='#88f'>+52%</font><br>
+  Item Rarity: <font color='#88f'>+32%</font><br>
+  Monster Pack Size: <font color='#88f'>+20%</font><br>
+  <hr>
+  <font color='#88f'>Players are Cursed with Elemental Weakness<br>
+  20% more Monster Life<br>
+  Monsters cannot be Stunned<br>
+  Players have 30% less Cooldown Recovery Rate<br>
+  Area contains the Viridian Wildwood</font></center>
+hash: 95ff28313f1d0ae74a5ffef9af93dbc9
+
+=== Polaric Invitation
+id: d6f63cc4d121909bdfe634b51004a153eb004567892d8552dc1a9268b0f8e0ba
+location: ExampleCharacter1
+forum code: [linkItem location="MainInventory" character="ExampleCharacter1" x="9" y="0" realm="pc"]
+frame type 7, category 'misc map items', item level 0, 1x1, count 1
+flags: identified
+tooltip:
+  <center><font color='#fff'>Polaric Invitation</font><hr>
+  </center>
+hash: 0a62335e15b9692f1c8e96195d3677b4
+
+=== Honour Glimmer Medium Cluster Jewel
+id: 00e0092a15e3cce3fa175633994cbb39771e522644c052df8ec18a3239f5fab8
+location: ExampleCharacter1
+forum code: [linkItem location="PassiveJewels" character="ExampleCharacter1" x="21" y="0" realm="pc"]
+frame type 2, category 'jewels', item level 68, 1x1, count 1
+flags: identified, enchanted, path of building item
+requirements: Level 54
+mod table:
+  1 Added Passive Skill is a Jewel Socket = 0
+  Added Small Passive Skills also grant: #% increased Mana Regeneration Rate = 5
+  Added Small Passive Skills also grant: +# to Maximum Mana = 8
+  Added Small Passive Skills also grant: +#% to Cold Resistance = 2
+  Adds # Passive Skills = 4
+path of building:
+  Rarity: RARE
+  Honour Glimmer
+  Medium Cluster Jewel
+  Unique ID: 00e0092a15e3cce3fa175633994cbb39771e522644c052df8ec18a3239f5fab8
+  Item Level: 68
+  LevelReq: 54
+  Implicits: 3
+  {crafted}Adds 4 Passive Skills
+  {crafted}1 Added Passive Skill is a Jewel Socket
+  {crafted}Added Small Passive Skills grant: 12% increased Totem Damage
+  Added Small Passive Skills also grant: +2% to Cold Resistance
+  Added Small Passive Skills also grant: 5% increased Mana Regeneration Rate
+  Added Small Passive Skills also grant: +8 to Maximum Mana
+  1 Added Passive Skill is [affliction_notable_sleepless_sentries|Sleepless Sentries]
+tooltip:
+  <center><font color='#fff'>Honour Glimmer Medium Cluster Jewel</font><hr>
+  Requires Level <font color='#fff'>54</font><br>
+  <hr>
+  <font color='#b4b4ff'>Adds 4 Passive Skills<br>
+  1 Added Passive Skill is a Jewel Socket<br>
+  Added Small Passive Skills grant: 12% increased Totem Damage</font><br>
+  <hr>
+  <font color='#88f'>Added Small Passive Skills also grant: +2% to Cold Resistance<br>
+  Added Small Passive Skills also grant: 5% increased Mana Regeneration Rate<br>
+  Added Small Passive Skills also grant: +8 to Maximum Mana<br>
+  1 Added Passive Skill is [affliction_notable_sleepless_sentries|Sleepless Sentries]</font></center>
+hash: cfdbbd108075715a6ffdd68bef14fd65
+
+=== Viper Wound Large Cluster Jewel
+id: e7b1f99e40ab788601d2d0b5e2894026c87d10c1421b770d33bf261f37c0fc6a
+location: ExampleCharacter1
+forum code: [linkItem location="PassiveJewels" character="ExampleCharacter1" x="11" y="0" realm="pc"]
+frame type 2, category 'jewels', item level 68, 1x1, count 1
+flags: identified, enchanted, path of building item
+requirements: Level 54
+mod table:
+  # Added Passive Skills are Jewel Sockets = 2
+  Added Small Passive Skills also grant: #% increased Damage = 3
+  Added Small Passive Skills also grant: +#% to all Elemental Resistances = 2
+  Adds # Passive Skills = 9
+path of building:
+  Rarity: RARE
+  Viper Wound
+  Large Cluster Jewel
+  Unique ID: e7b1f99e40ab788601d2d0b5e2894026c87d10c1421b770d33bf261f37c0fc6a
+  Item Level: 68
+  LevelReq: 54
+  Implicits: 3
+  {crafted}Adds 9 Passive Skills
+  {crafted}2 Added Passive Skills are Jewel Sockets
+  {crafted}Added Small Passive Skills grant: 12% increased Lightning Damage
+  Added Small Passive Skills also grant: 3% increased Damage
+  Added Small Passive Skills also grant: +2% to all Elemental Resistances
+  1 Added Passive Skill is [affliction_notable_prismatic_heart|Prismatic Heart]
+tooltip:
+  <center><font color='#fff'>Viper Wound Large Cluster Jewel</font><hr>
+  Requires Level <font color='#fff'>54</font><br>
+  <hr>
+  <font color='#b4b4ff'>Adds 9 Passive Skills<br>
+  2 Added Passive Skills are Jewel Sockets<br>
+  Added Small Passive Skills grant: 12% increased Lightning Damage</font><br>
+  <hr>
+  <font color='#88f'>Added Small Passive Skills also grant: 3% increased Damage<br>
+  Added Small Passive Skills also grant: +2% to all Elemental Resistances<br>
+  1 Added Passive Skill is [affliction_notable_prismatic_heart|Prismatic Heart]</font></center>
+hash: d012b40a4a96fc6cc90b312e3c7d34c8
+
+=== Self-Flagellation Viridian Jewel
+id: 6b127f05d7f6ec0fbec3460e0914158102f123c1016a2e57319c2d51aef865eb
+location: ExampleCharacter1
+forum code: [linkItem location="PassiveJewels" character="ExampleCharacter1" x="24" y="0" realm="pc"]
+frame type 3, category 'jewels', item level 83, 1x1, count 1
+flags: identified, corrupted, path of building item
+properties:
+  Limited to = 1 (number 1)
+mod table:
+  #% increased Damage per Curse on you = 11
+  An additional Curse can be applied to you = 0
+path of building:
+  Rarity: UNIQUE
+  Self-Flagellation
+  Viridian Jewel
+  Unique ID: 6b127f05d7f6ec0fbec3460e0914158102f123c1016a2e57319c2d51aef865eb
+  Item Level: 83
+  Implicits: 0
+  11% increased Damage per Curse on you
+  An additional Curse can be applied to you
+  Corrupted
+tooltip:
+  <center><font color='#fff'>Self-Flagellation Viridian Jewel</font><hr>
+  Limited to: <font color='#fff'>1</font><br>
+  <hr>
+  <font color='#88f'>11% increased Damage per Curse on you<br>
+  An additional Curse can be applied to you</font><br>
+  <hr>
+  <font color='#d20000'>Corrupted</font></center>
+hash: 9d66355509942bb99116bc8675e5eb4b
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Offhand" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Offhand" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Offhand" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Weapon2" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Weapon2" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Weapon2" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Offhand2" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Flask" character="ExampleCharacter1" x="1" y="0" realm="pc"]
+  [linkItem location="Flask" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Flask" character="ExampleCharacter1" x="2" y="0" realm="pc"]
+  [linkItem location="Flask" character="ExampleCharacter1" x="3" y="0" realm="pc"]
+  [linkItem location="Flask" character="ExampleCharacter1" x="4" y="0" realm="pc"]
+  [linkItem location="Helm" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Helm" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Helm" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Helm" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Ring" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Weapon" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Weapon" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Weapon" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Weapon" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="BodyArmour" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="BodyArmour" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="BodyArmour" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="BodyArmour" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="BodyArmour" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Belt" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Amulet" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Ring2" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Boots" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Boots" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Boots" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Boots" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Gloves" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="Gloves" character="ExampleCharacter1" x="0" y="0" realm="pc"]
+  [linkItem location="MainInventory" character="ExampleCharacter1" x="11" y="4" realm="pc"]
+  [linkItem location="MainInventory" character="ExampleCharacter1" x="0" y="4" realm="pc"]
+  [linkItem location="MainInventory" character="ExampleCharacter1" x="10" y="2" realm="pc"]
+  [linkItem location="MainInventory" character="ExampleCharacter1" x="9" y="0" realm="pc"]
+  [linkItem location="PassiveJewels" character="ExampleCharacter1" x="21" y="0" realm="pc"]
+  [linkItem location="PassiveJewels" character="ExampleCharacter1" x="11" y="0" realm="pc"]
+  [linkItem location="PassiveJewels" character="ExampleCharacter1" x="24" y="0" realm="pc"][/spoiler]

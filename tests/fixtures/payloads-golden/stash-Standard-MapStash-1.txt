@@ -1,0 +1,41 @@
+1 item(s)
+
+=== Arcane Slough Nightmare Map
+id: 8c70309cb6674dea338c7a2672bce29a2495ef90e4c3f13e078780472613c974
+location: #1, "5 (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"]
+frame type 2, category 'maps', item level 84, 1x1, count 1
+flags: identified
+properties:
+  Item Rarity = +97% (number 97)
+  Monster Pack Size = +31% (number 31)
+  More [Thread|Threads] = +90% (number 90)
+  [AtlasDropScaling|Atlas Drops] = +81% (number 81)
+mod table:
+  All Monster Damage can Ignite, Freeze and Shock = 0
+  Monsters Ignite, Freeze and Shock on Hit = 0
+  Monsters cannot be Taunted = 0
+  Monsters' Action Speed cannot be modified to below Base Value\nMonsters' Movement Speed cannot be modified to below Base Value = 0
+  Players have #% less Area of Effect = 27
+  Players have #% less Armour = 30
+  Players have #% reduced Chance to Block = 40
+tooltip:
+  <center><font color='#fff'>Arcane Slough Nightmare Map</font><hr>
+  [AtlasDropScaling|Atlas Drops]: <font color='#88f'>+81%</font><br>
+  Item Rarity: <font color='#88f'>+97%</font><br>
+  Monster Pack Size: <font color='#88f'>+31%</font><br>
+  More [Thread|Threads]: <font color='#88f'>+90%</font><br>
+  <hr>
+  <font color='#88f'>Players have -9% to all maximum Resistances<br>
+  All Monster Damage can Ignite, Freeze and Shock<br>
+  Monsters cannot be Taunted<br>
+  Monsters' Action Speed cannot be modified to below Base Value\nMonsters' Movement Speed cannot be modified to below Base Value<br>
+  Monsters Ignite, Freeze and Shock on Hit<br>
+  Players have 30% less Armour<br>
+  Players have 40% reduced Chance to Block<br>
+  Players have 27% less Area of Effect</font></center>
+hash: b32b4715948d4e575d8d85cfbf1c98e0
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"][/spoiler]

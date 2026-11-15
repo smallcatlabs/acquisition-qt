@@ -1,0 +1,59 @@
+2 item(s)
+
+=== Map (Tier 12)
+id: 1e75e75ec6bdaa839a00c6ff48b2661370711eff2fed88decaebbd6aa3f1544e
+location: #1, "1"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="1" realm="pc"]
+frame type 0, category 'maps', item level 79, 1x1, count 1
+flags: identified
+number without a property: Map Tier = 12
+tooltip:
+  <center><font color='#fff'>Map (Tier 12)</font><hr>
+  </center>
+hash: e14f844a88ebfeff86bc1e83ce932d8f
+
+=== Damnation Solace Map (Tier 12)
+id: 9c1f5318b0498a1805982f72dd7ac059e195901ade3b8baf663af4d7f6d4f379
+location: #1, "1"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"]
+frame type 2, category 'maps', item level 80, 1x1, count 1
+flags: identified, corrupted
+properties:
+  Item Rarity = +47% (number 47)
+  Monster Pack Size = +30% (number 30)
+  [AtlasDropScaling|Atlas Drops] = +78% (number 78)
+number without a property: Map Tier = 12
+mod table:
+  #% increased Monster Attack Speed = 43
+  #% increased Monster Cast Speed = 43
+  #% increased Monster Movement Speed = 28
+  #% more Monster Life = 45
+  Area is affected by # additional random Unallocated Notable Atlas Passives = 9
+  Area is inhabited by Humanoids = 0
+  Buffs on Players expire #% faster = 70
+  Monsters take #% reduced Extra Damage from Critical Strikes = 38
+  Players have #% reduced effect of Non-Curse Auras from Skills = 60
+tooltip:
+  <center><font color='#fff'>Damnation Solace Map (Tier 12)</font><hr>
+  [AtlasDropScaling|Atlas Drops]: <font color='#88f'>+78%</font><br>
+  Item Rarity: <font color='#88f'>+47%</font><br>
+  Monster Pack Size: <font color='#88f'>+30%</font><br>
+  <hr>
+  <font color='#88f'>Area is affected by 9 additional random Unallocated Notable Atlas Passives</font><br>
+  <hr>
+  <font color='#88f'>Area is inhabited by Humanoids<br>
+  45% more Monster Life<br>
+  28% increased Monster Movement Speed<br>
+  43% increased Monster Attack Speed<br>
+  43% increased Monster Cast Speed<br>
+  Monsters take 38% reduced Extra Damage from Critical Strikes<br>
+  Buffs on Players expire 70% faster<br>
+  Players have 60% reduced effect of Non-Curse Auras from Skills</font><br>
+  <hr>
+  <font color='#d20000'>Corrupted</font></center>
+hash: 713172af581da3781077fe51bd58ce0f
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="1" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"][/spoiler]

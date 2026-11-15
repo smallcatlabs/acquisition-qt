@@ -1,0 +1,39 @@
+1 item(s)
+
+=== Superior Eternal Life Flask
+id: ff25dedf3e43cc977830da625d26ec826ef0fba8718fd6f024f88f7fedc6b3ef
+location: #12, "Flasks"
+forum code: [linkItem location="Stash1" league="Corpus" x="97" y="0" realm="pc"]
+frame type 0, category 'life flasks', item level 78, 1x2, count 1
+flags: identified, corrupted, path of building item
+properties:
+  Consumes {0} of {1} Charges on use = 15 (number 15)
+  Currently has {0} Charges = 0 (number 0)
+  Quality = 21 (number 21)
+  Recovers {0} Life over {1} Seconds = 2517 (number 2517)
+requirements: Level 65
+path of building:
+  Rarity: NORMAL
+  
+  Superior Eternal Life Flask
+  Unique ID: ff25dedf3e43cc977830da625d26ec826ef0fba8718fd6f024f88f7fedc6b3ef
+  Item Level: 78
+  Quality: 21
+  LevelReq: 65
+  Implicits: 0
+  Corrupted
+tooltip:
+  <center><font color='#fff'>Superior Eternal Life Flask</font><hr>
+  Quality: <font color='#88f'>+21%</font><br>
+  Recovers <font color='#88f'>2517</font> Life over <font color='#fff'>2</font> Seconds<br>
+  Consumes <font color='#fff'>15</font> of <font color='#fff'>45</font> Charges on use<br>
+  Currently has <font color='#fff'>0</font> Charges<br>
+  <hr>
+  Requires Level <font color='#fff'>65</font><br>
+  <hr>
+  <font color='#d20000'>Corrupted</font></center>
+hash: 8fe1a87a3fc4545f7a13ac6af957f751
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="97" y="0" realm="pc"][/spoiler]

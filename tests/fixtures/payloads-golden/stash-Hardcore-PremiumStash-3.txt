@@ -1,0 +1,128 @@
+3 item(s)
+
+=== Grim Arbiter Searching Eye Jewel
+id: 77767c50ebdce8d33a396f20a6ce0f7e9ddfa912abd94d2595e7e4a26aded6b0
+location: #22, "~price 2 chaos"
+forum code: [linkItem location="Stash1" league="Corpus" x="3" y="8" realm="pc"]
+frame type 2, category 'abyss jewels', item level 70, 1x1, count 1
+flags: identified, path of building item
+requirements: Level 48
+mod table:
+  # to # Added Lightning Damage with Wand Attacks = 19
+  # to # Added Physical Damage with Wand Attacks = 3.5
+  #% increased Attack Speed = 4
+  +# to Accuracy Rating = 112
+  +#% total Attack Speed = 4
+path of building:
+  Rarity: RARE
+  Grim Arbiter
+  Searching Eye Jewel
+  Unique ID: 77767c50ebdce8d33a396f20a6ce0f7e9ddfa912abd94d2595e7e4a26aded6b0
+  Item Level: 70
+  LevelReq: 48
+  Implicits: 0
+  4% increased Attack Speed
+  +112 to Accuracy Rating
+  3 to 4 Added Physical Damage with Wand Attacks
+  4 to 34 Added Lightning Damage with Wand Attacks
+tooltip:
+  <center><font color='#fff'>Grim Arbiter Searching Eye Jewel</font><hr>
+  Abyss<br>
+  <hr>
+  Requires Level <font color='#fff'>48</font><br>
+  <hr>
+  <font color='#88f'>4% increased Attack Speed<br>
+  +112 to Accuracy Rating<br>
+  3 to 4 Added Physical Damage with Wand Attacks<br>
+  4 to 34 Added Lightning Damage with Wand Attacks</font></center>
+hash: 198154cacfe03e5f4a445dae671c8f9c
+
+=== Sol Buckle Chain Belt
+id: 5d421bd8c47915e416b0037d80ca09a8320f6a3e5fb3fad3334e4806dd166527
+location: #22, "~price 2 chaos"
+forum code: [linkItem location="Stash1" league="Corpus" x="6" y="6" realm="pc"]
+frame type 2, category 'belts', item level 80, 2x1, count 1
+flags: identified, path of building item
+influence: redeemer, redeemer
+requirements: Level 64
+mod table:
+  #% increased Flask Charges gained = 19
+  #% increased Projectile Attack Damage during any Flask Effect = 33
+  +# to maximum Energy Shield = 19
+  +# to maximum Life = 69
+  +#% to Lightning Resistance = 33
+  +#% total Elemental Resistance = 33
+  +#% total Resistance = 33
+  +#% total to Lightning Resistance = 33
+path of building:
+  Rarity: RARE
+  Sol Buckle
+  Chain Belt
+  Unique ID: 5d421bd8c47915e416b0037d80ca09a8320f6a3e5fb3fad3334e4806dd166527
+  Item Level: 80
+  LevelReq: 64
+  Implicits: 1
+  +19 to maximum Energy Shield
+  +69 to maximum Life
+  +33% to Lightning Resistance
+  19% increased Flask Charges gained
+  33% increased Projectile Attack Damage during any Flask Effect
+tooltip:
+  <center><font color='#fff'>Sol Buckle Chain Belt</font><hr>
+  Requires Level <font color='#fff'>64</font><br>
+  <hr>
+  <font color='#88f'>+19 to maximum Energy Shield</font><br>
+  <hr>
+  <font color='#88f'>+69 to maximum Life<br>
+  +33% to Lightning Resistance<br>
+  19% increased Flask Charges gained<br>
+  33% increased Projectile Attack Damage during any Flask Effect</font></center>
+hash: 67ddaf4445881ac41ab1d8d79e4b365c
+
+=== Hypnotic Finger Moonstone Ring
+id: 23cb8346df77e39d0a75c73a7a94dd6d9c0fd6499917a0584750bad206f25565
+location: #22, "~price 2 chaos"
+forum code: [linkItem location="Stash1" league="Corpus" x="6" y="10" realm="pc"]
+frame type 2, category 'rings', item level 78, 1x1, count 1
+flags: identified, path of building item
+influence: elder, elder
+requirements: Level 60
+mod table:
+  #% increased Elemental Damage with Attack Skills = 6
+  +# to Evasion Rating = 117
+  +# to maximum Energy Shield = 15
+  +#% to Global Critical Strike Multiplier = 16
+  Adds # to # Cold Damage to Attacks = 12.5
+  Gain # Mana per Enemy Killed = 3
+path of building:
+  Rarity: RARE
+  Hypnotic Finger
+  Moonstone Ring
+  Unique ID: 23cb8346df77e39d0a75c73a7a94dd6d9c0fd6499917a0584750bad206f25565
+  Item Level: 78
+  LevelReq: 60
+  Implicits: 1
+  +15 to maximum Energy Shield
+  Adds 9 to 16 Cold Damage to Attacks
+  +16% to Global Critical Strike Multiplier
+  +117 to Evasion Rating
+  Gain 3 Mana per Enemy Killed
+  6% increased Elemental Damage with Attack Skills
+tooltip:
+  <center><font color='#fff'>Hypnotic Finger Moonstone Ring</font><hr>
+  Requires Level <font color='#fff'>60</font><br>
+  <hr>
+  <font color='#88f'>+15 to maximum Energy Shield</font><br>
+  <hr>
+  <font color='#88f'>Adds 9 to 16 Cold Damage to Attacks<br>
+  +16% to Global Critical Strike Multiplier<br>
+  +117 to Evasion Rating<br>
+  Gain 3 Mana per Enemy Killed<br>
+  6% increased Elemental Damage with Attack Skills</font></center>
+hash: e72c38812c8d47942f0c8f5865762c3f
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="3" y="8" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="6" y="6" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="6" y="10" realm="pc"][/spoiler]

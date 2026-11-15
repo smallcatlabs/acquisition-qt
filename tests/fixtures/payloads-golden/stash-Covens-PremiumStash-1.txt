@@ -1,0 +1,71 @@
+2 item(s)
+
+=== Supreme Spiked Shield
+id: 65a525568f3755749650a339461b926119c13dbc75cc647a2966a1420b7ec94c
+location: #17, "Special Gear"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"]
+frame type 3, category 'shields', item level 72, 2x2, count 1
+flags: path of building item
+sockets: W-B (2 sockets, 2 linked; r0 g0 b1 w1)
+socket groups: r0 g0 b0 w0; r0 g0 b1 w1
+properties:
+  Chance to Block = 24% (number 24)
+  Energy Shield = 54 (number 54)
+  Evasion Rating = 263 (number 263)
+requirements: Dex 85, Int 85
+mod table:
+  +#% chance to Suppress Spell Damage = 5
+path of building:
+  Rarity: UNIQUE
+  
+  Supreme Spiked Shield
+  Unique ID: 65a525568f3755749650a339461b926119c13dbc75cc647a2966a1420b7ec94c
+  Item Level: 72
+  Sockets: W-B
+  Implicits: 1
+  +5% chance to Suppress Spell Damage
+tooltip:
+  <center><font color='#fff'>Supreme Spiked Shield</font><hr>
+  Chance to Block: <font color='#fff'>24%</font><br>
+  Evasion Rating: <font color='#fff'>263</font><br>
+  Energy Shield: <font color='#fff'>54</font><br>
+  <hr>
+  Requires Dex <font color='#fff'>85</font>, Int <font color='#fff'>85</font><br>
+  <hr>
+  <font color='#88f'>+5% chance to Suppress Spell Damage</font><br>
+  <hr>
+  <font color='#d20000'>Unidentified</font></center>
+hash: 450b012da01f1757c1116221b6d19133
+
+=== Eternal Burgonet
+id: 0464516ca6f6c43a4f08188f59923d75c40afc8a5e3cfb3c69a436b4ba02619c
+location: #17, "Special Gear"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="6" realm="pc"]
+frame type 2, category 'helmets', item level 72, 2x2, count 1
+flags: path of building item
+sockets: W (1 sockets, 1 linked; r0 g0 b0 w1)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w1
+properties:
+  Armour = 411 (number 411)
+requirements: Str 138
+path of building:
+  Rarity: RARE
+  
+  Eternal Burgonet
+  Unique ID: 0464516ca6f6c43a4f08188f59923d75c40afc8a5e3cfb3c69a436b4ba02619c
+  Item Level: 72
+  Sockets: W
+  Implicits: 0
+tooltip:
+  <center><font color='#fff'>Eternal Burgonet</font><hr>
+  Armour: <font color='#fff'>411</font><br>
+  <hr>
+  Requires Strength <font color='#fff'>138</font><br>
+  <hr>
+  <font color='#d20000'>Unidentified</font></center>
+hash: 42ee149e87ca6ffab3a8684e0c733938
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="6" realm="pc"][/spoiler]

@@ -1,0 +1,22 @@
+1 item(s)
+
+=== Warlord
+id: 438f6384103a0ee4eda3735d59386bd556fc86e9375ce70748e2a05dc39f6846
+location: #84, "X (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="7" y="10" realm="pc"]
+frame type 5, category 'corpses', item level 83, 3x2, count 1
+flags: identified
+properties:
+  Corpse Level = 83 (number 83)
+  Monster Category = Humanoid
+tooltip:
+  <center><font color='#fff'>Warlord</font><hr>
+  Corpse Level: <font color='#fff'>83</font><br>
+  Monster Category: <font color='#fff'>Humanoid</font><br>
+  <hr>
+  <font color='#88f'>Uses Leap Slam\r\nUses Sweep\r\nUses Enduring Cry\r\nUses Immortal call\r\nCasts Vitality</font></center>
+hash: c0ee631a3ca25792de37f320e73abe5c
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="7" y="10" realm="pc"][/spoiler]

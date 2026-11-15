@@ -1,0 +1,58 @@
+1 item(s)
+
+=== Desolate Solitude Valdo Map
+id: aecad936776e698ccea00526de32fe10b54468d4fb88e32e0239e63cb28ddc92
+location: #1, "1 (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"]
+frame type 10, category 'maps', item level 100, 1x1, count 1
+flags: identified
+properties:
+   = Chance for dropped Maps to convert to:
+  Conqueror Map = 20% (number 20)
+  Elder Map = 5% (number 5)
+  Item Quantity = +20% (number 20)
+  Map Area = Bramble Valley
+  Monster Pack Size = +20% (number 20)
+  Quality (Quantity) = +20% (number 20)
+  Reward = Foil Bramblejack
+  Shaper Map = 5% (number 5)
+  Unique Map = 5% (number 5)
+  [AtlasDropScaling|Atlas Drops] = +152% (number 152)
+  [Thread|Threads] = 24% (number 24)
+number without a property: Quality = 20
+mod table:
+  Area contains Sirus' Deatomisation Storms = 0
+  Area contains The Feared = 0
+  Monsters inflict Petrification for # seconds on hit = 4
+  Players gain Instability on Kill\nUnstable Players eventually detonate = 0
+  Players who Die in area are sent to the Void = 0
+  Rare Monsters have [ElementalThorns|Elemental Thorns] reflecting # Elemental Damage = 100
+  Rare Monsters have [PhysicalThorns|Physical Thorns] reflecting # Physical Damage = 100
+tooltip:
+  <center><font color='#fff'>Desolate Solitude Valdo Map</font><hr>
+  Map Area: <font color='#fff'>Bramble Valley</font><br>
+  Reward: <font color='#fff'>Foil Bramblejack</font><br>
+  Item Quantity: <font color='#88f'>+20%</font><br>
+  [AtlasDropScaling|Atlas Drops]: <font color='#88f'>+152%</font><br>
+  Monster Pack Size: <font color='#88f'>+20%</font><br>
+  Quality (Quantity): <font color='#88f'>+20%</font><br>
+  <br>
+  <font color='#fff'>Chance for dropped Maps to convert to:</font><br>
+  Shaper Map: <font color='#88f'>5%</font><br>
+  Elder Map: <font color='#88f'>5%</font><br>
+  Conqueror Map: <font color='#88f'>20%</font><br>
+  Unique Map: <font color='#88f'>5%</font><br>
+  [Thread|Threads]: <font color='#88f'>24%</font><br>
+  <hr>
+  <font color='#88f'>Rare Monsters have [PhysicalThorns|Physical Thorns] reflecting 100 Physical Damage<br>
+  Rare Monsters have [ElementalThorns|Elemental Thorns] reflecting 100 Elemental Damage<br>
+  Monsters inflict Petrification for 4 seconds on hit<br>
+  Area contains The Feared<br>
+  Area contains Sirus' Deatomisation Storms<br>
+  Players gain Instability on Kill\nUnstable Players eventually detonate<br>
+  Players who Die in area are sent to the Void</font></center>
+hash: da6aedf816d049b8e6ab12a6165f8b9c
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"][/spoiler]

@@ -1,0 +1,112 @@
+2 item(s)
+
+=== Ghoul Mitts Hydrascale Gauntlets
+id: 7e9ba5949731502e3244b10f1d1036fc90881ab0d58f9dfa6d1a6f5186d8ae1f
+location: #6, ">> Dump"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="5" realm="pc"]
+frame type 2, category 'gloves', item level 82, 2x2, count 1
+flags: identified, path of building item
+influence: searing exarch, searing exarch
+sockets: G R (2 sockets, 1 linked; r1 g1 b0 w0)
+socket groups: r0 g0 b0 w0; r0 g1 b0 w0; r1 g0 b0 w0
+properties:
+  Armour = 185 (number 185)
+  Evasion Rating = 202 (number 202)
+requirements: Dex 45, Level 65, Str 45
+mod table:
+  #% increased Attack Speed = 8
+  +# to Armour = 64
+  +# to Dexterity = 46
+  +# to Evasion Rating = 81
+  +# to Strength = 55
+  +# total to Dexterity = 46
+  +# total to Strength = 55
+  +#% to Cold Resistance = 30
+  +#% total Attack Speed = 8
+  +#% total Elemental Resistance = 30
+  +#% total Resistance = 30
+  +#% total to Cold Resistance = 30
+path of building:
+  Rarity: RARE
+  Ghoul Mitts
+  Hydrascale Gauntlets
+  Unique ID: 7e9ba5949731502e3244b10f1d1036fc90881ab0d58f9dfa6d1a6f5186d8ae1f
+  Item Level: 82
+  Sockets: G R
+  LevelReq: 65
+  Implicits: 1
+  8% increased Attack Speed
+  +55 to Strength
+  +46 to Dexterity
+  +64 to Armour
+  +81 to Evasion Rating
+  +30% to Cold Resistance
+tooltip:
+  <center><font color='#fff'>Ghoul Mitts Hydrascale Gauntlets</font><hr>
+  Armour: <font color='#88f'>185</font><br>
+  Evasion Rating: <font color='#88f'>202</font><br>
+  <hr>
+  Requires Level <font color='#fff'>65</font>, Str <font color='#fff'>45</font>, Dex <font color='#fff'>45</font><br>
+  <hr>
+  <font color='#88f'>8% increased Attack Speed</font><br>
+  <hr>
+  <font color='#88f'>+55 to Strength<br>
+  +46 to Dexterity<br>
+  +64 to Armour<br>
+  +81 to Evasion Rating<br>
+  +30% to Cold Resistance</font></center>
+hash: aa80ce29e29f919ea75e9470ed863211
+
+=== Rage Shelter Triumphant Lamellar
+id: 43e001e777260221a421210cd3d81d5fc018fdbf2a7cd7c02b65c77646779981
+location: #6, ">> Dump"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="2" realm="pc"]
+frame type 2, category 'body armours', item level 85, 2x3, count 1
+flags: identified, fractured, path of building item
+influence: fractured, fractured
+sockets: G-G G G (4 sockets, 2 linked; r0 g4 b0 w0)
+socket groups: r0 g0 b0 w0; r0 g2 b0 w0; r0 g1 b0 w0; r0 g1 b0 w0
+properties:
+  Armour = 726 (number 726)
+  Evasion Rating = 736 (number 736)
+requirements: Dex 116, Level 69, Str 95
+mod table:
+  +# to Armour = 320
+  +# to Evasion Rating = 226
+  +# to maximum Life = 89
+  +#% to Lightning Resistance = 20
+  +#% total Elemental Resistance = 20
+  +#% total Resistance = 20
+  +#% total to Lightning Resistance = 20
+path of building:
+  Rarity: RARE
+  Rage Shelter
+  Triumphant Lamellar
+  Unique ID: 43e001e777260221a421210cd3d81d5fc018fdbf2a7cd7c02b65c77646779981
+  Item Level: 85
+  Sockets: G-G G G
+  LevelReq: 69
+  Implicits: 0
+  {fractured}+267 to Armour
+  {fractured}+226 to Evasion Rating
+  +53 to Armour
+  +89 to maximum Life
+  +20% to Lightning Resistance
+tooltip:
+  <center><font color='#fff'>Rage Shelter Triumphant Lamellar</font><hr>
+  Armour: <font color='#88f'>726</font><br>
+  Evasion Rating: <font color='#88f'>736</font><br>
+  <hr>
+  Requires Level <font color='#fff'>69</font>, Str <font color='#fff'>95</font>, Dex <font color='#fff'>116</font><br>
+  <hr>
+  <font color='#a29162'>+267 to Armour<br>
+  +226 to Evasion Rating</font><br>
+  <font color='#88f'>+53 to Armour<br>
+  +89 to maximum Life<br>
+  +20% to Lightning Resistance</font></center>
+hash: 7e173fa2aa5fd8dc717ba80cd11883c2
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="5" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="2" realm="pc"][/spoiler]
