@@ -33,6 +33,7 @@
 #include "currency.h"
 #include "mainwindowfixture.h"
 #include "modelprobes.h"
+#include "viewtranscript.h"
 
 class MainWindowTest : public QObject
 {
@@ -1844,34 +1845,52 @@ void MainWindowTest::pricedFilterFollowsAPriceCommit()
 
 // A price set on a tab reaches the items that inherit it: they enter the
 // Priced view at that commit, and leave it when the tab's price is cleared.
+// The rest of what the tree shows does not change (#375): the tab the user
+// collapsed stays collapsed, and the selected header stays selected and
+// current.
 void MainWindowTest::pricedFilterFollowsATabPrice()
 {
     MainWindowFixture fixture;
+    ScreenshotOnFailure screenshot{*fixture.window};
     auto *tree = fixture.window->findChild<QTreeView *>("treeView");
     QVERIFY(tree);
     QCheckBox *priced = pricedCheckBox(fixture);
     QVERIFY(priced);
 
     const ItemLocation tab = makeTestStashLocation("stash-priced-tab", "Dump", 0);
+    const ItemLocation other = makeTestStashLocation("stash-priced-other", "Spare", 1);
     Items items;
     items.push_back(makeMainWindowItem("item-a", "Alpha", "Sword", tab));
     items.push_back(makeMainWindowItem("item-b", "Bravo", "Sword", tab));
-    fixture.itemsManager->OnItemsRefreshed(items, {tab}, false);
+    items.push_back(makeMainWindowItem("item-c", "Charlie", "Sword", other));
+    fixture.itemsManager->OnItemsRefreshed(items, {tab, other}, false);
     QVERIFY(fixture.buyoutFixture.manager->Set(*items[0], makeChaosBuyout(5)));
+    QVERIFY(fixture.buyoutFixture.manager->Set(*items[2], makeChaosBuyout(7)));
     priced->click();
 
     auto *model = tree->model();
     QVERIFY(findBucket(*model, tab.GetHeader()).isValid());
     QCOMPARE(sortedItemNames(*model, findBucket(*model, tab.GetHeader())),
              QStringList({"Alpha Sword"}));
+    tree->collapse(findBucket(*model, other.GetHeader()));
     tree->selectionModel()->setCurrentIndex(findBucket(*model, tab.GetHeader()),
                                             QItemSelectionModel::ClearAndSelect
                                                 | QItemSelectionModel::Rows);
+    const QStringList before = viewTranscript(*tree);
+    saveTestScreenshot(*fixture.window, "before");
+
+    // Bravo arrives under the priced tab; the tab's header shows the price.
     applyBuyoutCommand(fixture, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_CHAOS_ORB, "2");
     QCoreApplication::processEvents();
     QCOMPARE(sortedItemNames(*model, findBucket(*model, tab.GetHeader())),
              QStringList({"Alpha Sword", "Bravo Sword"}));
+    const QStringList tabPriced = viewTranscript(*tree);
+    saveTestScreenshot(*fixture.window, "tab-priced");
+    QStringList changes = viewTranscriptChanges(before, tabPriced, {"\"Dump\"", "Bravo Sword"});
+    QVERIFY2(changes.isEmpty(), qPrintable(changes.join('\n')));
+    QCOMPARE(tabPriced.front(), QString("*>[-] #1, \"Dump\" [b/o 2 chaos]"));
 
+    // Clearing the tab's price shows the tree as it was before.
     tree->selectionModel()->setCurrentIndex(findBucket(*model, tab.GetHeader()),
                                             QItemSelectionModel::ClearAndSelect
                                                 | QItemSelectionModel::Rows);
@@ -1879,6 +1898,8 @@ void MainWindowTest::pricedFilterFollowsATabPrice()
     QCoreApplication::processEvents();
     QCOMPARE(sortedItemNames(*model, findBucket(*model, tab.GetHeader())),
              QStringList({"Alpha Sword"}));
+    changes = viewTranscriptChanges(before, viewTranscript(*tree), {});
+    QVERIFY2(changes.isEmpty(), qPrintable(changes.join('\n')));
 }
 
 // No search uses the Priced filter: a price commit marks nothing and
