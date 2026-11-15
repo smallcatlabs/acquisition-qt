@@ -425,6 +425,18 @@ public:
         qFatal("AppFixture: no number filter labelled %s", qPrintable(caption));
     }
 
+    // The search form's list of item categories, labelled "Type".
+    QComboBox &categoryBox() const
+    {
+        for (const QLabel *label : window().findChildren<QLabel *>()) {
+            if ((label->text() == "Type") && label->parentWidget()) {
+                if (auto *box = label->parentWidget()->findChild<QComboBox *>()) {
+                    return *box;
+                }
+            }
+        }
+        qFatal("AppFixture: the search form has no category list");
+    }
     // The search form's Priced checkbox.
     QCheckBox &pricedBox() const
     {

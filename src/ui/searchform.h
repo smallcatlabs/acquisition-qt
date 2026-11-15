@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <QStringList>
+
 #include <functional>
 #include <memory>
 #include <vector>
@@ -40,6 +42,9 @@ public:
     virtual void saveTo(FilterState &state) const = 0;
     virtual void loadFrom(const FilterState &state) = 0;
     virtual void reset() = 0;
+    // Replaces the choices a list offers, keeping the one chosen. Only a
+    // list has any.
+    virtual void setChoices(const QStringList &) {}
 };
 
 class SearchForm
@@ -55,6 +60,10 @@ public:
     void loadFrom(Search &search);
     void unbind(Search &search);
     void reset();
+    // Asks the catalog again for the choices each list offers. The category
+    // list comes from the game data, which can arrive after the form was
+    // built (#386).
+    void refreshChoices();
 
 private:
     void addSearchGroup(QLayout *layout, const QString &name = {});

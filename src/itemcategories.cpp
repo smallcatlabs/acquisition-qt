@@ -150,7 +150,9 @@ const QStringList &GetItemCategories()
 {
     auto &data = CATEGORY_DATA::instance();
     if (data.categories.isEmpty()) {
-        spdlog::error("Item categories have not been initialized");
+        // Not an error: a login can come before the game data, and the
+        // search form asks again when it arrives (#386).
+        spdlog::debug("Item categories are not loaded yet");
     }
     return data.categories;
 }

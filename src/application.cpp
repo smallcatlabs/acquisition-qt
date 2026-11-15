@@ -161,6 +161,9 @@ void Application::InitUserSession(const SessionIdentity &identity)
 
     // Connect UI signals.
     ConnectMainWindow(*this, main_window(), *item_mgr, *worker, shop(), *updater, *cache);
+    // A login can come before the game data: the window is built without
+    // it, and takes what it needs from it when it arrives (#386).
+    ConnectGameData(main_window(), repoe());
 }
 
 Application::CoreServices &Application::core() const
