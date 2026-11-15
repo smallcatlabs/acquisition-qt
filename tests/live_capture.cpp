@@ -51,6 +51,7 @@
 #include "ui/mainwindow.h"
 #include "util/datadirlock.h"
 #include "util/logging.h"
+#include "util/networkmanager.h"
 
 namespace {
 
@@ -272,7 +273,7 @@ int main(int argc, char *argv[])
     spdlog::info("-------------------------------------------------------------------------------");
     spdlog::info("live_capture: a live run from a test program (#378)");
 
-    Application app(dir);
+    Application app(dir, std::make_unique<NetworkManager>());
     Capture capture(app,
                     account,
                     parser.value(option_league),

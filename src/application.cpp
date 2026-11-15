@@ -37,21 +37,21 @@
 #include "util/updatechecker.h"
 #include "version_defines.h"
 
-Application::Application(const QDir &appDataDir)
+Application::Application(const QDir &appDataDir, std::unique_ptr<NetworkManager> network_manager)
 {
     spdlog::debug("Application: created");
 
     spdlog::debug("Application: data directory is {}", appDataDir.absolutePath());
     m_data_dir = appDataDir;
 
-    InitCoreServices();
+    InitCoreServices(std::move(network_manager));
 }
 
 Application::~Application() = default;
 
-void Application::InitCoreServices()
+void Application::InitCoreServices(std::unique_ptr<NetworkManager> network_manager)
 {
-    m_core = std::make_unique<Application::CoreServices>(m_data_dir);
+    m_core = std::make_unique<Application::CoreServices>(m_data_dir, std::move(network_manager));
 
     // Connect to the update signal in case an update is detected before the main window is open.
     connect(&update_checker(),
@@ -195,11 +195,14 @@ std::unique_ptr<DataStore> OpenGlobalDataStore(const QDir &dataDir, QSettings &s
     return std::make_unique<SqliteDataStore>(global_data_file);
 }
 
-Application::CoreServices::CoreServices(const QDir &appDataDir)
+Application::CoreServices::CoreServices(const QDir &appDataDir,
+                                        std::unique_ptr<NetworkManager> network)
     : dir(appDataDir)
+    , network_manager(std::move(network))
 {
-    spdlog::trace("Application: creating NetworkManager");
-    network_manager = std::make_unique<NetworkManager>();
+    if (!network_manager) {
+        FatalError("Application: no network manager was supplied");
+    }
     // The HTTP disk cache is gone; clear what earlier versions left in this
     // data directory. Never touches any other directory.
     NetworkManager::removeLegacyDiskCache(dir);

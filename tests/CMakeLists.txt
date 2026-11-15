@@ -186,3 +186,15 @@ acq_add_scenario_test(tst_workerintegration
     i_shut_retry
     i_leak_bound
     i_retention)
+
+# The real Application on a scripted network (#377): the release smoke list
+# as scenarios, one per process (appfixture.h says why).
+acq_add_scenario_test(tst_appsmoke
+    startsWithCachedItems
+    refreshCheckedKeepsTheView
+    refreshSelectedKeepsTheView
+    typedPriceIsSavedOnEnter
+    notePriceOverridesAndGivesWay
+    tabNamePriceOverridesAndGivesWay
+    pricedFilterFollowsPrices
+    numberFieldsTakeACommaAndRefuseAPercent)

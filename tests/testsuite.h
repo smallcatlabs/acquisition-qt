@@ -14,6 +14,7 @@
 //   ACQ_TEST_SCENARIO_MAIN(Class)  as ACQ_TEST_GUILESS_MAIN, and the runner
 //                                  refuses to start unless exactly one slot
 //                                  name is given (one scenario per process)
+//   ACQ_TEST_GUI_SCENARIO_MAIN(Class)  the same rule, with a QApplication
 //
 // Each does what Qt's macro does (initMain, the application object and its
 // set-up, QTEST_SET_MAIN_SOURCE_PATH so QFINDTESTDATA finds files next to the
@@ -53,3 +54,4 @@ namespace acq_test {
     ACQ_TEST_SUITE_(TestObject, false, QTEST_QAPP_SETUP(QCoreApplication))
 #define ACQ_TEST_SCENARIO_MAIN(TestObject) \
     ACQ_TEST_SUITE_(TestObject, true, QTEST_QAPP_SETUP(QCoreApplication))
+#define ACQ_TEST_GUI_SCENARIO_MAIN(TestObject) ACQ_TEST_SUITE_(TestObject, true, QTEST_MAIN_SETUP())

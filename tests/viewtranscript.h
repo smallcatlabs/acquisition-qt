@@ -33,11 +33,11 @@
 // Decisions: columns print in visual order (what the user sees), hidden
 // columns are left out; a row is selected or current by its column 0; an
 // empty text prints as nothing, and empty texts at the end of a row are
-// dropped, so a tab header is its title alone.
-inline void appendViewTranscript(const QTreeView &view,
-                                 const QModelIndex &parent,
-                                 int depth,
-                                 QStringList &lines)
+// dropped, so a tab header is its title alone. `columns`, when given, is how
+// many of the visible columns to print, counted from the left: a test that
+// writes its expected lines out names the few it is about.
+inline void appendViewTranscript(
+    const QTreeView &view, const QModelIndex &parent, int depth, int columns, QStringList &lines)
 {
     const QAbstractItemModel &model = *view.model();
     const QItemSelectionModel *selection = view.selectionModel();
@@ -59,7 +59,7 @@ inline void appendViewTranscript(const QTreeView &view,
         QStringList texts;
         for (int visual = 0; visual < header.count(); ++visual) {
             const int column = header.logicalIndex(visual);
-            if (!view.isColumnHidden(column)) {
+            if (!view.isColumnHidden(column) && ((columns < 0) || (texts.size() < columns))) {
                 texts << model.index(row, column, parent).data(Qt::DisplayRole).toString();
             }
         }
@@ -68,16 +68,16 @@ inline void appendViewTranscript(const QTreeView &view,
         }
         lines << line + texts.join(QStringLiteral(" | "));
         if (expanded) {
-            appendViewTranscript(view, index, depth + 1, lines);
+            appendViewTranscript(view, index, depth + 1, columns, lines);
         }
     }
 }
 
-inline QStringList viewTranscript(const QTreeView &view)
+inline QStringList viewTranscript(const QTreeView &view, int columns = -1)
 {
     QStringList lines;
     if (view.model()) {
-        appendViewTranscript(view, view.rootIndex(), 0, lines);
+        appendViewTranscript(view, view.rootIndex(), 0, columns, lines);
     }
     return lines;
 }

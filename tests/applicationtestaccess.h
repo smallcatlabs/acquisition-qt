@@ -4,6 +4,7 @@
 #pragma once
 
 #include "application.h"
+#include "repoe/repoe.h"
 
 // The one test-only seam into Application (#378), on the pattern of
 // WorkerTestAccess: Application only forward-declares this as a friend and it
@@ -18,6 +19,9 @@ public:
     {}
 
     LoginDialog &login() const { return m_app.login(); }
+
+    // True once the game data (RePoE) has been loaded, or given up on.
+    bool gameDataLoaded() const { return m_app.repoe().IsInitialized(); }
 
     // False until LoginDialog::LoginComplete has built the user session.
     bool hasSession() const { return m_app.m_session != nullptr; }

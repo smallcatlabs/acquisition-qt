@@ -144,6 +144,49 @@ Tests workflow uploads the directory when a run fails.
 ACQ_TEST_SCREENSHOT_DIR=$PWD/build/dev/screenshots ctest --preset dev -R tst_mainwindow
 ```
 
+### Application scenarios
+
+`tests/tst_appsmoke.cpp` runs the release smoke list on the real
+`Application` (`tests/appfixture.h`): everything `main()` builds, over a
+temporary data directory, with the network answered from files by
+`tests/scriptednetwork.h`. The scene is three stash tabs from
+`tests/fixtures/payloads`, in the user store before the application starts
+and served again to a refresh. Each scenario is its own process and its own
+CTest entry, `tst_appsmoke.<scenario>`; a new one is a slot in that file and
+its name in `acq_add_scenario_test(tst_appsmoke ...)`.
+
+```sh
+ctest --preset dev -R tst_appsmoke
+QT_QPA_PLATFORM=offscreen build/dev/tests/acq_tests tst_appsmoke refreshCheckedKeepsTheView
+```
+
+A refresh runs on the rate limiter's real timers, about a quarter of a
+second for each request. A scenario fails if the application asked the
+network for something the script does not answer, or opened a dialog box.
+
+What the scenarios cover on the real application, by step of the release
+smoke list: starting from cached items (2); Refresh Checked and Refresh
+Selected (3); a price saved with Enter, the status line for text that is not
+a price, the lock on an item priced in the game and a tab's price as one
+stored row (part of 4); a note's price and a tab name's price (5, 6); the
+Priced filter (7); one number field (8).
+
+Not covered by them, and checked by hand before a release:
+
+- logging in, and logging in again after a restart (1): it needs a browser;
+- the other ways a typed price is saved (choosing a type or a currency,
+  selecting other rows, closing) and the red field (the rest of 4), which
+  `tst_mainwindow` tests on a window wired by hand, not on the real
+  application;
+- the first manual shop update, what the forum shows afterwards, and "Copy
+  shop data to clipboard" (9);
+- a run on Windows (10);
+- anything the offscreen platform does not draw.
+
+The scripted network stands in for `NetworkManager::createRequest`, so the
+User-Agent and the bearer token it adds to a request are not exercised
+either.
+
 ### Live capture (hand-run, not a test)
 
 `live_capture` (`tests/live_capture.cpp`) builds the real `Application` on a
