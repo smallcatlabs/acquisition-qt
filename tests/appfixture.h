@@ -17,6 +17,7 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMenu>
 #include <QMessageBox>
 #include <QSettings>
 #include <QStandardPaths>
@@ -57,7 +58,13 @@
 // One scenario per process (acq_add_scenario_test): the game data tables are
 // process-global, a process holds one user session, and the session's owners
 // may only be destroyed once no further event is processed. The fixture is
-// therefore a local of the test function and nothing runs after it.
+// therefore a local of the test function, destroyed when it returns; only
+// Qt Test's own clean-up follows.
+//
+// What it does not exercise: the OAuth login (logIn() starts where the login
+// dialog ends), and the request headers NetworkManager adds (scriptednetwork.h).
+// The scripted API has one rate-limit rule with room to spare, so the
+// limiter's waits beyond its own spacing between sends never happen here.
 //
 // The scene is three stash tabs from tests/fixtures/payloads, real replies:
 // they are in the user store before the application starts, as after an
@@ -213,6 +220,39 @@ public:
         return completed && completed->skipped.empty();
     }
 
+    // The item named `text` in a menu of the application, the tree's context
+    // menu included: what a click on that menu entry triggers.
+    QAction &menuAction(const QString &text) const
+    {
+        for (QWidget *widget : QApplication::allWidgets()) {
+            if (const auto *menu = qobject_cast<QMenu *>(widget)) {
+                for (QAction *action : menu->actions()) {
+                    if (action->text() == text) {
+                        return *action;
+                    }
+                }
+            }
+        }
+        qFatal("AppFixture: no menu has an item named %s", qPrintable(text));
+    }
+
+    // Every stash and character request made so far, probes included, as
+    // "HEAD /stash/Hardcore" or "GET /stash/Hardcore/<id>", in order.
+    QStringList apiRequests() const
+    {
+        QStringList found;
+        for (const ScriptedNetwork::Request &request : network->requests()) {
+            const QString url = request.url.toString();
+            const QString path = url.mid(apiUrl("").size());
+            if (url.startsWith(apiUrl(""))
+                && (path.startsWith("/stash") || path.startsWith("/character"))) {
+                const bool head = (request.op == QNetworkAccessManager::HeadOperation);
+                found << (head ? "HEAD " : "GET ") + path;
+            }
+        }
+        return found;
+    }
+
     // The stash and character requests made so far, as "/stash/Hardcore/<id>",
     // in the order they were made.
     QStringList apiGets() const
@@ -242,8 +282,10 @@ public:
         if (types->isEnabled()) {
             types->setCurrentIndex(type);
             emit types->activated(type);
-            currencies->setCurrentIndex(currency);
-            emit currencies->activated(currency);
+            if (currencies->isEnabled()) {
+                currencies->setCurrentIndex(currency);
+                emit currencies->activated(currency);
+            }
         }
         return *value;
     }
@@ -330,6 +372,8 @@ public:
     }
 
     // Renames tab `index` from now on, in the list and in its own reply.
+    // Every tab is served from `tabs` again, so a serveStash() made before
+    // this is undone.
     void renameTab(size_t index, const QString &name)
     {
         Tab &tab = tabs.at(index);
@@ -343,8 +387,9 @@ public:
     // Replaces what the API serves for one tab from now on.
     void serveStash(const QString &id, const QByteArray &stash_object)
     {
-        network->answer(apiUrl(QString("/stash/%1/%2").arg(kLeague, id)),
-                        apiAnswer("stash-request-limit", "{\"stash\":" + stash_object + "}"));
+        answerApiUrl(QString("/stash/%1/%2").arg(kLeague, id),
+                     "stash-request-limit",
+                     "{\"stash\":" + stash_object + "}");
     }
 
     static QString apiUrl(const QString &path) { return "https://api.pathofexile.com" + path; }
@@ -378,6 +423,21 @@ private:
                     {"X-Rate-Limit-Account-State", "1:10:0"},
                     {"Date", QDateTime::currentDateTimeUtc().toString(Qt::RFC2822Date).toUtf8()},
                 }};
+    }
+
+    // Answers an API path with `body` and the rate-limit headers. The answer
+    // is made when the request arrives, so its Date is the time of the reply.
+    void answerApiUrl(const QString &path, const QByteArray &policy, const QByteArray &body)
+    {
+        const QString url = apiUrl(path);
+        network->answer(
+            [url, policy, body](QNetworkAccessManager::Operation,
+                                const QUrl &asked) -> std::optional<ScriptedNetwork::Answer> {
+                if (asked.toString() == url) {
+                    return apiAnswer(policy, body);
+                }
+                return std::nullopt;
+            });
     }
 
     // A stash as the list reply carries it: without its items.
@@ -463,12 +523,10 @@ private:
             list.append(withoutItems(tab.reply));
             serveStash(tab.id, tab.reply);
         }
-        network->answer(apiUrl(QString("/stash/%1").arg(kLeague)),
-                        apiAnswer("stash-list-request-limit",
-                                  QJsonDocument(QJsonObject{{"stashes", list}})
-                                      .toJson(QJsonDocument::Compact)));
-        network->answer(apiUrl("/character"),
-                        apiAnswer("character-list-request-limit", R"({"characters":[]})"));
+        answerApiUrl(QString("/stash/%1").arg(kLeague),
+                     "stash-list-request-limit",
+                     QJsonDocument(QJsonObject{{"stashes", list}}).toJson(QJsonDocument::Compact));
+        answerApiUrl("/character", "character-list-request-limit", R"({"characters":[]})");
     }
 
     QTimer m_dialog_watch;

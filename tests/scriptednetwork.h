@@ -29,6 +29,10 @@
 // answered with an error and listed by unanswered(), so a scenario can state
 // that the application asked for nothing it was not expected to.
 //
+// What this does not exercise: it replaces NetworkManager::createRequest, so
+// the User-Agent and the bearer token that function adds to a request are
+// never set, and an API request without a token is answered like any other.
+//
 // No Q_OBJECT: no new signals, slots, or properties.
 class ScriptedNetwork : public NetworkManager
 {
@@ -110,12 +114,15 @@ protected:
         if (!found) {
             found = Answer{.status = 404, .error = QNetworkReply::ContentNotFoundError};
         }
+        if (op == QNetworkAccessManager::HeadOperation) {
+            found->body.clear(); // a HEAD reply has headers only
+        }
         auto *reply = new InFlightReply(request, this);
         // Completed from the event loop; the reply may be gone by then.
         const QPointer<InFlightReply> guarded(reply);
-        QTimer::singleShot(0, reply, [guarded, answer = *found] {
+        QTimer::singleShot(0, reply, [guarded, sent = *found] {
             if (guarded && !guarded->isFinished()) {
-                guarded->finish(answer.headers, answer.status, answer.error, answer.body);
+                guarded->finish(sent.headers, sent.status, sent.error, sent.body);
             }
         });
         return reply;

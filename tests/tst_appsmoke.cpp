@@ -150,15 +150,29 @@ void AppSmokeTest::startsWithCachedItems()
 {
     AppFixture fixture;
     QVERIFY(QTest::qWaitFor([&] { return fixture.access().gameDataLoaded(); }, 10000));
+    // The application's own switch for a slow load: 200 ms for each cached
+    // tab, so there is a while in which to be usable.
+    qputenv("ACQ_PARSE_DELAY_MS", "200");
     fixture.logIn();
+    qunsetenv("ACQ_PARSE_DELAY_MS");
     ScreenshotOnFailure screenshot{fixture.window()};
-
-    // The window is up and usable before any cached item has arrived.
     QVERIFY(fixture.window().isVisible());
     QVERIFY(fixture.window().isEnabled());
-    QCOMPARE(fixture.tree().model()->rowCount(), 0);
 
+    // Usable while the items load: the event loop keeps turning with the
+    // tree still empty. A load that held the main thread would let the timer
+    // fire only once the items were already there.
+    int turns_while_empty = 0;
+    QTimer heartbeat;
+    connect(&heartbeat, &QTimer::timeout, &heartbeat, [&] {
+        if (fixture.tree().model()->rowCount() == 0) {
+            ++turns_while_empty;
+        }
+    });
+    heartbeat.start(10);
     QTRY_COMPARE(fixture.tree().model()->rowCount(), 3);
+    heartbeat.stop();
+    QVERIFY2(turns_while_empty >= 10, qPrintable(QString::number(turns_while_empty)));
     fixture.tree().expandAll();
     fixture.select("KB/CF Champ");
     saveTestScreenshot(fixture.window(), "loaded");
@@ -178,8 +192,11 @@ void AppSmokeTest::startsWithCachedItems()
                  "        Dragon Crown Close Helmet | price 3 chaos",
              }));
 
-    // Starting from the cache asks the API for nothing.
-    QCOMPARE(fixture.apiGets().join(' '), QString());
+    // Starting from the cache asks the API for nothing, not even a probe:
+    // waited for, since a request would leave only after the limiter's
+    // spacing between sends.
+    QTest::qWait(1000);
+    QCOMPARE(fixture.apiRequests().join(' '), QString());
     QCOMPARE(surprises(fixture), QString());
 }
 
@@ -236,10 +253,8 @@ void AppSmokeTest::refreshSelectedKeepsTheView()
 
     // Since the last run an item has left the selected tab.
     fixture.serveStash(fixture.tabs[0].id, without(fixture.tabs[0], "Hollow Vision"));
-    const auto outcome = fixture.refresh([&] {
-        // "Refresh Selected" in the tree's context menu.
-        QVERIFY(QMetaObject::invokeMethod(&fixture.window(), "OnRefreshSelected"));
-    });
+    // "Refresh Selected" in the tree's context menu.
+    const auto outcome = fixture.refresh([&] { fixture.menuAction("Refresh Selected").trigger(); });
     QVERIFY(AppFixture::isClean(outcome));
     saveTestScreenshot(fixture.window(), "refreshed");
 
@@ -310,9 +325,7 @@ void AppSmokeTest::notePriceOverridesAndGivesWay()
     fixture.select("Viper Suit");
     fixture.typePrice("7");
     QCOMPARE(line(fixture, "Viper Suit"), QString("Viper Suit Loricated Ringmail | b/o 7 chaos"));
-    const auto refresh_selected = [&] {
-        QVERIFY(QMetaObject::invokeMethod(&fixture.window(), "OnRefreshSelected"));
-    };
+    const auto refresh_selected = [&] { fixture.menuAction("Refresh Selected").trigger(); };
 
     // The item is priced in the game, in a currency that is not one of the
     // original nineteen: the note's price is the one in force.
@@ -438,6 +451,8 @@ void AppSmokeTest::numberFieldsTakeACommaAndRefuseAPercent()
     };
 
     // A decimal comma is a number: only the items at or above it are shown.
+    // (Item levels are whole, so this shows the comma is taken, not what the
+    // fraction is worth; tst_filters pins the value.)
     QTest::keyClicks(minimum, "75,5");
     QTRY_COMPARE(rows(),
                  QString("[-] #22, \"~price 2 chaos\" [price 2 chaos]\n"
