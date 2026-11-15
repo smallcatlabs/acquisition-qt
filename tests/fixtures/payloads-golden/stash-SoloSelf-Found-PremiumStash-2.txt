@@ -1,0 +1,134 @@
+2 item(s)
+
+=== Ghoul Claw Carnal Mitts
+id: f650822c69f69074d3293270a92604a87edd4765a4792369b081412d87d17eea
+location: #32, "Ice Nova"
+forum code: [linkItem location="Stash1" league="Corpus" x="9" y="1" realm="pc"]
+frame type 2, category 'gloves', item level 61, 2x2, count 1
+flags: identified, crafted, path of building item
+influence: searing exarch, searing exarch
+sockets: B-R-B-B (4 sockets, 4 linked; r1 g0 b3 w0)
+socket groups: r0 g0 b0 w0; r1 g0 b3 w0
+properties:
+  Energy Shield = 23 (number 23)
+  Evasion Rating = 108 (number 108)
+  Quality = 20 (number 20)
+requirements: Dex 39, Int 39, Level 60
+mod table:
+  #% increased Attack Speed = 8
+  +# to maximum Life = 55
+  +# to maximum Mana = 52
+  +#% to Cold Resistance = 27
+  +#% to Fire Resistance = 28
+  +#% total Attack Speed = 8
+  +#% total Elemental Resistance = 55
+  +#% total Resistance = 55
+  +#% total to Cold Resistance = 27
+  +#% total to Fire Resistance = 28
+  Regenerate # Life per second = 34.3
+path of building:
+  Rarity: RARE
+  Ghoul Claw
+  Carnal Mitts
+  Unique ID: f650822c69f69074d3293270a92604a87edd4765a4792369b081412d87d17eea
+  Item Level: 61
+  Quality: 20
+  Sockets: B-R-B-B
+  LevelReq: 60
+  Implicits: 1
+  8% increased Attack Speed
+  +55 to maximum Life
+  Regenerate 34.3 Life per second
+  +28% to Fire Resistance
+  +27% to Cold Resistance
+  {crafted}+52 to maximum Mana
+tooltip:
+  <center><font color='#fff'>Ghoul Claw Carnal Mitts</font><hr>
+  Quality: <font color='#88f'>+20%</font><br>
+  Evasion Rating: <font color='#88f'>108</font><br>
+  Energy Shield: <font color='#88f'>23</font><br>
+  <hr>
+  Requires Level <font color='#fff'>60</font>, Dex <font color='#fff'>39</font>, Int <font color='#fff'>39</font><br>
+  <hr>
+  <font color='#88f'>8% increased Attack Speed</font><br>
+  <hr>
+  <font color='#88f'>+55 to maximum Life<br>
+  Regenerate 34.3 Life per second<br>
+  +28% to Fire Resistance<br>
+  +27% to Cold Resistance</font><br>
+  <font color='#b4b4ff'>+52 to maximum Mana</font></center>
+hash: 1d954da00a30c6d2d01d661667ced064
+
+=== Grim Spur Two-Toned Boots
+id: a5ceab9006daa7f81d5c2fa30b84ba8196e179c0f9b5ab58c112647b35f1ef9b
+location: #32, "Ice Nova"
+forum code: [linkItem location="Stash1" league="Corpus" x="4" y="1" realm="pc"]
+frame type 2, category 'boots', item level 73, 2x2, count 1
+flags: identified, crafted, path of building item
+influence: searing exarch, eater of worlds
+sockets: B-R-B-B (4 sockets, 4 linked; r1 g0 b3 w0)
+socket groups: r0 g0 b0 w0; r1 g0 b3 w0
+properties:
+  Energy Shield = 88 (number 88)
+  Evasion Rating = 285 (number 285)
+  Quality = 20 (number 20)
+requirements: Dex 62, Int 62, Level 70
+mod table:
+  #% increased Evasion and Energy Shield = 84
+  #% increased Movement Speed = 30
+  #% increased Rallying Cry Buff Effect = 6
+  +# to Dexterity = 40
+  +# to maximum Energy Shield = 13
+  +# to maximum Life = 28
+  +# total to Dexterity = 40
+  +#% to Cold Resistance = 44
+  +#% to Fire and Lightning Resistances = 20
+  +#% total Elemental Resistance = 84
+  +#% total Resistance = 84
+  +#% total to Cold Resistance = 44
+  +#% total to Fire Resistance = 20
+  +#% total to Lightning Resistance = 20
+  Drops Scorched Ground while moving, lasting # seconds = 2
+path of building:
+  Rarity: RARE
+  Grim Spur
+  Two-Toned Boots
+  Unique ID: a5ceab9006daa7f81d5c2fa30b84ba8196e179c0f9b5ab58c112647b35f1ef9b
+  Item Level: 73
+  Quality: 20
+  Sockets: B-R-B-B
+  LevelReq: 70
+  Implicits: 2
+  6% increased Rallying Cry Buff Effect
+  Drops Scorched Ground while moving, lasting 2 seconds
+  +40 to Dexterity
+  84% increased Evasion and Energy Shield
+  +13 to maximum Energy Shield
+  +28 to maximum Life
+  +44% to Cold Resistance
+  30% increased Movement Speed
+  {crafted}+20% to Fire and Lightning Resistances
+tooltip:
+  <center><font color='#fff'>Grim Spur Two-Toned Boots</font><hr>
+  Quality: <font color='#88f'>+20%</font><br>
+  Evasion Rating: <font color='#88f'>285</font><br>
+  Energy Shield: <font color='#88f'>88</font><br>
+  <hr>
+  Requires Level <font color='#fff'>70</font>, Dex <font color='#fff'>62</font>, Int <font color='#fff'>62</font><br>
+  <hr>
+  <font color='#88f'>6% increased Rallying Cry Buff Effect<br>
+  Drops Scorched Ground while moving, lasting 2 seconds</font><br>
+  <hr>
+  <font color='#88f'>+40 to Dexterity<br>
+  84% increased Evasion and Energy Shield<br>
+  +13 to maximum Energy Shield<br>
+  +28 to maximum Life<br>
+  +44% to Cold Resistance<br>
+  30% increased Movement Speed</font><br>
+  <font color='#b4b4ff'>+20% to Fire and Lightning Resistances</font></center>
+hash: bba79dc074f959e98c0dc7a779542b6f
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="9" y="1" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="4" y="1" realm="pc"][/spoiler]

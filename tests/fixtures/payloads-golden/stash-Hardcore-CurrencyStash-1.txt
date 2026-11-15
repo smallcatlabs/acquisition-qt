@@ -1,0 +1,20 @@
+1 item(s)
+
+=== Rogue's Marker
+id: b91a3290cbda6c751d4892fb3ae1acb0a524ea0ecb97ad3f37a26d27580a8eea
+location: #1, "Currency"
+forum code: [linkItem location="Stash1" league="Corpus" x="30" y="0" realm="pc"]
+frame type 5, category 'stackable currency', item level 0, 1x1, count 13355
+flags: identified
+properties:
+  Stack Size = 13355/50000
+tooltip:
+  <center><font color='#fff'>Rogue's Marker</font><hr>
+  Stack Size: <font color='#fff'>13355/50000</font><br>
+  <hr>
+  <font color='#88f'>Creates a portal to the Rogue Harbour from a Town or Hideout\nUsed as Currency for services in the Rogue Harbour</font></center>
+hash: e09cd8b0d5d25cd8f72e84478fc1ade5
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="30" y="0" realm="pc"][/spoiler]

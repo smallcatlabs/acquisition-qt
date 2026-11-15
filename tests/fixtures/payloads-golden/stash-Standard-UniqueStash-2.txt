@@ -1,0 +1,56 @@
+1 item(s)
+
+=== The Eternal Struggle Onyx Amulet
+id: b520cd24862842b96b37a93f0fd1f655f64109b3a7d232656871417b54df9f66
+location: #1, " (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="103" y="0" realm="pc"]
+frame type 3, category 'amulets', item level 85, 1x1, count 1
+flags: identified, path of building item
+influence: searing exarch, eater of worlds
+requirements: Level 61
+mod table:
+  #% increased Global Defences = 13
+  #% increased maximum Energy Shield = 12
+  +# to Dexterity = 27
+  +# to Intelligence = 38
+  +# to Strength = 39
+  +# total to Dexterity = 27
+  +# total to Intelligence = 38
+  +# total to Strength = 39
+  +#% to all maximum Resistances = 1
+  Critical Strikes inflict Malignant Madness if The Eater of Worlds is dominant = 0
+  Kill Enemies that have 15% or lower Life on Hit if The Searing Exarch is dominant = 0
+path of building:
+  Rarity: UNIQUE
+  The Eternal Struggle
+  Onyx Amulet
+  Unique ID: b520cd24862842b96b37a93f0fd1f655f64109b3a7d232656871417b54df9f66
+  Item Level: 85
+  LevelReq: 61
+  Implicits: 2
+  12% increased maximum Energy Shield
+  +1% to all maximum Resistances
+  +39 to Strength
+  +27 to Dexterity
+  +38 to Intelligence
+  13% increased Global Defences
+  Critical Strikes inflict Malignant Madness if The Eater of Worlds is dominant
+  Kill Enemies that have 15% or lower Life on Hit if The Searing Exarch is dominant
+tooltip:
+  <center><font color='#fff'>The Eternal Struggle Onyx Amulet</font><hr>
+  Requires Level <font color='#fff'>61</font><br>
+  <hr>
+  <font color='#88f'>12% increased maximum Energy Shield<br>
+  +1% to all maximum Resistances</font><br>
+  <hr>
+  <font color='#88f'>+39 to Strength<br>
+  +27 to Dexterity<br>
+  +38 to Intelligence<br>
+  13% increased Global Defences<br>
+  Critical Strikes inflict Malignant Madness if The Eater of Worlds is dominant<br>
+  Kill Enemies that have 15% or lower Life on Hit if The Searing Exarch is dominant</font></center>
+hash: 50504b644ea2717f14356615620d751b
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="103" y="0" realm="pc"][/spoiler]

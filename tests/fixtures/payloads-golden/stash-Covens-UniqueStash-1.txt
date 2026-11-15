@@ -1,0 +1,107 @@
+2 item(s)
+
+=== The Three Dragons Golden Mask
+id: 5b9b6b0c142d3a09691d16ebaf18f96dee7b9108fcf0d59726701217d1f95cee
+location: #1, ""
+forum code: [linkItem location="Stash1" league="Corpus" x="52" y="0" realm="pc"]
+frame type 3, category 'helmets', item level 72, 2x2, count 1
+flags: identified, path of building item
+sockets: W-W W (3 sockets, 2 linked; r0 g0 b0 w3)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w2; r0 g0 b0 w1
+properties:
+  Energy Shield = 21 (number 21)
+  Evasion Rating = 100 (number 100)
+requirements: Dex 40, Int 40, Level 35
+mod table:
+  +#% to all Elemental Resistances = 26
+  +#% total Elemental Resistance = 78
+  +#% total Resistance = 78
+  +#% total to Cold Resistance = 26
+  +#% total to Fire Resistance = 26
+  +#% total to Lightning Resistance = 26
+  Your Cold Damage can Ignite but not Freeze or Chill = 0
+  Your Fire Damage can Shock but not Ignite = 0
+  Your Lightning Damage can Freeze but not Shock = 0
+path of building:
+  Rarity: UNIQUE
+  The Three Dragons
+  Golden Mask
+  Unique ID: 5b9b6b0c142d3a09691d16ebaf18f96dee7b9108fcf0d59726701217d1f95cee
+  Item Level: 72
+  Sockets: W-W W
+  LevelReq: 35
+  Implicits: 0
+  +26% to all Elemental Resistances
+  Your Fire Damage can Shock but not Ignite
+  Your Cold Damage can Ignite but not Freeze or Chill
+  Your Lightning Damage can Freeze but not Shock
+tooltip:
+  <center><font color='#fff'>The Three Dragons Golden Mask</font><hr>
+  Evasion Rating: <font color='#fff'>100</font><br>
+  Energy Shield: <font color='#fff'>21</font><br>
+  <hr>
+  Requires Level <font color='#fff'>35</font>, Dex <font color='#fff'>40</font>, Int <font color='#fff'>40</font><br>
+  <hr>
+  <font color='#88f'>+26% to all Elemental Resistances<br>
+  Your Fire Damage can Shock but not Ignite<br>
+  Your Cold Damage can Ignite but not Freeze or Chill<br>
+  Your Lightning Damage can Freeze but not Shock</font></center>
+hash: 04821848f339c838bba41821b0d6a954
+
+=== Starkonja's Head Silken Hood
+id: 37a8071805be4b795ba462ab0124923eb8d135b3fb9aff6e5abade1b82f92e41
+location: #1, ""
+forum code: [linkItem location="Stash1" league="Corpus" x="30" y="0" realm="pc"]
+frame type 3, category 'helmets', item level 74, 2x2, count 1
+flags: identified, path of building item
+sockets: W-G-R (3 sockets, 3 linked; r1 g1 b0 w1)
+socket groups: r0 g0 b0 w0; r1 g1 b0 w1
+properties:
+  Evasion Rating = 702 (number 702)
+requirements: Dex 138, Level 60
+mod table:
+  #% increased Attack Speed = 10
+  #% increased Evasion Rating = 100
+  #% increased Global Critical Strike Chance = 25
+  #% increased Global Evasion Rating when on Low Life = 150
+  #% reduced Damage when on Low Life = 50
+  +# to Dexterity = 50
+  +# to maximum Life = 95
+  +# total to Dexterity = 50
+  +#% total Attack Speed = 10
+  +#% total Critical Strike Chance for Spells = 25
+path of building:
+  Rarity: UNIQUE
+  Starkonja's Head
+  Silken Hood
+  Unique ID: 37a8071805be4b795ba462ab0124923eb8d135b3fb9aff6e5abade1b82f92e41
+  Item Level: 74
+  Sockets: W-G-R
+  LevelReq: 60
+  Implicits: 0
+  +50 to Dexterity
+  50% reduced Damage when on Low Life
+  10% increased Attack Speed
+  25% increased Global Critical Strike Chance
+  100% increased Evasion Rating
+  +95 to maximum Life
+  150% increased Global Evasion Rating when on Low Life
+tooltip:
+  <center><font color='#fff'>Starkonja's Head Silken Hood</font><hr>
+  Evasion Rating: <font color='#88f'>702</font><br>
+  <hr>
+  Requires Level <font color='#fff'>60</font>, Dex <font color='#fff'>138</font><br>
+  <hr>
+  <font color='#88f'>+50 to Dexterity<br>
+  50% reduced Damage when on Low Life<br>
+  10% increased Attack Speed<br>
+  25% increased Global Critical Strike Chance<br>
+  100% increased Evasion Rating<br>
+  +95 to maximum Life<br>
+  150% increased Global Evasion Rating when on Low Life</font></center>
+hash: da92431e077195db7b74687e86ec2709
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="52" y="0" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="30" y="0" realm="pc"][/spoiler]

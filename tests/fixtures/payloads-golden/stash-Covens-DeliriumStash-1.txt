@@ -1,0 +1,34 @@
+2 item(s)
+
+=== Simulacrum Splinter
+id: 077b5814f8f0e9a562da303d1b0854ea470ea9180d7deeddcd2aadb70401e827
+location: #5, "Delirium"
+forum code: [linkItem location="Stash1" league="Corpus" x="15" y="0" realm="pc"]
+frame type 5, category 'stackable currency', item level 0, 1x1, count 8
+flags: identified
+properties:
+  Stack Size = 8/300
+tooltip:
+  <center><font color='#fff'>Simulacrum Splinter</font><hr>
+  Stack Size: <font color='#fff'>8/300</font></center>
+hash: c0bcc1176a2638d204e552f090d403a5
+
+=== Jeweller's Delirium Orb
+id: 99bd0e09c17a13ed1a415c0d65a4143f5d13382ea16366309ad1e8ec1a1e1b0d
+location: #5, "Delirium"
+forum code: [linkItem location="Stash1" league="Corpus" x="6" y="0" realm="pc"]
+frame type 5, category 'stackable currency', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Stack Size = 1/10
+tooltip:
+  <center><font color='#fff'>Jeweller's Delirium Orb</font><hr>
+  Stack Size: <font color='#fff'>1/10</font><br>
+  <hr>
+  <font color='#88f'>Reforges a rare Map item with a modifier making players in area Delirious\n[DeliriumRewardType|Delirium Reward Type]: Trinkets</font></center>
+hash: 7ce9d9927cf5bb7536faaec2c8bc9a17
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="15" y="0" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="6" y="0" realm="pc"][/spoiler]

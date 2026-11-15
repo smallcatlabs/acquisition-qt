@@ -1,0 +1,65 @@
+1 item(s)
+
+=== Rapture Aegis Crested Tower Shield
+id: f9fee6e224a0d0186da187266ebd88637d491764aa6d8ac98b2076931ccec570
+location: #18, "Weapons & Armour"
+forum code: [linkItem location="Stash1" league="Corpus" x="2" y="4" realm="pc"]
+frame type 2, category 'shields', item level 72, 2x4, count 1
+flags: identified, crafted, path of building item
+sockets: G-R-R (3 sockets, 3 linked; r2 g1 b0 w0)
+socket groups: r0 g0 b0 w0; r2 g1 b0 w0
+properties:
+  Armour = 784 (number 784)
+  Chance to Block = 25% (number 25)
+  Quality = 20 (number 20)
+requirements: Level 60, Str 132
+mod table:
+  #% increased Armour = 71
+  +# to Armour = 89
+  +# to maximum Life = 138
+  +#% to Fire Resistance = 20
+  +#% to Lightning Resistance = 43
+  +#% to all Elemental Resistances = 15
+  +#% total Elemental Resistance = 108
+  +#% total Resistance = 108
+  +#% total to Cold Resistance = 15
+  +#% total to Fire Resistance = 35
+  +#% total to Lightning Resistance = 58
+path of building:
+  Rarity: RARE
+  Rapture Aegis
+  Crested Tower Shield
+  Unique ID: f9fee6e224a0d0186da187266ebd88637d491764aa6d8ac98b2076931ccec570
+  Item Level: 72
+  Quality: 20
+  Sockets: G-R-R
+  LevelReq: 60
+  Implicits: 1
+  +30 to maximum Life
+  +89 to Armour
+  +108 to maximum Life
+  +15% to all Elemental Resistances
+  +20% to Fire Resistance
+  +43% to Lightning Resistance
+  {crafted}71% increased Armour
+tooltip:
+  <center><font color='#fff'>Rapture Aegis Crested Tower Shield</font><hr>
+  Quality: <font color='#88f'>+20%</font><br>
+  Chance to Block: <font color='#fff'>25%</font><br>
+  Armour: <font color='#88f'>784</font><br>
+  <hr>
+  Requires Level <font color='#fff'>60</font>, Str <font color='#fff'>132</font><br>
+  <hr>
+  <font color='#88f'>+30 to maximum Life</font><br>
+  <hr>
+  <font color='#88f'>+89 to Armour<br>
+  +108 to maximum Life<br>
+  +15% to all Elemental Resistances<br>
+  +20% to Fire Resistance<br>
+  +43% to Lightning Resistance</font><br>
+  <font color='#b4b4ff'>71% increased Armour</font></center>
+hash: cc198b7734dc8378beba7fa335f78e6e
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="2" y="4" realm="pc"][/spoiler]

@@ -1,0 +1,235 @@
+7 item(s)
+
+=== Fated Two-Stone Ring
+id: 9f647f558ae6bea4bbe1c8ff5da183a6616683dfbd256fc147759ff29d43c84f
+location: #1, "Dump Tab"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"]
+frame type 2, category 'rings', item level 71, 1x1, count 1
+flags: path of building item
+mod table:
+  +#% to Fire and Lightning Resistances = 16
+  +#% total Elemental Resistance = 32
+  +#% total Resistance = 32
+  +#% total to Fire Resistance = 16
+  +#% total to Lightning Resistance = 16
+path of building:
+  Rarity: RARE
+  
+  Fated Two-Stone Ring
+  Unique ID: 9f647f558ae6bea4bbe1c8ff5da183a6616683dfbd256fc147759ff29d43c84f
+  Item Level: 71
+  Implicits: 1
+  +16% to Fire and Lightning Resistances
+tooltip:
+  <center><font color='#fff'>Fated Two-Stone Ring</font><hr>
+  <font color='#88f'>+16% to Fire and Lightning Resistances</font><br>
+  <hr>
+  <font color='#d20000'>Unidentified</font></center>
+hash: 3f6815682995abf94e7743a80b2fd038
+
+=== Mazarine Mind Cage of Adamantite Skin
+id: 3287d1b685c331291c729bef90e44415ba161d611a4d35029aa51fb7cc0c693d
+location: #1, "Dump Tab"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="5" realm="pc"]
+frame type 1, category 'helmets', item level 71, 2x2, count 1
+flags: identified, path of building item
+sockets: W-W-W-W (4 sockets, 4 linked; r0 g0 b0 w4)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w4
+properties:
+  Energy Shield = 78 (number 78)
+requirements: Int 138, Level 65
+mod table:
+  #% increased Stun and Block Recovery = 23
+  +# to maximum Mana = 62
+path of building:
+  Rarity: MAGIC
+  
+  Mazarine Mind Cage of Adamantite Skin
+  Unique ID: 3287d1b685c331291c729bef90e44415ba161d611a4d35029aa51fb7cc0c693d
+  Item Level: 71
+  Sockets: W-W-W-W
+  LevelReq: 65
+  Implicits: 0
+  +62 to maximum Mana
+  23% increased Stun and Block Recovery
+tooltip:
+  <center><font color='#fff'>Mazarine Mind Cage of Adamantite Skin</font><hr>
+  Energy Shield: <font color='#fff'>78</font><br>
+  <hr>
+  Requires Level <font color='#fff'>65</font>, Int <font color='#fff'>138</font><br>
+  <hr>
+  <font color='#88f'>+62 to maximum Mana<br>
+  23% increased Stun and Block Recovery</font></center>
+hash: 9f7dde24e0108a0836013b7c8ac43fbe
+
+=== Cataclysm Spiral Iron Ring
+id: 6b8d74ec6f49522b787e37391b4dd48ddebbc93dbe4bfe34f05a82a32d4aa482
+location: #1, "Dump Tab"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="4" realm="pc"]
+frame type 2, category 'rings', item level 72, 1x1, count 1
+flags: identified, path of building item
+requirements: Level 32
+mod table:
+  +# to Intelligence = 26
+  +# total to Intelligence = 26
+  Adds # to # Physical Damage to Attacks = 4
+  Gain # Life per Enemy Killed = 25
+path of building:
+  Rarity: RARE
+  Cataclysm Spiral
+  Iron Ring
+  Unique ID: 6b8d74ec6f49522b787e37391b4dd48ddebbc93dbe4bfe34f05a82a32d4aa482
+  Item Level: 72
+  LevelReq: 32
+  Implicits: 1
+  Adds 1 to 4 Physical Damage to Attacks
+  +26 to Intelligence
+  Adds 1 to 2 Physical Damage to Attacks
+  Gain 25 Life per Enemy Killed
+tooltip:
+  <center><font color='#fff'>Cataclysm Spiral Iron Ring</font><hr>
+  Requires Level <font color='#fff'>32</font><br>
+  <hr>
+  <font color='#88f'>Adds 1 to 4 Physical Damage to Attacks</font><br>
+  <hr>
+  <font color='#88f'>+26 to Intelligence<br>
+  Adds 1 to 2 Physical Damage to Attacks<br>
+  Gain 25 Life per Enemy Killed</font></center>
+hash: 7544b2b13ee0d9e796baa852ed861a04
+
+=== Chitinous Leg
+id: df6b3a2482f75fd0fe08dee55f5317b9e4d767599ead5e83db00ef31e8f8cf8a
+location: #1, "Dump Tab"
+forum code: [linkItem location="Stash1" league="Corpus" x="1" y="0" realm="pc"]
+frame type 15, category '', item level 71, 2x2, count 1
+flags: identified
+mod table:
+  Corpses you Spawn have #% increased Maximum Life = 8
+tooltip:
+  <center><font color='#fff'>Chitinous Leg</font><hr>
+  Lower Limb<br>
+  <hr>
+  <font color='#88f'>Corpses you Spawn have 8% increased Maximum Life</font></center>
+hash: 62122fc2ee9db662b1252f195590877e
+
+=== Polar Slaughter Knife
+id: bba723d7d2553606d04f04275ed4f11bb93d781bdf9974129c569a7a5d80c74d
+location: #1, "Dump Tab"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="9" realm="pc"]
+frame type 1, category 'rune daggers', item level 81, 1x3, count 1
+flags: identified, path of building item
+sockets: W-W-W (3 sockets, 3 linked; r0 g0 b0 w3)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w3
+properties:
+  Attacks per Second = 1.40 (number 1.4)
+  Critical Strike Chance = 8.50% (number 8.5)
+  Physical Damage = 10-86
+  Weapon Range: {0} metre = 1 (number 1)
+elemental damage: 55-123 (type 5)
+dps: 191.8 (physical 67.2, elemental 124.6, chaos 0)
+requirements: Dex 81, Int 117, Level 58
+mod table:
+  #% increased Global Critical Strike Chance = 45
+  +#% total Critical Strike Chance for Spells = 45
+  Adds # to # Cold Damage = 89
+path of building:
+  Rarity: MAGIC
+  
+  Polar Slaughter Knife
+  Unique ID: bba723d7d2553606d04f04275ed4f11bb93d781bdf9974129c569a7a5d80c74d
+  Item Level: 81
+  Sockets: W-W-W
+  LevelReq: 58
+  Implicits: 1
+  45% increased Global Critical Strike Chance
+  Adds 55 to 123 Cold Damage
+tooltip:
+  <center><font color='#fff'>Polar Slaughter Knife</font><hr>
+  Rune Dagger<br>
+  Physical Damage: <font color='#fff'>10-86</font><br>
+  Elemental Damage: <font color='#366492'>55-123</font><br>
+  Critical Strike Chance: <font color='#fff'>8.50%</font><br>
+  Attacks per Second: <font color='#fff'>1.40</font><br>
+  Weapon Range: <font color='#fff'>1</font> metre<br>
+  <hr>
+  Requires Level <font color='#fff'>58</font>, Dex <font color='#fff'>81</font>, Int <font color='#fff'>117</font><br>
+  <hr>
+  <font color='#88f'>45% increased Global Critical Strike Chance</font><br>
+  <hr>
+  <font color='#88f'>Adds 55 to 123 Cold Damage</font></center>
+hash: df15afd5dbd72816522395a0c5a3aef5
+
+=== Onyx Amulet
+id: 4d95a7ae1d5a6d40e853303ba026336604b2dbf271871db3f8f9114e60753073
+location: #1, "Dump Tab"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="2" realm="pc"]
+frame type 1, category 'amulets', item level 72, 1x1, count 1
+flags: path of building item
+mod table:
+  +# to all Attributes = 10
+  +# total to Dexterity = 10
+  +# total to Intelligence = 10
+  +# total to Strength = 10
+path of building:
+  Rarity: MAGIC
+  
+  Onyx Amulet
+  Unique ID: 4d95a7ae1d5a6d40e853303ba026336604b2dbf271871db3f8f9114e60753073
+  Item Level: 72
+  Implicits: 1
+  +10 to all Attributes
+tooltip:
+  <center><font color='#fff'>Onyx Amulet</font><hr>
+  <font color='#88f'>+10 to all Attributes</font><br>
+  <hr>
+  <font color='#d20000'>Unidentified</font></center>
+hash: 3067acde803bfe268bbe99cc22d23190
+
+=== Spirit Hope Medium Cluster Jewel
+id: cdc81c575be74e320f3b5471eed7ffa0d8be7c8b80a519ba715780e09aaf474e
+location: #1, "Dump Tab"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="12" realm="pc"]
+frame type 2, category 'jewels', item level 78, 1x1, count 1
+flags: identified, enchanted, path of building item
+requirements: Level 54
+mod table:
+  1 Added Passive Skill is a Jewel Socket = 0
+  Added Small Passive Skills also grant: #% increased Damage = 2
+  Added Small Passive Skills also grant: +#% to all Elemental Resistances = 3
+  Adds # Passive Skills = 5
+path of building:
+  Rarity: RARE
+  Spirit Hope
+  Medium Cluster Jewel
+  Unique ID: cdc81c575be74e320f3b5471eed7ffa0d8be7c8b80a519ba715780e09aaf474e
+  Item Level: 78
+  LevelReq: 54
+  Implicits: 3
+  {crafted}Adds 5 Passive Skills
+  {crafted}1 Added Passive Skill is a Jewel Socket
+  {crafted}Added Small Passive Skills grant: 10% increased Projectile Damage
+  Added Small Passive Skills also grant: 2% increased Damage
+  Added Small Passive Skills also grant: +3% to all Elemental Resistances
+  1 Added Passive Skill is [affliction_notable_streamlined|Streamlined]
+tooltip:
+  <center><font color='#fff'>Spirit Hope Medium Cluster Jewel</font><hr>
+  Requires Level <font color='#fff'>54</font><br>
+  <hr>
+  <font color='#b4b4ff'>Adds 5 Passive Skills<br>
+  1 Added Passive Skill is a Jewel Socket<br>
+  Added Small Passive Skills grant: 10% increased Projectile Damage</font><br>
+  <hr>
+  <font color='#88f'>Added Small Passive Skills also grant: 2% increased Damage<br>
+  Added Small Passive Skills also grant: +3% to all Elemental Resistances<br>
+  1 Added Passive Skill is [affliction_notable_streamlined|Streamlined]</font></center>
+hash: 81d4566a79ae3a774d6c535aa0abc3ac
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="5" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="4" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="1" y="0" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="9" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="2" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="12" realm="pc"][/spoiler]

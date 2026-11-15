@@ -1,0 +1,42 @@
+1 item(s)
+
+=== Foul Incitement Map (Tier 3)
+id: 2d6aa475e6d601322336732edab302529c960ae00eafbaae145f73605d46148e
+location: #1, "1"
+forum code: [linkItem location="Stash1" league="Corpus" x="1" y="5" realm="pc"]
+frame type 2, category 'maps', item level 70, 1x1, count 1
+flags: identified
+properties:
+  Item Rarity = +49% (number 49)
+  Monster Pack Size = +21% (number 21)
+  More Currency = +94% (number 94)
+  [AtlasDropScaling|Atlas Drops] = +55% (number 55)
+number without a property: Map Tier = 3
+mod table:
+  Area is Influenced by the Originator's Memories = 0
+  Monsters cannot be Stunned = 0
+  Monsters' Action Speed cannot be modified to below Base Value = 0
+  Monsters' Movement Speed cannot be modified to below Base Value = 0
+  Players are Cursed with Vulnerability = 0
+  Players are assaulted by Bloodstained Sawblades = 0
+  Players have #% reduced Maximum total Life, Mana and Energy Shield Recovery per second from Leech = 52
+tooltip:
+  <center><font color='#fff'>Foul Incitement Map (Tier 3)</font><hr>
+  [AtlasDropScaling|Atlas Drops]: <font color='#88f'>+55%</font><br>
+  Item Rarity: <font color='#88f'>+49%</font><br>
+  Monster Pack Size: <font color='#88f'>+21%</font><br>
+  More Currency: <font color='#88f'>+94%</font><br>
+  <hr>
+  <font color='#88f'>Area is Influenced by the Originator's Memories</font><br>
+  <hr>
+  <font color='#88f'>Players are Cursed with Vulnerability<br>
+  Monsters cannot be Stunned<br>
+  Monsters' Action Speed cannot be modified to below Base Value<br>
+  Monsters' Movement Speed cannot be modified to below Base Value<br>
+  Players have 52% reduced Maximum total Life, Mana and Energy Shield Recovery per second from Leech<br>
+  Players are assaulted by Bloodstained Sawblades</font></center>
+hash: ec35c0eb600844272fbe62236e4d9302
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="1" y="5" realm="pc"][/spoiler]

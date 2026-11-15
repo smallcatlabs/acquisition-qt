@@ -1,0 +1,60 @@
+3 item(s)
+
+=== Powerful Alchemical Resonator
+id: 1cf2edcdaae27cf4649c640adf14a93c00ed29cc159e4ea89ae61d811cf4f337
+location: #5, "Delve"
+forum code: [linkItem location="Stash1" league="Corpus" x="27" y="0" realm="pc"]
+frame type 5, category 'delve socketable currency', item level 0, 2x2, count 1
+flags: identified
+sockets: D D D (3 sockets, 1 linked; r0 g0 b0 w0)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w0; r0 g0 b0 w0; r0 g0 b0 w0
+properties:
+  Requires {0} Socketed Fossils = 3 (number 3)
+  Stack Size = 1/10
+tooltip:
+  <center><font color='#fff'>Powerful Alchemical Resonator</font><hr>
+  Stack Size: <font color='#fff'>1/10</font><br>
+  Requires <font color='#d20000'>3</font> Socketed Fossils<br>
+  <hr>
+  <font color='#88f'>Upgrades a normal item to a rare item</font></center>
+hash: 764c325d362bf6306bcd3cd9f7f85a33
+
+=== Serrated Fossil
+id: 8af22020c78f70733a48fa498bd0e2a9de01f13c736019b6bfa17eba6051afd9
+location: #5, "Delve"
+forum code: [linkItem location="Stash1" league="Corpus" x="10" y="0" realm="pc"]
+frame type 5, category 'stackable currency', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Stack Size = 1/20
+tooltip:
+  <center><font color='#fff'>Serrated Fossil</font><hr>
+  Stack Size: <font color='#fff'>1/20</font><br>
+  <hr>
+  <font color='#88f'>More Attack modifiers\r\nFewer Caster modifiers</font></center>
+hash: bcf16b2d95eb95f1e5e5c3ace0621ec1
+
+=== Potent Chaotic Resonator
+id: 02b4a476b9bb63f17eeb21433303a5ec4711d68944115ca44bc7d54f5caf0773
+location: #5, "Delve"
+forum code: [linkItem location="Stash1" league="Corpus" x="32" y="0" realm="pc"]
+frame type 5, category 'delve socketable currency', item level 0, 1x2, count 1
+flags: identified
+sockets: D D (2 sockets, 1 linked; r0 g0 b0 w0)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w0; r0 g0 b0 w0
+properties:
+  Requires {0} Socketed Fossils = 2 (number 2)
+  Stack Size = 1/10
+tooltip:
+  <center><font color='#fff'>Potent Chaotic Resonator</font><hr>
+  Stack Size: <font color='#fff'>1/10</font><br>
+  Requires <font color='#d20000'>2</font> Socketed Fossils<br>
+  <hr>
+  <font color='#88f'>Reforges a rare item with new random modifiers</font></center>
+hash: e9551f44b2aef14408d39b014fd81338
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="27" y="0" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="10" y="0" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="32" y="0" realm="pc"][/spoiler]

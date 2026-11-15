@@ -1,0 +1,32 @@
+1 item(s)
+
+=== Malevolent Progression Map (Tier 6)
+id: 1dac6eed8d86f0569b5b604e483b84ba496da89012d58e85980ef1093d1a83a1
+location: #1, "1"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="2" realm="pc"]
+frame type 2, category 'maps', item level 74, 1x1, count 1
+flags: identified
+properties:
+  Item Rarity = +35% (number 35)
+  Monster Pack Size = +22% (number 22)
+  [AtlasDropScaling|Atlas Drops] = +58% (number 58)
+number without a property: Map Tier = 6
+mod table:
+  #% increased Monster Damage = 19
+  Monsters gain a Power Charge on Hit = 0
+  Players have #% less Accuracy Rating = 20
+tooltip:
+  <center><font color='#fff'>Malevolent Progression Map (Tier 6)</font><hr>
+  [AtlasDropScaling|Atlas Drops]: <font color='#88f'>+58%</font><br>
+  Item Rarity: <font color='#88f'>+35%</font><br>
+  Monster Pack Size: <font color='#88f'>+22%</font><br>
+  <hr>
+  <font color='#88f'>19% increased Monster Damage<br>
+  Monsters gain a Power Charge on Hit<br>
+  Players have 20% less Accuracy Rating<br>
+  Area contains a Mirror of Delirium</font></center>
+hash: 8950304f6d4fe66509d06aee533fde1c
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="2" realm="pc"][/spoiler]

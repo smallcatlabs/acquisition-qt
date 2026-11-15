@@ -1,0 +1,61 @@
+1 item(s)
+
+=== Skull Bond Cord Belt
+id: 6be6b9832974a89ea8ead66e02af04228429feb1ef6580d1d60515fb87656048
+location: #26, "Special Gear (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="3" y="1" realm="pc"]
+frame type 2, category 'belts', item level 78, 2x1, count 1
+flags: identified, crafted, enchanted, split, path of building item
+properties:
+  Quality (Prefix Modifiers) = +20% (number 20)
+number without a property: Quality = 20
+requirements: Level 45
+mod table:
+  #% reduced Enemy Stun Threshold = 8
+  +# to Armour = 288
+  +# to maximum Energy Shield = 1
+  +# to maximum Life = 152
+  +#% to Chaos Resistance = 25
+  +#% to Cold Resistance = 32
+  +#% total Elemental Resistance = 32
+  +#% total Resistance = 57
+  +#% total to Chaos Resistance = 25
+  +#% total to Cold Resistance = 32
+  Can be Anointed = 0
+path of building:
+  Rarity: RARE
+  Skull Bond
+  Cord Belt
+  Unique ID: 6be6b9832974a89ea8ead66e02af04228429feb1ef6580d1d60515fb87656048
+  Item Level: 78
+  LevelReq: 45
+  Implicits: 2
+  {crafted}Allocates [totem_ranged_notable2670|Watchtowers]
+  Can be Anointed
+  8% reduced Enemy Stun Threshold
+  +288 to Armour
+  +1 to maximum Energy Shield
+  +152 to maximum Life
+  +25% to Chaos Resistance
+  {crafted}+32% to Cold Resistance
+tooltip:
+  <center><font color='#fff'>Skull Bond Cord Belt</font><hr>
+  Quality (Prefix Modifiers): <font color='#88f'>+20%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>45</font><br>
+  <hr>
+  <font color='#b4b4ff'>Allocates [totem_ranged_notable2670|Watchtowers]</font><br>
+  <hr>
+  <font color='#88f'>Can be Anointed</font><br>
+  <hr>
+  <font color='#88f'>8% reduced Enemy Stun Threshold<br>
+  +288 to Armour<br>
+  +1 to maximum Energy Shield<br>
+  +152 to maximum Life<br>
+  +25% to Chaos Resistance</font><br>
+  <font color='#b4b4ff'>+32% to Cold Resistance</font></center>
+hash: 2c8311e082be1f5285a5f737031d8656
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="3" y="1" realm="pc"][/spoiler]

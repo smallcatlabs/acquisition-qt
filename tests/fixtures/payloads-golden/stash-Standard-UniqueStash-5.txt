@@ -1,0 +1,65 @@
+1 item(s)
+
+=== The Redblade Gladius
+id: 8afecd7f0d6bc29609cfdf70f8a23bfeccc48280c92b5c784492282e19100d86
+location: #1, " (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="130" y="0" realm="pc"]
+frame type 3, category 'one hand swords', item level 83, 2x3, count 1
+flags: identified, path of building item
+sockets: R G (2 sockets, 1 linked; r1 g1 b0 w0)
+socket groups: r0 g0 b0 w0; r1 g0 b0 w0; r0 g1 b0 w0
+properties:
+  Attacks per Second = 1.35 (number 1.35)
+  Critical Strike Chance = 5.00% (number 5)
+  Physical Damage = 192-307
+  Weapon Range: {0} metres = 1.1 (number 1.1)
+elemental damage: 4-6 (type 5)
+dps: 343.575 (physical 336.825, elemental 6.75, chaos 0)
+requirements: Dex 113, Level 60, Str 113
+mod table:
+  #% increased Global Accuracy Rating = 40
+  #% increased Physical Damage = 160
+  +# to Accuracy Rating = 483
+  +#% total increased Physical Damage = 160
+  Adds # to # Physical Damage = 30
+  Gain # Life per Enemy Killed = 100
+  Has a Two Handed Sword Crucible Passive Skill Tree\nCrucible Passive Skill Tree is removed if this Modifier is removed = 0
+path of building:
+  Rarity: UNIQUE
+  The Redblade
+  Gladius
+  Unique ID: 8afecd7f0d6bc29609cfdf70f8a23bfeccc48280c92b5c784492282e19100d86
+  Item Level: 83
+  Sockets: R G
+  LevelReq: 60
+  Implicits: 1
+  40% increased Global Accuracy Rating
+  160% increased Physical Damage
+  Adds 20 to 40 Physical Damage
+  Gain 100 Life per Enemy Killed
+  +483 to Accuracy Rating
+  Has a Two Handed Sword Crucible Passive Skill Tree
+  Crucible Passive Skill Tree is removed if this Modifier is removed
+tooltip:
+  <center><font color='#fff'>The Redblade Gladius</font><hr>
+  One Handed Sword<br>
+  Physical Damage: <font color='#88f'>192-307</font><br>
+  Elemental Damage: <font color='#366492'>4-6</font><br>
+  Critical Strike Chance: <font color='#fff'>5.00%</font><br>
+  Attacks per Second: <font color='#88f'>1.35</font><br>
+  Weapon Range: <font color='#fff'>1.1</font> metres<br>
+  <hr>
+  Requires Level <font color='#fff'>60</font>, Str <font color='#fff'>113</font>, Dex <font color='#fff'>113</font><br>
+  <hr>
+  <font color='#88f'>40% increased Global Accuracy Rating</font><br>
+  <hr>
+  <font color='#88f'>160% increased Physical Damage<br>
+  Adds 20 to 40 Physical Damage<br>
+  Gain 100 Life per Enemy Killed<br>
+  +483 to Accuracy Rating<br>
+  Has a Two Handed Sword Crucible Passive Skill Tree\nCrucible Passive Skill Tree is removed if this Modifier is removed</font></center>
+hash: 750aa7c41fa91b2241b389a83fa341f3
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="130" y="0" realm="pc"][/spoiler]

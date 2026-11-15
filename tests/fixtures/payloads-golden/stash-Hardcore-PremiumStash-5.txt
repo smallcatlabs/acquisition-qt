@@ -1,0 +1,61 @@
+1 item(s)
+
+=== Dragon Crown Close Helmet
+id: a84df7a078daaee8089b209fdb12e99250dad802c54753a23a4752655cba550b
+location: #24, "Market"
+forum code: [linkItem location="Stash1" league="Corpus" x="7" y="2" realm="pc"]
+frame type 2, category 'helmets', item level 46, 2x2, count 1
+flags: identified, crafted, enchanted, path of building item
+note: ~price 3 chaos => price 3 chaos
+sockets: G-R-R (3 sockets, 3 linked; r2 g1 b0 w0)
+socket groups: r0 g0 b0 w0; r2 g1 b0 w0
+properties:
+  Armour = 244 (number 244)
+  Quality = 20 (number 20)
+requirements: Level 60, Str 58
+mod table:
+  #% increased Firestorm explosion Area of Effect = 24
+  +# to Accuracy Rating = 100
+  +# to Armour = 73
+  +# to maximum Life = 20
+  +#% to Cold Resistance = 18
+  +#% to Fire Resistance = 26
+  +#% total Elemental Resistance = 44
+  +#% total Resistance = 44
+  +#% total to Cold Resistance = 18
+  +#% total to Fire Resistance = 26
+path of building:
+  Rarity: RARE
+  Dragon Crown
+  Close Helmet
+  Unique ID: a84df7a078daaee8089b209fdb12e99250dad802c54753a23a4752655cba550b
+  Item Level: 46
+  Quality: 20
+  Sockets: G-R-R
+  LevelReq: 60
+  Implicits: 1
+  {crafted}24% increased Firestorm explosion Area of Effect
+  +100 to Accuracy Rating
+  +20 to maximum Life
+  +26% to Fire Resistance
+  +18% to Cold Resistance
+  {crafted}+73 to Armour
+tooltip:
+  <center><font color='#fff'>Dragon Crown Close Helmet</font><hr>
+  Quality: <font color='#88f'>+20%</font><br>
+  Armour: <font color='#88f'>244</font><br>
+  <hr>
+  Requires Level <font color='#fff'>60</font>, Str <font color='#fff'>58</font><br>
+  <hr>
+  <font color='#b4b4ff'>24% increased Firestorm explosion Area of Effect</font><br>
+  <hr>
+  <font color='#88f'>+100 to Accuracy Rating<br>
+  +20 to maximum Life<br>
+  +26% to Fire Resistance<br>
+  +18% to Cold Resistance</font><br>
+  <font color='#b4b4ff'>+73 to Armour</font></center>
+hash: 48fbf9e2e28d4d7cd91a8987eafe176a
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="7" y="2" realm="pc"][/spoiler]

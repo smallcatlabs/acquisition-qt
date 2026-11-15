@@ -1,0 +1,39 @@
+1 item(s)
+
+=== Cyclone
+id: 19dd2353e63e9ff08fc5fad79ff61e47251776cea3fb36253f8022c2efac85cd
+location: #19, "Gems (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="32" y="0" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified, corrupted
+properties:
+  Attack Damage = 150% of base
+  Attack Speed = 300% of base
+  Cost = 3 Mana
+  Effectiveness of Added Damage = 150% (number 150)
+  Level = 20 (number 20)
+  Quality = 20 (number 20)
+requirements: Dex 98, Level 70, Str 68
+mod table:
+  #% less Movement Speed = 20
+tooltip:
+  <center><font color='#fff'>Cyclone</font><hr>
+  Attack, AoE, Melee, Movement, Channelling<br>
+  Level: <font color='#fff'>20 (Max)</font><br>
+  Cost: <font color='#fff'>3 Mana</font><br>
+  Attack Speed: <font color='#fff'>300% of base</font><br>
+  Attack Damage: <font color='#fff'>150% of base</font><br>
+  Effectiveness of Added Damage: <font color='#fff'>150%</font><br>
+  Quality: <font color='#88f'>+20%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>70</font>, Str <font color='#fff'>68</font>, Dex <font color='#fff'>98</font><br>
+  <hr>
+  <font color='#88f'>20% increased Area of Effect per 0.1 metre additional Melee Strike Range<br>
+  20% less Movement Speed</font><br>
+  <hr>
+  <font color='#d20000'>Corrupted</font></center>
+hash: c55ccad685132be56561fce210067568
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="32" y="0" realm="pc"][/spoiler]

@@ -1,0 +1,49 @@
+1 item(s)
+
+=== Doom Grip Two-Stone Ring
+id: b38f729fb97d148810860d830a11075fa691b5f4fbab966b8c29d91b87f832c5
+location: #51, "Endgame Bases"
+forum code: [linkItem location="Stash1" league="Corpus" x="3" y="1" realm="pc"]
+frame type 2, category 'rings', item level 78, 1x1, count 1
+flags: identified, path of building item
+influence: warlord, warlord
+requirements: Level 60
+mod table:
+  +# to maximum Energy Shield = 23
+  +#% to Fire and Lightning Resistances = 13
+  +#% to all Elemental Resistances = 9
+  +#% total Elemental Resistance = 53
+  +#% total Resistance = 53
+  +#% total to Cold Resistance = 9
+  +#% total to Fire Resistance = 22
+  +#% total to Lightning Resistance = 22
+  Curse Enemies with Flammability on Hit = 0
+  Gain # Life per Enemy Killed = 4
+path of building:
+  Rarity: RARE
+  Doom Grip
+  Two-Stone Ring
+  Unique ID: b38f729fb97d148810860d830a11075fa691b5f4fbab966b8c29d91b87f832c5
+  Item Level: 78
+  LevelReq: 60
+  Implicits: 1
+  +13% to Fire and Lightning Resistances
+  +23 to maximum Energy Shield
+  +9% to all Elemental Resistances
+  Gain 4 Life per Enemy Killed
+  Curse Enemies with Flammability on Hit
+tooltip:
+  <center><font color='#fff'>Doom Grip Two-Stone Ring</font><hr>
+  Requires Level <font color='#fff'>60</font><br>
+  <hr>
+  <font color='#88f'>+13% to Fire and Lightning Resistances</font><br>
+  <hr>
+  <font color='#88f'>+23 to maximum Energy Shield<br>
+  +9% to all Elemental Resistances<br>
+  Gain 4 Life per Enemy Killed<br>
+  Curse Enemies with Flammability on Hit</font></center>
+hash: 097508370fd370312f8e6649c144ce24
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="3" y="1" realm="pc"][/spoiler]

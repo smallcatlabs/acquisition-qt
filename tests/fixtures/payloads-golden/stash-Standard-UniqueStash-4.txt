@@ -1,0 +1,83 @@
+1 item(s)
+
+=== The Devouring Diadem Necromancer Circlet
+id: 09490f50f2c63a9b301e5fab7bed3a641f2e18fd59b04a247dbd1c986024d775
+location: #1, " (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="134" y="0" realm="pc"]
+frame type 10, category 'helmets', item level 75, 2x2, count 1
+flags: identified, path of building item
+sockets: G-G-R-B (4 sockets, 4 linked; r1 g2 b1 w0)
+socket groups: r0 g0 b0 w0; r1 g2 b1 w0
+properties:
+  Energy Shield = 237 (number 237)
+  Quality = 20 (number 20)
+requirements: Int 112, Level 54
+mod table:
+  #% chance for Energy Shield Recharge to start when you use a Skill = 10
+  #% increased Energy Shield = 214
+  +# to Level of Socketed Gems = 1
+  +# total to Level of Socketed Aura Gems = 1
+  +# total to Level of Socketed Bow Gems = 1
+  +# total to Level of Socketed Chaos Gems = 1
+  +# total to Level of Socketed Cold Gems = 1
+  +# total to Level of Socketed Curse Gems = 1
+  +# total to Level of Socketed Dexterity Gems = 1
+  +# total to Level of Socketed Elemental Gems = 1
+  +# total to Level of Socketed Fire Gems = 1
+  +# total to Level of Socketed Gems = 1
+  +# total to Level of Socketed Golem Gems = 1
+  +# total to Level of Socketed Intelligence Gems = 1
+  +# total to Level of Socketed Lightning Gems = 1
+  +# total to Level of Socketed Melee Gems = 1
+  +# total to Level of Socketed Minion Gems = 1
+  +# total to Level of Socketed Movement Gems = 1
+  +# total to Level of Socketed Projectile Gems = 1
+  +# total to Level of Socketed Skill Gems = 1
+  +# total to Level of Socketed Spell Gems = 1
+  +# total to Level of Socketed Strength Gems = 1
+  +# total to Level of Socketed Support Gems = 1
+  +# total to Level of Socketed Vaal Gems = 1
+  +# total to Level of Socketed Warcry Gems = 1
+  +#% to Lightning and Chaos Resistances = 20
+  +#% total Elemental Resistance = 20
+  +#% total Resistance = 40
+  +#% total to Chaos Resistance = 20
+  +#% total to Lightning Resistance = 20
+  Eldritch Battery = 0
+  Socketed Gems have #% increased Reservation Efficiency = 25
+path of building:
+  Rarity: UNIQUE
+  The Devouring Diadem
+  Necromancer Circlet
+  Unique ID: 09490f50f2c63a9b301e5fab7bed3a641f2e18fd59b04a247dbd1c986024d775
+  Item Level: 75
+  Quality: 20
+  Sockets: G-G-R-B
+  LevelReq: 54
+  Implicits: 0
+  +1 to Level of Socketed Gems
+  Socketed Gems have 25% increased Reservation Efficiency
+  Trigger Level 15 [FeastOfFlesh::15|Feast of Flesh] every 5 seconds
+  214% increased Energy Shield
+  10% chance for Energy Shield Recharge to start when you use a Skill
+  +20% to Lightning and Chaos Resistances
+  Eldritch Battery
+tooltip:
+  <center><font color='#fff'>The Devouring Diadem Necromancer Circlet</font><hr>
+  Quality: <font color='#88f'>+20%</font><br>
+  Energy Shield: <font color='#88f'>237</font><br>
+  <hr>
+  Requires Level <font color='#fff'>54</font>, Int <font color='#fff'>112</font><br>
+  <hr>
+  <font color='#88f'>+1 to Level of Socketed Gems<br>
+  Socketed Gems have 25% increased Reservation Efficiency<br>
+  Trigger Level 15 [FeastOfFlesh::15|Feast of Flesh] every 5 seconds<br>
+  214% increased Energy Shield<br>
+  10% chance for Energy Shield Recharge to start when you use a Skill<br>
+  +20% to Lightning and Chaos Resistances<br>
+  Eldritch Battery</font></center>
+hash: 767a4692cf01926fe91594056e0841f9
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="134" y="0" realm="pc"][/spoiler]

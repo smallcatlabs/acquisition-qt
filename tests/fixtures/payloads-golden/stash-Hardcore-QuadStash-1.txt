@@ -1,0 +1,30 @@
+1 item(s)
+
+=== Inscribed Ultimatum
+id: 071365f4f0be3ae30f4fb3e0c6b27d7afceead3ed397b228192048ac23b1b17c
+location: #2, "Dump Tab"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="6" realm="pc"]
+frame type 5, category 'misc map items', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Area Level = 70 (number 70)
+  Challenge = Stand in the Stone Circles
+  Requires Sacrifice: {0} {1} = Orb of Regret
+  Reward: {0} = Doubles sacrificed Currency
+tooltip:
+  <center><font color='#fff'>Inscribed Ultimatum</font><hr>
+  Challenge: <font color='#fff'>Stand in the Stone Circles</font><br>
+  Area Level: <font color='#fff'>70</font><br>
+  Requires Sacrifice: <font color='#fff'>Orb of Regret</font> <font color='#fff'>x20</font><br>
+  Reward: <font color='#fff'>Doubles sacrificed Currency</font><br>
+  <hr>
+  <font color='#88f'>Choking Miasma<br>
+  Stalking Ruin<br>
+  Razor Dance III<br>
+  Less Cooldown Recovery<br>
+  Hindering Flasks</font></center>
+hash: dbc196d68ef5ed0375c0ed647e56363a
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="6" realm="pc"][/spoiler]

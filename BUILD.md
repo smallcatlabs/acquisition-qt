@@ -187,6 +187,28 @@ The scripted network stands in for `NetworkManager::createRequest`, so the
 User-Agent and the bearer token it adds to a request are not exercised
 either.
 
+### Golden files
+
+`tst_golden` turns each real reply in `tests/fixtures/payloads` into items
+by the application's own walk and writes out what they become: each item's
+fields, mod table, tooltip and Path of Building text, and the forum shop that
+lists the items. It compares that with the file of the same name in
+`tests/fixtures/payloads-golden`; `census.txt` there counts the items without
+a category, the mod lines that reach no mod name and the property values
+that are not one number, and lists them.
+
+A failure prints the lines that differ. If the change is intended, rewrite
+the files and review the difference like any other change:
+
+```sh
+QT_QPA_PLATFORM=offscreen ACQ_UPDATE_GOLDEN=1 ./build/dev/tests/acq_tests tst_golden
+```
+
+The suite runs on an excerpt of the game data,
+`tests/fixtures/payloads-repoe`; its `README.md` says what the excerpt
+holds, how `corpus_gamedata` cuts it, and when to run the suite on the whole
+game data instead.
+
 ### Live capture (hand-run, not a test)
 
 `live_capture` (`tests/live_capture.cpp`) builds the real `Application` on a

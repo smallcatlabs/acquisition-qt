@@ -103,6 +103,19 @@ qt_add_executable(modmatch_census EXCLUDE_FROM_ALL modmatch_census.cpp)
 target_include_directories(modmatch_census PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(modmatch_census PRIVATE acquisition_core)
 
+# The game data the payload corpus needs (#246): cuts the excerpt in
+# fixtures/payloads-repoe from a directory of RePoE files and shows that the
+# excerpt gives the same items as the whole. Not a test: it needs the whole
+# game data, which is not in the repository. The default build compiles it,
+# as it does live_capture, and for the same reason not on Windows.
+qt_add_executable(corpus_gamedata corpus_gamedata.cpp)
+acq_first_party(corpus_gamedata)
+target_include_directories(corpus_gamedata PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(corpus_gamedata PRIVATE acquisition_core)
+if(WIN32)
+    set_target_properties(corpus_gamedata PROPERTIES EXCLUDE_FROM_ALL TRUE)
+endif()
+
 # The filter core must stay free of the UI (Phase 5, D5). A STATIC archive has
 # no link step, so this cannot be left to target_link_libraries.
 add_test(NAME filters_boundary
@@ -165,6 +178,7 @@ acq_add_test(tst_spikedataset)
 acq_add_test(tst_stopsleep)
 acq_add_test(tst_timerscheduler)
 acq_add_test(tst_gate)
+acq_add_test(tst_golden)
 acq_add_test(tst_filters)
 acq_add_test(tst_foldertree)
 acq_add_test(tst_reconcile)

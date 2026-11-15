@@ -1,0 +1,54 @@
+1 item(s)
+
+=== Cherrubim's Maleficence Triumphant Lamellar
+id: 13e42c3f72f166a44c26033757b0199fab5b63615420338859b6b0718e88ea6c
+location: #53, "Gear #2 (3.16)"
+forum code: [linkItem location="Stash1" league="Corpus" x="1" y="0" realm="pc"]
+frame type 3, category 'body armours', item level 86, 2x3, count 1
+flags: identified, corrupted, path of building item
+sockets: G-R-G-G-G-G (6 sockets, 6 linked; r1 g5 b0 w0)
+socket groups: r0 g0 b0 w0; r1 g5 b0 w0
+properties:
+  Armour = 1606 (number 1606)
+  Evasion Rating = 2020 (number 2020)
+  Quality = 30 (number 30)
+requirements: Dex 162, Level 69, Str 95
+mod table:
+  #% increased Armour and Evasion = 184
+  #% increased Chaos Damage = 69
+  #% increased total Recovery per second from Life Leech = 100
+  +# to maximum Life = 79
+path of building:
+  Rarity: UNIQUE
+  Cherrubim's Maleficence
+  Triumphant Lamellar
+  Unique ID: 13e42c3f72f166a44c26033757b0199fab5b63615420338859b6b0718e88ea6c
+  Item Level: 86
+  Quality: 30
+  Sockets: G-R-G-G-G-G
+  LevelReq: 69
+  Implicits: 0
+  69% increased Chaos Damage
+  184% increased Armour and Evasion
+  +79 to maximum Life
+  100% increased total Recovery per second from Life Leech
+  Corrupted
+tooltip:
+  <center><font color='#fff'>Cherrubim's Maleficence Triumphant Lamellar</font><hr>
+  Quality: <font color='#88f'>+30%</font><br>
+  Armour: <font color='#88f'>1606</font><br>
+  Evasion Rating: <font color='#88f'>2020</font><br>
+  <hr>
+  Requires Level <font color='#fff'>69</font>, Str <font color='#fff'>95</font>, Dex <font color='#88f'>162</font><br>
+  <hr>
+  <font color='#88f'>69% increased Chaos Damage<br>
+  184% increased Armour and Evasion<br>
+  +79 to maximum Life<br>
+  100% increased total Recovery per second from Life Leech</font><br>
+  <hr>
+  <font color='#d20000'>Corrupted</font></center>
+hash: 7e0c2bca5d8e0176cef45da694dbfd93
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="1" y="0" realm="pc"][/spoiler]

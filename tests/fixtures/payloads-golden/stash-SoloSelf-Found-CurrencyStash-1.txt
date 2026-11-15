@@ -1,0 +1,20 @@
+1 item(s)
+
+=== Cartographer's Incubator
+id: a3414869937992820ff324a5fa11c54eede201b106bc01cc15110d57eb931961
+location: #2, "Currency"
+forum code: [linkItem location="Stash1" league="Corpus" x="48" y="0" realm="pc"]
+frame type 5, category 'incubators', item level 70, 1x1, count 1
+flags: identified
+properties:
+  Stack Size = 1/10
+tooltip:
+  <center><font color='#fff'>Cartographer's Incubator</font><hr>
+  Stack Size: <font color='#fff'>1/10</font><br>
+  <hr>
+  <font color='#88f'>Adds an incubated Map item to an equippable item\r\nItem drops after killing 3050 monsters</font></center>
+hash: f32fc65166adcb85121520227148f2fd
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="48" y="0" realm="pc"][/spoiler]

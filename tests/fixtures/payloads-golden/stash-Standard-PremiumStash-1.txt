@@ -1,0 +1,470 @@
+11 item(s)
+
+=== Fate Finger Bone Ring
+id: 092c6ef8a761b38adc72dc4f3d2cc9d362159f719ebc22aed3b67e684be067d1
+location: #18, "Special Gear (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="5" y="6" realm="pc"]
+frame type 2, category 'rings', item level 83, 1x1, count 1
+flags: identified, fractured, path of building item
+influence: fractured, fractured
+requirements: Level 57
+mod table:
+  +#% to Fire Resistance = 35
+  +#% to Lightning Resistance = 43
+  +#% total Elemental Resistance = 78
+  +#% total Resistance = 78
+  +#% total to Fire Resistance = 35
+  +#% total to Lightning Resistance = 43
+  Adds # to # Lightning Damage to Attacks = 22.5
+  Minions have #% increased maximum Life = 18
+  Minions have +#% to all Elemental Resistances = 15
+path of building:
+  Rarity: RARE
+  Fate Finger
+  Bone Ring
+  Unique ID: 092c6ef8a761b38adc72dc4f3d2cc9d362159f719ebc22aed3b67e684be067d1
+  Item Level: 83
+  LevelReq: 57
+  Implicits: 1
+  Minions have +15% to all Elemental Resistances
+  {fractured}+43% to Lightning Resistance
+  Adds 2 to 43 Lightning Damage to Attacks
+  +35% to Fire Resistance
+  Minions have 18% increased maximum Life
+tooltip:
+  <center><font color='#fff'>Fate Finger Bone Ring</font><hr>
+  Requires Level <font color='#fff'>57</font><br>
+  <hr>
+  <font color='#88f'>Minions have +15% to all Elemental Resistances</font><br>
+  <hr>
+  <font color='#a29162'>+43% to Lightning Resistance</font><br>
+  <font color='#88f'>Adds 2 to 43 Lightning Damage to Attacks<br>
+  +35% to Fire Resistance<br>
+  Minions have 18% increased maximum Life</font></center>
+hash: e32a893aeaacdcc13eaaf78ddd96e14f
+
+=== Glittering Cloth Belt of the Brute
+id: 686f31b0507cf25f864d327b3475cb1fafccef49afc00bcb07637d0eeb87b931
+location: #18, "Special Gear (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="8" y="11" realm="pc"]
+frame type 1, category 'belts', item level 34, 2x1, count 1
+flags: identified, path of building item
+requirements: Level 16
+mod table:
+  #% increased Stun and Block Recovery = 18
+  +# to Strength = 8
+  +# to maximum Energy Shield = 12
+  +# total to Strength = 8
+path of building:
+  Rarity: MAGIC
+  
+  Glittering Cloth Belt of the Brute
+  Unique ID: 686f31b0507cf25f864d327b3475cb1fafccef49afc00bcb07637d0eeb87b931
+  Item Level: 34
+  LevelReq: 16
+  Implicits: 1
+  18% increased Stun and Block Recovery
+  +8 to Strength
+  +12 to maximum Energy Shield
+tooltip:
+  <center><font color='#fff'>Glittering Cloth Belt of the Brute</font><hr>
+  Requires Level <font color='#fff'>16</font><br>
+  <hr>
+  <font color='#88f'>18% increased Stun and Block Recovery</font><br>
+  <hr>
+  <font color='#88f'>+8 to Strength<br>
+  +12 to maximum Energy Shield</font></center>
+hash: 9479675da8afde826e8783051b8a177e
+
+=== Mercenary Warrant
+id: be0015536ceb2b71ec272194624fab931b094439421a94e669de77acb10bc0c7
+location: #18, "Special Gear (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="11" y="1" realm="pc"]
+frame type 0, category 'map fragments', item level 0, 1x1, count 1
+flags: identified
+properties:
+   = Syla, the Unscrupulous
+  Build = Withertouch
+  Mercenary Level = 83 (number 83)
+tooltip:
+  <center><font color='#fff'>Mercenary Warrant</font><hr>
+  <font color='#fff'>Syla, the Unscrupulous</font><br>
+  <br>
+  Build: <font color='#fff'>Withertouch</font><br>
+  Mercenary Level: <font color='#fff'>83</font></center>
+hash: 896195ad9e8ad827af48a2bd7d455bba
+
+=== Replica Volkuur's Guidance Zealot Gloves
+id: 618dafba5453776a8779b3b57b73928c0a9703ae99d0245c1c404d7292724780
+location: #18, "Special Gear (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="3" realm="pc"]
+frame type 3, category 'gloves', item level 85, 2x2, count 1
+flags: identified, path of building item
+sockets: W (1 sockets, 1 linked; r0 g0 b0 w1)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w1
+properties:
+  Armour = 79 (number 79)
+  Energy Shield = 16 (number 16)
+requirements: Int 34, Level 43, Str 34
+mod table:
+  #% less Ignite Duration = 50
+  +# to maximum Life = 56
+  +#% to Chaos Resistance = 40
+  +#% total Resistance = 40
+  +#% total to Chaos Resistance = 40
+  Adds # to # Chaos Damage = 25
+  Chaos Skills have #% chance to Ignite = 20
+  Your Chaos Damage can Ignite = 0
+path of building:
+  Rarity: UNIQUE
+  Replica Volkuur's Guidance
+  Zealot Gloves
+  Unique ID: 618dafba5453776a8779b3b57b73928c0a9703ae99d0245c1c404d7292724780
+  Item Level: 85
+  Sockets: W
+  LevelReq: 43
+  Implicits: 0
+  Adds 19 to 31 Chaos Damage
+  +56 to maximum Life
+  +40% to Chaos Resistance
+  Your Chaos Damage can Ignite
+  Chaos Skills have 20% chance to Ignite
+  50% less Ignite Duration
+tooltip:
+  <center><font color='#fff'>Replica Volkuur's Guidance Zealot Gloves</font><hr>
+  Armour: <font color='#fff'>79</font><br>
+  Energy Shield: <font color='#fff'>16</font><br>
+  <hr>
+  Requires Level <font color='#fff'>43</font>, Str <font color='#fff'>34</font>, Int <font color='#fff'>34</font><br>
+  <hr>
+  <font color='#88f'>Adds 19 to 31 Chaos Damage<br>
+  +56 to maximum Life<br>
+  +40% to Chaos Resistance<br>
+  Your Chaos Damage can Ignite<br>
+  Chaos Skills have 20% chance to Ignite<br>
+  50% less Ignite Duration</font></center>
+hash: 2732ffeb7e7cec77ab473cb398031e5e
+
+=== The Shaper's Manifold Ring
+id: e9f98d5d6ce61ed1dbc9f7ebe09ab035176337b1606b746a23b07ac37ea24a74
+location: #18, "Special Gear (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="5" y="11" realm="pc"]
+frame type 1, category 'rings', item level 85, 1x1, count 1
+flags: identified, path of building item
+influence: shaper, shaper
+requirements: Level 68
+mod table:
+  #% increased Experience gain = 4
+  #% increased Prefix Modifier magnitudes = 50
+  +# Prefix Modifier allowed = 1
+  +# Suffix Modifiers allowed = -2
+  Implicit Modifiers Cannot Be Changed = 0
+path of building:
+  Rarity: MAGIC
+  
+  The Shaper's Manifold Ring
+  Unique ID: e9f98d5d6ce61ed1dbc9f7ebe09ab035176337b1606b746a23b07ac37ea24a74
+  Item Level: 85
+  LevelReq: 68
+  Implicits: 4
+  +1 Prefix Modifier allowed
+  -2 Suffix Modifiers allowed
+  Implicit Modifiers Cannot Be Changed
+  50% increased Prefix Modifier magnitudes
+  4% increased Experience gain
+tooltip:
+  <center><font color='#fff'>The Shaper's Manifold Ring</font><hr>
+  Requires Level <font color='#fff'>68</font><br>
+  <hr>
+  <font color='#88f'>+1 Prefix Modifier allowed<br>
+  -2 Suffix Modifiers allowed<br>
+  Implicit Modifiers Cannot Be Changed<br>
+  50% increased Prefix Modifier magnitudes</font><br>
+  <hr>
+  <font color='#88f'>4% increased Experience gain</font></center>
+hash: b7caa6e69e3a4591318d074cb1a95948
+
+=== Replica Frostbreath Ornate Mace
+id: 3ba9bb93a211e579a8e9c656877c93c0727ba85c97642c23faffba34ee95e22a
+location: #18, "Special Gear (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="2" y="4" realm="pc"]
+frame type 3, category 'one hand maces', item level 86, 2x3, count 1
+flags: identified, path of building item
+sockets: W-W (2 sockets, 2 linked; r0 g0 b0 w2)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w2
+properties:
+  Attacks per Second = 1.30 (number 1.3)
+  Chaos Damage = 53-73
+  Critical Strike Chance = 5.00% (number 5)
+  Physical Damage = 53-67
+  Weapon Range: {0} metres = 1.1 (number 1.1)
+dps: 159.9 (physical 78, elemental 0, chaos 81.9)
+requirements: Level 50, Str 161
+mod table:
+  #% increased Attack Speed = 8
+  #% reduced Enemy Stun Threshold = 15
+  +#% to Chaos Resistance = 26
+  +#% total Attack Speed = 8
+  +#% total Resistance = 26
+  +#% total to Chaos Resistance = 26
+  Adds # to # Chaos Damage = 63
+  Attacks with this Weapon deal Double Damage to Chilled Enemies = 0
+  Your Chaos Damage can Chill = 0
+path of building:
+  Rarity: UNIQUE
+  Replica Frostbreath
+  Ornate Mace
+  Unique ID: 3ba9bb93a211e579a8e9c656877c93c0727ba85c97642c23faffba34ee95e22a
+  Item Level: 86
+  Sockets: W-W
+  LevelReq: 50
+  Implicits: 1
+  15% reduced Enemy Stun Threshold
+  Adds 53 to 73 Chaos Damage
+  8% increased Attack Speed
+  +26% to Chaos Resistance
+  Your Chaos Damage can Chill
+  Attacks with this Weapon deal Double Damage to Chilled Enemies
+tooltip:
+  <center><font color='#fff'>Replica Frostbreath Ornate Mace</font><hr>
+  One Handed Mace<br>
+  Physical Damage: <font color='#fff'>53-67</font><br>
+  Chaos Damage: <font color='#d02090'>53-73</font><br>
+  Critical Strike Chance: <font color='#fff'>5.00%</font><br>
+  Attacks per Second: <font color='#88f'>1.30</font><br>
+  Weapon Range: <font color='#fff'>1.1</font> metres<br>
+  <hr>
+  Requires Level <font color='#fff'>50</font>, Str <font color='#fff'>161</font><br>
+  <hr>
+  <font color='#88f'>15% reduced Enemy Stun Threshold</font><br>
+  <hr>
+  <font color='#88f'>Adds 53 to 73 Chaos Damage<br>
+  8% increased Attack Speed<br>
+  +26% to Chaos Resistance<br>
+  Your Chaos Damage can Chill<br>
+  Attacks with this Weapon deal Double Damage to Chilled Enemies</font></center>
+hash: bac410c335b68a49f2cd6c32c3a80abb
+
+=== Foulborn Rime Gaze Mind Cage
+id: 6506609ee3e98ae5674897e945354a87d84f99a4d5d812d98fe6007bd891d3a9
+location: #18, "Special Gear (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="10" y="4" realm="pc"]
+frame type 3, category 'helmets', item level 83, 2x2, count 1
+flags: identified, mutated, path of building item
+sockets: W-W-W-W (4 sockets, 4 linked; r0 g0 b0 w4)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w4
+properties:
+  Energy Shield = 120 (number 120)
+requirements: Int 138, Level 65
+mod table:
+  #% increased Energy Shield = 50
+  #% reduced Energy Shield Recharge Rate = 50
+  +# to maximum Mana = 69
+  +#% to Cold Damage over Time Multiplier = 50
+path of building:
+  Rarity: UNIQUE
+  Foulborn Rime Gaze
+  Mind Cage
+  Unique ID: 6506609ee3e98ae5674897e945354a87d84f99a4d5d812d98fe6007bd891d3a9
+  Item Level: 83
+  Sockets: W-W-W-W
+  LevelReq: 65
+  Implicits: 0
+  +50% to Cold Damage over Time Multiplier
+  50% increased Energy Shield
+  50% reduced Energy Shield Recharge Rate
+  +69 to maximum Mana
+  {mutated}Socketed Gems are Supported by Level 25 [SupportFrigidBond::25|Frigid Bond Support]
+tooltip:
+  <center><font color='#fff'>Foulborn Rime Gaze Mind Cage</font><hr>
+  Energy Shield: <font color='#88f'>120</font><br>
+  <hr>
+  Requires Level <font color='#fff'>65</font>, Int <font color='#fff'>138</font><br>
+  <hr>
+  <font color='#88f'>+50% to Cold Damage over Time Multiplier<br>
+  50% increased Energy Shield<br>
+  50% reduced Energy Shield Recharge Rate<br>
+  +69 to maximum Mana</font><br>
+  <font color='#cd2285'>Socketed Gems are Supported by Level 25 [SupportFrigidBond::25|Frigid Bond Support]</font></center>
+hash: 6d76337a878cc1bff960099003fc6b3b
+
+=== Kalandra's Touch Ring
+id: 4c1814b1bfe6e56a1378c880439a3c31c738d0484b9cef4e61036198d8af2ed9
+location: #18, "Special Gear (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="4" y="11" realm="pc"]
+frame type 3, category 'rings', item level 80, 1x1, count 1
+flags: identified, path of building item
+mod table:
+  Reflects opposite Ring = 0
+path of building:
+  Rarity: UNIQUE
+  Kalandra's Touch
+  Ring
+  Unique ID: 4c1814b1bfe6e56a1378c880439a3c31c738d0484b9cef4e61036198d8af2ed9
+  Item Level: 80
+  Implicits: 0
+  Reflects opposite Ring
+tooltip:
+  <center><font color='#fff'>Kalandra's Touch Ring</font><hr>
+  <font color='#88f'>Reflects opposite Ring</font></center>
+hash: 40bb5d6fbcd50250c89b83bc86c3819b
+
+=== Sanctum Vaults Research
+id: 4b72da3703f23765b8b03f846af6898129f7454026dd68279187504aa307f256
+location: #18, "Special Gear (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="11" y="0" realm="pc"]
+frame type 0, category 'sanctum research', item level 85, 1x1, count 1
+flags: identified
+properties:
+  Area Level = 83 (number 83)
+  Aureus: {0} = 400 (number 400)
+  Inspiration: {0} = 0 (number 0)
+  Minor Afflictions = Unquenched Thirst
+  Minor Boons = Gold Mine
+  Resolve: {0}/{1} = 225 (number 225)
+tooltip:
+  <center><font color='#fff'>Sanctum Vaults Research</font><hr>
+  Area Level: <font color='#fff'>83</font><br>
+  Resolve: <font color='#fff'>225</font>/<font color='#fff'>300</font><br>
+  Inspiration: <font color='#fff'>0</font><br>
+  Aureus: <font color='#fff'>400</font><br>
+  Minor Boons: <font color='#fff'>Gold Mine</font><br>
+  Minor Afflictions: <font color='#fff'>Unquenched Thirst</font>, <font color='#fff'>Concealed Anomaly</font>, <font color='#fff'>Rusted Coin</font><br>
+  <hr>
+  <font color='#88f'>Gain 18 Resolve when you kill a Boss</font></center>
+hash: dd84f2b58a434290af6fbf77913f3be7
+
+=== Rapture Hunger Shadow Axe
+id: bb67b5e4fd9fcb19a59bd527c2ed84fad4e6174049ab22265b46ae610e83da1f
+location: #18, "Special Gear (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="4" y="0" realm="pc"]
+frame type 2, category 'two hand axes', item level 38, 2x4, count 1
+flags: identified, crafted, path of building item
+sockets: W-W-W-W (4 sockets, 4 linked; r0 g0 b0 w4)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w4
+properties:
+  Attacks per Second = 1.43 (number 1.43)
+  Critical Strike Chance = 5.00% (number 5)
+  Physical Damage = 100-153
+  Weapon Range: {0} metres = 1.3 (number 1.3)
+dps: 180.895 (physical 180.895, elemental 0, chaos 0)
+requirements: Dex 37, Level 33, Str 80
+mod table:
+  #% increased Attack Speed = 14
+  #% increased Physical Damage = 76
+  +# to Accuracy Rating = 20
+  +# to Strength = 18
+  +# total to Strength = 18
+  +#% total Attack Speed = 14
+  +#% total increased Physical Damage = 76
+  Adds # to # Physical Damage = 11
+path of building:
+  Rarity: RARE
+  Rapture Hunger
+  Shadow Axe
+  Unique ID: bb67b5e4fd9fcb19a59bd527c2ed84fad4e6174049ab22265b46ae610e83da1f
+  Item Level: 38
+  Sockets: W-W-W-W
+  LevelReq: 33
+  Implicits: 0
+  +18 to Strength
+  18% increased Physical Damage
+  Adds 8 to 14 Physical Damage
+  14% increased Attack Speed
+  +20 to Accuracy Rating
+  {crafted}58% increased Physical Damage
+tooltip:
+  <center><font color='#fff'>Rapture Hunger Shadow Axe</font><hr>
+  Two Handed Axe<br>
+  Physical Damage: <font color='#88f'>100-153</font><br>
+  Critical Strike Chance: <font color='#fff'>5.00%</font><br>
+  Attacks per Second: <font color='#88f'>1.43</font><br>
+  Weapon Range: <font color='#fff'>1.3</font> metres<br>
+  <hr>
+  Requires Level <font color='#fff'>33</font>, Str <font color='#fff'>80</font>, Dex <font color='#fff'>37</font><br>
+  <hr>
+  <font color='#88f'>+18 to Strength<br>
+  18% increased Physical Damage<br>
+  Adds 8 to 14 Physical Damage<br>
+  14% increased Attack Speed<br>
+  +20 to Accuracy Rating</font><br>
+  <font color='#b4b4ff'>58% increased Physical Damage</font></center>
+hash: b508f2d12dda2d43c4d621c92bc4b805
+
+=== Honour Mangler Behemoth Mace
+id: d74339b765b4182bb2e797da1ede6b62bf3a3f627557af96e8ed467accdfe5f2
+location: #18, "Special Gear (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"]
+frame type 2, category 'one hand maces', item level 85, 2x3, count 1
+flags: identified, path of building item
+sockets: R-R-W (3 sockets, 3 linked; r2 g0 b0 w1)
+socket groups: r0 g0 b0 w0; r2 g0 b0 w1
+properties:
+  Attacks per Second = 1.80 (number 1.8)
+  Critical Strike Chance = 5.00% (number 5)
+  Memory Strands = 70 (number 70)
+  Physical Damage = 165-270
+  Weapon Range: {0} metres = 1.1 (number 1.1)
+dps: 391.5 (physical 391.5, elemental 0, chaos 0)
+requirements: Level 70, Str 220
+mod table:
+  #% increased Attack Speed = 33
+  #% increased Physical Damage = 139
+  +# to Level of Socketed Melee Gems = 2
+  +# to Strength = 49
+  +# total to Level of Socketed Melee Gems = 2
+  +# total to Strength = 49
+  +#% total Attack Speed = 33
+  +#% total increased Physical Damage = 139
+  Adds # to # Physical Damage = 29.5
+  Gain # Life per Enemy Killed = 69
+path of building:
+  Rarity: RARE
+  Honour Mangler
+  Behemoth Mace
+  Unique ID: d74339b765b4182bb2e797da1ede6b62bf3a3f627557af96e8ed467accdfe5f2
+  Item Level: 85
+  Sockets: R-R-W
+  LevelReq: 70
+  Implicits: 1
+  6% increased Attack Speed
+  +2 to Level of Socketed Melee Gems
+  +49 to Strength
+  139% increased Physical Damage
+  Adds 20 to 39 Physical Damage
+  27% increased Attack Speed
+  Gain 69 Life per Enemy Killed
+tooltip:
+  <center><font color='#fff'>Honour Mangler Behemoth Mace</font><hr>
+  One Handed Mace<br>
+  Physical Damage: <font color='#88f'>165-270</font><br>
+  Critical Strike Chance: <font color='#fff'>5.00%</font><br>
+  Attacks per Second: <font color='#88f'>1.80</font><br>
+  Weapon Range: <font color='#fff'>1.1</font> metres<br>
+  Memory Strands: <font color='#fff'>70</font><br>
+  <hr>
+  Requires Level <font color='#fff'>70</font>, Str <font color='#fff'>220</font><br>
+  <hr>
+  <font color='#88f'>6% increased Attack Speed</font><br>
+  <hr>
+  <font color='#88f'>+2 to Level of Socketed Melee Gems<br>
+  +49 to Strength<br>
+  139% increased Physical Damage<br>
+  Adds 20 to 39 Physical Damage<br>
+  27% increased Attack Speed<br>
+  Gain 69 Life per Enemy Killed</font></center>
+hash: 2ee2037b27ac4c2d69964fac431fe88c
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="5" y="6" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="8" y="11" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="11" y="1" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="3" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="5" y="11" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="2" y="4" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="10" y="4" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="4" y="11" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="11" y="0" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="4" y="0" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"][/spoiler]

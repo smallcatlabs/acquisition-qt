@@ -1,0 +1,102 @@
+2 item(s)
+
+=== Circle of Fear Synthesised Sapphire Ring
+id: 787103ebf637fe36f379d16f9f1c7343308366b410ec3dd45ccaa0de983c6324
+location: #1, " (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="68" y="0" realm="pc"]
+frame type 3, category 'rings', item level 83, 1x1, count 1
+flags: identified, synthesized, path of building item
+influence: synthesised, synthesised
+requirements: Level 52
+mod table:
+  #% increased Cold Damage while affected by Herald of Ice = 52
+  #% increased Lightning Damage = 13
+  +# to Dexterity = 28
+  +# total to Dexterity = 28
+  +#% to Cold Resistance = 24
+  +#% to Cold Resistance while affected by Herald of Ice = 60
+  +#% total Elemental Resistance = 24
+  +#% total Resistance = 24
+  +#% total to Cold Resistance = 24
+  Adds # to # Cold Damage = 28
+path of building:
+  Rarity: UNIQUE
+  Circle of Fear
+  Synthesised Sapphire Ring
+  Unique ID: 787103ebf637fe36f379d16f9f1c7343308366b410ec3dd45ccaa0de983c6324
+  Item Level: 83
+  LevelReq: 52
+  Implicits: 1
+  13% increased Lightning Damage
+  +28 to Dexterity
+  Adds 23 to 33 Cold Damage
+  +24% to Cold Resistance
+  52% increased Cold Damage while affected by Herald of Ice
+  +60% to Cold Resistance while affected by Herald of Ice
+tooltip:
+  <center><font color='#fff'>Circle of Fear Synthesised Sapphire Ring</font><hr>
+  Requires Level <font color='#fff'>52</font><br>
+  <hr>
+  <font color='#88f'>13% increased Lightning Damage</font><br>
+  <hr>
+  <font color='#88f'>+28 to Dexterity<br>
+  Adds 23 to 33 Cold Damage<br>
+  +24% to Cold Resistance<br>
+  52% increased Cold Damage while affected by Herald of Ice<br>
+  +60% to Cold Resistance while affected by Herald of Ice</font></center>
+hash: babac4215f623cdaafc4ae84e4a79682
+
+=== Circle of Nostalgia Synthesised Amethyst Ring
+id: 31b82f1e21ee1fb6907178688603a554663767d3c6d3560f2062a5624bbb2aba
+location: #1, " (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="70" y="0" realm="pc"]
+frame type 3, category 'rings', item level 83, 1x1, count 1
+flags: identified, synthesized, path of building item
+influence: synthesised, synthesised
+requirements: Level 52
+mod table:
+  #% increased Chaos Damage while affected by Herald of Agony = 54
+  #% increased Evasion Rating = 15
+  #% increased Lightning Damage = 13
+  +# to all Attributes = 18
+  +# total to Dexterity = 18
+  +# total to Intelligence = 18
+  +# total to Strength = 18
+  +#% to Chaos Resistance = 20
+  +#% total Resistance = 20
+  +#% total to Chaos Resistance = 20
+  Adds # to # Chaos Damage = 24
+  Herald of Agony has #% increased Mana Reservation Efficiency = 31
+path of building:
+  Rarity: UNIQUE
+  Circle of Nostalgia
+  Synthesised Amethyst Ring
+  Unique ID: 31b82f1e21ee1fb6907178688603a554663767d3c6d3560f2062a5624bbb2aba
+  Item Level: 83
+  LevelReq: 52
+  Implicits: 2
+  13% increased Lightning Damage
+  15% increased Evasion Rating
+  +18 to all Attributes
+  Adds 20 to 28 Chaos Damage
+  +20% to Chaos Resistance
+  54% increased Chaos Damage while affected by Herald of Agony
+  Herald of Agony has 31% increased Mana Reservation Efficiency
+tooltip:
+  <center><font color='#fff'>Circle of Nostalgia Synthesised Amethyst Ring</font><hr>
+  Requires Level <font color='#fff'>52</font><br>
+  <hr>
+  <font color='#88f'>13% increased Lightning Damage<br>
+  15% increased Evasion Rating</font><br>
+  <hr>
+  <font color='#88f'>+18 to all Attributes<br>
+  Adds 20 to 28 Chaos Damage<br>
+  +20% to Chaos Resistance<br>
+  54% increased Chaos Damage while affected by Herald of Agony<br>
+  Herald of Agony has 31% increased Mana Reservation Efficiency</font></center>
+hash: 9980d515d944d8cec4049d89ba35cb53
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="68" y="0" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="70" y="0" realm="pc"][/spoiler]

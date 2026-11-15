@@ -1,0 +1,50 @@
+1 item(s)
+
+=== Buried Cavern Nightmare Map
+id: a40e6f6dd7fb5f7cfb65905893cb906d0281bcfb1cd868879715049fdb81a774
+location: #1, "5 (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="1" realm="pc"]
+frame type 2, category 'maps', item level 84, 1x1, count 1
+flags: identified
+properties:
+  Item Rarity = +133% (number 133)
+  Monster Pack Size = +38% (number 38)
+  More Maps = +100% (number 100)
+  More [Thread|Threads] = +50% (number 50)
+  [AtlasDropScaling|Atlas Drops] = +118% (number 118)
+mod table:
+  #% increased Monster Damage = 35
+  Monsters gain a Power Charge on Hit = 0
+  Monsters gain an Endurance Charge when hit = 0
+  Monsters have +# to Maximum Endurance Charges = 1
+  Monsters have +# to Maximum Power Charges = 1
+  Monsters' Projectiles can Chain when colliding with Terrain = 0
+  Monsters' skills Chain # additional times = 3
+  Players are Cursed with Elemental Weakness = 0
+  Players are Cursed with Temporal Chains = 0
+  Players are Cursed with Vulnerability = 0
+  Rare Monsters have [ElementalThorns|Elemental Thorns] reflecting # Elemental Damage = 18
+tooltip:
+  <center><font color='#fff'>Buried Cavern Nightmare Map</font><hr>
+  [AtlasDropScaling|Atlas Drops]: <font color='#88f'>+118%</font><br>
+  Item Rarity: <font color='#88f'>+133%</font><br>
+  Monster Pack Size: <font color='#88f'>+38%</font><br>
+  More Maps: <font color='#88f'>+100%</font><br>
+  More [Thread|Threads]: <font color='#88f'>+50%</font><br>
+  <hr>
+  <font color='#88f'>Players are Cursed with Vulnerability<br>
+  Players are Cursed with Temporal Chains<br>
+  Players are Cursed with Elemental Weakness<br>
+  35% increased Monster Damage<br>
+  Rare Monsters have [ElementalThorns|Elemental Thorns] reflecting 18 Elemental Damage<br>
+  Monsters have +1 to Maximum Endurance Charges<br>
+  Monsters have +1 to Maximum Power Charges<br>
+  Monsters gain a Power Charge on Hit<br>
+  Monsters' skills Chain 3 additional times<br>
+  Monsters gain an Endurance Charge when hit<br>
+  Monsters' Projectiles can Chain when colliding with Terrain</font></center>
+hash: 6f7eff7f67d7ba375ee57fafa3116411
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="1" realm="pc"][/spoiler]

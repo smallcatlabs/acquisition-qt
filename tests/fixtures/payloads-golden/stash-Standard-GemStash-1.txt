@@ -1,0 +1,55 @@
+2 item(s)
+
+=== Frozen Legion
+id: 7526c8827480afb86b65c3a5099aa47e1b578e6bceccaca6117849cc25ad4557
+location: #161, "Gems 1 (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="4" y="1" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cast Time = 0.70 sec
+  Cooldown Time = 0.80 sec (6 uses)
+  Cost = 12 Mana
+  Level = 1 (number 1)
+requirements: Int 35, Level 34, Str 50
+tooltip:
+  <center><font color='#fff'>Frozen Legion</font><hr>
+  Spell, Cold, Attack, Melee, AoE<br>
+  Level: <font color='#fff'>1</font><br>
+  Cost: <font color='#fff'>12 Mana</font><br>
+  Cooldown Time: <font color='#fff'>0.80 sec (6 uses)</font><br>
+  Cast Time: <font color='#fff'>0.70 sec</font><br>
+  <hr>
+  Requires Level <font color='#fff'>34</font>, Str <font color='#fff'>50</font>, Int <font color='#fff'>35</font><br>
+  <hr>
+  <font color='#88f'>Consumes one Cooldown Use per Statue Summoned</font></center>
+hash: ffce87a5b5b65cc49b52d43805df9cda
+
+=== Awakened Added Chaos Damage Support
+id: 7d095976e6706beeb54561390130211aafb8e667a466d672b8be0f6c3471b124
+location: #161, "Gems 1 (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="31" y="0" realm="pc"]
+frame type 4, category 'support gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cost & Reservation Multiplier = 120% (number 120)
+  Level = 5 (number 5)
+requirements: Int 126, Level 80
+mod table:
+  +# to Level of Supported Skill Gems = 1
+tooltip:
+  <center><font color='#fff'>Awakened Added Chaos Damage Support</font><hr>
+  Chaos, Support<br>
+  Level: <font color='#fff'>5 (Max)</font><br>
+  Cost & Reservation Multiplier: <font color='#fff'>120%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>80</font>, Int <font color='#fff'>126</font><br>
+  <hr>
+  <font color='#88f'>+1 to Level of Supported Skill Gems<br>
+  Supported Skills have 189 to 284 added Chaos Damage</font></center>
+hash: a487623e82c33bdd25d7403583b62d6e
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="4" y="1" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="31" y="0" realm="pc"][/spoiler]

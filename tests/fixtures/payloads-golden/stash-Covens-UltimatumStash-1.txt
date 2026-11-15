@@ -1,0 +1,20 @@
+1 item(s)
+
+=== Turbulent Catalyst
+id: 1b5710f998a7bc537b1a40cbea9d1a81c26830b50fd7eba129153e4ee870b77c
+location: #13, "Ultimatum"
+forum code: [linkItem location="Stash1" league="Corpus" x="3" y="0" realm="pc"]
+frame type 5, category 'stackable currency', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Stack Size = 1/20
+tooltip:
+  <center><font color='#fff'>Turbulent Catalyst</font><hr>
+  Stack Size: <font color='#fff'>1/20</font><br>
+  <hr>
+  <font color='#88f'>Adds quality that enhances Elemental Damage modifiers on a ring, amulet or belt\r\nReplaces other quality types</font></center>
+hash: 8c6a7f1836373f01a2591cb8884cc839
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="3" y="0" realm="pc"][/spoiler]

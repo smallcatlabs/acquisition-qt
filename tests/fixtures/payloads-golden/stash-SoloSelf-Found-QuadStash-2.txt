@@ -1,0 +1,52 @@
+1 item(s)
+
+=== Glyph Bind Rustic Sash
+id: 22efcda04f31c0abe91e5a2a9a7367efa981beacbf6781ab9d3442418c6bc929
+location: #49, "Belts"
+forum code: [linkItem location="Stash1" league="Corpus" x="2" y="20" realm="pc"]
+frame type 2, category 'belts', item level 76, 2x1, count 1
+flags: identified, path of building item
+influence: shaper, shaper
+requirements: Level 60
+mod table:
+  #% increased Global Physical Damage = 17
+  #% increased Mana Recovery rate = 20
+  #% reduced Enemy Stun Threshold = 14
+  +# to Armour = 5
+  +# to Strength = 17
+  +# to maximum Energy Shield = 43
+  +# total to Strength = 17
+  +#% total increased Physical Damage = 17
+  You take #% reduced Extra Damage from Critical Strikes = 25
+path of building:
+  Rarity: RARE
+  Glyph Bind
+  Rustic Sash
+  Unique ID: 22efcda04f31c0abe91e5a2a9a7367efa981beacbf6781ab9d3442418c6bc929
+  Item Level: 76
+  LevelReq: 60
+  Implicits: 1
+  17% increased Global Physical Damage
+  +17 to Strength
+  You take 25% reduced Extra Damage from Critical Strikes
+  14% reduced Enemy Stun Threshold
+  +5 to Armour
+  +43 to maximum Energy Shield
+  20% increased Mana Recovery rate
+tooltip:
+  <center><font color='#fff'>Glyph Bind Rustic Sash</font><hr>
+  Requires Level <font color='#fff'>60</font><br>
+  <hr>
+  <font color='#88f'>17% increased Global Physical Damage</font><br>
+  <hr>
+  <font color='#88f'>+17 to Strength<br>
+  You take 25% reduced Extra Damage from Critical Strikes<br>
+  14% reduced Enemy Stun Threshold<br>
+  +5 to Armour<br>
+  +43 to maximum Energy Shield<br>
+  20% increased Mana Recovery rate</font></center>
+hash: e838dd3345f36d052a7a01b216b72061
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="2" y="20" realm="pc"][/spoiler]

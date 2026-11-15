@@ -1,0 +1,105 @@
+3 item(s)
+
+=== Bonechill Support
+id: 282d0c034e943adae8baac7fb398137af04056816e2c6ba91c8bb478419de8bd
+location: #280, "3.13 Gems (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="1" y="20" realm="pc"]
+frame type 4, category 'support gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cost & Reservation Multiplier = 130% (number 130)
+  Level = 10 (number 10)
+  Quality = 20 (number 20)
+requirements: Dex 39, Int 57, Level 56
+tooltip:
+  <center><font color='#fff'>Bonechill Support</font><hr>
+  Cold, Support<br>
+  Level: <font color='#fff'>10</font><br>
+  Cost & Reservation Multiplier: <font color='#fff'>130%</font><br>
+  Quality: <font color='#88f'>+20%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>56</font>, Dex <font color='#fff'>39</font>, Int <font color='#fff'>57</font><br>
+  <hr>
+  <font color='#88f'>34% increased Effect of Chill inflicted with Supported Skills<br>
+  Enemies Chilled by Supported Skills increase Cold Damage taken by Chill Effect<br>
+  Enemies in Chilling Areas from Supported Skills increase Cold Damage taken by Chill Effect<br>
+  Supported Skills deal 10% increased Cold Damage<br>
+  Supported Skills deal 9% more Cold Damage</font></center>
+hash: df298ac73fbe1f9d10b4247f3d61416f
+
+=== Blade Vortex
+id: 948f1a23d4e79fc2b95062f31952291fbcf7d139d9c837733179efc8b48df65f
+location: #280, "3.13 Gems (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="5" y="15" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified, corrupted
+properties:
+  Cast Time = 0.50 sec
+  Cost = 17 Mana
+  Critical Strike Chance = 10.00% (number 10)
+  Effectiveness of Added Damage = 30% (number 30)
+  Level = 21 (number 21)
+requirements: Dex 159, Level 72
+mod table:
+  Deals # to # Physical Damage = 196
+tooltip:
+  <center><font color='#fff'>Blade Vortex</font><hr>
+  Spell, AoE, Duration, Physical<br>
+  Level: <font color='#fff'>21 (Max)</font><br>
+  Cost: <font color='#fff'>17 Mana</font><br>
+  Cast Time: <font color='#fff'>0.50 sec</font><br>
+  Critical Strike Chance: <font color='#fff'>10.00%</font><br>
+  Effectiveness of Added Damage: <font color='#fff'>30%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>72</font>, Dex <font color='#fff'>159</font><br>
+  <hr>
+  <font color='#88f'>Deals 157 to 235 Physical Damage<br>
+  Base duration is 4.00 seconds<br>
+  +0.2 metres to radius<br>
+  30% increased Hit Rate for each blade<br>
+  30% more Damage for each blade<br>
+  Can have up to 10 active spinning blades</font><br>
+  <hr>
+  <font color='#d20000'>Corrupted</font></center>
+hash: 1a1c2ccc7c26f731f237d057cc938545
+
+=== Vaal Arc
+id: 31e1ca0aeb6df2caf4d5c421fd78740e872b30de93effe9ba9ef18fc2f37a16e
+location: #280, "3.13 Gems (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified, corrupted
+properties:
+  Cast Time = 0.60 sec
+  Cost = 10 Mana
+  Critical Strike Chance = 6.00% (number 6)
+  Effectiveness of Added Damage = 120% (number 120)
+  Level = 1 (number 1)
+  Quality = 14 (number 14)
+requirements: Int 33, Level 12
+mod table:
+  Deals # to # Lightning Damage = 19
+tooltip:
+  <center><font color='#fff'>Vaal Arc</font><hr>
+  Spell, Chaining, Vaal, Lightning, Duration<br>
+  Level: <font color='#fff'>1</font><br>
+  Cost: <font color='#fff'>10 Mana</font><br>
+  Cast Time: <font color='#fff'>0.60 sec</font><br>
+  Critical Strike Chance: <font color='#fff'>6.00%</font><br>
+  Effectiveness of Added Damage: <font color='#fff'>120%</font><br>
+  Quality: <font color='#88f'>+14%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>12</font>, Int <font color='#fff'>33</font><br>
+  <hr>
+  <font color='#88f'>Deals 6 to 32 Lightning Damage<br>
+  Chains +4 Times<br>
+  15% more Damage with Hits and Ailments for each remaining Chain</font><br>
+  <hr>
+  <font color='#d20000'>Corrupted</font></center>
+hash: 235105f64ff20ec5c8b2e7ca8b83c29d
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="1" y="20" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="5" y="15" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"][/spoiler]

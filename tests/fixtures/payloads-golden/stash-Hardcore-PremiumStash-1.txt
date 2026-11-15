@@ -1,0 +1,120 @@
+3 item(s)
+
+=== Viper Suit Loricated Ringmail
+id: 70895d2a191bf741fc55e844ceae8ef64d8df13268c3a628a22600a0c1cb1edc
+location: #16, "KB/CF Champ"
+forum code: [linkItem location="Stash1" league="Corpus" x="5" y="2" realm="pc"]
+frame type 2, category 'body armours', item level 69, 2x3, count 1
+flags: identified, crafted, path of building item
+sockets: B-B-R-B-R-R (6 sockets, 6 linked; r3 g0 b3 w0)
+socket groups: r0 g0 b0 w0; r3 g0 b3 w0
+properties:
+  Armour = 644 (number 644)
+  Energy Shield = 131 (number 131)
+  Quality = 20 (number 20)
+requirements: Int 84, Level 68, Str 108
+mod table:
+  #% increased Armour and Energy Shield = 65
+  +# to maximum Life = 124
+  +#% to Cold and Chaos Resistances = 11
+  +#% to Fire Resistance = 10
+  +#% total Elemental Resistance = 21
+  +#% total Resistance = 32
+  +#% total to Chaos Resistance = 11
+  +#% total to Cold Resistance = 11
+  +#% total to Fire Resistance = 10
+  Regenerate # Life per second = 3.9
+path of building:
+  Rarity: RARE
+  Viper Suit
+  Loricated Ringmail
+  Unique ID: 70895d2a191bf741fc55e844ceae8ef64d8df13268c3a628a22600a0c1cb1edc
+  Item Level: 69
+  Quality: 20
+  Sockets: B-B-R-B-R-R
+  LevelReq: 68
+  Implicits: 0
+  65% increased Armour and Energy Shield
+  +124 to maximum Life
+  Regenerate 3.9 Life per second
+  +10% to Fire Resistance
+  {crafted}+11% to Cold and Chaos Resistances
+tooltip:
+  <center><font color='#fff'>Viper Suit Loricated Ringmail</font><hr>
+  Quality: <font color='#88f'>+20%</font><br>
+  Armour: <font color='#88f'>644</font><br>
+  Energy Shield: <font color='#88f'>131</font><br>
+  <hr>
+  Requires Level <font color='#fff'>68</font>, Str <font color='#fff'>108</font>, Int <font color='#fff'>84</font><br>
+  <hr>
+  <font color='#88f'>65% increased Armour and Energy Shield<br>
+  +124 to maximum Life<br>
+  Regenerate 3.9 Life per second<br>
+  +10% to Fire Resistance</font><br>
+  <font color='#b4b4ff'>+11% to Cold and Chaos Resistances</font></center>
+hash: 1a8a949eccfebfb927002d842b37633d
+
+=== Iron Will Support
+id: 49c607d98b94266f7b26d29b8e2022c5ae6ddc82ec1729cd2cd0eb1c989c0159
+location: #16, "KB/CF Champ" (socketed)
+forum code: [linkItem location="Stash1" league="Corpus" x="5" y="2" realm="pc"]
+frame type 4, category 'support gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cost & Reservation Multiplier = 110% (number 110)
+  Level = 19 (number 19)
+requirements: Level 68, Str 108
+tooltip:
+  <center><font color='#fff'>Iron Will Support</font><hr>
+  Spell, Support<br>
+  Level: <font color='#fff'>19</font><br>
+  Cost & Reservation Multiplier: <font color='#fff'>110%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>68</font>, Str <font color='#fff'>108</font><br>
+  <hr>
+  <font color='#88f'>Strength's Damage bonus applies to all Spell Damage as well for Supported Skills<br>
+  Supported Skills deal 36% increased Spell Damage</font></center>
+hash: fd030a7ce6b287b65a6f4ff0ef3e97be
+
+=== Hollow Vision Hypnotic Eye Jewel
+id: baa8c9d58f5dda4dad1faa44a694dde93ffb5635b6f40031d57a4f8d2dfaa150
+location: #16, "KB/CF Champ"
+forum code: [linkItem location="Stash1" league="Corpus" x="4" y="6" realm="pc"]
+frame type 2, category 'abyss jewels', item level 72, 1x1, count 1
+flags: identified, corrupted, path of building item
+requirements: Level 28
+mod table:
+  #% chance to Hinder Enemies on Hit with Spells = 3
+  +# to Strength = 13
+  +# to maximum Life = 30
+  +# total to Strength = 13
+path of building:
+  Rarity: RARE
+  Hollow Vision
+  Hypnotic Eye Jewel
+  Unique ID: baa8c9d58f5dda4dad1faa44a694dde93ffb5635b6f40031d57a4f8d2dfaa150
+  Item Level: 72
+  LevelReq: 28
+  Implicits: 0
+  +13 to Strength
+  +30 to maximum Life
+  3% chance to Hinder Enemies on Hit with Spells
+  Corrupted
+tooltip:
+  <center><font color='#fff'>Hollow Vision Hypnotic Eye Jewel</font><hr>
+  Abyss<br>
+  <hr>
+  Requires Level <font color='#fff'>28</font><br>
+  <hr>
+  <font color='#88f'>+13 to Strength<br>
+  +30 to maximum Life<br>
+  3% chance to Hinder Enemies on Hit with Spells</font><br>
+  <hr>
+  <font color='#d20000'>Corrupted</font></center>
+hash: 5a7c82a2e7102d2a9f44c34bb3279e44
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="5" y="2" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="5" y="2" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="4" y="6" realm="pc"][/spoiler]

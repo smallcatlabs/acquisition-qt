@@ -1,0 +1,40 @@
+2 item(s)
+
+=== Lavish Wombgift
+id: b55db0cab4c31139545460577e0e350b91a8581ca09de3125910e81761856c3d
+location: #1, "Keepers (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="3" y="0" realm="pc"]
+frame type 5, category 'wombgifts', item level 83, 1x1, count 1
+flags: identified
+properties:
+  Item Level = 83 (number 83)
+  Requires {0} Hiveblood = 1583 (number 1583)
+tooltip:
+  <center><font color='#fff'>Lavish Wombgift</font><hr>
+  Item Level: <font color='#fff'>83</font><br>
+  Requires <font color='#fff'>1583</font> Hiveblood<br>
+  <hr>
+  <font color='#88f'>Can grow into a Currency item on the Genesis Tree</font></center>
+hash: 888e90ca83003f45684d74a8ebeff368
+
+=== Provisioning Wombgift
+id: ca3c0823d22f4c8655a6f12349148d8dd4251e153f3e6ee3562ca076cfa6879b
+location: #1, "Keepers (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="9" y="0" realm="pc"]
+frame type 5, category 'wombgifts', item level 83, 1x1, count 1
+flags: identified
+properties:
+  Item Level = 83 (number 83)
+  Requires {0} Hiveblood = 1239 (number 1239)
+tooltip:
+  <center><font color='#fff'>Provisioning Wombgift</font><hr>
+  Item Level: <font color='#fff'>83</font><br>
+  Requires <font color='#fff'>1239</font> Hiveblood<br>
+  <hr>
+  <font color='#88f'>Can grow into an Armour or Jewellery item on the Genesis Tree</font></center>
+hash: e2538c0fa5e17bb447244c098e422f54
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="3" y="0" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="9" y="0" realm="pc"][/spoiler]

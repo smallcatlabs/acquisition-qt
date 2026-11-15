@@ -1,0 +1,187 @@
+5 item(s)
+
+=== Glyph Corona Divine Crown
+id: 27a4277fad1e5d542ed7a408a8b82d285a0aa8897bb2dec1fce83d997726d9a3
+location: #27, "3.28 KF Totems (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="5" y="1" realm="pc"]
+frame type 2, category 'helmets', item level 84, 2x2, count 1
+flags: identified, crafted, split, path of building item
+influence: searing exarch, eater of worlds
+sockets: G-G-G-R (4 sockets, 4 linked; r1 g3 b0 w0)
+socket groups: r0 g0 b0 w0; r1 g3 b0 w0
+properties:
+  Armour = 1019 (number 1019)
+  Energy Shield = 203 (number 203)
+  Quality = 28 (number 28)
+requirements: Dex 138, Int 132, Level 84, Str 155
+mod table:
+  #% increased Armour and Energy Shield = 117
+  #% of Physical Damage from Hits taken as Cold Damage = 6
+  #% reduced Mana Cost of Attacks = 22
+  +# to Intelligence = 26
+  +# to maximum Life = 156
+  +# total to Intelligence = 26
+  +#% to Chaos Resistance = 35
+  +#% total Resistance = 35
+  +#% total to Chaos Resistance = 35
+  Regenerate # Life per second = 18.9
+path of building:
+  Rarity: RARE
+  Glyph Corona
+  Divine Crown
+  Unique ID: 27a4277fad1e5d542ed7a408a8b82d285a0aa8897bb2dec1fce83d997726d9a3
+  Item Level: 84
+  Quality: 28
+  Sockets: G-G-G-R
+  LevelReq: 84
+  Implicits: 2
+  6% of Physical Damage from Hits taken as Cold Damage
+  22% reduced Mana Cost of Attacks
+  +26 to Intelligence
+  96% increased Armour and Energy Shield
+  +141 to maximum Life
+  Regenerate 18.9 Life per second
+  +35% to Chaos Resistance
+  {crafted}21% increased Armour and Energy Shield
+  {crafted}+15 to maximum Life
+tooltip:
+  <center><font color='#fff'>Glyph Corona Divine Crown</font><hr>
+  Quality: <font color='#88f'>+28%</font><br>
+  Armour: <font color='#88f'>1019</font><br>
+  Energy Shield: <font color='#88f'>203</font><br>
+  <hr>
+  Requires Level <font color='#fff'>84</font>, Str <font color='#fff'>155</font>, Dex <font color='#fff'>138</font>, Int <font color='#fff'>132</font><br>
+  <hr>
+  <font color='#88f'>6% of Physical Damage from Hits taken as Cold Damage<br>
+  22% reduced Mana Cost of Attacks</font><br>
+  <hr>
+  <font color='#88f'>+26 to Intelligence<br>
+  96% increased Armour and Energy Shield<br>
+  +141 to maximum Life<br>
+  Regenerate 18.9 Life per second<br>
+  +35% to Chaos Resistance</font><br>
+  <font color='#b4b4ff'>21% increased Armour and Energy Shield<br>
+  +15 to maximum Life</font></center>
+hash: bc8d156efa5f252ca6239e52aab90d5b
+
+=== Momentum Support
+id: 57a72f869e959bbd4fa3f6329341742ee19e39da39d6a6a28de1663e4fc16f92
+location: #27, "3.28 KF Totems (Remove-only)" (socketed)
+forum code: [linkItem location="Stash1" league="Corpus" x="5" y="1" realm="pc"]
+frame type 4, category 'support gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cost & Reservation Multiplier = 110% (number 110)
+  Level = 20 (number 20)
+  Quality = 20 (number 20)
+requirements: Dex 70, Level 70, Str 48
+tooltip:
+  <center><font color='#fff'>Momentum Support</font><hr>
+  Attack, Support, Duration<br>
+  Level: <font color='#fff'>20 (Max)</font><br>
+  Cost & Reservation Multiplier: <font color='#fff'>110%</font><br>
+  Quality: <font color='#88f'>+20%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>70</font>, Str <font color='#fff'>48</font>, Dex <font color='#fff'>70</font><br>
+  <hr>
+  <font color='#88f'>Gain 1 Momentum when you Use a Supported Skill\nGain 1 Momentum every 0.51 seconds while Channelling a Supported Skill\nLose all Momentum if you Move<br>
+  Supported Skills have 20% increased Attack Speed per Momentum<br>
+  When you reach 5 Momentum, lose all Momentum and gain\nSwiftness for 2.0 seconds<br>
+  Swiftness grants 15% increased Movement Speed per Momentum lost</font></center>
+hash: 124b03aec4e9e4a6ab05f4c1b2cf5df1
+
+=== Frenzy
+id: 30fead6dbcf1ad6d07a07ad53dd5eb19de1132e9b603299b6fe83642afee7b0b
+location: #27, "3.28 KF Totems (Remove-only)" (socketed)
+forum code: [linkItem location="Stash1" league="Corpus" x="5" y="1" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Attack Damage = 130.8% of base
+  Cost = 10 Mana
+  Effectiveness of Added Damage = 131% (number 131)
+  Level = 16 (number 16)
+  Quality = 20 (number 20)
+requirements: Dex 138, Level 62
+mod table:
+  #% more Attack Speed per Frenzy Charge = 7
+tooltip:
+  <center><font color='#fff'>Frenzy</font><hr>
+  Attack, Projectile, Bow<br>
+  Level: <font color='#fff'>16</font><br>
+  Cost: <font color='#fff'>10 Mana</font><br>
+  Attack Damage: <font color='#fff'>130.8% of base</font><br>
+  Effectiveness of Added Damage: <font color='#fff'>131%</font><br>
+  Quality: <font color='#88f'>+20%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>62</font>, Dex <font color='#fff'>138</font><br>
+  <hr>
+  <font color='#88f'>7% more Attack Damage per Frenzy Charge<br>
+  7% more Attack Speed per Frenzy Charge</font></center>
+hash: 0793506592d7458bb10dc6732edcdcfe
+
+=== Faster Attacks Support
+id: 977f4c23b3f834292605c7e56e3f666ad111c6981dd0981beff5ee1f8a431706
+location: #27, "3.28 KF Totems (Remove-only)" (socketed)
+forum code: [linkItem location="Stash1" league="Corpus" x="5" y="1" realm="pc"]
+frame type 4, category 'support gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Cost & Reservation Multiplier = 110% (number 110)
+  Level = 20 (number 20)
+  Quality = 20 (number 20)
+requirements: Dex 111, Level 70
+tooltip:
+  <center><font color='#fff'>Faster Attacks Support</font><hr>
+  Attack, Support<br>
+  Level: <font color='#fff'>20 (Max)</font><br>
+  Cost & Reservation Multiplier: <font color='#fff'>110%</font><br>
+  Quality: <font color='#88f'>+20%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>70</font>, Dex <font color='#fff'>111</font><br>
+  <hr>
+  <font color='#88f'>Supported Skills have 54% increased Attack Speed</font></center>
+hash: 3f94c135fe06d438c4d00e0f44a52847
+
+=== Shield Charge
+id: d6be9659fd88aa8add9b7af2d00a6ba34478d43d4275a92ab324fc41ef1dc5ab
+location: #27, "3.28 KF Totems (Remove-only)" (socketed)
+forum code: [linkItem location="Stash1" league="Corpus" x="5" y="1" realm="pc"]
+frame type 4, category 'skill gems', item level 0, 1x1, count 1
+flags: identified
+properties:
+  Attack Damage = 100% of base
+  Attack Time = 0.50 sec
+  Cost = 10 Mana
+  Critical Strike Chance = 5.00% (number 5)
+  Level = 20 (number 20)
+  Quality = 20 (number 20)
+requirements: Level 70, Str 155
+mod table:
+  #% increased Movement Speed = 129
+tooltip:
+  <center><font color='#fff'>Shield Charge</font><hr>
+  Attack, Melee, AoE, Movement, Travel, Physical<br>
+  Level: <font color='#fff'>20 (Max)</font><br>
+  Cost: <font color='#fff'>10 Mana</font><br>
+  Attack Time: <font color='#fff'>0.50 sec</font><br>
+  Critical Strike Chance: <font color='#fff'>5.00%</font><br>
+  Attack Damage: <font color='#fff'>100% of base</font><br>
+  Quality: <font color='#88f'>+20%</font><br>
+  <hr>
+  Requires Level <font color='#fff'>70</font>, Str <font color='#fff'>155</font><br>
+  <hr>
+  <font color='#88f'>252 to 378 Base Off Hand Physical Damage<br>
+  8 to 12 Added Physical Damage per 15 Armour or Evasion Rating on Shield<br>
+  75% increased Stun Threshold reduction on enemies at Maximum charge distance<br>
+  100% more Damage with Hits at Maximum Charge Distance<br>
+  129% increased Movement Speed</font></center>
+hash: 8f59cda049a22e9adcce241c4a04b9b3
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="5" y="1" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="5" y="1" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="5" y="1" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="5" y="1" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="5" y="1" realm="pc"][/spoiler]

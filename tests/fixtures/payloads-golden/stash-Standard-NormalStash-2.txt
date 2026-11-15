@@ -1,0 +1,58 @@
+2 item(s)
+
+=== Armageddon Collar Enamel Brooch
+id: e70d82f74b05bbc5894f046fd1e6861cd1508ef7d91c36e0269de3fc77f228cf
+location: #275, "Heist (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="6" y="0" realm="pc"]
+frame type 2, category 'heist brooches', item level 81, 1x1, count 1
+flags: identified
+properties:
+  Any Heist member can equip this item. = 
+requirements: Level {0} in {1} 4
+mod table:
+  #% increased Rarity of Items dropped in Heists = 21
+  Heist Chests have a #% chance to Duplicate contained Essences = 7
+  Heist Chests have a #% chance to Duplicate contained Legion Splinters = 10
+tooltip:
+  <center><font color='#fff'>Armageddon Collar Enamel Brooch</font><hr>
+  Any Heist member can equip this item.<br>
+  <hr>
+  Requires Level {0} in {1} <font color='#fff'>4</font><br>
+  <hr>
+  <font color='#88f'>21% increased Rarity of Items dropped in Heists</font><br>
+  <hr>
+  <font color='#88f'>Heist Chests have a 7% chance to Duplicate contained Essences<br>
+  Heist Chests have a 10% chance to Duplicate contained Legion Splinters<br>
+  8% increased Job Experience gain<br>
+  14% increased Rogue's Marker value of primary Heist Target</font></center>
+hash: 8fbab1b3a88a28e49856597fc2449f77
+
+=== Dusk Material Fragmenting Arrowhead
+id: fe3f4ec13454526c9dd8a925eab6cde374079f7255f593eaf38669ac936716ef
+location: #275, "Heist (Remove-only)"
+forum code: [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"]
+frame type 2, category 'heist gear', item level 75, 2x2, count 1
+flags: identified
+properties:
+  Any Heist member can equip this item. = 
+requirements: Level {0} in {1} 3
+mod table:
+  #% increased Projectile Attack Damage = 51
+  The Ring's Cut reduced by #% = 8
+tooltip:
+  <center><font color='#fff'>Dusk Material Fragmenting Arrowhead</font><hr>
+  Any Heist member can equip this item.<br>
+  <hr>
+  Requires Level {0} in {1} <font color='#fff'>3</font><br>
+  <hr>
+  <font color='#88f'>19% increased Projectile Attack Damage</font><br>
+  <hr>
+  <font color='#88f'>32% increased Projectile Attack Damage<br>
+  The Ring's Cut reduced by 8%<br>
+  9% reduced Hiring Fee</font></center>
+hash: cbeaef0fb7767c2ace0194728e5e4beb
+
+=== forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
+[spoiler][spoiler=" ~b/o  1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="6" y="0" realm="pc"]
+  [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"][/spoiler]
