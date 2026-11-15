@@ -33,11 +33,13 @@
 class ScriptedNetwork : public NetworkManager
 {
 public:
+    // Every member has a default, so an answer names only what it sets: GCC
+    // reports a member left out of a designated initializer when it has none.
     struct Answer
     {
-        QByteArray body;
+        QByteArray body = {};
         int status = 200;
-        QList<QNetworkReply::RawHeaderPair> headers;
+        QList<QNetworkReply::RawHeaderPair> headers = {};
         QNetworkReply::NetworkError error = QNetworkReply::NoError;
     };
 
