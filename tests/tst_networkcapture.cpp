@@ -11,6 +11,7 @@
 #include "fakenetwork.h"
 #include "ratelimit/networkcapture.h"
 #include "ratelimit/ratelimitedrequest.h"
+#include "testsuite.h"
 
 namespace {
 
@@ -166,6 +167,6 @@ void NetworkCaptureTest::headRecordSurvivesDegradedReply()
     QCOMPARE(captured["x-rate-limit-policy"].toString(), "character-request-limit");
 }
 
-QTEST_GUILESS_MAIN(NetworkCaptureTest)
+ACQ_TEST_GUILESS_MAIN(NetworkCaptureTest)
 
 #include "tst_networkcapture.moc"

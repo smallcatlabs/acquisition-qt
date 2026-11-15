@@ -11,6 +11,7 @@
 #include <QUuid>
 
 #include "legacy/legacydatastore.h"
+#include "testsuite.h"
 
 class LegacyDataStoreTest : public QObject
 {
@@ -93,6 +94,6 @@ void LegacyDataStoreTest::readsRealShapedItemsAndSkipsBadRows()
     QCOMPARE(store.skippedRowCount(), 4);
 }
 
-QTEST_GUILESS_MAIN(LegacyDataStoreTest)
+ACQ_TEST_GUILESS_MAIN(LegacyDataStoreTest)
 
 #include "tst_legacydatastore.moc"

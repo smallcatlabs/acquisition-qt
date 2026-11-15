@@ -14,6 +14,7 @@
 #include "modelprobes.h"
 #include "search.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 
 class SearchTest : public QObject
 {
@@ -829,6 +830,6 @@ void SearchTest::blankModsRowLeavesSearchUnfiltered()
     QVERIFY(!search.defaultExpanded());
 }
 
-QTEST_MAIN(SearchTest)
+ACQ_TEST_MAIN(SearchTest)
 
 #include "tst_search.moc"

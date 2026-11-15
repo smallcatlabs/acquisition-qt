@@ -16,6 +16,7 @@
 #include "legacy/legacybuyoutimporter.h"
 #include "legacy/legacyitem.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 
 namespace {
 
@@ -1065,6 +1066,6 @@ void LegacyBuyoutImporterTest::planFailsWhenCurrentBuyoutsCannotBeRead()
     QVERIFY(!QFileInfo::exists(plan_path));
 }
 
-QTEST_GUILESS_MAIN(LegacyBuyoutImporterTest)
+ACQ_TEST_GUILESS_MAIN(LegacyBuyoutImporterTest)
 
 #include "tst_legacybuyoutimporter.moc"

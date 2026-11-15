@@ -6,6 +6,7 @@
 
 #include "itemcategories.h"
 #include "spikedataset.h"
+#include "testsuite.h"
 
 // Pins the properties M2 relies on from the dataset generator: the same
 // (config, seed) reproduces the same collection and churn sequence (M2-M2's
@@ -133,6 +134,6 @@ void SpikeDatasetTest::namedPresetsMatchRecordedShapes()
     QVERIFY(!SpikeDataset::Config::Preset("bogus").has_value());
 }
 
-QTEST_GUILESS_MAIN(SpikeDatasetTest)
+ACQ_TEST_GUILESS_MAIN(SpikeDatasetTest)
 
 #include "tst_spikedataset.moc"

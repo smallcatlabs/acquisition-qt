@@ -24,6 +24,7 @@
 #include "poe/types/leagueaccount.h"
 #include "poe/types/passivenode.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 #include "util/glaze_qt.h" // IWYU pragma: keep
 #include "util/json_readers.h"
 #include "util/json_writers.h"
@@ -440,5 +441,5 @@ void WireTypesTest::ladderEntryProgressIsRead()
              QString(R"json({"objective": 3})json"));
 }
 
-QTEST_GUILESS_MAIN(WireTypesTest)
+ACQ_TEST_GUILESS_MAIN(WireTypesTest)
 #include "tst_wiretypes.moc"

@@ -9,6 +9,7 @@
 #include "fakenetwork.h"
 #include "ratelimit/ratelimit.h"
 #include "ratelimit/ratelimitpolicy.h"
+#include "testsuite.h"
 
 // The total-parse suite (network-redesign spec, D8 and "Testing plan"
 // item 3): RateLimitPolicy::Parse either yields a policy whose every
@@ -229,6 +230,6 @@ void RateLimitPolicyTest::malformedHeadersFailToParse()
     QVERIFY(!policy.error().isEmpty());
 }
 
-QTEST_GUILESS_MAIN(RateLimitPolicyTest)
+ACQ_TEST_GUILESS_MAIN(RateLimitPolicyTest)
 
 #include "tst_ratelimitpolicy.moc"

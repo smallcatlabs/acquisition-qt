@@ -10,6 +10,7 @@
 #include "itemcategories.h"
 #include "modlist.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 
 class FiltersTest : public QObject
 {
@@ -807,6 +808,6 @@ void FiltersTest::fieldInteger()
     }
 }
 
-QTEST_GUILESS_MAIN(FiltersTest)
+ACQ_TEST_GUILESS_MAIN(FiltersTest)
 
 #include "tst_filters.moc"

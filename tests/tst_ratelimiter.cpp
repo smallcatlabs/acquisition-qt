@@ -16,6 +16,7 @@
 #include "ratelimit/gate.h"
 #include "ratelimit/ratelimit.h"
 #include "ratelimit/ratelimiter.h"
+#include "testsuite.h"
 
 // Hub-level setup pins (network-redesign spec, D4 and "Testing plan"
 // item 3): Unknown -> Probing -> Established, the async HEAD behind the
@@ -961,6 +962,6 @@ void RateLimiterTest::subSecondPacingIsNotReportedAsAPause()
     QCOMPARE(paused.count(), 0);
 }
 
-QTEST_GUILESS_MAIN(RateLimiterTest)
+ACQ_TEST_GUILESS_MAIN(RateLimiterTest)
 
 #include "tst_ratelimiter.moc"

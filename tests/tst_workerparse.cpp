@@ -17,6 +17,7 @@
 #include "datastore/userstore.h"
 #include "poe/types/item.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 #include "util/glaze_qt.h" // IWYU pragma: keep
 
 class WorkerParseTest : public QObject
@@ -324,6 +325,6 @@ void WorkerParseTest::loadStoppedPartWaySaysSo()
     QVERIFY(result.tab_id_index.empty());
 }
 
-QTEST_GUILESS_MAIN(WorkerParseTest)
+ACQ_TEST_GUILESS_MAIN(WorkerParseTest)
 
 #include "tst_workerparse.moc"

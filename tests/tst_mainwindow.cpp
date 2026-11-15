@@ -33,6 +33,7 @@
 #include "currency.h"
 #include "mainwindowfixture.h"
 #include "modelprobes.h"
+#include "testsuite.h"
 #include "viewtranscript.h"
 
 class MainWindowTest : public QObject
@@ -6666,6 +6667,6 @@ void MainWindowTest::currentItemLeavingKeepsOtherSelectedRows()
     QCOMPARE(selectedNames(*tree), QStringList({"Other Shield", "Second Sword"}));
 }
 
-QTEST_MAIN(MainWindowTest)
+ACQ_TEST_MAIN(MainWindowTest)
 
 #include "tst_mainwindow.moc"

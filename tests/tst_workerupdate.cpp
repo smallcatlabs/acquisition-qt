@@ -30,6 +30,7 @@
 #include "ratelimit/gate.h"
 #include "ratelimit/ratelimiter.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 #include "util/json_readers.h"
 #include "util/networkmanager.h"
 #include "workertestaccess.h"
@@ -4436,6 +4437,6 @@ void WorkerUpdateTest::stoppedLoadSeedsNothing()
     QVERIFY(b.ready.isEmpty());
 }
 
-QTEST_GUILESS_MAIN(WorkerUpdateTest)
+ACQ_TEST_GUILESS_MAIN(WorkerUpdateTest)
 
 #include "tst_workerupdate.moc"

@@ -15,6 +15,7 @@
 #include "datastore/sqlitedatastore.h"
 #include "itemsmanager.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 #include "ui/currencydialog.h"
 
 class CurrencyManagerTest : public QObject
@@ -345,6 +346,6 @@ void CurrencyManagerTest::savedRatiosFromBeforeTheTableLoad()
     }
 }
 
-QTEST_MAIN(CurrencyManagerTest)
+ACQ_TEST_MAIN(CurrencyManagerTest)
 
 #include "tst_currencymanager.moc"

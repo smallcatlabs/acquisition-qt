@@ -14,6 +14,7 @@
 #include "ratelimit/ratelimitdialog.h"
 #include "ratelimit/ratelimiter.h"
 #include "ratelimit/ratelimitpolicy.h"
+#include "testsuite.h"
 
 // Pins for the M1-M2/D10 queue-update coalesce (docs/design/m1-m2-result.md):
 // the batch submit emits QueueUpdate once per queued request in a single loop
@@ -140,6 +141,6 @@ void RateLimitDialogTest::rowRebuildBetweenArrivalAndFlushStillLands()
     QTRY_COMPARE(rig.queueCell("policy-a"), QString("7"));
 }
 
-QTEST_MAIN(RateLimitDialogTest)
+ACQ_TEST_MAIN(RateLimitDialogTest)
 
 #include "tst_ratelimitdialog.moc"

@@ -5,6 +5,7 @@
 #include <QTemporaryDir>
 #include <QtTest/QtTest>
 
+#include "testsuite.h"
 #include "viewtranscript.h"
 
 // The view transcript and screenshot helpers (#375) on a plain QTreeView.
@@ -210,5 +211,5 @@ void ViewTranscriptTest::screenshotIsNotSavedOtherwise()
     saveTestScreenshot(*m_view, "step");
 }
 
-QTEST_MAIN(ViewTranscriptTest)
+ACQ_TEST_MAIN(ViewTranscriptTest)
 #include "tst_viewtranscript.moc"

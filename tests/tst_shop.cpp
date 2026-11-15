@@ -26,6 +26,7 @@
 #include "shop.h"
 #include "shoprender.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 #include "util/networkmanager.h"
 
 class ShopFixture
@@ -2024,6 +2025,6 @@ void ShopTest::unrecognisedErrorShowsNoPageText()
     QVERIFY2(notice.contains("does not recognise"), qPrintable(notice));
 }
 
-QTEST_MAIN(ShopTest)
+ACQ_TEST_MAIN(ShopTest)
 
 #include "tst_shop.moc"

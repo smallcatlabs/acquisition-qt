@@ -7,6 +7,8 @@
 
 #include <xlsxdocument.h>
 
+#include "testsuite.h"
+
 class QXlsxTest : public QObject
 {
     Q_OBJECT
@@ -36,6 +38,6 @@ void QXlsxTest::writesAndReadsTypedCells()
     QCOMPARE(document.read(1, 2).toDouble(), 12.5);
 }
 
-QTEST_GUILESS_MAIN(QXlsxTest)
+ACQ_TEST_GUILESS_MAIN(QXlsxTest)
 
 #include "tst_qxlsx.moc"

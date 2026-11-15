@@ -6,6 +6,7 @@
 #include "buyoutmanager.h"
 #include "itemlocation.h"
 #include "testfixtures.h"
+#include "testsuite.h"
 
 // #282: the rule lives in BuyoutManager::SetRefreshChecked, so no caller
 // can store a flag under the empty id of the By-Item header row, or for a
@@ -57,6 +58,6 @@ void RefreshCheckedTest::refusesLockedTab()
     QVERIFY(manager.GetRefreshChecked(tab));
 }
 
-QTEST_GUILESS_MAIN(RefreshCheckedTest)
+ACQ_TEST_GUILESS_MAIN(RefreshCheckedTest)
 
 #include "tst_refreshchecked.moc"

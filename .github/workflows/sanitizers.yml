@@ -39,6 +39,8 @@ on:
       - 'src/util/networkmanager.*'
       - 'src/replytimeout.h'
       - 'tests/tst_workerintegration.cpp'
+      - 'tests/testrunner.cpp'
+      - 'tests/testsuite.h'
       - 'tests/fake*.h'
       - 'tests/lsan.supp'
       - 'tests/CMakeLists.txt'

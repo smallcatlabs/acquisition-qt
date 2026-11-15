@@ -5,6 +5,7 @@
 #include <QtTest/QtTest>
 
 #include "currency.h"
+#include "testsuite.h"
 #include "util/util.h"
 
 // The currency table (#301, #273, #38).
@@ -202,6 +203,6 @@ void CurrencyTest::wordsMatchInAnyCase()
     QVERIFY(Currency::FromWord(u"DIVINE") == Currency(Currency::CURRENCY_DIVINE_ORB));
 }
 
-QTEST_MAIN(CurrencyTest)
+ACQ_TEST_MAIN(CurrencyTest)
 
 #include "tst_currency.moc"
