@@ -83,6 +83,19 @@ foreach(benchmark m2m2_benchmark m3_holdpoint_benchmark m1m2_benchmark)
     endif()
 endforeach()
 
+# The live capture (#378): builds the real Application on a data directory in
+# which the user has logged in and refreshes one league against the real API.
+# Not a test: ctest never runs it, because it talks to the live API under the
+# project's identity. The default build compiles it so it cannot rot unseen;
+# not on Windows, where no pull-request check builds yet (#379).
+qt_add_executable(live_capture live_capture.cpp)
+acq_first_party(live_capture)
+target_include_directories(live_capture PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(live_capture PRIVATE acquisition_core)
+if(WIN32)
+    set_target_properties(live_capture PROPERTIES EXCLUDE_FROM_ALL TRUE)
+endif()
+
 # The mod-match census (#265, #296): runs the mod matching over real RePoE
 # stat translation files named on the command line. Not a test; build
 # explicitly with --target modmatch_census.
@@ -125,6 +138,7 @@ acq_add_test(tst_currency)
 acq_add_test(tst_itemlocation)
 acq_add_test(tst_item)
 acq_add_test(tst_legacydatastore)
+acq_add_test(tst_liveguards)
 acq_add_test(tst_sqlitedatastore)
 acq_add_test(tst_legacybuyoutimporter)
 acq_add_test(tst_qtassumptions)

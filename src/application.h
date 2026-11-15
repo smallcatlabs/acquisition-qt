@@ -62,6 +62,11 @@ public slots:
     void OnItemsRefreshed(bool initial_refresh);
 
 private:
+    // The single test-only seam into Application (#378), as for the worker:
+    // only forward-declared here and DEFINED in a test-only header
+    // (tests/applicationtestaccess.h), so production code cannot reach it.
+    friend class ApplicationTestAccess;
+
     struct CoreServices
     {
         CoreServices(const QDir &appDataDir);

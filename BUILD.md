@@ -95,6 +95,31 @@ whole suite on every pull request and every push to `master`. Run the suite
 locally before opening a pull request; a change to behaviour comes with a test
 that fails without it.
 
+### Live capture (hand-run, not a test)
+
+`live_capture` (`tests/live_capture.cpp`) builds the real `Application` on a
+data directory, logs in to one league with the token stored there, refreshes
+every tab once against the real API, and exits. `ctest` never runs it. The
+replies land in that directory's user store as a refresh in the application
+stores them.
+
+It needs a live directory: a data directory outside the platform's
+application-data location in which you have logged in once, with
+`acquisition --data-dir <dir>`. The account is a local setting; do not write
+it into the repository, an issue or a pull request.
+
+```sh
+./build/dev/tests/live_capture --data-dir <dir> --account '<name#1234>' --league <league>
+```
+
+It refuses a directory that is the platform's application-data location or
+inside it, a directory logged in as another account, and a session with a
+forum shop thread or shop auto-update on (`tests/liveguards.h`, pinned by
+`tst_liveguards`). It never authenticates: when the stored token is not
+usable it stops and says so. It does not start Sentry. Do not run it while
+another Acquisition is using the same account: the rate-limit counters are
+per account (N37).
+
 ## Formatting
 
 The C++ files under `src/` and `tests/` follow `.clang-format`, and the test
