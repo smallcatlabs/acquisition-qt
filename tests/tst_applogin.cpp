@@ -24,7 +24,12 @@
 // Nor was a login that fails in the browser ever captured. A denied
 // authorization is the redirect RFC 6749 describes (4.1.2.1: `error`,
 // `error_description`, `state`), and a refused code exchange is a 400
-// `invalid_grant` in the same error body; both descriptions are invented.
+// `invalid_grant` in the same error body; both descriptions are invented,
+// and so is the 503 with a page for a body.
+//
+// What Qt makes of an error reply from the token endpoint depends on its
+// release (6.11.1 against 6.11.3 and 6.12.0; oauthmanager.cpp says how). The
+// scenarios hold with each.
 
 #include <QtTest/QtTest>
 
@@ -83,6 +88,8 @@ private slots:
     void redirectWithWrongStateEndsTheAttempt();
     void deniedInTheBrowserIsShown();
     void refusedCodeExchangeIsShown();
+    void failedCodeExchangeIsShown();
+    void refusedReauthenticationKeepsTheLogin();
     void secondAuthenticateReplacesTheFirst();
     void redirectForAnAbandonedAttemptIsRefused();
 
@@ -117,7 +124,14 @@ namespace {
     constexpr const char *kWrongStateError
         = "Authentication failed: the reply from the browser did not match this login attempt.";
 
-    // And when the redirect was this attempt's but no token came of it.
+    // When the token endpoint refuses the code, in the scenarios' words.
+    constexpr const char *kRefusedCode
+        = R"({"error":"invalid_grant","error_description":"Authorization code is invalid"})";
+    constexpr const char *kRefusedCodeError
+        = "Authentication failed: invalid_grant (Authorization code is invalid)";
+
+    // And when the redirect was this attempt's but no token came of it, nor
+    // an error the server named.
     constexpr const char *kNoTokenError
         = "Authentication failed: no token was received from Path of Exile.";
 
@@ -991,16 +1005,13 @@ void AppLoginTest::deniedInTheBrowserIsShown()
 }
 
 // The token endpoint refuses the code the redirect brought (#401): the dialog
-// says so and offers Authenticate again, and no token is stored. The next
-// attempt, which the endpoint grants, logs in.
+// shows the server's error and offers Authenticate again, and no token is
+// stored. A redirect without a code, next, is told apart from that. The
+// third attempt, which the endpoint grants, logs in.
 void AppLoginTest::refusedCodeExchangeIsShown()
 {
-    AppFixture fixture([](AppFixture &f) {
-        f.network->answer(kTokenUrl,
-                          tokenAnswer(400,
-                                      R"({"error":"invalid_grant",)"
-                                      R"("error_description":"Authorization code is invalid"})"));
-    });
+    AppFixture fixture(
+        [](AppFixture &f) { f.network->answer(kTokenUrl, tokenAnswer(400, kRefusedCode)); });
     LoginDialog &dialog = fixture.access().login();
     auto &league = child<QComboBox>(dialog, "leagueComboBox");
     auto &login = child<QPushButton>(dialog, "loginButton");
@@ -1017,7 +1028,7 @@ void AppLoginTest::refusedCodeExchangeIsShown()
     // The listener takes the redirect: only the exchange can refuse the code.
     QVERIFY(deliverRedirect(first->redirect, kCode, first->state).contains(kAuthorizedText));
     QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
-    QCOMPARE(error.text(), QString(kNoTokenError));
+    QCOMPARE(error.text(), QString(kRefusedCodeError));
     QCOMPARE(authenticate.text(), QString(kAuthenticate));
     QVERIFY(authenticate.isEnabled());
     QCOMPARE(tokenPosts(fixture).size(), 1);
@@ -1027,10 +1038,26 @@ void AppLoginTest::refusedCodeExchangeIsShown()
     QVERIFY(!login.isEnabled());
     QCOMPARE(authenticated.text(), QString("You must be authenticated to login."));
 
+    // The next attempt's redirect brings the state and no code. Nothing
+    // is exchanged, and the dialog does not repeat the server's words from
+    // the attempt before.
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 2);
+    QVERIFY(error.isHidden());
+    const auto codeless = checkAuthorizeUrl(m_browser.opened.last());
+    QVERIFY(codeless);
+    QUrlQuery no_code;
+    no_code.addQueryItem("state", codeless->state);
+    QVERIFY(!deliverRedirect(codeless->redirect, no_code).isEmpty());
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
+    QCOMPARE(error.text(), QString(kNoTokenError));
+    QCOMPARE(authenticate.text(), QString(kAuthenticate));
+    QCOMPARE(tokenPosts(fixture).size(), 1);
+
     // The endpoint grants the next attempt's code.
     fixture.network->answer(kTokenUrl, tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh)));
     authenticate.click();
-    QCOMPARE(m_browser.opened.size(), 2);
+    QCOMPARE(m_browser.opened.size(), 3);
     QVERIFY(error.isHidden());
     const auto second = checkAuthorizeUrl(m_browser.opened.last());
     QVERIFY(second);
@@ -1049,10 +1076,115 @@ void AppLoginTest::refusedCodeExchangeIsShown()
     QCOMPARE(stored->refresh_token, kFreshRefresh);
     QVERIFY(error.isHidden());
 
-    QCOMPARE(m_browser.opened.size(), 2);
+    QCOMPARE(m_browser.opened.size(), 3);
     QCOMPARE(surprises(fixture), QString());
     checkNoSecretLogged(
         {kCode, kSecondCode, first_verifier, second_verifier, kFreshAccess, kFreshRefresh});
+}
+
+// The code exchange fails without the server naming an error (a 503 with a
+// page for a body): the dialog says no token was received, nothing is stored,
+// and Authenticate is offered again.
+void AppLoginTest::failedCodeExchangeIsShown()
+{
+    AppFixture fixture([](AppFixture &f) {
+        f.network->answer(kTokenUrl,
+                          {.body = "<html><body>Service Unavailable</body></html>",
+                           .status = 503,
+                           .headers = {{"Content-Type", "text/html"}},
+                           .error = QNetworkReply::ServiceUnavailableError});
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(authorize);
+    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kAuthorizedText));
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
+    QCOMPARE(error.text(), QString(kNoTokenError));
+    QCOMPARE(authenticate.text(), QString(kAuthenticate));
+    QCOMPARE(tokenPosts(fixture).size(), 1);
+    QCOMPARE(storedToken(fixture).has_value(), false);
+    QVERIFY(!login.isEnabled());
+    QVERIFY(!fixture.access().hasSession());
+
+    QCOMPARE(m_browser.opened.size(), 1);
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged({kCode, AppFixture::formField(tokenPosts(fixture)[0], "code_verifier")});
+}
+
+// With a login held (the stored token, refreshed at start), authenticating
+// again is refused at the code exchange: the dialog says why, the button
+// offers to re-authenticate as before, and the login that was held is still
+// the one in the store and still logs in.
+void AppLoginTest::refusedReauthenticationKeepsTheLogin()
+{
+    AppFixture fixture([](AppFixture &f) {
+        storeToken(f, kStoredAccess, kStoredRefresh);
+        // Every token request but the first is the code exchange.
+        f.network->answer(kTokenUrl, tokenAnswer(400, kRefusedCode));
+        // The first is the refresh at start (the rule added last is asked
+        // first).
+        f.network->answer(
+            [granted = false](QNetworkAccessManager::Operation,
+                              const QUrl &url) mutable -> std::optional<ScriptedNetwork::Answer> {
+                if (granted || (url.toString() != kTokenUrl)) {
+                    return std::nullopt;
+                }
+                granted = true;
+                return tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh));
+            });
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+    const QString reauthenticate = "Re-authenticate (as someone else).";
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
+    QCOMPARE(authenticate.text(), reauthenticate);
+
+    authenticate.click();
+    QCOMPARE(authenticate.text(), QString(kAuthenticating));
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(authorize);
+    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kAuthorizedText));
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
+    QCOMPARE(error.text(), QString(kRefusedCodeError));
+    QCOMPARE(authenticate.text(), reauthenticate);
+    QVERIFY(authenticate.isEnabled());
+    const QList<QByteArray> posts = tokenPosts(fixture);
+    QCOMPARE(posts.size(), 2);
+    QCOMPARE(AppFixture::formField(posts[1], "code"), kCode);
+    // The refused exchange has put nothing in the place of the login held.
+    const auto stored = storedToken(fixture);
+    QVERIFY(stored);
+    QCOMPARE(stored->refresh_token, kFreshRefresh);
+    QCOMPARE(stored->access_token, kFreshAccess);
+
+    QVERIFY(login.isEnabled());
+    league.setCurrentIndex(league.findText(AppFixture::kLeague));
+    login.click();
+    QVERIFY2(fixture.access().hasSession(), qPrintable(error.text()));
+    QCOMPARE(fixture.access().identity().account(), QString(AppFixture::kAccount));
+
+    QCOMPARE(m_browser.opened.size(), 1);
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged({kStoredAccess,
+                         kStoredRefresh,
+                         kCode,
+                         AppFixture::formField(posts[1], "code_verifier"),
+                         kFreshAccess,
+                         kFreshRefresh});
 }
 
 // The browser never comes back (#401): the button stays usable while it reads

@@ -39,7 +39,8 @@ namespace {
     constexpr const std::chrono::seconds REFRESH_LEAD_TIME{300};
 
     // The error code with which the token endpoint refuses a token it was
-    // sent (RFC 6749, 5.2; N46), and how much of an error body is read for it.
+    // sent (RFC 6749, 5.2; N46), and how much of a reply is read for the
+    // error it names.
     constexpr const char *TOKEN_REFUSED = "invalid_grant";
     constexpr qint64 ERROR_BODY_LIMIT = 4096;
 
@@ -73,12 +74,22 @@ namespace {
             bytes.toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals));
     }
 
+    // The line for the user when the server answered a login with an error.
+    QString serverErrorReason(const QString &error, const QString &description)
+    {
+        return description.isEmpty()
+                   ? QString("Authentication failed: %1").arg(error)
+                   : QString("Authentication failed: %1 (%2)").arg(error, description);
+    }
+
     // Qt's loopback handler, which also shows every reply of the token
     // endpoint to `note` before Qt handles it, and calls `note` with nullptr
-    // once Qt has. Qt reports a failed token request by its class of error
-    // alone (QAbstractOAuth::Error) and reads no error body; the status and
-    // the body, which tell a refused token from a server that could not be
-    // reached, are only on the reply.
+    // once Qt has. What Qt makes of an error reply depends on its release:
+    // 6.11.1 reports a failed request and reads no body; 6.11.3 and 6.12.0
+    // read the body and report the error it names. None says whether the
+    // server answered at all, or with what status. Reading the reply here
+    // gives the user the same line with each, and tells a refused token from
+    // a server that could not be reached.
     class ReplyHandler : public QOAuthHttpServerReplyHandler
     {
     public:
@@ -200,13 +211,19 @@ void OAuthManager::onRequestFailure(const QAbstractOAuth::Error error)
     }
 
     // Qt names no cause beyond `error`. A redirect it refused for its state
-    // was noted by receiveCallback; anything else left the login without a
-    // token, whether the redirect brought no code or the exchange failed.
-    if (m_login_in_progress) {
-        failLogin(m_state_mismatch
-                      ? "Authentication failed: the reply from the browser did not match this "
-                        "login attempt."
-                      : "Authentication failed: no token was received from Path of Exile.");
+    // was noted by receiveCallback, and an error the token endpoint named by
+    // noteTokenReply; anything else left the login without a token, whether
+    // the redirect brought no code or the exchange got no usable answer.
+    if (!m_login_in_progress) {
+        return;
+    }
+    if (m_state_mismatch) {
+        failLogin("Authentication failed: the reply from the browser did not match this login "
+                  "attempt.");
+    } else if (m_token_reply && !m_token_reply->error.isEmpty()) {
+        failLogin(serverErrorReason(m_token_reply->error, m_token_reply->description));
+    } else {
+        failLogin("Authentication failed: no token was received from Path of Exile.");
     }
 }
 
@@ -230,9 +247,7 @@ void OAuthManager::onServerError(const QString &error,
     // login's. With another state it is anybody's text: requestFailed then
     // reports the mismatch instead.
     if (m_login_in_progress && !m_state_mismatch) {
-        failLogin(errorDescription.isEmpty()
-                      ? QString("Authentication failed: %1").arg(error)
-                      : QString("Authentication failed: %1 (%2)").arg(error, errorDescription));
+        failLogin(serverErrorReason(error, errorDescription));
     }
 }
 
@@ -249,12 +264,13 @@ void OAuthManager::noteTokenReply(QNetworkReply *reply)
         m_token_reply.reset();
         return;
     }
-    // peek(), not read(): a reply that succeeded is Qt's to read.
+    // peek(), not read(): the body is Qt's to read.
     const QJsonObject body = QJsonDocument::fromJson(reply->peek(ERROR_BODY_LIMIT)).object();
     m_token_reply = TokenReply{
         .refresh = (reply->request().attribute(STAGE_ATTRIBUTE).toInt()
                     == static_cast<int>(QAbstractOAuth::Stage::RefreshingAccessToken)),
-        .token_refused = (body.value("error").toString() == TOKEN_REFUSED),
+        .error = body.value("error").toString(),
+        .description = body.value("error_description").toString(),
         .http_status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(),
         .network_error = static_cast<int>(reply->error()),
     };
@@ -262,7 +278,7 @@ void OAuthManager::noteTokenReply(QNetworkReply *reply)
 
 void OAuthManager::failStoredLogin(const TokenReply &reply)
 {
-    if (reply.token_refused) {
+    if (reply.error == TOKEN_REFUSED) {
         // One refusal is final (N46): the token is of no further use, and
         // refreshing it at every start would spend a request each time.
         spdlog::error("OAuth: the server refused the stored login (HTTP {}): removing it",
@@ -294,6 +310,13 @@ void OAuthManager::failLogin(const QString &reason)
 
 void OAuthManager::receiveToken(const QVariantMap &tokens)
 {
+    // Qt 6.11.3 and 6.12.0 hand this signal the body of an error reply too,
+    // before they report the error (6.11.1 does not). That is no token:
+    // taking it for one would put an empty login in place of the stored one.
+    if (tokens.value("access_token").toString().isEmpty()) {
+        return;
+    }
+
     m_token = OAuthToken::fromTokens(tokens);
     spdlog::info("OAuth: tokens recieved for {}", m_token.username);
 

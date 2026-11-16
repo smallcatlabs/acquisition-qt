@@ -57,10 +57,11 @@ private:
     // What a reply of the token endpoint said, beyond what Qt reports.
     struct TokenReply
     {
-        bool refresh;       // it answers a refresh, not a code exchange
-        bool token_refused; // its body is the server's `invalid_grant`
-        int http_status;    // 0 when no answer came
-        int network_error;  // QNetworkReply::NetworkError
+        bool refresh;        // it answers a refresh, not a code exchange
+        QString error;       // the error it names (RFC 6749, 5.2), or empty
+        QString description; // and that error's description
+        int http_status;     // 0 when no answer came
+        int network_error;   // QNetworkReply::NetworkError
     };
 
     void noteTokenReply(QNetworkReply *reply);
