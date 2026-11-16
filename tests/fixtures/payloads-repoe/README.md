@@ -22,13 +22,11 @@ The excerpt was kept only because they were the same.
 
 ## One class for a name
 
-The application keeps one item class for a base item's name. Where the game
-data gives a name entries of different classes, it keeps the one its hash
-table yields last, so the class depends on which other names are loaded. For
-such a name the excerpt holds only the entries of the class the application
-chose with the whole game data on the machine that cut it, and the tool
-prints each entry it left out. In the corpus these are Polaric Invitation,
-Potent Chaotic Resonator and Powerful Alchemical Resonator.
+The game data gives some base item names entries of several item classes. The
+application keeps the entry whose key comes last (#390), whatever else is
+loaded, so the excerpt holds every entry of such a name and resolves it as
+the whole game data does. In the corpus these are Polaric Invitation, Potent
+Chaotic Resonator and Powerful Alchemical Resonator.
 
 ## When the excerpt is not enough
 

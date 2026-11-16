@@ -4,7 +4,7 @@
 id: 1cf2edcdaae27cf4649c640adf14a93c00ed29cc159e4ea89ae61d811cf4f337
 location: #5, "Delve"
 forum code: [linkItem location="Stash1" league="Corpus" x="27" y="0" realm="pc"]
-frame type 5, category 'delve socketable currency', item level 0, 2x2, count 1
+frame type 5, category 'delve stackable socketable currency', item level 0, 2x2, count 1
 flags: identified
 sockets: D D D (3 sockets, 1 linked; r0 g0 b0 w0)
 socket groups: r0 g0 b0 w0; r0 g0 b0 w0; r0 g0 b0 w0; r0 g0 b0 w0
@@ -38,7 +38,7 @@ hash: bcf16b2d95eb95f1e5e5c3ace0621ec1
 id: 02b4a476b9bb63f17eeb21433303a5ec4711d68944115ca44bc7d54f5caf0773
 location: #5, "Delve"
 forum code: [linkItem location="Stash1" league="Corpus" x="32" y="0" realm="pc"]
-frame type 5, category 'delve socketable currency', item level 0, 1x2, count 1
+frame type 5, category 'delve stackable socketable currency', item level 0, 1x2, count 1
 flags: identified
 sockets: D D (2 sockets, 1 linked; r0 g0 b0 w0)
 socket groups: r0 g0 b0 w0; r0 g0 b0 w0; r0 g0 b0 w0
