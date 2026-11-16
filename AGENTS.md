@@ -51,6 +51,10 @@ for the change in hand:
   code (the `src/` paths in `.github/workflows/sanitizers.yml`; it checks, and
   refuses). The directory and the account are local settings: they stay out
   of the repository, issues, pull requests and commits.
+- **Windows.** The pull-request job builds and tests there. For a failure
+  that only happens on Windows, `BUILD.md`, "Windows from another machine":
+  build and test over SSH on the user's host alias, if they have set one up.
+  Its address, user and key are local settings too.
 
 ## Working Rules
 
