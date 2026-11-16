@@ -18,6 +18,16 @@
 // headers of `token-request-limit` (N33), and a rejected refresh as HTTP 400
 // `invalid_grant` (N46) with the error body of N34. The Content-Type is
 // assumed to be application/json.
+//
+// Nor was a login that fails in the browser ever captured. A denied
+// authorization is the redirect RFC 6749 describes (4.1.2.1: `error`,
+// `error_description`, `state`), and a refused code exchange is a 400
+// `invalid_grant` in the same error body; both descriptions are invented,
+// and so is the 503 with a page for a body.
+//
+// What Qt makes of an error reply from the token endpoint depends on its
+// release (6.11.1 against 6.11.3 and 6.12.0; oauthmanager.cpp says how). The
+// scenarios hold with each.
 
 #include <QtTest/QtTest>
 
@@ -67,7 +77,13 @@ private slots:
     void storedTokenIsRefreshedAndLogsIn();
     void browserLoginStoresTheTokenAndLogsIn();
     void rejectedStoredTokenGivesNoSession();
-    void redirectWithWrongStateIsIgnored();
+    void redirectWithWrongStateEndsTheAttempt();
+    void deniedInTheBrowserIsShown();
+    void refusedCodeExchangeIsShown();
+    void failedCodeExchangeIsShown();
+    void refusedReauthenticationKeepsTheLogin();
+    void secondAuthenticateReplacesTheFirst();
+    void redirectForAnAbandonedAttemptIsRefused();
 
 private:
     std::shared_ptr<spdlog::logger> m_previous_logger;
@@ -83,10 +99,33 @@ namespace {
     const QString kFreshRefresh = "fake-fresh-refresh-token-4444";
     const QString kCode = "fake-authorization-code-5555";
     const QString kForgedCode = "fake-forged-authorization-code-6666";
+    const QString kSecondCode = "fake-second-authorization-code-7777";
+    const QString kAbandonedCode = "fake-abandoned-authorization-code-8888";
 
     constexpr const char *kTokenUrl = "https://www.pathofexile.com/oauth/token";
     constexpr const char *kAuthorizeUrl = "https://www.pathofexile.com/oauth/authorize";
     constexpr const char *kAuthorizedText = "Acquisition has been authorized.";
+
+    // What the Authenticate button reads: before a login, and while the
+    // browser is out.
+    constexpr const char *kAuthenticate = "Authenticate";
+    constexpr const char *kAuthenticating = "Authenticating...";
+
+    // What the dialog says when the browser's reply carries a state that is
+    // not this attempt's.
+    constexpr const char *kWrongStateError
+        = "Authentication failed: the reply from the browser did not match this login attempt.";
+
+    // When the token endpoint refuses the code, in the scenarios' words.
+    constexpr const char *kRefusedCode
+        = R"({"error":"invalid_grant","error_description":"Authorization code is invalid"})";
+    constexpr const char *kRefusedCodeError
+        = "Authentication failed: invalid_grant (Authorization code is invalid)";
+
+    // And when the redirect was this attempt's but no token came of it, nor
+    // an error the server named.
+    constexpr const char *kNoTokenError
+        = "Authentication failed: no token was received from Path of Exile.";
 
     // Everything logged while the scenario runs: the application's log and
     // Qt's own messages, in one text.
@@ -226,15 +265,13 @@ namespace {
         return *widget;
     }
 
-    // What the browser does once the user has approved: it follows the
-    // redirect to the application's loopback listener, with the code and the
-    // state. Returns what the listener answered, empty if nothing listened.
-    QByteArray deliverRedirect(const QUrl &redirect, const QString &code, const QString &state)
+    // What the browser does once the user has decided: it follows the
+    // redirect to the application's loopback listener, with what the server
+    // put in the query. Returns what the listener answered, empty if nothing
+    // listened.
+    QByteArray deliverRedirect(const QUrl &redirect, const QUrlQuery &query)
     {
         QUrl target = redirect;
-        QUrlQuery query;
-        query.addQueryItem("code", code);
-        query.addQueryItem("state", state);
         target.setQuery(query);
 
         QTcpSocket socket;
@@ -261,6 +298,23 @@ namespace {
             },
             5000);
         return answer + socket.readAll();
+    }
+
+    // The redirect after the user has approved: the code and the state.
+    QByteArray deliverRedirect(const QUrl &redirect, const QString &code, const QString &state)
+    {
+        QUrlQuery query;
+        query.addQueryItem("code", code);
+        query.addQueryItem("state", state);
+        return deliverRedirect(redirect, query);
+    }
+
+    // The S256 challenge of a PKCE verifier, as the authorize address carries it.
+    QString challengeOf(const QString &verifier)
+    {
+        return QString::fromLatin1(
+            QCryptographicHash::hash(verifier.toLatin1(), QCryptographicHash::Sha256)
+                .toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals));
     }
 
     // What a scenario must end without: a request the script did not
@@ -470,10 +524,7 @@ void AppLoginTest::browserLoginStoresTheTokenAndLogsIn()
     QCOMPARE(AppFixture::formField(posts[0], "redirect_uri"), authorize->redirect.toString());
     const QString verifier = AppFixture::formField(posts[0], "code_verifier");
     QVERIFY(!verifier.startsWith("(no field"));
-    QCOMPARE(QString::fromLatin1(
-                 QCryptographicHash::hash(verifier.toLatin1(), QCryptographicHash::Sha256)
-                     .toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals)),
-             authorize->challenge);
+    QCOMPARE(challengeOf(verifier), authorize->challenge);
 
     QCOMPARE(authenticated.text(),
              QString("You are authenticated as \"%1\"").arg(AppFixture::kAccount));
@@ -514,6 +565,7 @@ void AppLoginTest::rejectedStoredTokenGivesNoSession()
     LoginDialog &dialog = fixture.access().login();
     auto &league = child<QComboBox>(dialog, "leagueComboBox");
     auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
     auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
     auto &authenticated = child<QLabel>(dialog, "authenticateLabel");
 
@@ -524,6 +576,8 @@ void AppLoginTest::rejectedStoredTokenGivesNoSession()
     // not read the error body.
     QVERIFY(QTest::qWaitFor([] { return loggedText().contains("OAuth: request failed"); }, 10000));
 
+    // No browser login was under way, so none is reported as failed.
+    QVERIFY(error.isHidden());
     QVERIFY(!login.isEnabled());
     login.click(); // a disabled button takes no click
     QVERIFY(!fixture.access().hasSession());
@@ -536,9 +590,11 @@ void AppLoginTest::rejectedStoredTokenGivesNoSession()
 }
 
 // A redirect whose state is not the one the application sent is not
-// exchanged, and no token or session comes of it. The genuine redirect that
-// follows is exchanged: the listener was there and the check tells them apart.
-void AppLoginTest::redirectWithWrongStateIsIgnored()
+// exchanged, and the attempt ends there (#401): the dialog says why and
+// offers Authenticate again, and the listener is closed, so the genuine
+// redirect that follows is not answered. Authenticating again logs in: the
+// listener was there, and the check told the two redirects apart.
+void AppLoginTest::redirectWithWrongStateEndsTheAttempt()
 {
     AppFixture fixture([](AppFixture &f) {
         f.network->answer(kTokenUrl, tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh)));
@@ -546,6 +602,69 @@ void AppLoginTest::redirectWithWrongStateIsIgnored()
     LoginDialog &dialog = fixture.access().login();
     auto &league = child<QComboBox>(dialog, "leagueComboBox");
     auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    QCOMPARE(authenticate.text(), QString(kAuthenticate));
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto first = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(first);
+
+    const QString forged_state = first->state + "-forged";
+    QVERIFY(!deliverRedirect(first->redirect, kForgedCode, forged_state).isEmpty());
+    // The application has seen the redirect and refused it, and says so.
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
+    QCOMPARE(error.text(), QString(kWrongStateError));
+    QCOMPARE(authenticate.text(), QString(kAuthenticate));
+    QVERIFY(authenticate.isEnabled());
+    QCOMPARE(tokenPosts(fixture), QList<QByteArray>());
+    QCOMPARE(storedToken(fixture).has_value(), false);
+    QVERIFY(!login.isEnabled());
+    QVERIFY(!fixture.access().hasSession());
+
+    // The attempt is over: the genuine redirect finds nobody listening.
+    QCOMPARE(deliverRedirect(first->redirect, kCode, first->state), QByteArray());
+    QCOMPARE(tokenPosts(fixture), QList<QByteArray>());
+    QVERIFY(!login.isEnabled());
+
+    // Authenticating again starts afresh, and only its code is exchanged.
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 2);
+    QVERIFY(error.isHidden());
+    const auto second = checkAuthorizeUrl(m_browser.opened.last());
+    QVERIFY(second);
+    const QByteArray answered = deliverRedirect(second->redirect, kSecondCode, second->state);
+    QVERIFY2(answered.contains(kAuthorizedText), answered.constData());
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
+    const QList<QByteArray> posts = tokenPosts(fixture);
+    QCOMPARE(posts.size(), 1);
+    QCOMPARE(AppFixture::formField(posts[0], "code"), kSecondCode);
+    QVERIFY(error.isHidden());
+    QVERIFY(!fixture.access().hasSession());
+
+    QCOMPARE(m_browser.opened.size(), 2);
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged({kForgedCode,
+                         kCode,
+                         kSecondCode,
+                         AppFixture::formField(posts[0], "code_verifier"),
+                         kFreshAccess,
+                         kFreshRefresh});
+}
+
+// The user refuses the request in the browser: the redirect carries an error
+// instead of a code (#401). The dialog shows the server's error and offers
+// Authenticate again; nothing is exchanged, and the attempt is over.
+void AppLoginTest::deniedInTheBrowserIsShown()
+{
+    // No answer for the token endpoint: an exchange would be a surprise.
+    AppFixture fixture;
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
     auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
 
     QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
@@ -554,31 +673,337 @@ void AppLoginTest::redirectWithWrongStateIsIgnored()
     const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
     QVERIFY(authorize);
 
-    const QString forged_state = authorize->state + "-forged";
-    QVERIFY(!deliverRedirect(authorize->redirect, kForgedCode, forged_state).isEmpty());
-    // The application has seen the redirect and refused it.
-    QVERIFY(QTest::qWaitFor([] { return loggedText().contains("OAuth: request failed"); }, 10000));
+    QUrlQuery denied;
+    denied.addQueryItem("error", "access_denied");
+    denied.addQueryItem("error_description", "The user denied the request");
+    denied.addQueryItem("state", authorize->state);
+    QVERIFY(!deliverRedirect(authorize->redirect, denied).isEmpty());
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
+    QCOMPARE(error.text(),
+             QString("Authentication failed: access_denied (The user denied the request)"));
+    // The server's words are shown as written, not rendered.
+    QCOMPARE(error.textFormat(), Qt::PlainText);
+    QCOMPARE(authenticate.text(), QString(kAuthenticate));
+    QVERIFY(authenticate.isEnabled());
+    QVERIFY(!login.isEnabled());
+    QCOMPARE(storedToken(fixture).has_value(), false);
+
+    // The attempt is over: a redirect with a code finds nobody listening.
+    QCOMPARE(deliverRedirect(authorize->redirect, kCode, authorize->state), QByteArray());
     QCOMPARE(tokenPosts(fixture), QList<QByteArray>());
+    QVERIFY(!login.isEnabled());
+
+    // An error in a redirect that is not the attempt's own is nobody's word:
+    // the dialog reports the mismatch, not the text the redirect brought.
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 2);
+    QVERIFY(error.isHidden());
+    const auto second = checkAuthorizeUrl(m_browser.opened.last());
+    QVERIFY(second);
+    QUrlQuery forged;
+    forged.addQueryItem("error", "access_denied");
+    forged.addQueryItem("error_description", "Forged words");
+    forged.addQueryItem("state", second->state + "-forged");
+    QVERIFY(!deliverRedirect(second->redirect, forged).isEmpty());
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
+    QCOMPARE(error.text(), QString(kWrongStateError));
+    QCOMPARE(tokenPosts(fixture), QList<QByteArray>());
+    QVERIFY(!login.isEnabled());
+    QVERIFY(!fixture.access().hasSession());
+
+    QCOMPARE(m_browser.opened.size(), 2);
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged({kCode, authorize->state, second->state});
+}
+
+// The token endpoint refuses the code the redirect brought (#401): the dialog
+// shows the server's error and offers Authenticate again, and no token is
+// stored. A redirect without a code, next, is told apart from that. The
+// third attempt, which the endpoint grants, logs in.
+void AppLoginTest::refusedCodeExchangeIsShown()
+{
+    AppFixture fixture(
+        [](AppFixture &f) { f.network->answer(kTokenUrl, tokenAnswer(400, kRefusedCode)); });
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+    auto &authenticated = child<QLabel>(dialog, "authenticateLabel");
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto first = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(first);
+
+    // The listener takes the redirect: only the exchange can refuse the code.
+    QVERIFY(deliverRedirect(first->redirect, kCode, first->state).contains(kAuthorizedText));
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
+    QCOMPARE(error.text(), QString(kRefusedCodeError));
+    QCOMPARE(authenticate.text(), QString(kAuthenticate));
+    QVERIFY(authenticate.isEnabled());
+    QCOMPARE(tokenPosts(fixture).size(), 1);
+    QCOMPARE(AppFixture::formField(tokenPosts(fixture)[0], "code"), kCode);
+    const QString first_verifier = AppFixture::formField(tokenPosts(fixture)[0], "code_verifier");
+    QCOMPARE(storedToken(fixture).has_value(), false);
+    QVERIFY(!login.isEnabled());
+    QCOMPARE(authenticated.text(), QString("You must be authenticated to login."));
+
+    // The next attempt's redirect brings the state and no code. Nothing
+    // is exchanged, and the dialog does not repeat the server's words from
+    // the attempt before.
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 2);
+    QVERIFY(error.isHidden());
+    const auto codeless = checkAuthorizeUrl(m_browser.opened.last());
+    QVERIFY(codeless);
+    QUrlQuery no_code;
+    no_code.addQueryItem("state", codeless->state);
+    QVERIFY(!deliverRedirect(codeless->redirect, no_code).isEmpty());
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
+    QCOMPARE(error.text(), QString(kNoTokenError));
+    QCOMPARE(authenticate.text(), QString(kAuthenticate));
+    QCOMPARE(tokenPosts(fixture).size(), 1);
+
+    // The endpoint grants the next attempt's code.
+    fixture.network->answer(kTokenUrl, tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh)));
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 3);
+    QVERIFY(error.isHidden());
+    const auto second = checkAuthorizeUrl(m_browser.opened.last());
+    QVERIFY(second);
+    QVERIFY(deliverRedirect(second->redirect, kSecondCode, second->state).contains(kAuthorizedText));
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
+    const QList<QByteArray> posts = tokenPosts(fixture);
+    QCOMPARE(posts.size(), 2);
+    QCOMPARE(AppFixture::formField(posts[1], "code"), kSecondCode);
+    // Each attempt has its own verifier.
+    const QString second_verifier = AppFixture::formField(posts[1], "code_verifier");
+    QCOMPARE(challengeOf(second_verifier), second->challenge);
+    QCOMPARE(authenticated.text(),
+             QString("You are authenticated as \"%1\"").arg(AppFixture::kAccount));
+    const auto stored = storedToken(fixture);
+    QVERIFY(stored);
+    QCOMPARE(stored->refresh_token, kFreshRefresh);
+    QVERIFY(error.isHidden());
+
+    QCOMPARE(m_browser.opened.size(), 3);
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged(
+        {kCode, kSecondCode, first_verifier, second_verifier, kFreshAccess, kFreshRefresh});
+}
+
+// The code exchange fails without the server naming an error (a 503 with a
+// page for a body): the dialog says no token was received, nothing is stored,
+// and Authenticate is offered again.
+void AppLoginTest::failedCodeExchangeIsShown()
+{
+    AppFixture fixture([](AppFixture &f) {
+        f.network->answer(kTokenUrl,
+                          {.body = "<html><body>Service Unavailable</body></html>",
+                           .status = 503,
+                           .headers = {{"Content-Type", "text/html"}},
+                           .error = QNetworkReply::ServiceUnavailableError});
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(authorize);
+    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kAuthorizedText));
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
+    QCOMPARE(error.text(), QString(kNoTokenError));
+    QCOMPARE(authenticate.text(), QString(kAuthenticate));
+    QCOMPARE(tokenPosts(fixture).size(), 1);
     QCOMPARE(storedToken(fixture).has_value(), false);
     QVERIFY(!login.isEnabled());
     QVERIFY(!fixture.access().hasSession());
 
-    // The genuine redirect is still taken, and only its code is exchanged.
-    const QByteArray answered = deliverRedirect(authorize->redirect, kCode, authorize->state);
+    QCOMPARE(m_browser.opened.size(), 1);
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged({kCode, AppFixture::formField(tokenPosts(fixture)[0], "code_verifier")});
+}
+
+// With a login held (the stored token, refreshed at start), authenticating
+// again is refused at the code exchange: the dialog says why, the button
+// offers to re-authenticate as before, and the login that was held is still
+// the one in the store and still logs in.
+void AppLoginTest::refusedReauthenticationKeepsTheLogin()
+{
+    AppFixture fixture([](AppFixture &f) {
+        storeToken(f, kStoredAccess, kStoredRefresh);
+        // Every token request but the first is the code exchange.
+        f.network->answer(kTokenUrl, tokenAnswer(400, kRefusedCode));
+        // The first is the refresh at start (the rule added last is asked
+        // first).
+        f.network->answer(
+            [granted = false](QNetworkAccessManager::Operation,
+                              const QUrl &url) mutable -> std::optional<ScriptedNetwork::Answer> {
+                if (granted || (url.toString() != kTokenUrl)) {
+                    return std::nullopt;
+                }
+                granted = true;
+                return tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh));
+            });
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+    const QString reauthenticate = "Re-authenticate (as someone else).";
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
+    QCOMPARE(authenticate.text(), reauthenticate);
+
+    authenticate.click();
+    QCOMPARE(authenticate.text(), QString(kAuthenticating));
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(authorize);
+    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kAuthorizedText));
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
+    QCOMPARE(error.text(), QString(kRefusedCodeError));
+    QCOMPARE(authenticate.text(), reauthenticate);
+    QVERIFY(authenticate.isEnabled());
+    const QList<QByteArray> posts = tokenPosts(fixture);
+    QCOMPARE(posts.size(), 2);
+    QCOMPARE(AppFixture::formField(posts[1], "code"), kCode);
+    // The refused exchange has put nothing in the place of the login held.
+    const auto stored = storedToken(fixture);
+    QVERIFY(stored);
+    QCOMPARE(stored->refresh_token, kFreshRefresh);
+    QCOMPARE(stored->access_token, kFreshAccess);
+
+    QVERIFY(login.isEnabled());
+    league.setCurrentIndex(league.findText(AppFixture::kLeague));
+    login.click();
+    QVERIFY2(fixture.access().hasSession(), qPrintable(error.text()));
+    QCOMPARE(fixture.access().identity().account(), QString(AppFixture::kAccount));
+
+    QCOMPARE(m_browser.opened.size(), 1);
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged({kStoredAccess,
+                         kStoredRefresh,
+                         kCode,
+                         AppFixture::formField(posts[1], "code_verifier"),
+                         kFreshAccess,
+                         kFreshRefresh});
+}
+
+// The browser never comes back (#401): the button stays usable while it reads
+// "Authenticating...", and pressing it again drops the attempt and opens the
+// browser afresh. The first attempt's redirect, arriving late, finds nobody
+// listening; the second attempt's logs in.
+void AppLoginTest::secondAuthenticateReplacesTheFirst()
+{
+    AppFixture fixture([](AppFixture &f) {
+        f.network->answer(kTokenUrl, tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh)));
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+    auto &authenticated = child<QLabel>(dialog, "authenticateLabel");
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto first = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(first);
+    QCOMPARE(authenticate.text(), QString(kAuthenticating));
+    QVERIFY(authenticate.isEnabled());
+
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 2);
+    const auto second = checkAuthorizeUrl(m_browser.opened.last());
+    QVERIFY(second);
+    QCOMPARE(authenticate.text(), QString(kAuthenticating));
+    QVERIFY(authenticate.isEnabled());
+    // The second attempt is another login: its own state, its own verifier.
+    QVERIFY(second->state != first->state);
+    QVERIFY(second->challenge != first->challenge);
+    if (second->redirect.port() == first->redirect.port()) {
+        // Then the late redirect reaches the second listener, which is the
+        // case redirectForAnAbandonedAttemptIsRefused covers.
+        QSKIP("the system gave the second listener the first one's port");
+    }
+
+    // The first attempt's redirect arrives late: it is not answered, and the
+    // second attempt goes on waiting.
+    QCOMPARE(deliverRedirect(first->redirect, kAbandonedCode, first->state), QByteArray());
+    QCOMPARE(tokenPosts(fixture), QList<QByteArray>());
+    QCOMPARE(authenticate.text(), QString(kAuthenticating));
+    QVERIFY(error.isHidden());
+    QVERIFY(!login.isEnabled());
+
+    const QByteArray answered = deliverRedirect(second->redirect, kCode, second->state);
     QVERIFY2(answered.contains(kAuthorizedText), answered.constData());
     QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
     const QList<QByteArray> posts = tokenPosts(fixture);
     QCOMPARE(posts.size(), 1);
     QCOMPARE(AppFixture::formField(posts[0], "code"), kCode);
+    QCOMPARE(AppFixture::formField(posts[0], "redirect_uri"), second->redirect.toString());
+    const QString verifier = AppFixture::formField(posts[0], "code_verifier");
+    QCOMPARE(challengeOf(verifier), second->challenge);
+    QCOMPARE(authenticated.text(),
+             QString("You are authenticated as \"%1\"").arg(AppFixture::kAccount));
+    QVERIFY(error.isHidden());
+
+    league.setCurrentIndex(league.findText(AppFixture::kLeague));
+    login.click();
+    QVERIFY2(fixture.access().hasSession(), qPrintable(error.text()));
+    QCOMPARE(fixture.access().identity().account(), QString(AppFixture::kAccount));
+
+    QCOMPARE(m_browser.opened.size(), 2);
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged({kAbandonedCode, kCode, verifier, kFreshAccess, kFreshRefresh});
+}
+
+// The redirect of an attempt the user abandoned by pressing Authenticate
+// again, arriving where the new attempt listens (as when the system gives
+// both listeners the same port): its state is no longer the application's, so
+// it is refused like any other wrong state and logs nobody in.
+void AppLoginTest::redirectForAnAbandonedAttemptIsRefused()
+{
+    // No answer for the token endpoint: an exchange would be a surprise.
+    AppFixture fixture;
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto first = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(first);
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 2);
+    const auto second = checkAuthorizeUrl(m_browser.opened.last());
+    QVERIFY(second);
+
+    QVERIFY(!deliverRedirect(second->redirect, kAbandonedCode, first->state).isEmpty());
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
+    QCOMPARE(error.text(), QString(kWrongStateError));
+    QCOMPARE(tokenPosts(fixture), QList<QByteArray>());
+    QCOMPARE(storedToken(fixture).has_value(), false);
+    QVERIFY(!login.isEnabled());
     QVERIFY(!fixture.access().hasSession());
 
-    QCOMPARE(m_browser.opened.size(), 1);
+    QCOMPARE(m_browser.opened.size(), 2);
     QCOMPARE(surprises(fixture), QString());
-    checkNoSecretLogged({kForgedCode,
-                         kCode,
-                         AppFixture::formField(posts[0], "code_verifier"),
-                         kFreshAccess,
-                         kFreshRefresh});
+    checkNoSecretLogged({kAbandonedCode, first->state, second->state});
 }
 
 ACQ_TEST_GUI_SCENARIO_MAIN(AppLoginTest)

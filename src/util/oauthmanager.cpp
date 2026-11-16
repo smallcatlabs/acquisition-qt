@@ -7,11 +7,16 @@
 #include <QByteArray>
 #include <QDesktopServices>
 #include <QHostAddress>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QNetworkReply>
 #include <QOAuth2AuthorizationCodeFlow>
 #include <QOAuthHttpServerReplyHandler>
+#include <QRandomGenerator>
 #include <QSet>
 
 #include <array>
+#include <functional>
 
 #include "datastore/datastore.h"
 #include "util/glaze_qt.h" // IWYU pragma: keep
@@ -33,6 +38,9 @@ namespace {
 
     constexpr const std::chrono::seconds REFRESH_LEAD_TIME{300};
 
+    // How much of a token-endpoint reply is read for the error it names.
+    constexpr qint64 ERROR_BODY_LIMIT = 4096;
+
     // This list is complete as of Qt 6.9.1:
     // See https://doc.qt.io/qt-6/qabstractoauth.html#Error-enum
     // clang-format off
@@ -48,6 +56,50 @@ namespace {
     };
     // clang-format on
 
+    // A state for one login attempt: 32 bytes from the system's generator,
+    // in characters RFC 6749 allows in a state.
+    QString makeState()
+    {
+        std::array<quint32, 8> words;
+        QRandomGenerator::system()->fillRange(words.data(), qsizetype(words.size()));
+        const QByteArray bytes(reinterpret_cast<const char *>(words.data()), sizeof(words));
+        return QString::fromLatin1(
+            bytes.toBase64(QByteArray::Base64UrlEncoding | QByteArray::OmitTrailingEquals));
+    }
+
+    // The line for the user when the server answered a login with an error.
+    QString serverErrorReason(const QString &error, const QString &description)
+    {
+        return description.isEmpty()
+                   ? QString("Authentication failed: %1").arg(error)
+                   : QString("Authentication failed: %1 (%2)").arg(error, description);
+    }
+
+    // Qt's loopback handler, which also shows every reply of the token
+    // endpoint to `note` before Qt handles it, and calls `note` with nullptr
+    // once Qt has. What Qt makes of an error reply depends on its release:
+    // 6.11.1 reports a failed request and reads no body; 6.11.3 and 6.12.0
+    // read the body and report the error it names. Reading the reply here
+    // gives the user the same line with each.
+    class ReplyHandler : public QOAuthHttpServerReplyHandler
+    {
+    public:
+        ReplyHandler(std::function<void(QNetworkReply *)> note, QObject *parent)
+            : QOAuthHttpServerReplyHandler(parent)
+            , m_note(std::move(note))
+        {}
+
+        void networkReplyFinished(QNetworkReply *reply) override
+        {
+            m_note(reply);
+            QOAuthHttpServerReplyHandler::networkReplyFinished(reply);
+            m_note(nullptr);
+        }
+
+    private:
+        std::function<void(QNetworkReply *)> m_note;
+    };
+
 }; // namespace
 
 OAuthManager::OAuthManager(NetworkManager &network_manager, DataStore &datastore, QObject *parent)
@@ -56,7 +108,7 @@ OAuthManager::OAuthManager(NetworkManager &network_manager, DataStore &datastore
     , m_data(datastore)
 {
     // Create the the reply handler.
-    m_handler = new QOAuthHttpServerReplyHandler(this);
+    m_handler = new ReplyHandler([this](QNetworkReply *reply) { noteTokenReply(reply); }, this);
     m_handler->setCallbackHost(CALLBACK_HOST);
     m_handler->setCallbackPath(CALLBACK_PATH);
     m_handler->setCallbackText("Acquisition has been authorized.");
@@ -100,6 +152,12 @@ OAuthManager::OAuthManager(NetworkManager &network_manager, DataStore &datastore
             &QAbstractOAuth2::serverReportedErrorOccurred,
             this,
             &OAuthManager::onServerError);
+    // Connected before the first grant(), where Qt connects its own handling
+    // of the redirect, so this slot sees a redirect before Qt judges it.
+    connect(m_oauth,
+            &QAbstractOAuth2::authorizationCallbackReceived,
+            this,
+            &OAuthManager::receiveCallback);
 
     // Check for an existing token.
     const QString token_str = m_data.Get("oauth_token", "");
@@ -113,13 +171,30 @@ OAuthManager::OAuthManager(NetworkManager &network_manager, DataStore &datastore
 
 void OAuthManager::onRequestFailure(const QAbstractOAuth::Error error)
 {
-    for (const auto &[known_error, name] : KNOWN_OAUTH_ERRORS) {
+    const char *name = "unknown error";
+    for (const auto &[known_error, known_name] : KNOWN_OAUTH_ERRORS) {
         if (error == known_error) {
-            spdlog::error("OAuth: request failed: error {} ({})", static_cast<int>(error), name);
-            return;
+            name = known_name;
+            break;
         }
     }
-    spdlog::error("OAuth: request failed: error {} (unknown error)", static_cast<int>(error));
+    spdlog::error("OAuth: request failed: error {} ({})", static_cast<int>(error), name);
+
+    // Qt names no cause beyond `error`. A redirect it refused for its state
+    // was noted by receiveCallback, and an error the token endpoint named by
+    // noteTokenReply; anything else left the login without a token, whether
+    // the redirect brought no code or the exchange got no usable answer.
+    if (!m_login_in_progress) {
+        return;
+    }
+    if (m_state_mismatch) {
+        failLogin("Authentication failed: the reply from the browser did not match this login "
+                  "attempt.");
+    } else if (m_token_reply && !m_token_reply->error.isEmpty()) {
+        failLogin(serverErrorReason(m_token_reply->error, m_token_reply->description));
+    } else {
+        failLogin("Authentication failed: no token was received from Path of Exile.");
+    }
 }
 
 void OAuthManager::onServerError(const QString &error,
@@ -130,10 +205,57 @@ void OAuthManager::onServerError(const QString &error,
                   error,
                   errorDescription,
                   uri.toDisplayString());
+
+    // The error a redirect brought is shown only when the redirect is this
+    // login's. With another state it is anybody's text: requestFailed, which
+    // Qt emits next, then reports the mismatch instead.
+    if (m_login_in_progress && !m_state_mismatch) {
+        failLogin(serverErrorReason(error, errorDescription));
+    }
+}
+
+void OAuthManager::receiveCallback(const QVariantMap &data)
+{
+    // Qt refuses a redirect whose state is not the one it sent, and reports
+    // that as a ServerError like any other.
+    m_state_mismatch = (data.value("state").toString() != m_oauth->state());
+}
+
+void OAuthManager::noteTokenReply(QNetworkReply *reply)
+{
+    if (!reply) {
+        m_token_reply.reset();
+        return;
+    }
+    // peek(), not read(): the body is Qt's to read.
+    const QJsonObject body = QJsonDocument::fromJson(reply->peek(ERROR_BODY_LIMIT)).object();
+    m_token_reply = TokenReply{
+        .error = body.value("error").toString(),
+        .description = body.value("error_description").toString(),
+    };
+}
+
+void OAuthManager::endLogin()
+{
+    m_login_in_progress = false;
+    m_handler->close();
+}
+
+void OAuthManager::failLogin(const QString &reason)
+{
+    endLogin();
+    emit loginFailed(reason);
 }
 
 void OAuthManager::receiveToken(const QVariantMap &tokens)
 {
+    // Qt 6.11.3 and 6.12.0 hand this signal the body of an error reply too,
+    // before they report the error (6.11.1 does not). That is no token:
+    // taking it for one would put an empty login in place of the stored one.
+    if (tokens.value("access_token").toString().isEmpty()) {
+        return;
+    }
+
     m_token = OAuthToken::fromTokens(tokens);
     spdlog::info("OAuth: tokens recieved for {}", m_token.username);
 
@@ -156,7 +278,7 @@ void OAuthManager::receiveToken(const QVariantMap &tokens)
 
 void OAuthManager::receiveGrant()
 {
-    m_handler->close();
+    endLogin();
     auto requested = m_oauth->requestedScopeTokens();
     const auto &granted = m_oauth->grantedScopeTokens();
     const auto &diff = requested.subtract(granted);
@@ -173,14 +295,20 @@ bool OAuthManager::initLogin()
     // Every login binds its own listener on IPv4 loopback: the redirect goes
     // to CALLBACK_HOST (127.0.0.1), so a listener anywhere else could never
     // receive it. Whatever the handler was doing before (its constructor
-    // listens on loopback and may fall back to ::1) is closed first. The
-    // redirect uri, port included, is built by grant() below.
-    m_handler->close();
+    // listens on loopback and may fall back to ::1; an earlier login may
+    // still be waiting on the browser) is closed first. The redirect uri,
+    // port included, is built by grant() below.
+    endLogin();
     if (!m_handler->listen(QHostAddress::LocalHost)) {
         spdlog::error("OAuth: cannot listen for the login callback on {}: not starting the login",
                       CALLBACK_HOST);
         return false;
     }
+    // Every login has its own state: left alone, Qt sends the one it made
+    // when the flow was built with every login, and a redirect for a login
+    // the user gave up would pass for this one's.
+    m_oauth->setState(makeState());
+    m_login_in_progress = true;
     spdlog::info("OAuth: starting authentication.");
     m_oauth->grant();
     return true;
