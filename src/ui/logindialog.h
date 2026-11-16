@@ -48,6 +48,7 @@ private slots:
     void OnLoggingLevelChanged(const QString &level);
     void OnThemeChanged(const QString &theme);
     void OnOAuthAccessGranted(const OAuthToken &token);
+    void OnOAuthLoginFailed(const QString &reason);
 
 protected:
     bool event(QEvent *e);
@@ -58,6 +59,7 @@ private:
     void LoginWithOAuth();
     void LeaguesRequestError(const QString &error, const QByteArray &reply);
     void DisplayError(const QString &error);
+    void DisplayAuthenticationError(const QString &error);
 
     QSettings &m_settings;
     NetworkManager &m_network_manager;

@@ -24,20 +24,33 @@ class OAuthManager : public QObject
 
 public:
     explicit OAuthManager(NetworkManager &manager, DataStore &datastore, QObject *parent = nullptr);
-    // Starts a browser login. Returns false, without opening the browser,
-    // when the callback listener cannot be opened on 127.0.0.1.
+    // Starts a browser login. An attempt still waiting on the browser is
+    // dropped first: its listener is closed and its state is replaced, so its
+    // redirect, should it still come, logs nobody in. Returns false, without
+    // opening the browser, when the callback listener cannot be opened on
+    // 127.0.0.1.
     bool initLogin();
 
 private slots:
     void onRequestFailure(const QAbstractOAuth::Error error);
     void onServerError(const QString &error, const QString &errorDescription, const QUrl &uri);
+    void receiveCallback(const QVariantMap &data);
     void receiveToken(const QVariantMap &tokens);
     void receiveGrant();
 
 signals:
     void grantAccess(const OAuthToken &token);
+    // The browser login initLogin() started has ended without access.
+    // `reason` is a line for the user. It holds at most the error code and
+    // the description the server sent, never a code or a token.
+    void loginFailed(const QString &reason);
 
 private:
+    // Ends the browser login in progress, if there is one: nothing listens
+    // for its redirect any more.
+    void endLogin();
+    void failLogin(const QString &reason);
+
     NetworkManager &m_network_manager;
     DataStore &m_data;
 
@@ -45,4 +58,9 @@ private:
     QOAuthHttpServerReplyHandler *m_handler;
 
     OAuthToken m_token;
+
+    // A browser login has started and has neither been granted nor failed.
+    bool m_login_in_progress{false};
+    // The last redirect received carried another state than its login's.
+    bool m_state_mismatch{false};
 };

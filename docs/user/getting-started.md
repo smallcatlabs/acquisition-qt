@@ -20,6 +20,20 @@ The login window has an **OAuth** tab with an **Authenticate** button.
 3. Click **Login**. The button is disabled until you are authenticated and a
    league is selected.
 
+While Acquisition waits for the browser, the button reads *Authenticating...*
+and stays usable. If the browser page was closed or never answered, click the
+button again: the earlier attempt is dropped, so its page can no longer log
+you in, and the browser opens afresh. The wait has no time limit.
+
+If the browser login fails, a red message in the login window says why and
+the button offers **Authenticate** again:
+
+| Message | Meaning |
+|---|---|
+| *Authentication failed: access_denied (...)*, or another error code | Path of Exile refused, for example because you declined the request in the browser; the code and the text in brackets are the server's |
+| *Authentication failed: the reply from the browser did not match this login attempt.* | The browser answered for another attempt, or something else answered in its place |
+| *Authentication failed: no token was received from Path of Exile.* | The browser answered, but Path of Exile did not complete the login, or could not be reached |
+
 Acquisition keeps the OAuth token, so on later launches you only need to click
 **Login**. The token is refreshed at startup; if the refresh fails you will see
 *The OAuth token needs to be refreshed* or *The OAuth token is not valid* — click

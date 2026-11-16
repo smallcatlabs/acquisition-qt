@@ -71,6 +71,9 @@ LoginDialog::LoginDialog(QSettings &settings,
     ui->errorLabel->setText("");
     ui->errorLabel->hide();
     ui->errorLabel->setStyleSheet("QLabel {color: red;}");
+    // An error can quote the server (a refused login's description), so it
+    // is shown as written, never rendered as rich text.
+    ui->errorLabel->setTextFormat(Qt::PlainText);
 
     // Disable the login button until we are ready to login.
     ui->loginButton->setEnabled(false);
@@ -112,8 +115,9 @@ LoginDialog::LoginDialog(QSettings &settings,
             &LoginDialog::OnLoggingLevelChanged);
     connect(ui->themeComboBox, &QComboBox::currentTextChanged, this, &LoginDialog::OnThemeChanged);
 
-    // Listen for access from the OAuth manager.
+    // Listen for access from the OAuth manager, and for a login that fails.
     connect(&m_oauth_manager, &OAuthManager::grantAccess, this, &LoginDialog::OnOAuthAccessGranted);
+    connect(&m_oauth_manager, &OAuthManager::loginFailed, this, &LoginDialog::OnOAuthLoginFailed);
 
     // Use OnLoginTabChanged to do things like enable the login button.
     OnLoginTabChanged(ui->loginTabs->currentIndex());
@@ -274,16 +278,13 @@ void LoginDialog::OnAuthenticateButtonClicked()
     spdlog::trace("LoginDialog::OnAuthenticateButtonClicked() entered");
     ui->errorLabel->hide();
     ui->errorLabel->setText("");
-    ui->authenticateButton->setEnabled(false);
+    // The button stays usable while the browser is out (#401): the browser
+    // may never come back, and pressing the button again drops this attempt
+    // and starts another.
     ui->authenticateButton->setText("Authenticating...");
     if (!m_oauth_manager.initLogin()) {
-        DisplayError("Cannot start authentication: Acquisition could not listen for the "
-                     "browser's reply on 127.0.0.1.");
-        ui->authenticateButton->setText(m_current_token ? "Re-authenticate (as someone else)."
-                                                        : "Authenticate");
-        ui->authenticateButton->setEnabled(true);
-        // DisplayError re-enables Login; it stays as it was without a token.
-        ui->loginButton->setEnabled(m_current_token.has_value());
+        DisplayAuthenticationError("Cannot start authentication: Acquisition could not listen "
+                                   "for the browser's reply on 127.0.0.1.");
     }
 }
 
@@ -351,6 +352,12 @@ void LoginDialog::OnOAuthAccessGranted(const OAuthToken &token)
         ui->loginButton->setEnabled(true);
     }
     m_current_token = token;
+}
+
+void LoginDialog::OnOAuthLoginFailed(const QString &reason)
+{
+    spdlog::trace("LoginDialog::OnOAuthLoginFailed() entered");
+    DisplayAuthenticationError(reason);
 }
 
 void LoginDialog::OnLoginTabChanged(int index)
@@ -476,6 +483,17 @@ void LoginDialog::DisplayError(const QString &error)
     // disabled (the league request errors) disable it again after this call.
     ui->loginButton->setText("Login");
     ui->loginButton->setEnabled(true);
+}
+
+// An authentication attempt is over without access: says why, and offers the
+// button again as it was before the attempt.
+void LoginDialog::DisplayAuthenticationError(const QString &error)
+{
+    DisplayError(error);
+    ui->authenticateButton->setText(m_current_token ? "Re-authenticate (as someone else)."
+                                                    : "Authenticate");
+    // DisplayError re-enables Login; it stays as it was without a token.
+    ui->loginButton->setEnabled(m_current_token.has_value());
 }
 
 bool LoginDialog::event(QEvent *e)

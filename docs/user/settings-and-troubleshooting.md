@@ -89,6 +89,8 @@ sharing either.
 | *Acquisition is already running with this data directory* | Another Acquisition, on this or another computer, uses that directory: use it, or start with `--data-dir`. If none is running, delete the lock file the message names |
 | *SSL support is missing* at start-up | Acquisition found no working TLS backend; the log lists the backends it found, and `acquisition --check-tls` prints the same. Report it with that output |
 | Login button stays disabled | You have not authenticated, or no league is selected |
+| The button reads *Authenticating...* and nothing happens | The browser has not answered; click the button again to start over |
+| *Authentication failed: ...* on the login window | The browser login did not complete; see [Logging in](getting-started.md#logging-in), then click **Authenticate** again |
 | *Update failed: Path of Exile rejected the login (HTTP 401)* | The login has expired or was revoked; restart Acquisition and log in again |
 | Refresh seems stuck | Open the Rate Limit Status Window; the API is probably throttling |
 | *No forum threads have been set* | Set a thread under **Shop → Forum shop thread…** |

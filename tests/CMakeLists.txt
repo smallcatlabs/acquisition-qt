@@ -197,7 +197,11 @@ acq_add_scenario_test(tst_applogin
     storedTokenIsRefreshedAndLogsIn
     browserLoginStoresTheTokenAndLogsIn
     rejectedStoredTokenGivesNoSession
-    redirectWithWrongStateIsIgnored)
+    redirectWithWrongStateEndsTheAttempt
+    deniedInTheBrowserIsShown
+    refusedCodeExchangeIsShown
+    secondAuthenticateReplacesTheFirst
+    redirectForAnAbandonedAttemptIsRefused)
 
 acq_add_scenario_test(tst_workerintegration
     fullChainStashListSucceeds
