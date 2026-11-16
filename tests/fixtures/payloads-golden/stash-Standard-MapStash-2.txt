@@ -7,11 +7,11 @@ forum code: [linkItem location="Stash1" league="Corpus" x="0" y="1" realm="pc"]
 frame type 2, category 'maps', item level 84, 1x1, count 1
 flags: identified
 properties:
+  Atlas Drops = +118% (number 118)
   Item Rarity = +133% (number 133)
   Monster Pack Size = +38% (number 38)
   More Maps = +100% (number 100)
-  More [Thread|Threads] = +50% (number 50)
-  [AtlasDropScaling|Atlas Drops] = +118% (number 118)
+  More Threads = +50% (number 50)
 mod table:
   #% increased Monster Damage = 35
   Monsters gain a Power Charge on Hit = 0
@@ -23,20 +23,20 @@ mod table:
   Players are Cursed with Elemental Weakness = 0
   Players are Cursed with Temporal Chains = 0
   Players are Cursed with Vulnerability = 0
-  Rare Monsters have [ElementalThorns|Elemental Thorns] reflecting # Elemental Damage = 18
+  Rare Monsters have Elemental Thorns reflecting # Elemental Damage = 18
 tooltip:
   <center><font color='#fff'>Buried Cavern Nightmare Map</font><hr>
-  [AtlasDropScaling|Atlas Drops]: <font color='#88f'>+118%</font><br>
+  Atlas Drops: <font color='#88f'>+118%</font><br>
   Item Rarity: <font color='#88f'>+133%</font><br>
   Monster Pack Size: <font color='#88f'>+38%</font><br>
   More Maps: <font color='#88f'>+100%</font><br>
-  More [Thread|Threads]: <font color='#88f'>+50%</font><br>
+  More Threads: <font color='#88f'>+50%</font><br>
   <hr>
   <font color='#88f'>Players are Cursed with Vulnerability<br>
   Players are Cursed with Temporal Chains<br>
   Players are Cursed with Elemental Weakness<br>
   35% increased Monster Damage<br>
-  Rare Monsters have [ElementalThorns|Elemental Thorns] reflecting 18 Elemental Damage<br>
+  Rare Monsters have Elemental Thorns reflecting 18 Elemental Damage<br>
   Monsters have +1 to Maximum Endurance Charges<br>
   Monsters have +1 to Maximum Power Charges<br>
   Monsters gain a Power Charge on Hit<br>

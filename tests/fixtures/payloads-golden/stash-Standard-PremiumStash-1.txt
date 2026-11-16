@@ -274,7 +274,7 @@ path of building:
   50% increased Energy Shield
   50% reduced Energy Shield Recharge Rate
   +69 to maximum Mana
-  {mutated}Socketed Gems are Supported by Level 25 [SupportFrigidBond::25|Frigid Bond Support]
+  {mutated}Socketed Gems are Supported by Level 25 Frigid Bond Support
 tooltip:
   <center><font color='#fff'>Foulborn Rime Gaze Mind Cage</font><hr>
   Energy Shield: <font color='#88f'>120</font><br>
@@ -285,7 +285,7 @@ tooltip:
   50% increased Energy Shield<br>
   50% reduced Energy Shield Recharge Rate<br>
   +69 to maximum Mana</font><br>
-  <font color='#cd2285'>Socketed Gems are Supported by Level 25 [SupportFrigidBond::25|Frigid Bond Support]</font></center>
+  <font color='#cd2285'>Socketed Gems are Supported by Level 25 Frigid Bond Support</font></center>
 hash: 6d76337a878cc1bff960099003fc6b3b
 
 === Kalandra's Touch Ring

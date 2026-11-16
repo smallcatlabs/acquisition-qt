@@ -7,10 +7,10 @@ forum code: [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"]
 frame type 2, category 'maps', item level 84, 1x1, count 1
 flags: identified
 properties:
+  Atlas Drops = +81% (number 81)
   Item Rarity = +97% (number 97)
   Monster Pack Size = +31% (number 31)
-  More [Thread|Threads] = +90% (number 90)
-  [AtlasDropScaling|Atlas Drops] = +81% (number 81)
+  More Threads = +90% (number 90)
 mod table:
   All Monster Damage can Ignite, Freeze and Shock = 0
   Monsters Ignite, Freeze and Shock on Hit = 0
@@ -21,10 +21,10 @@ mod table:
   Players have #% reduced Chance to Block = 40
 tooltip:
   <center><font color='#fff'>Arcane Slough Nightmare Map</font><hr>
-  [AtlasDropScaling|Atlas Drops]: <font color='#88f'>+81%</font><br>
+  Atlas Drops: <font color='#88f'>+81%</font><br>
   Item Rarity: <font color='#88f'>+97%</font><br>
   Monster Pack Size: <font color='#88f'>+31%</font><br>
-  More [Thread|Threads]: <font color='#88f'>+90%</font><br>
+  More Threads: <font color='#88f'>+90%</font><br>
   <hr>
   <font color='#88f'>Players have -9% to all maximum Resistances<br>
   All Monster Damage can Ignite, Freeze and Shock<br>

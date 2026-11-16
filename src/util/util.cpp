@@ -256,6 +256,18 @@ QString Util::TimeAgoInWords(const QDateTime &buyout_time)
     return "";
 }
 
+QString Util::WithoutMarkup(const QString &text)
+{
+    // Few texts carry any, and this runs for every mod line of every item.
+    if (!text.contains('|')) {
+        return text;
+    }
+    static const QRegularExpression markup(R"(\[[^\[\]|]*\|([^\[\]]*)\])");
+    QString plain = text;
+    plain.replace(markup, QStringLiteral("\\1"));
+    return plain;
+}
+
 QString Util::Decode(const QString &entity)
 {
     QTextDocument text;

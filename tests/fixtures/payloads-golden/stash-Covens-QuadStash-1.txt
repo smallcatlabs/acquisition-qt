@@ -193,6 +193,7 @@ frame type 2, category 'jewels', item level 78, 1x1, count 1
 flags: identified, enchanted, path of building item
 requirements: Level 54
 mod table:
+  1 Added Passive Skill is Streamlined = 0
   1 Added Passive Skill is a Jewel Socket = 0
   Added Small Passive Skills also grant: #% increased Damage = 2
   Added Small Passive Skills also grant: +#% to all Elemental Resistances = 3
@@ -210,7 +211,7 @@ path of building:
   {crafted}Added Small Passive Skills grant: 10% increased Projectile Damage
   Added Small Passive Skills also grant: 2% increased Damage
   Added Small Passive Skills also grant: +3% to all Elemental Resistances
-  1 Added Passive Skill is [affliction_notable_streamlined|Streamlined]
+  1 Added Passive Skill is Streamlined
 tooltip:
   <center><font color='#fff'>Spirit Hope Medium Cluster Jewel</font><hr>
   Requires Level <font color='#fff'>54</font><br>
@@ -221,7 +222,7 @@ tooltip:
   <hr>
   <font color='#88f'>Added Small Passive Skills also grant: 2% increased Damage<br>
   Added Small Passive Skills also grant: +3% to all Elemental Resistances<br>
-  1 Added Passive Skill is [affliction_notable_streamlined|Streamlined]</font></center>
+  1 Added Passive Skill is Streamlined</font></center>
 hash: 81d4566a79ae3a774d6c535aa0abc3ac
 
 === forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked

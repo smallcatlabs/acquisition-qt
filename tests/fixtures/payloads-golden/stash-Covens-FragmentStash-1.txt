@@ -12,7 +12,7 @@ tooltip:
   <center><font color='#fff'>Expedition Thread</font><hr>
   Stack Size: <font color='#fff'>7/100</font><br>
   <hr>
-  <font color='#88f'>[ThreadInfoExpedition|Threads] an Expedition Encounter into an Area</font></center>
+  <font color='#88f'>Threads an Expedition Encounter into an Area</font></center>
 hash: 1ce3e82febe9536714c2d66ae047cd75
 
 === Breach Thread
@@ -27,7 +27,7 @@ tooltip:
   <center><font color='#fff'>Breach Thread</font><hr>
   Stack Size: <font color='#fff'>7/100</font><br>
   <hr>
-  <font color='#88f'>[ThreadInfoBreach|Threads] Breaches into an Area</font></center>
+  <font color='#88f'>Threads Breaches into an Area</font></center>
 hash: 360643e121ac209c4ec8767a35054bcd
 
 === forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked

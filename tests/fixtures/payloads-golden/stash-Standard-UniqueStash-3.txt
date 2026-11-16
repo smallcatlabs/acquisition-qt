@@ -16,7 +16,7 @@ path of building:
   Unique ID: abcff07295e63b8dcd2143a4e739cae7b8cf4fbea074678d93036b52c75be8f6
   Item Level: 84
   Implicits: 0
-  Allocates [AscendancyAscendant38|Elementalist] if you have the matching modifier on Forbidden Flesh
+  Allocates Elementalist if you have the matching modifier on Forbidden Flesh
   Corrupted
 tooltip:
   <center><font color='#fff'>Forbidden Flame Crimson Jewel</font><hr>
@@ -24,7 +24,7 @@ tooltip:
   <hr>
   Requires Class: <font color='#fff'>Scion</font><br>
   <hr>
-  <font color='#88f'>Allocates [AscendancyAscendant38|Elementalist] if you have the matching modifier on Forbidden Flesh</font><br>
+  <font color='#88f'>Allocates Elementalist if you have the matching modifier on Forbidden Flesh</font><br>
   <hr>
   <font color='#d20000'>Corrupted</font></center>
 hash: c892bf297540cb95060e2288b5ab9138

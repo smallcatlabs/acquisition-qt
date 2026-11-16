@@ -737,7 +737,7 @@ path of building:
   Sockets: W-W-W-W
   LevelReq: 72
   Implicits: 0
-  Socketed Gems are Supported by Level 20 [SupportSpellTotem::20|Spell Totem Support]
+  Socketed Gems are Supported by Level 20 Spell Totem Support
   21% increased Spell Damage
   114% increased Energy Shield
   22% increased Totem Life
@@ -749,7 +749,7 @@ tooltip:
   <hr>
   Requires Level <font color='#fff'>72</font>, Str <font color='#fff'>70</font>, Int <font color='#fff'>134</font><br>
   <hr>
-  <font color='#88f'>Socketed Gems are Supported by Level 20 [SupportSpellTotem::20|Spell Totem Support]<br>
+  <font color='#88f'>Socketed Gems are Supported by Level 20 Spell Totem Support<br>
   21% increased Spell Damage<br>
   114% increased Energy Shield<br>
   22% increased Totem Life<br>
@@ -935,7 +935,7 @@ path of building:
   +22 to all Attributes
   25% increased Lightning Damage
   Adds 1 to 14 Lightning Damage to Attacks
-  +20% to [PlayerItemRarity|Item Rarity]
+  +20% to Item Rarity
   +44% to Fire Resistance
   {crafted}+55 to maximum Life
 tooltip:
@@ -947,7 +947,7 @@ tooltip:
   <font color='#88f'>+22 to all Attributes<br>
   25% increased Lightning Damage<br>
   Adds 1 to 14 Lightning Damage to Attacks<br>
-  +20% to [PlayerItemRarity|Item Rarity]<br>
+  +20% to Item Rarity<br>
   +44% to Fire Resistance</font><br>
   <font color='#b4b4ff'>+55 to maximum Life</font></center>
 hash: 882e72d0903309baaca233a901786064
@@ -978,9 +978,9 @@ path of building:
   Item Level: 73
   LevelReq: 65
   Implicits: 1
-  +14% to [PlayerItemRarity|Item Rarity]
+  +14% to Item Rarity
   +53 to maximum Life
-  +31% to [PlayerItemRarity|Item Rarity]
+  +31% to Item Rarity
   -1% to Fire Resistance
   +49% to Cold Resistance
   +39% to Lightning Resistance
@@ -989,10 +989,10 @@ tooltip:
   <center><font color='#fff'>Ventor's Gamble Gold Ring</font><hr>
   Requires Level <font color='#fff'>65</font><br>
   <hr>
-  <font color='#88f'>+14% to [PlayerItemRarity|Item Rarity]</font><br>
+  <font color='#88f'>+14% to Item Rarity</font><br>
   <hr>
   <font color='#88f'>+53 to maximum Life<br>
-  +31% to [PlayerItemRarity|Item Rarity]<br>
+  +31% to Item Rarity<br>
   -1% to Fire Resistance<br>
   +49% to Cold Resistance<br>
   +39% to Lightning Resistance<br>
@@ -1254,9 +1254,9 @@ forum code: [linkItem location="MainInventory" character="ExampleCharacter1" x="
 frame type 2, category 'maps', item level 73, 1x1, count 1
 flags: identified
 properties:
+  Atlas Drops = +52% (number 52)
   Item Rarity = +32% (number 32)
   Monster Pack Size = +20% (number 20)
-  [AtlasDropScaling|Atlas Drops] = +52% (number 52)
 number without a property: Map Tier = 6
 mod table:
   #% more Monster Life = 20
@@ -1265,7 +1265,7 @@ mod table:
   Players have #% less Cooldown Recovery Rate = 30
 tooltip:
   <center><font color='#fff'>Pain Abyss Map (Tier 6)</font><hr>
-  [AtlasDropScaling|Atlas Drops]: <font color='#88f'>+52%</font><br>
+  Atlas Drops: <font color='#88f'>+52%</font><br>
   Item Rarity: <font color='#88f'>+32%</font><br>
   Monster Pack Size: <font color='#88f'>+20%</font><br>
   <hr>
@@ -1295,6 +1295,7 @@ frame type 2, category 'jewels', item level 68, 1x1, count 1
 flags: identified, enchanted, path of building item
 requirements: Level 54
 mod table:
+  1 Added Passive Skill is Sleepless Sentries = 0
   1 Added Passive Skill is a Jewel Socket = 0
   Added Small Passive Skills also grant: #% increased Mana Regeneration Rate = 5
   Added Small Passive Skills also grant: +# to Maximum Mana = 8
@@ -1314,7 +1315,7 @@ path of building:
   Added Small Passive Skills also grant: +2% to Cold Resistance
   Added Small Passive Skills also grant: 5% increased Mana Regeneration Rate
   Added Small Passive Skills also grant: +8 to Maximum Mana
-  1 Added Passive Skill is [affliction_notable_sleepless_sentries|Sleepless Sentries]
+  1 Added Passive Skill is Sleepless Sentries
 tooltip:
   <center><font color='#fff'>Honour Glimmer Medium Cluster Jewel</font><hr>
   Requires Level <font color='#fff'>54</font><br>
@@ -1326,7 +1327,7 @@ tooltip:
   <font color='#88f'>Added Small Passive Skills also grant: +2% to Cold Resistance<br>
   Added Small Passive Skills also grant: 5% increased Mana Regeneration Rate<br>
   Added Small Passive Skills also grant: +8 to Maximum Mana<br>
-  1 Added Passive Skill is [affliction_notable_sleepless_sentries|Sleepless Sentries]</font></center>
+  1 Added Passive Skill is Sleepless Sentries</font></center>
 hash: cfdbbd108075715a6ffdd68bef14fd65
 
 === Viper Wound Large Cluster Jewel
@@ -1338,6 +1339,7 @@ flags: identified, enchanted, path of building item
 requirements: Level 54
 mod table:
   # Added Passive Skills are Jewel Sockets = 2
+  1 Added Passive Skill is Prismatic Heart = 0
   Added Small Passive Skills also grant: #% increased Damage = 3
   Added Small Passive Skills also grant: +#% to all Elemental Resistances = 2
   Adds # Passive Skills = 9
@@ -1354,7 +1356,7 @@ path of building:
   {crafted}Added Small Passive Skills grant: 12% increased Lightning Damage
   Added Small Passive Skills also grant: 3% increased Damage
   Added Small Passive Skills also grant: +2% to all Elemental Resistances
-  1 Added Passive Skill is [affliction_notable_prismatic_heart|Prismatic Heart]
+  1 Added Passive Skill is Prismatic Heart
 tooltip:
   <center><font color='#fff'>Viper Wound Large Cluster Jewel</font><hr>
   Requires Level <font color='#fff'>54</font><br>
@@ -1365,7 +1367,7 @@ tooltip:
   <hr>
   <font color='#88f'>Added Small Passive Skills also grant: 3% increased Damage<br>
   Added Small Passive Skills also grant: +2% to all Elemental Resistances<br>
-  1 Added Passive Skill is [affliction_notable_prismatic_heart|Prismatic Heart]</font></center>
+  1 Added Passive Skill is Prismatic Heart</font></center>
 hash: d012b40a4a96fc6cc90b312e3c7d34c8
 
 === Self-Flagellation Viridian Jewel

@@ -5,7 +5,7 @@ items without a category: 4
   Expedition Thread
   Mycelium Core
 mod lines read into mod tables: 777
-mod lines that reach no mod name: 263, 229 of them different
+mod lines that reach no mod name: 256, 222 of them different
   
   +0.2 metres to radius
   +0.3 metres to radius
@@ -16,15 +16,9 @@ mod lines that reach no mod name: 263, 229 of them different
   +1 metre to radius
   +1.7 metres to radius
   +1.9 metres to radius
-  +14% to [PlayerItemRarity|Item Rarity]
-  +20% to [PlayerItemRarity|Item Rarity]
-  +31% to [PlayerItemRarity|Item Rarity]
-  1 Added Passive Skill is [affliction_notable_bodyguards|Bodyguards]
-  1 Added Passive Skill is [affliction_notable_enduring_composure|Enduring Composure]
-  1 Added Passive Skill is [affliction_notable_life_from_death|Life from Death]
-  1 Added Passive Skill is [affliction_notable_prismatic_heart|Prismatic Heart]
-  1 Added Passive Skill is [affliction_notable_sleepless_sentries|Sleepless Sentries]
-  1 Added Passive Skill is [affliction_notable_streamlined|Streamlined]
+  +14% to Item Rarity
+  +20% to Item Rarity
+  +31% to Item Rarity
   10% increased Effect of Curse
   10% increased Effect of Offering
   100% more Damage with Hits at Maximum Charge Distance
@@ -67,9 +61,9 @@ mod lines that reach no mod name: 263, 229 of them different
   Additional 1.00 seconds Base Duration per extra corpse Consumed
   Adds an incubated Map item to an equippable item\r\nItem drops after killing 3050 monsters
   Adds quality that enhances Elemental Damage modifiers on a ring, amulet or belt\r\nReplaces other quality types
-  Allocates [AscendancyAscendant38|Elementalist] if you have the matching modifier on Forbidden Flesh
-  Allocates [additional_spectre278|Death Attunement]
-  Allocates [totem_ranged_notable2670|Watchtowers]
+  Allocates Death Attunement
+  Allocates Elementalist if you have the matching modifier on Forbidden Flesh
+  Allocates Watchtowers
   Amulet: (30-34)% increased Global Critical Strike Chance
   Animated Lingering Blades become Bows
   Animated Lingering Blades deal 17 to 80 Added Attack Physical Damage
@@ -169,15 +163,15 @@ mod lines that reach no mod name: 263, 229 of them different
   Raised Spectres are Level 70
   Raised Spectres are Level 72
   Razor Dance III
-  Reforges a rare Map item with a modifier making players in area Delirious\n[DeliriumRewardType|Delirium Reward Type]: Trinkets
+  Reforges a rare Map item with a modifier making players in area Delirious\nDelirium Reward Type: Trinkets
   Reforges a rare item with new random modifiers
   Releases a Stronger Pulse every 3 Pulses\nStronger Pulses always Critically Strike
   Ring: (18-20)% increased Global Critical Strike Chance
   Shield: (100-114) to maximum Life
   Shield: (58-63)% increased Chance to Block
-  Socketed Gems are Supported by Level 20 [SupportSpellTotem::20|Spell Totem Support]
-  Socketed Gems are Supported by Level 25 [SupportFrigidBond::25|Frigid Bond Support]
-  Socketed Gems are Supported by Level 29 [SupportAddedChaosDamage::29|Added Chaos Damage Support]
+  Socketed Gems are Supported by Level 20 Spell Totem Support
+  Socketed Gems are Supported by Level 25 Frigid Bond Support
+  Socketed Gems are Supported by Level 29 Added Chaos Damage Support
   Spawned corpses' level matches the area level, up to a maximum of Level 20
   Spawns 5 corpses
   Spends 62% of current Mana
@@ -220,7 +214,8 @@ mod lines that reach no mod name: 263, 229 of them different
   Swiftness grants 15% increased Movement Speed per Momentum lost
   This Skill's Cooldown does not recover during its effect
   This Spell and Minions Convert 50% of Physical Damage to Lightning Damage
-  Trigger Level 15 [FeastOfFlesh::15|Feast of Flesh] every 5 seconds
+  Threads Breaches into an Area
+  Threads an Expedition Encounter into an Area
   Upgrades a normal item to a rare item
   Upgrades a normal item to rare or reforges a rare item, guaranteeing one property
   Uses Leap Slam\r\nUses Sweep\r\nUses Enduring Cry\r\nUses Immortal call\r\nCasts Vitality
@@ -233,8 +228,6 @@ mod lines that reach no mod name: 263, 229 of them different
   You and nearby allies deal 20% more Spell Lightning Damage
   You and nearby allies gain +39% to all Elemental Resistances
   Your Non-Blessing Skills which Reserve Mana are Disabled while you have an Aura from a Supported Skill on you
-  [ThreadInfoBreach|Threads] Breaches into an Area
-  [ThreadInfoExpedition|Threads] an Expedition Encounter into an Area
 properties with a value: 477
 properties whose value is not one number: 134
   
