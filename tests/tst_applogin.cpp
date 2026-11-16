@@ -92,6 +92,8 @@ private slots:
     void refusedReauthenticationKeepsTheLogin();
     void secondAuthenticateReplacesTheFirst();
     void redirectForAnAbandonedAttemptIsRefused();
+    void loginEndsAWaitingBrowserLogin();
+    void refusedLoginLeavesTheBrowserLoginWaiting();
 
 private:
     std::shared_ptr<spdlog::logger> m_previous_logger;
@@ -109,6 +111,10 @@ namespace {
     const QString kForgedCode = "fake-forged-authorization-code-6666";
     const QString kSecondCode = "fake-second-authorization-code-7777";
     const QString kAbandonedCode = "fake-abandoned-authorization-code-8888";
+    // Another account's login, as the browser sign-in of someone else gives.
+    const QString kOtherAccount = "OtherAccount#1111";
+    const QString kOtherAccess = "fake-other-access-token-9999";
+    const QString kOtherRefresh = "fake-other-refresh-token-0000";
 
     constexpr const char *kTokenUrl = "https://www.pathofexile.com/oauth/token";
     constexpr const char *kAuthorizeUrl = "https://www.pathofexile.com/oauth/authorize";
@@ -203,14 +209,17 @@ namespace {
     }
 
     // A granted token, as the token endpoint sends it for either grant.
-    QByteArray grantedToken(const QString &access, const QString &refresh, int expires_in = 36000)
+    QByteArray grantedToken(const QString &access,
+                            const QString &refresh,
+                            int expires_in = 36000,
+                            const QString &username = AppFixture::kAccount)
     {
         return QJsonDocument(
                    QJsonObject{{"access_token", access},
                                {"expires_in", expires_in},
                                {"token_type", "bearer"},
                                {"scope", "account:leagues account:characters account:stashes"},
-                               {"username", AppFixture::kAccount},
+                               {"username", username},
                                {"sub", "00000000-0000-4000-8000-000000000000"},
                                {"refresh_token", refresh}})
             .toJson(QJsonDocument::Compact);
@@ -1292,6 +1301,150 @@ void AppLoginTest::redirectForAnAbandonedAttemptIsRefused()
     QCOMPARE(m_browser.opened.size(), 2);
     QCOMPARE(surprises(fixture), QString());
     checkNoSecretLogged({kAbandonedCode, first->state, second->state});
+}
+
+namespace {
+
+    // The token endpoint for a login held at start and a browser sign-in as
+    // someone else afterwards: the first request is the refresh of the
+    // stored token, and every later one is granted as the other account.
+    void answerRefreshThenOtherAccount(AppFixture &f)
+    {
+        f.network
+            ->answer(kTokenUrl,
+                     tokenAnswer(200,
+                                 grantedToken(kOtherAccess, kOtherRefresh, 36000, kOtherAccount)));
+        // The rule added last is asked first.
+        f.network->answer(
+            [refreshed = false](QNetworkAccessManager::Operation,
+                                const QUrl &url) mutable -> std::optional<ScriptedNetwork::Answer> {
+                if (refreshed || (url.toString() != kTokenUrl)) {
+                    return std::nullopt;
+                }
+                refreshed = true;
+                return tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh));
+            });
+    }
+
+} // namespace
+
+// With a login held, the user starts to authenticate as someone else and
+// then presses Login without finishing in the browser (#408). The session is
+// the held account's, and starting it ends the browser login: the redirect
+// that comes afterwards, with a code for the other account, is not answered,
+// nothing is exchanged, and the stored token stays the session's own.
+void AppLoginTest::loginEndsAWaitingBrowserLogin()
+{
+    AppFixture fixture([](AppFixture &f) {
+        storeToken(f, kStoredAccess, kStoredRefresh);
+        answerRefreshThenOtherAccount(f);
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
+    authenticate.click();
+    QCOMPARE(authenticate.text(), QString(kAuthenticating));
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(authorize);
+
+    league.setCurrentIndex(league.findText(AppFixture::kLeague));
+    login.click();
+    QVERIFY2(fixture.access().hasSession(), qPrintable(error.text()));
+    QCOMPARE(fixture.access().identity().account(), QString(AppFixture::kAccount));
+
+    // The browser sign-in is finished now, as the other account.
+    QCOMPARE(deliverRedirect(authorize->redirect, kCode, authorize->state), QByteArray());
+    // The session goes on as the held account's: its cached tabs load, and
+    // only the refresh at start has gone to the token endpoint.
+    QVERIFY(QTest::qWaitFor([&] { return fixture.tree().model()->rowCount() == 3; }, 10000));
+    QCOMPARE(tokenPosts(fixture).size(), 1);
+    QCOMPARE(AppFixture::formField(tokenPosts(fixture)[0], "grant_type"), QString("refresh_token"));
+    const auto stored = storedToken(fixture);
+    QVERIFY(stored);
+    QCOMPARE(stored->username, QString(AppFixture::kAccount));
+    QCOMPARE(stored->access_token, kFreshAccess);
+    QCOMPARE(stored->refresh_token, kFreshRefresh);
+    QCOMPARE(fixture.access().identity().account(), QString(AppFixture::kAccount));
+
+    QCOMPARE(m_browser.opened.size(), 1);
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged({kStoredAccess,
+                         kStoredRefresh,
+                         kFreshAccess,
+                         kFreshRefresh,
+                         kCode,
+                         kOtherAccess,
+                         kOtherRefresh});
+}
+
+// A Login that is refused starts no session, so it leaves a waiting browser
+// login alone: the button still reads "Authenticating...", and the sign-in
+// finished afterwards, as the other account, is the login the next press of
+// Login uses.
+void AppLoginTest::refusedLoginLeavesTheBrowserLoginWaiting()
+{
+    AppFixture fixture([](AppFixture &f) {
+        storeToken(f, kStoredAccess, kStoredRefresh);
+        answerRefreshThenOtherAccount(f);
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+    auto &authenticated = child<QLabel>(dialog, "authenticateLabel");
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(authorize);
+
+    // No league: Login is refused, and no session starts.
+    league.setCurrentIndex(-1);
+    QCOMPARE(league.currentText(), QString());
+    login.click();
+    QCOMPARE(error.text(), QString("Please select a league before logging in."));
+    QVERIFY(!fixture.access().hasSession());
+    QCOMPARE(authenticate.text(), QString(kAuthenticating));
+
+    // The browser login is still waiting: its redirect is taken.
+    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kAuthorizedText));
+    QVERIFY(QTest::qWaitFor([&] { return tokenPosts(fixture).size() == 2; }, 10000));
+    QVERIFY(QTest::qWaitFor(
+        [&] {
+            return authenticated.text()
+                   == QString("You are authenticated as \"%1\"").arg(kOtherAccount);
+        },
+        10000));
+    QCOMPARE(AppFixture::formField(tokenPosts(fixture)[1], "code"), kCode);
+    const auto stored = storedToken(fixture);
+    QVERIFY(stored);
+    QCOMPARE(stored->username, kOtherAccount);
+    QCOMPARE(stored->refresh_token, kOtherRefresh);
+
+    league.setCurrentIndex(league.findText(AppFixture::kLeague));
+    login.click();
+    QVERIFY2(fixture.access().hasSession(), qPrintable(error.text()));
+    QCOMPARE(fixture.access().identity().account(), kOtherAccount);
+
+    QCOMPARE(m_browser.opened.size(), 1);
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged({kStoredAccess,
+                         kStoredRefresh,
+                         kFreshAccess,
+                         kFreshRefresh,
+                         kCode,
+                         AppFixture::formField(tokenPosts(fixture)[1], "code_verifier"),
+                         kOtherAccess,
+                         kOtherRefresh});
 }
 
 ACQ_TEST_GUI_SCENARIO_MAIN(AppLoginTest)
