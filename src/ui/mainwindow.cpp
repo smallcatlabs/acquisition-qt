@@ -1647,15 +1647,21 @@ void MainWindow::SaveViewExpansion(Search &search)
     // switch) needs it.
     // Folders are not saved here: their state is the search's
     // user-collapsed set, maintained from the view's signals (D9).
+    //
+    // A default-expanded view (a filter is active, or By Item) is not read:
+    // the keys saved from the unfiltered By Tab view are kept through it, so
+    // that view comes back as the user left it (#387). What the user opens
+    // or closes in a default-expanded view is therefore not carried over.
+    if (search.defaultExpanded()) {
+        return;
+    }
     std::set<LocationInventory::Key> expanded;
-    if (!search.defaultExpanded()) {
-        const int bucket_count = static_cast<int>(search.buckets().size());
-        for (int bucket_row = 0; bucket_row < bucket_count; ++bucket_row) {
-            const QModelIndex index = search.model().BucketIndex(bucket_row);
-            if (index.isValid() && !search.isFolderBucket(bucket_row)
-                && ui->treeView->isExpanded(index)) {
-                expanded.emplace(LocationInventory::KeyFor(search.bucket(bucket_row).location()));
-            }
+    const int bucket_count = static_cast<int>(search.buckets().size());
+    for (int bucket_row = 0; bucket_row < bucket_count; ++bucket_row) {
+        const QModelIndex index = search.model().BucketIndex(bucket_row);
+        if (index.isValid() && !search.isFolderBucket(bucket_row)
+            && ui->treeView->isExpanded(index)) {
+            expanded.emplace(LocationInventory::KeyFor(search.bucket(bucket_row).location()));
         }
     }
     search.setExpandedKeys(std::move(expanded));

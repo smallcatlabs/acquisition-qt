@@ -18,6 +18,12 @@ From top to bottom:
   expanded; a folder you collapse stays collapsed in that search until you
   expand it again. While a search filter is active, a folder is shown only when
   at least one of its tabs has a match.
+  Tabs start closed, and each search keeps track of the ones you open. A search
+  filter shows the tabs with a match open. When the filter is removed, the list
+  is as you left it before the filter: the tabs you had open are open again and
+  the rest are closed. A tab you open or close while a filter is active is not
+  remembered once the filter is gone (a folder you collapse is). Switching to
+  *By Item* and back keeps the open tabs too.
   The check box on a tab or character controls whether it is included in
   **Refresh checked tabs**. A folder's check box covers the tabs shown under it
   in the current search: it is ticked when all of them are, empty when none
