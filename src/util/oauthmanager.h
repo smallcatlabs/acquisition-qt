@@ -10,8 +10,11 @@
 #include <QUrl>
 #include <QVariantMap>
 
+#include <optional>
+
 #include "util/oauthtoken.h"
 
+class QNetworkReply;
 class QOAuth2AuthorizationCodeFlow;
 class QOAuthHttpServerReplyHandler;
 
@@ -46,6 +49,15 @@ signals:
     void loginFailed(const QString &reason);
 
 private:
+    // The error with which the token endpoint answered (RFC 6749, 5.2), read
+    // from its reply. Both are empty when the reply names none.
+    struct TokenReply
+    {
+        QString error;
+        QString description;
+    };
+
+    void noteTokenReply(QNetworkReply *reply);
     // Ends the browser login in progress, if there is one: nothing listens
     // for its redirect any more.
     void endLogin();
@@ -63,4 +75,6 @@ private:
     bool m_login_in_progress{false};
     // The last redirect received carried another state than its login's.
     bool m_state_mismatch{false};
+    // The token endpoint's reply that Qt is handling, while it handles it.
+    std::optional<TokenReply> m_token_reply;
 };

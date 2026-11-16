@@ -200,6 +200,8 @@ acq_add_scenario_test(tst_applogin
     redirectWithWrongStateEndsTheAttempt
     deniedInTheBrowserIsShown
     refusedCodeExchangeIsShown
+    failedCodeExchangeIsShown
+    refusedReauthenticationKeepsTheLogin
     secondAuthenticateReplacesTheFirst
     redirectForAnAbandonedAttemptIsRefused)
 
