@@ -44,6 +44,11 @@ private slots:
     void refusesASessionWithAShopThread();
     void refusesASessionWithShopAutoUpdate();
 
+    void acceptsAnOutputDirectoryOutsideTheRoots();
+    void refusesAnOutputDirectoryThatDoesNotExist();
+    void refusesAnOutputDirectoryInsideARoot();
+    void refusesAnOutputLinkIntoARoot();
+
     // The branch refusal: which files are the refresh and network code.
     void patternsAreTheSourcePathsOfTheWorkflow();
     void theRealWorkflowNamesTheNetworkCode();
@@ -259,6 +264,42 @@ void LiveGuardsTest::refusesASessionWithAShopThread()
 void LiveGuardsTest::refusesASessionWithShopAutoUpdate()
 {
     QVERIFY(!LiveSessionRefusal(ACCOUNT, ACCOUNT, {}, true).isEmpty());
+}
+
+void LiveGuardsTest::acceptsAnOutputDirectoryOutsideTheRoots()
+{
+    QVERIFY(QDir(m_temp->path()).mkpath("record"));
+    const QString out = QDir(m_temp->path()).filePath("record");
+    QCOMPARE(LiveOutputRefusal(QDir(out), {root()}), QString());
+}
+
+void LiveGuardsTest::refusesAnOutputDirectoryThatDoesNotExist()
+{
+    // Not made on the way: a directory that is not there yet cannot be
+    // compared with the roots once its links are resolved.
+    const QString out = QDir(m_temp->path()).filePath("record");
+    QVERIFY(!LiveOutputRefusal(QDir(out), {root()}).isEmpty());
+    QVERIFY(!QDir(out).exists());
+}
+
+void LiveGuardsTest::refusesAnOutputDirectoryInsideARoot()
+{
+    QVERIFY(QDir(m_temp->path()).mkpath("appdata/record"));
+    const QString out = QDir(m_temp->path()).filePath("appdata/record");
+    const QString refusal = LiveOutputRefusal(QDir(out), {root()});
+    QVERIFY2(refusal.contains(root()), qPrintable(refusal));
+    QVERIFY(!LiveOutputRefusal(QDir(root()), {root()}).isEmpty());
+}
+
+void LiveGuardsTest::refusesAnOutputLinkIntoARoot()
+{
+    QVERIFY(QDir(m_temp->path()).mkpath("appdata/record"));
+    const QString target = QDir(m_temp->path()).filePath("appdata/record");
+    const QString link = QDir(m_temp->path()).filePath("looks-harmless");
+    if (!QFile::link(target, link)) {
+        QSKIP("this file system cannot create a symbolic link");
+    }
+    QVERIFY(!LiveOutputRefusal(QDir(link), {root()}).isEmpty());
 }
 
 void LiveGuardsTest::patternsAreTheSourcePathsOfTheWorkflow()
