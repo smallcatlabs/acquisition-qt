@@ -86,17 +86,14 @@ endforeach()
 # The live capture (#378): builds the real Application on a data directory in
 # which the user has logged in and refreshes one league against the real API.
 # Not a test: ctest never runs it, because it talks to the live API under the
-# project's identity. The default build compiles it so it cannot rot unseen;
-# not on Windows, where no pull-request check builds yet (#379).
+# project's identity. The default build compiles it so it cannot rot unseen,
+# on Windows too: the Windows pull-request job builds it (#379).
 qt_add_executable(live_capture live_capture.cpp)
 acq_first_party(live_capture)
 target_include_directories(live_capture PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(live_capture PRIVATE acquisition_core Qt6::Test)
 # It looks at this source tree's branch before it runs (tests/liveguards.h).
 target_compile_definitions(live_capture PRIVATE ACQ_SOURCE_DIR="${acquisition_SOURCE_DIR}")
-if(WIN32)
-    set_target_properties(live_capture PROPERTIES EXCLUDE_FROM_ALL TRUE)
-endif()
 
 # The mod-match census (#265, #296): runs the mod matching over real RePoE
 # stat translation files named on the command line. Not a test; build
@@ -109,14 +106,11 @@ target_link_libraries(modmatch_census PRIVATE acquisition_core)
 # fixtures/payloads-repoe from a directory of RePoE files and shows that the
 # excerpt gives the same items as the whole. Not a test: it needs the whole
 # game data, which is not in the repository. The default build compiles it,
-# as it does live_capture, and for the same reason not on Windows.
+# as it does live_capture.
 qt_add_executable(corpus_gamedata corpus_gamedata.cpp)
 acq_first_party(corpus_gamedata)
 target_include_directories(corpus_gamedata PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(corpus_gamedata PRIVATE acquisition_core)
-if(WIN32)
-    set_target_properties(corpus_gamedata PROPERTIES EXCLUDE_FROM_ALL TRUE)
-endif()
 
 # The filter core must stay free of the UI (Phase 5, D5). A STATIC archive has
 # no link step, so this cannot be left to target_link_libraries.
