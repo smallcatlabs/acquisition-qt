@@ -205,6 +205,7 @@ acq_add_scenario_test(tst_workerintegration
 # as scenarios, one per process (appfixture.h says why).
 acq_add_scenario_test(tst_appsmoke
     startsWithCachedItems
+    categoryFilterWorksAfterAnEarlyLogin
     refreshCheckedKeepsTheView
     refreshSelectedKeepsTheView
     typedPriceIsSavedOnEnter

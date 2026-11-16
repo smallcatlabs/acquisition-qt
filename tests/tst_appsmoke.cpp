@@ -30,6 +30,8 @@ private slots:
 
     // Step 2: start with cached items; the window is usable while they load.
     void startsWithCachedItems();
+    // Logging in before the game data has arrived (#386).
+    void categoryFilterWorksAfterAnEarlyLogin();
     // Step 3: a refresh keeps selection, the current row and collapsed tabs.
     void refreshCheckedKeepsTheView();
     void refreshSelectedKeepsTheView();
@@ -206,6 +208,34 @@ void AppSmokeTest::startsWithCachedItems()
     // spacing between sends.
     QTest::qWait(1000);
     QCOMPARE(fixture.apiRequests().join(' '), QString());
+    QCOMPARE(surprises(fixture), QString());
+}
+
+void AppSmokeTest::categoryFilterWorksAfterAnEarlyLogin()
+{
+    AppFixture fixture;
+    // No event has been processed yet, so the game data has not arrived:
+    // this is the user who presses Login while it is still being fetched.
+    QVERIFY(!fixture.access().gameDataLoaded());
+    fixture.logIn();
+    ScreenshotOnFailure screenshot{fixture.window()};
+    QVERIFY(QTest::qWaitFor([&] { return fixture.access().gameDataLoaded(); }, 10000));
+    QTRY_COMPARE(fixture.tree().model()->rowCount(), 3);
+
+    // The list offers every item class of the game data, as after a login
+    // that waited for it: "<any>" and the 89 class names.
+    QComboBox &category = fixture.categoryBox();
+    QCOMPARE(category.count(), 90);
+    QCOMPARE(category.currentText(), QString("<any>"));
+
+    // And a choice from it filters.
+    const int abyss_jewels = category.findText("Abyss Jewels");
+    QVERIFY(abyss_jewels > 0);
+    category.setCurrentIndex(abyss_jewels);
+    QTRY_COMPARE(text(fixture),
+                 QString("  [-] #16, \"KB/CF Champ\"\n"
+                         "        Hollow Vision Hypnotic Eye Jewel"));
+
     QCOMPARE(surprises(fixture), QString());
 }
 

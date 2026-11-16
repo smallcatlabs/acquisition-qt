@@ -85,6 +85,9 @@ signals:
     void SetTheme(const QString &theme);
     void GetImage(const QString &url);
 public slots:
+    // The game data has arrived after the window was built: the search
+    // form's category list is taken from it (#386).
+    void OnGameDataLoaded();
     // Streamed-delta consumers (items-pipeline M3, D3/D4): the active
     // search applies each delta immediately and stays clean (R1-7) —
     // bucket-scoped row operations in By-Tab, the flat sorted merge in

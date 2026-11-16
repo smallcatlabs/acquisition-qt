@@ -47,6 +47,8 @@ private slots:
     void modsFormAdapterDisconnectsOnDestruction();
     void searchFormUnbindsDeletedSearch();
     void textAndComboFormAdapterRoundTrip();
+    // Last: it loads more item classes, for every test after it.
+    void refreshedChoicesKeepTheChosenCategory();
 };
 
 static qsizetype findTextFilterIndex(const FilterCatalog &catalog, const QString &caption)
@@ -105,8 +107,8 @@ static qsizetype findModsFilterIndex(const FilterCatalog &catalog)
 }
 
 // SearchForm materializes its combo models at construction, so the category
-// choices must exist before the form is built or GetItemCategories() logs an
-// error. Declared ahead of the catalog and form so it initializes first. The
+// choices must exist before the form is built or its list holds only the
+// sentinel. Declared ahead of the catalog and form so it initializes first. The
 // category tables are process-global singletons that warn on reload, so load
 // them once for the whole test binary.
 struct ItemCategoryFixture
@@ -1018,6 +1020,32 @@ void SearchFormTest::textAndComboFormAdapterRoundTrip()
     QCOMPARE(name->text(), "Alpha");
     QCOMPARE(category->currentText(), "Weapons");
     QCOMPARE(rarity->currentText(), "Rare");
+}
+
+void SearchFormTest::refreshedChoicesKeepTheChosenCategory()
+{
+    SearchHarness harness;
+    auto *category = harness.findByLabel<QComboBox>("Type");
+    QVERIFY(category);
+    QCOMPARE(category->count(), 2); // the sentinel and Weapons
+    category->setCurrentIndex(category->findText("Weapons"));
+    QCOMPARE(category->currentIndex(), 1);
+    const int changes = harness.immediateChanges + harness.delayedChanges;
+
+    // The game data arrives with a class that sorts ahead of the chosen one
+    // (#386): the list grows, the choice is still Weapons, now one place
+    // further down, and nothing is filtered again.
+    InitItemClasses(R"json({"TestClass":{"name":"Weapons"},"Other":{"name":"Amulets"}})json");
+    harness.form.refreshChoices();
+    QCOMPARE(category->count(), 3);
+    QCOMPARE(category->currentText(), QString("Weapons"));
+    QCOMPARE(category->currentIndex(), 2);
+    QCOMPARE(harness.immediateChanges + harness.delayedChanges, changes);
+
+    // Asking again with nothing new changes nothing.
+    harness.form.refreshChoices();
+    QCOMPARE(category->count(), 3);
+    QCOMPARE(category->currentText(), QString("Weapons"));
 }
 
 ACQ_TEST_MAIN(SearchFormTest)

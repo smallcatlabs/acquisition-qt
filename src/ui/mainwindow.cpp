@@ -998,6 +998,13 @@ void MainWindow::OnNotifyUser(const QString &message)
     QMessageBox::information(this, "Acquisition", message);
 }
 
+void MainWindow::OnGameDataLoaded()
+{
+    if (m_search_form) {
+        m_search_form->refreshChoices();
+    }
+}
+
 void MainWindow::OnShopWarning(const QString &message)
 {
     QMessageBox::warning(this, "Acquisition Shop Manager", message);

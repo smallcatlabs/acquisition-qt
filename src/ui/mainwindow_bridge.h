@@ -18,6 +18,7 @@ class ItemsManagerWorker;
 class MainWindow;
 class NetworkManager;
 class RateLimiter;
+class RePoE;
 class SessionIdentity;
 class Shop;
 class StashRepo;
@@ -46,4 +47,7 @@ void ConnectMainWindow(Application &application,
                        ImageCache &image_cache);
 // The update checker's half of ConnectMainWindow.
 void ConnectUpdateChecker(MainWindow &main_window, UpdateChecker &update_checker);
+// The game data's arrival, for a window built before it.
+void ConnectGameData(MainWindow &main_window, RePoE &repoe);
+
 void ShowMainWindow(MainWindow &window);

@@ -7,6 +7,7 @@
 #include "imagecache.h"
 #include "itemsmanager.h"
 #include "itemsmanagerworker.h"
+#include "repoe/repoe.h"
 #include "shop.h"
 #include "ui/mainwindow.h"
 #include "util/updatechecker.h"
@@ -117,6 +118,11 @@ void ConnectUpdateChecker(MainWindow &main_window, UpdateChecker &update_checker
                      &UpdateChecker::UpdateAvailable,
                      &main_window,
                      &MainWindow::OnUpdateAvailable);
+}
+
+void ConnectGameData(MainWindow &main_window, RePoE &repoe)
+{
+    QObject::connect(&repoe, &RePoE::finished, &main_window, &MainWindow::OnGameDataLoaded);
 }
 
 void ShowMainWindow(MainWindow &window)

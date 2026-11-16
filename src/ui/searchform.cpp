@@ -9,6 +9,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QSignalBlocker>
 #include <QStringListModel>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -82,11 +83,12 @@ namespace {
         ComboFilterForm(QLayout *parent,
                         const QString &caption,
                         const ComboPayload &payload,
-                        QAbstractItemModel *model,
+                        QStringListModel *model,
                         const FilterCallbacks &callbacks,
                         RefreshMode mode)
             : m_matchKind(payload.matchKind)
             , m_anySentinel(payload.anySentinel)
+            , m_model(model)
         {
             auto *group = new QWidget;
             auto *layout = new QHBoxLayout;
@@ -144,9 +146,24 @@ namespace {
 
         void reset() override { m_combobox->setCurrentText(m_anySentinel); }
 
+        void setChoices(const QStringList &choices) override
+        {
+            if (m_model->stringList() == choices) {
+                return;
+            }
+            // The choice stays what it was, so nothing is to be filtered
+            // again: the list's own signals are held back while it changes.
+            const QSignalBlocker blocker(m_combobox);
+            const QString chosen = m_combobox->currentText();
+            m_model->setStringList(choices);
+            m_combobox->setCurrentIndex(
+                std::max(0, m_combobox->findText(chosen, Qt::MatchFixedString)));
+        }
+
     private:
         ComboMatchKind m_matchKind;
         QString m_anySentinel;
+        QStringListModel *m_model = nullptr;
         QComboBox *m_combobox = nullptr;
     };
 
@@ -573,6 +590,15 @@ void SearchForm::reset()
     for (const auto &adapter : m_adapters) {
         Q_ASSERT(adapter);
         adapter->reset();
+    }
+}
+
+void SearchForm::refreshChoices()
+{
+    for (qsizetype index = 0; index < m_catalog.size(); ++index) {
+        if (const auto *payload = std::get_if<ComboPayload>(&m_catalog[index].payload)) {
+            m_adapters[static_cast<size_t>(index)]->setChoices(payload->choices());
+        }
     }
 }
 
