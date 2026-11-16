@@ -312,7 +312,8 @@ ssh acq-win '
 
 Screenshots: on Windows the offscreen platform finds no fonts by itself, and
 every letter in a picture is drawn as an empty box. Point Qt at the system's
-fonts with `QT_QPA_FONTDIR`, then copy the pictures back:
+fonts with `QT_QPA_FONTDIR`, as the pull-request job does, then copy the
+pictures back:
 
 ```sh
 ssh acq-win '
