@@ -7,10 +7,10 @@ forum code: [linkItem location="Stash1" league="Corpus" x="1" y="5" realm="pc"]
 frame type 2, category 'maps', item level 70, 1x1, count 1
 flags: identified
 properties:
+  Atlas Drops = +55% (number 55)
   Item Rarity = +49% (number 49)
   Monster Pack Size = +21% (number 21)
   More Currency = +94% (number 94)
-  [AtlasDropScaling|Atlas Drops] = +55% (number 55)
 number without a property: Map Tier = 3
 mod table:
   Area is Influenced by the Originator's Memories = 0
@@ -22,7 +22,7 @@ mod table:
   Players have #% reduced Maximum total Life, Mana and Energy Shield Recovery per second from Leech = 52
 tooltip:
   <center><font color='#fff'>Foul Incitement Map (Tier 3)</font><hr>
-  [AtlasDropScaling|Atlas Drops]: <font color='#88f'>+55%</font><br>
+  Atlas Drops: <font color='#88f'>+55%</font><br>
   Item Rarity: <font color='#88f'>+49%</font><br>
   Monster Pack Size: <font color='#88f'>+21%</font><br>
   More Currency: <font color='#88f'>+94%</font><br>

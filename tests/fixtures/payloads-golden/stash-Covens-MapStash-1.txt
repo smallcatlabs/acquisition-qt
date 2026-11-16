@@ -19,9 +19,9 @@ forum code: [linkItem location="Stash1" league="Corpus" x="0" y="0" realm="pc"]
 frame type 2, category 'maps', item level 80, 1x1, count 1
 flags: identified, corrupted
 properties:
+  Atlas Drops = +78% (number 78)
   Item Rarity = +47% (number 47)
   Monster Pack Size = +30% (number 30)
-  [AtlasDropScaling|Atlas Drops] = +78% (number 78)
 number without a property: Map Tier = 12
 mod table:
   #% increased Monster Attack Speed = 43
@@ -35,7 +35,7 @@ mod table:
   Players have #% reduced effect of Non-Curse Auras from Skills = 60
 tooltip:
   <center><font color='#fff'>Damnation Solace Map (Tier 12)</font><hr>
-  [AtlasDropScaling|Atlas Drops]: <font color='#88f'>+78%</font><br>
+  Atlas Drops: <font color='#88f'>+78%</font><br>
   Item Rarity: <font color='#88f'>+47%</font><br>
   Monster Pack Size: <font color='#88f'>+30%</font><br>
   <hr>

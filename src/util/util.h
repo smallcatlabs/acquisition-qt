@@ -69,6 +69,13 @@ namespace Util {
 
     QString Decode(const QString &entity);
 
+    // A text of the game's with its "[id|text]" markup read as the text:
+    // "Allocates [additional_spectre278|Death Attunement]" is "Allocates
+    // Death Attunement". Mod lines, property names and the stat
+    // translations carry it (#391). Brackets without a bar are left alone:
+    // some are the same markup ("[Onslaught]") and some are not ("[DNT]").
+    QString WithoutMarkup(const QString &text);
+
     // An application/x-www-form-urlencoded body: each key and value
     // percent-encoded as UTF-8, joined with '=' and '&'.
     QByteArray EncodeForm(const std::vector<std::pair<QString, QString>> &fields);

@@ -25,7 +25,7 @@ tooltip:
   <center><font color='#fff'>Jeweller's Delirium Orb</font><hr>
   Stack Size: <font color='#fff'>1/10</font><br>
   <hr>
-  <font color='#88f'>Reforges a rare Map item with a modifier making players in area Delirious\n[DeliriumRewardType|Delirium Reward Type]: Trinkets</font></center>
+  <font color='#88f'>Reforges a rare Map item with a modifier making players in area Delirious\nDelirium Reward Type: Trinkets</font></center>
 hash: 7ce9d9927cf5bb7536faaec2c8bc9a17
 
 === forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked

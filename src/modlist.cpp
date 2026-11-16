@@ -259,7 +259,9 @@ void AddStatTranslations(const QByteArray &statTranslations)
                 // files before.
                 continue;
             }
-            QString stat_string = stat.string;
+            // The game's markup is not part of a mod's name: items hold
+            // their lines without it (#391).
+            QString stat_string = Util::WithoutMarkup(stat.string);
             // A stat whose format is "ignore" is not displayed and has no
             // placeholder in the string; every other stat's placeholder is
             // replaced, whichever stat comes first (#265).

@@ -45,6 +45,7 @@ mod table:
   +#% total to Lightning Resistance = 20
   Eldritch Battery = 0
   Socketed Gems have #% increased Reservation Efficiency = 25
+  Trigger Level # Feast of Flesh every 5 seconds = 15
 path of building:
   Rarity: UNIQUE
   The Devouring Diadem
@@ -57,7 +58,7 @@ path of building:
   Implicits: 0
   +1 to Level of Socketed Gems
   Socketed Gems have 25% increased Reservation Efficiency
-  Trigger Level 15 [FeastOfFlesh::15|Feast of Flesh] every 5 seconds
+  Trigger Level 15 Feast of Flesh every 5 seconds
   214% increased Energy Shield
   10% chance for Energy Shield Recharge to start when you use a Skill
   +20% to Lightning and Chaos Resistances
@@ -71,7 +72,7 @@ tooltip:
   <hr>
   <font color='#88f'>+1 to Level of Socketed Gems<br>
   Socketed Gems have 25% increased Reservation Efficiency<br>
-  Trigger Level 15 [FeastOfFlesh::15|Feast of Flesh] every 5 seconds<br>
+  Trigger Level 15 Feast of Flesh every 5 seconds<br>
   214% increased Energy Shield<br>
   10% chance for Energy Shield Recharge to start when you use a Skill<br>
   +20% to Lightning and Chaos Resistances<br>

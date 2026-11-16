@@ -337,7 +337,7 @@ void Item::LoadModifiers(const poe::Item &item)
 
     if (item.enchantMods) {
         for (const auto &mod : *item.enchantMods) {
-            add(ModSection::Enchant, mod);
+            add(ModSection::Enchant, Util::WithoutMarkup(mod));
         }
     }
 
@@ -349,7 +349,7 @@ void Item::LoadModifiers(const poe::Item &item)
         for (const auto &mod : *mods) {
             const poe::ItemMod::Flags flags = mod.flags.value_or(poe::ItemMod::Flags{});
             probe_flags(item, mod, flags, arrived_in);
-            add(route_mod(arrived_in, flags), mod.description);
+            add(route_mod(arrived_in, flags), Util::WithoutMarkup(mod.description));
         }
     };
     addArray(item.implicitMods, ModSection::Implicit);
@@ -379,7 +379,7 @@ void Item::LoadProperties(const std::vector<poe::ItemProperty> &properties)
 {
     bool seen_plain_quality = false;
     for (const auto &prop : properties) {
-        const QString name = prop.name;
+        const QString name = Util::WithoutMarkup(prop.name);
         const auto &values = prop.values;
 
         if (name == "Elemental Damage") {

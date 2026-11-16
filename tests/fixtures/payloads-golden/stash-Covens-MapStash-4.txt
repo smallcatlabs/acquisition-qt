@@ -7,9 +7,9 @@ forum code: [linkItem location="Stash1" league="Corpus" x="0" y="2" realm="pc"]
 frame type 2, category 'maps', item level 74, 1x1, count 1
 flags: identified
 properties:
+  Atlas Drops = +58% (number 58)
   Item Rarity = +35% (number 35)
   Monster Pack Size = +22% (number 22)
-  [AtlasDropScaling|Atlas Drops] = +58% (number 58)
 number without a property: Map Tier = 6
 mod table:
   #% increased Monster Damage = 19
@@ -17,7 +17,7 @@ mod table:
   Players have #% less Accuracy Rating = 20
 tooltip:
   <center><font color='#fff'>Malevolent Progression Map (Tier 6)</font><hr>
-  [AtlasDropScaling|Atlas Drops]: <font color='#88f'>+58%</font><br>
+  Atlas Drops: <font color='#88f'>+58%</font><br>
   Item Rarity: <font color='#88f'>+35%</font><br>
   Monster Pack Size: <font color='#88f'>+22%</font><br>
   <hr>

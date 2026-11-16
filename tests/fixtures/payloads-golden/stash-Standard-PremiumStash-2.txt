@@ -30,7 +30,7 @@ path of building:
   Item Level: 78
   LevelReq: 45
   Implicits: 2
-  {crafted}Allocates [totem_ranged_notable2670|Watchtowers]
+  {crafted}Allocates Watchtowers
   Can be Anointed
   8% reduced Enemy Stun Threshold
   +288 to Armour
@@ -44,7 +44,7 @@ tooltip:
   <hr>
   Requires Level <font color='#fff'>45</font><br>
   <hr>
-  <font color='#b4b4ff'>Allocates [totem_ranged_notable2670|Watchtowers]</font><br>
+  <font color='#b4b4ff'>Allocates Watchtowers</font><br>
   <hr>
   <font color='#88f'>Can be Anointed</font><br>
   <hr>

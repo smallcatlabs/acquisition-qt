@@ -55,8 +55,8 @@ socket groups: r0 g0 b0 w0; r0 g0 b0 w3
 properties:
   Attacks per Second = 1.50 (number 1.5)
   Critical Strike Chance = 8.00% (number 8)
+  Intangibility = 35% (number 35)
   Physical Damage = 28-52
-  [Intangibility|Intangibility] = 35% (number 35)
 dps: 60 (physical 60, elemental 0, chaos 0)
 requirements: Dex 66, Int 242, Level 72, Str 95
 mod table:
@@ -91,7 +91,7 @@ tooltip:
   Physical Damage: <font color='#fff'>28-52</font><br>
   Critical Strike Chance: <font color='#fff'>8.00%</font><br>
   Attacks per Second: <font color='#fff'>1.50</font><br>
-  [Intangibility|Intangibility]: <font color='#fff'>35%</font><br>
+  Intangibility: <font color='#fff'>35%</font><br>
   <hr>
   Requires Level <font color='#fff'>72</font>, Str <font color='#fff'>95</font>, Dex <font color='#fff'>66</font>, Int <font color='#fff'>242</font><br>
   <hr>
@@ -398,7 +398,7 @@ forum code: [linkItem location="Belt" character="ExampleCharacter2" x="0" y="0" 
 frame type 2, category 'abyss jewels', item level 85, 1x1, count 1
 flags: identified, path of building item
 properties:
-  [Intangibility|Intangibility] = 9% (number 9)
+  Intangibility = 9% (number 9)
 requirements: Level 67
 mod table:
   Minions Regenerate #% of Life per second = 0.7
@@ -420,7 +420,7 @@ path of building:
 tooltip:
   <center><font color='#fff'>Ancient Orb Ghastly Eye Jewel</font><hr>
   Abyss<br>
-  [Intangibility|Intangibility]: <font color='#fff'>9%</font><br>
+  Intangibility: <font color='#fff'>9%</font><br>
   <hr>
   Requires Level <font color='#fff'>67</font><br>
   <hr>
@@ -437,7 +437,7 @@ forum code: [linkItem location="Belt" character="ExampleCharacter2" x="0" y="0" 
 frame type 2, category 'abyss jewels', item level 85, 1x1, count 1
 flags: identified, path of building item
 properties:
-  [Intangibility|Intangibility] = 8% (number 8)
+  Intangibility = 8% (number 8)
 requirements: Level 60
 mod table:
   +# to Armour = 155
@@ -461,7 +461,7 @@ path of building:
 tooltip:
   <center><font color='#fff'>Foul Arbiter Ghastly Eye Jewel</font><hr>
   Abyss<br>
-  [Intangibility|Intangibility]: <font color='#fff'>8%</font><br>
+  Intangibility: <font color='#fff'>8%</font><br>
   <hr>
   Requires Level <font color='#fff'>60</font><br>
   <hr>
@@ -759,7 +759,7 @@ path of building:
   Item Level: 87
   LevelReq: 60
   Implicits: 2
-  {crafted}Allocates [additional_spectre278|Death Attunement]
+  {crafted}Allocates Death Attunement
   +16 to all Attributes
   6% increased Experience Gain of Gems
   +1 to Level of all Skill Gems
@@ -768,7 +768,7 @@ tooltip:
   <center><font color='#fff'>Ashes of the Stars Onyx Amulet</font><hr>
   Requires Level <font color='#fff'>60</font><br>
   <hr>
-  <font color='#b4b4ff'>Allocates [additional_spectre278|Death Attunement]</font><br>
+  <font color='#b4b4ff'>Allocates Death Attunement</font><br>
   <hr>
   <font color='#88f'>+16 to all Attributes</font><br>
   <hr>
@@ -805,7 +805,7 @@ path of building:
   Sockets: B-B-B-W-W-W
   LevelReq: 70
   Implicits: 0
-  Socketed Gems are Supported by Level 29 [SupportAddedChaosDamage::29|Added Chaos Damage Support]
+  Socketed Gems are Supported by Level 29 Added Chaos Damage Support
   +25 to Intelligence
   247% increased Energy Shield
   10% increased maximum Life
@@ -817,7 +817,7 @@ tooltip:
   <hr>
   Requires Level <font color='#fff'>70</font>, Dex <font color='#fff'>111</font>, Int <font color='#fff'>134</font><br>
   <hr>
-  <font color='#88f'>Socketed Gems are Supported by Level 29 [SupportAddedChaosDamage::29|Added Chaos Damage Support]<br>
+  <font color='#88f'>Socketed Gems are Supported by Level 29 Added Chaos Damage Support<br>
   +25 to Intelligence<br>
   247% increased Energy Shield<br>
   10% increased maximum Life<br>
@@ -1181,8 +1181,8 @@ socket groups: r0 g0 b0 w0; r0 g1 b3 w0
 properties:
   Energy Shield = 32 (number 32)
   Evasion Rating = 158 (number 158)
+  Intangibility = 10% (number 10)
   Quality = 20 (number 20)
-  [Intangibility|Intangibility] = 10% (number 10)
 requirements: Dex 68, Int 98, Level 70, Str 155
 mod table:
   #% increased Effect of the Buff granted by your Stone Golems = 33
@@ -1219,7 +1219,7 @@ tooltip:
   Quality: <font color='#88f'>+20%</font><br>
   Evasion Rating: <font color='#88f'>158</font><br>
   Energy Shield: <font color='#88f'>32</font><br>
-  [Intangibility|Intangibility]: <font color='#fff'>10%</font><br>
+  Intangibility: <font color='#fff'>10%</font><br>
   <hr>
   Requires Level <font color='#fff'>70</font>, Str <font color='#fff'>155</font>, Dex <font color='#fff'>68</font>, Int <font color='#fff'>98</font><br>
   <hr>
@@ -1371,8 +1371,8 @@ socket groups: r0 g0 b0 w0; r1 g0 b3 w0
 properties:
   Energy Shield = 78 (number 78)
   Evasion Rating = 317 (number 317)
+  Intangibility = 75% (number 75)
   Quality = 20 (number 20)
-  [Intangibility|Intangibility] = 75% (number 75)
 requirements: Dex 73, Int 159, Level 72, Str 100
 mod table:
   #% increased Evasion and Energy Shield = 21
@@ -1413,7 +1413,7 @@ tooltip:
   Quality: <font color='#88f'>+20%</font><br>
   Evasion Rating: <font color='#88f'>317</font><br>
   Energy Shield: <font color='#88f'>78</font><br>
-  [Intangibility|Intangibility]: <font color='#fff'>75%</font><br>
+  Intangibility: <font color='#fff'>75%</font><br>
   <hr>
   Requires Level <font color='#fff'>72</font>, Str <font color='#fff'>100</font>, Dex <font color='#fff'>73</font>, Int <font color='#fff'>159</font><br>
   <hr>
@@ -1555,8 +1555,8 @@ socket groups: r0 g0 b0 w0; r1 g1 b1 w1
 properties:
   Energy Shield = 64 (number 64)
   Evasion Rating = 241 (number 241)
+  Intangibility = 9% (number 9)
   Quality = 20 (number 20)
-  [Intangibility|Intangibility] = 9% (number 9)
 requirements: Dex 111, Int 98, Level 70, Str 155
 mod table:
   +# to Dexterity = 47
@@ -1593,7 +1593,7 @@ tooltip:
   Quality: <font color='#88f'>+20%</font><br>
   Evasion Rating: <font color='#88f'>241</font><br>
   Energy Shield: <font color='#88f'>64</font><br>
-  [Intangibility|Intangibility]: <font color='#fff'>9%</font><br>
+  Intangibility: <font color='#fff'>9%</font><br>
   <hr>
   Requires Level <font color='#fff'>70</font>, Str <font color='#fff'>155</font>, Dex <font color='#fff'>111</font>, Int <font color='#fff'>98</font><br>
   <hr>
@@ -1729,9 +1729,9 @@ forum code: [linkItem location="MainInventory" character="ExampleCharacter2" x="
 frame type 1, category 'maps', item level 83, 1x1, count 1
 flags: identified
 properties:
+  Atlas Drops = +23% (number 23)
   Item Rarity = +14% (number 14)
   Monster Pack Size = +9% (number 9)
-  [AtlasDropScaling|Atlas Drops] = +23% (number 23)
 number without a property: Map Tier = 16
 mod table:
   Area contains many Totems = 0
@@ -1739,7 +1739,7 @@ mod table:
   Players have +#% to amount of Suppressed Spell Damage Prevented = -20
 tooltip:
   <center><font color='#fff'>Ceremonial Map of Miring (Tier 16)</font><hr>
-  [AtlasDropScaling|Atlas Drops]: <font color='#88f'>+23%</font><br>
+  Atlas Drops: <font color='#88f'>+23%</font><br>
   Item Rarity: <font color='#88f'>+14%</font><br>
   Monster Pack Size: <font color='#88f'>+9%</font><br>
   <hr>
@@ -1755,9 +1755,9 @@ forum code: [linkItem location="MainInventory" character="ExampleCharacter2" x="
 frame type 2, category 'maps', item level 85, 1x1, count 1
 flags: identified
 properties:
+  Atlas Drops = +87% (number 87)
   Item Rarity = +50% (number 50)
   Monster Pack Size = +33% (number 33)
-  [AtlasDropScaling|Atlas Drops] = +87% (number 87)
 number without a property: Map Tier = 16
 mod table:
   +#% to Monster Critical Strike Multiplier = 44
@@ -1769,7 +1769,7 @@ mod table:
   Unique Bosses are Possessed = 0
 tooltip:
   <center><font color='#fff'>Foul Solitude Map (Tier 16)</font><hr>
-  [AtlasDropScaling|Atlas Drops]: <font color='#88f'>+87%</font><br>
+  Atlas Drops: <font color='#88f'>+87%</font><br>
   Item Rarity: <font color='#88f'>+50%</font><br>
   Monster Pack Size: <font color='#88f'>+33%</font><br>
   <hr>
@@ -1789,9 +1789,9 @@ forum code: [linkItem location="MainInventory" character="ExampleCharacter2" x="
 frame type 1, category 'maps', item level 83, 1x1, count 1
 flags: identified
 properties:
+  Atlas Drops = +16% (number 16)
   Item Rarity = +49% (number 49)
   Monster Pack Size = +6% (number 6)
-  [AtlasDropScaling|Atlas Drops] = +16% (number 16)
 number without a property: Map Tier = 16
 mod table:
   All Damage from Monsters' Hits can Poison = 0
@@ -1800,7 +1800,7 @@ mod table:
   Monsters have #% increased Poison Duration = 100
 tooltip:
   <center><font color='#fff'>Map of Venom (Tier 16)</font><hr>
-  [AtlasDropScaling|Atlas Drops]: <font color='#88f'>+16%</font><br>
+  Atlas Drops: <font color='#88f'>+16%</font><br>
   Item Rarity: <font color='#88f'>+49%</font><br>
   Monster Pack Size: <font color='#88f'>+6%</font><br>
   <hr>
@@ -1871,6 +1871,8 @@ frame type 2, category 'jewels', item level 83, 1x1, count 1
 flags: identified, enchanted, path of building item
 requirements: Level 54
 mod table:
+  1 Added Passive Skill is Bodyguards = 0
+  1 Added Passive Skill is Life from Death = 0
   1 Added Passive Skill is a Jewel Socket = 0
   Added Small Passive Skills also grant: +#% to Chaos Resistance = 4
   Added Small Passive Skills also grant: +#% to all Elemental Resistances = 3
@@ -1888,8 +1890,8 @@ path of building:
   {crafted}Added Small Passive Skills grant: Minions have 12% increased maximum Life
   Added Small Passive Skills also grant: +4% to Chaos Resistance
   Added Small Passive Skills also grant: +3% to all Elemental Resistances
-  1 Added Passive Skill is [affliction_notable_bodyguards|Bodyguards]
-  1 Added Passive Skill is [affliction_notable_life_from_death|Life from Death]
+  1 Added Passive Skill is Bodyguards
+  1 Added Passive Skill is Life from Death
 tooltip:
   <center><font color='#fff'>Chimeric Solace Medium Cluster Jewel</font><hr>
   Requires Level <font color='#fff'>54</font><br>
@@ -1900,8 +1902,8 @@ tooltip:
   <hr>
   <font color='#88f'>Added Small Passive Skills also grant: +4% to Chaos Resistance<br>
   Added Small Passive Skills also grant: +3% to all Elemental Resistances<br>
-  1 Added Passive Skill is [affliction_notable_bodyguards|Bodyguards]<br>
-  1 Added Passive Skill is [affliction_notable_life_from_death|Life from Death]</font></center>
+  1 Added Passive Skill is Bodyguards<br>
+  1 Added Passive Skill is Life from Death</font></center>
 hash: 58c19f6c9b6b9f66223b96b29757352e
 
 === Pandemonium Hope Small Cluster Jewel
@@ -1911,9 +1913,10 @@ forum code: [linkItem location="PassiveJewels" character="ExampleCharacter2" x="
 frame type 2, category 'jewels', item level 84, 1x1, count 1
 flags: identified, enchanted, path of building item
 properties:
-  [Intangibility|Intangibility] = 6% (number 6)
+  Intangibility = 6% (number 6)
 requirements: Level 62
 mod table:
+  1 Added Passive Skill is Enduring Composure = 0
   Added Small Passive Skills also grant: +# to Maximum Mana = 9
   Added Small Passive Skills also grant: +#% to Chaos Resistance = 5
   Added Small Passive Skills also grant: +#% to all Elemental Resistances = 5
@@ -1931,10 +1934,10 @@ path of building:
   Added Small Passive Skills also grant: +5% to Chaos Resistance
   Added Small Passive Skills also grant: +5% to all Elemental Resistances
   Added Small Passive Skills also grant: +9 to Maximum Mana
-  1 Added Passive Skill is [affliction_notable_enduring_composure|Enduring Composure]
+  1 Added Passive Skill is Enduring Composure
 tooltip:
   <center><font color='#fff'>Pandemonium Hope Small Cluster Jewel</font><hr>
-  [Intangibility|Intangibility]: <font color='#fff'>6%</font><br>
+  Intangibility: <font color='#fff'>6%</font><br>
   <hr>
   Requires Level <font color='#fff'>62</font><br>
   <hr>
@@ -1944,7 +1947,7 @@ tooltip:
   <font color='#88f'>Added Small Passive Skills also grant: +5% to Chaos Resistance<br>
   Added Small Passive Skills also grant: +5% to all Elemental Resistances<br>
   Added Small Passive Skills also grant: +9 to Maximum Mana<br>
-  1 Added Passive Skill is [affliction_notable_enduring_composure|Enduring Composure]</font></center>
+  1 Added Passive Skill is Enduring Composure</font></center>
 hash: 6a3cdfb50ceab5d4a49042e73b9a493c
 
 === Whispering Globe Ghastly Eye Jewel

@@ -46,6 +46,11 @@ private slots:
     void pathOfBuildingTakesGearFlasksAndJewels();
     void pathOfBuildingClassesMatchGameData();
     void pseudoModNeedsAValue();
+    // #391: the game's [id|text] markup.
+    void markupInAModLineIsReadAsItsText();
+    void markupInAPropertyNameIsReadAsItsText();
+    void markupInAModNameIsReadAsItsText();
+    void bracketsThatAreNotMarkupAreKept();
 };
 
 // Real RePoE stat translations, cut from the game data (see
@@ -552,15 +557,101 @@ void ItemTest::rangeIsAveraged()
 
 // A cluster jewel notable has a literal "1" and no value; it is present
 // under its own text.
+// The stat translations the payload corpus uses, cut from the game data
+// (tests/fixtures/payloads-repoe/README.md).
+static void loadCorpusStatTranslations()
+{
+    const QString path = QFINDTESTDATA("fixtures/payloads-repoe/stat_translations.min.json");
+    QFile file(path);
+    if (path.isEmpty() || !file.open(QIODevice::ReadOnly)) {
+        qFatal("missing the corpus stat translations");
+    }
+    InitStatTranslations();
+    AddStatTranslations(file.readAll());
+    InitModList();
+}
+
+// The line as the game sends it for a cluster jewel's notable, markup
+// included (#391).
 void ItemTest::clusterNotableIsPresent()
 {
-    loadRealStatTranslations();
+    loadCorpusStatTranslations();
 
     const auto item = makeItem("cluster", R"json(,
-        "explicitMods": [{"description": "1 Added Passive Skill is Adrenaline"}]
+        "explicitMods": [{"description":
+            "1 Added Passive Skill is [affliction_notable_bodyguards|Bodyguards]"}]
     )json");
-    QVERIFY(item->mod_table().contains("1 Added Passive Skill is Adrenaline"));
-    QCOMPARE(item->mod_table().at("1 Added Passive Skill is Adrenaline"), 0.0);
+    QVERIFY(item->mod_table().contains("1 Added Passive Skill is Bodyguards"));
+    QCOMPARE(item->mod_table().at("1 Added Passive Skill is Bodyguards"), 0.0);
+}
+
+// Three lines the game sent, one in each array of mods: the item holds
+// their text, which is what the tooltip and the Path of Building export show.
+void ItemTest::markupInAModLineIsReadAsItsText()
+{
+    const auto item = makeItem("markup", R"json(,
+        "enchantMods": ["Allocates [additional_spectre278|Death Attunement]"],
+        "implicitMods": [{"description": "+14% to [PlayerItemRarity|Item Rarity]"}],
+        "explicitMods": [{"description":
+            "Socketed Gems are Supported by Level 20 [SupportSpellTotem::20|Spell Totem Support]"}]
+    )json");
+    QCOMPARE(item->text_mods().at("enchantMods"), ItemMods{"Allocates Death Attunement"});
+    QCOMPARE(item->text_mods().at("implicitMods"), ItemMods{"+14% to Item Rarity"});
+    QCOMPARE(item->text_mods().at("explicitMods"),
+             ItemMods{"Socketed Gems are Supported by Level 20 Spell Totem Support"});
+}
+
+void ItemTest::markupInAPropertyNameIsReadAsItsText()
+{
+    const auto item = makeItem("markup-property", R"json(,
+        "properties": [
+            {"displayMode": 0, "name": "[AtlasDropScaling|Atlas Drops]", "type": 108,
+             "values": [["+52%", 1]]}
+        ]
+    )json");
+    QVERIFY(item->properties().contains("Atlas Drops"));
+    QCOMPARE(item->properties().at("Atlas Drops"), QString("+52%"));
+    QCOMPARE(item->numeric_properties().at("Atlas Drops"), 52.0);
+    QCOMPARE(item->text_properties().at(0).name, QString("Atlas Drops"));
+}
+
+// A stat translation that carries the markup itself: the mod's name is its
+// text, in the mod table and in the list the mods filter offers.
+void ItemTest::markupInAModNameIsReadAsItsText()
+{
+    loadCorpusStatTranslations();
+
+    const auto item = makeItem("markup-name", R"json(,
+        "explicitMods": [{"description":
+            "Rare Monsters have [ElementalThorns|Elemental Thorns] reflecting 18 Elemental Damage"}]
+    )json");
+    const QString name = "Rare Monsters have Elemental Thorns reflecting # Elemental Damage";
+    QVERIFY(item->mod_table().contains(name));
+    QCOMPARE(item->mod_table().at(name), 18.0);
+    QVERIFY(mod_list_model().stringList().contains(name));
+    for (const QString &offered : mod_list_model().stringList()) {
+        QVERIFY2(!offered.contains("|"), qPrintable(offered));
+    }
+}
+
+// Brackets without the bar are sometimes the game's markup ("[Onslaught]",
+// sent in a flask's utility mods) and sometimes not (the "[DNT]" that 68 mod
+// names of game data 3.29.3.6 begin with), so they are left as they are.
+void ItemTest::bracketsThatAreNotMarkupAreKept()
+{
+    const auto item = makeItem("brackets", R"json(,
+        "explicitMods": [{"description": "20% reduced Effect of [Onslaught] on you"}]
+    )json");
+    QCOMPARE(item->text_mods().at("explicitMods"),
+             ItemMods{"20% reduced Effect of [Onslaught] on you"});
+
+    // No line seen so far has both kinds, so this one is put together from
+    // two that were: the bar's markup goes and the other brackets stay.
+    QCOMPARE(Util::WithoutMarkup("[DNT] Allocates [additional_spectre278|Death Attunement]"),
+             QString("[DNT] Allocates Death Attunement"));
+    // Two in one line, and one whose id has colons in it.
+    QCOMPARE(Util::WithoutMarkup("[ThreadInfoBreach|Threads] of [FeastOfFlesh::15|Feast of Flesh]"),
+             QString("Threads of Feast of Flesh"));
 }
 
 // RePoE writes some negative values as their own entry with a literal sign
