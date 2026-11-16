@@ -44,6 +44,8 @@ private slots:
     void refusesASessionWithAShopThread();
     void refusesASessionWithShopAutoUpdate();
 
+    void aSettingComesFromTheCommandLineOrElseTheEnvironment();
+
     void acceptsAnOutputDirectoryOutsideTheRoots();
     void refusesAnOutputDirectoryThatDoesNotExist();
     void refusesAnOutputDirectoryInsideARoot();
@@ -264,6 +266,18 @@ void LiveGuardsTest::refusesASessionWithAShopThread()
 void LiveGuardsTest::refusesASessionWithShopAutoUpdate()
 {
     QVERIFY(!LiveSessionRefusal(ACCOUNT, ACCOUNT, {}, true).isEmpty());
+}
+
+void LiveGuardsTest::aSettingComesFromTheCommandLineOrElseTheEnvironment()
+{
+    const char *variable = "ACQ_TEST_LIVE_SETTING";
+    qunsetenv(variable);
+    QCOMPARE(LiveSetting("given", variable), QString("given"));
+    QCOMPARE(LiveSetting(QString(), variable), QString());
+    qputenv(variable, "from the environment");
+    QCOMPARE(LiveSetting(QString(), variable), QString("from the environment"));
+    QCOMPARE(LiveSetting("given", variable), QString("given"));
+    qunsetenv(variable);
 }
 
 void LiveGuardsTest::acceptsAnOutputDirectoryOutsideTheRoots()

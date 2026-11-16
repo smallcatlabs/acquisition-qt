@@ -13,6 +13,9 @@
 //   live_capture --data-dir <dir> --account <name#1234> --league <league>
 //                [--out <dir>]
 //
+// The directory and the account may come from the environment instead
+// (ACQ_LIVE_DIR, ACQ_LIVE_ACCOUNT).
+//
 // With --out it leaves what the window shows when the refresh has ended, as
 // text and as a picture (tests/liverecord.h).
 //
@@ -273,13 +276,17 @@ int main(int argc, char *argv[])
     parser.addHelpOption();
     parser.addOptions({option_data_dir, option_account, option_league, option_out, option_minutes});
     parser.process(a);
-    if (!parser.isSet(option_data_dir) || !parser.isSet(option_league)) {
-        say("FAILED: --data-dir, --account and --league are all required");
+    // The directory and the account are local settings: given here, or set
+    // once in the environment so that they are not typed into commands.
+    const QString dir_given = LiveSetting(parser.value(option_data_dir), "ACQ_LIVE_DIR");
+    const QString account = LiveSetting(parser.value(option_account), "ACQ_LIVE_ACCOUNT");
+    if (dir_given.isEmpty() || account.isEmpty() || !parser.isSet(option_league)) {
+        say("FAILED: --league is required, and so are --data-dir and --account unless "
+            "ACQ_LIVE_DIR and ACQ_LIVE_ACCOUNT are set");
         return EXIT_FAILURE;
     }
 
-    const QDir dir(parser.value(option_data_dir));
-    const QString account = parser.value(option_account);
+    const QDir dir(dir_given);
     const QString refusal = LiveDirectoryRefusal(dir, account, PlatformDataRoots());
     if (!refusal.isEmpty()) {
         say("FAILED: " + refusal);
