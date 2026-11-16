@@ -70,6 +70,11 @@ QString LiveBranchRefusal(const QDir &source);
 // locations.
 QString LiveOutputRefusal(const QDir &out, const QStringList &forbidden_roots);
 
+// A local setting of a live run: what was given on the command line, or else
+// the environment variable `variable`. The live directory and the account
+// are set once, outside the repository, and need not be typed into commands.
+QString LiveSetting(const QString &given, const char *variable);
+
 inline QStringList PlatformDataRoots()
 {
     QStringList roots = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
@@ -323,4 +328,9 @@ inline QString LiveOutputRefusal(const QDir &out, const QStringList &forbidden_r
                + out.absolutePath() + " is " + root + " or inside it";
     }
     return {};
+}
+
+inline QString LiveSetting(const QString &given, const char *variable)
+{
+    return given.isEmpty() ? qEnvironmentVariable(variable) : given;
 }

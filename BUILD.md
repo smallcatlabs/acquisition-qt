@@ -230,6 +230,10 @@ it into the repository, an issue or a pull request.
 ./build/dev/tests/live_capture --data-dir <dir> --account '<name#1234>' --league <league> [--out <dir>]
 ```
 
+The directory and the account can come from the environment instead of the
+command line: `ACQ_LIVE_DIR` and `ACQ_LIVE_ACCOUNT`. Set them once, somewhere
+git does not hold, and a command no longer has to name them.
+
 With `--out` it leaves two files in that directory when the refresh has
 ended: `transcript.txt`, what the item tree shows with every tab opened
 (`tests/viewtranscript.h` describes the format), and `window.png`, a picture
