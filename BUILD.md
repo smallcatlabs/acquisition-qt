@@ -233,7 +233,19 @@ it into the repository, an issue or a pull request.
 It refuses a directory that is the platform's application-data location or
 inside it, a directory logged in as another account, and a session with a
 forum shop thread or shop auto-update on (`tests/liveguards.h`, pinned by
-`tst_liveguards`). It never authenticates: when the stored token is not
+`tst_liveguards`).
+
+It also refuses a branch that changes the refresh or network code. It asks
+git which files of the source tree it was built from differ from the commit
+where the branch left `origin/master` (committed, staged, unstaged and not
+yet added), and refuses if one of them matches a `src/` path in the `paths:`
+list of `.github/workflows/sanitizers.yml`. Whatever it cannot tell it
+refuses: no git, no `origin/master`, no such list. It reads the tree as it is
+when it runs, not as it was when it was built, so build before you run. The
+comparison is with `origin/master` as last fetched: if that is stale, what
+`master` has changed since can look like the branch's, so fetch first.
+
+It never authenticates: when the stored token is not
 usable it stops and says so. It does not start Sentry. Do not run it while
 another Acquisition is using the same account: the rate-limit counters are
 per account (N37).

@@ -13,8 +13,9 @@
 //   live_capture --data-dir <dir> --account <name#1234> --league <league>
 //
 // It refuses (tests/liveguards.h) a directory under the platform's
-// application-data location, a directory logged in as another account, and a
-// session that could post to the forum. It never authenticates: without a
+// application-data location, a directory logged in as another account, a
+// session that could post to the forum, and a source tree whose branch
+// changes the refresh or network code. It never authenticates: without a
 // usable stored token it stops and says so. Sentry is never started here;
 // only src/main.cpp does that.
 
@@ -251,6 +252,12 @@ int main(int argc, char *argv[])
     const QString refusal = LiveDirectoryRefusal(dir, account, PlatformDataRoots());
     if (!refusal.isEmpty()) {
         say("FAILED: " + refusal);
+        return EXIT_FAILURE;
+    }
+    // The source tree this program was built from, as it is now.
+    const QString branch_refusal = LiveBranchRefusal(QDir(ACQ_SOURCE_DIR));
+    if (!branch_refusal.isEmpty()) {
+        say("FAILED: " + branch_refusal);
         return EXIT_FAILURE;
     }
     if (!QSslSocket::supportsSsl()) {
