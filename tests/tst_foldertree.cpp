@@ -14,8 +14,11 @@
 
 #include <QAbstractItemModelTester>
 #include <QComboBox>
+#include <QFile>
 #include <QHeaderView>
 #include <QItemSelectionModel>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
 #include <QScrollBar>
@@ -36,6 +39,8 @@
 #include "mainwindowfixture.h"
 #include "modelprobes.h"
 #include "testsuite.h"
+#include "util/json_readers.h"
+#include "viewtranscript.h"
 
 class FolderTreeTest : public QObject
 {
@@ -92,6 +97,11 @@ private slots:
     void filterComingAndGoingKeepsFoldersAndOpenedTabs();
     void folderHeaderSelectionShowsHeaderText();
     void nestedScrollAnchorSurvivesRefilter();
+    // #371: a search and a folder, on real replies.
+    void searchOpensAFolderAndTheTabInIt();
+    void tabsArrivingUnderASearchOpenInTheirFolder();
+    void searchLeavesAFolderTheUserCollapsedClosed_data();
+    void searchLeavesAFolderTheUserCollapsedClosed();
     void collapsedRowsSurviveReselectionOnRefresh_data();
     void collapsedRowsSurviveReselectionOnRefresh();
 
@@ -1604,6 +1614,218 @@ void FolderTreeTest::nestedScrollAnchorSurvivesRefilter()
 
     h.fixture.window->OnSearchFormChange();
     QCOMPARE(h.tree->indexAt(QPoint(0, 0)).data().toString(), "Item 30 Sword");
+}
+
+namespace {
+
+    // One stash reply from tests/fixtures/payloads, as a tab and its items.
+    struct PayloadTab
+    {
+        ItemLocation location;
+        Items items;
+    };
+
+    // `id`, when given, replaces the reply's own.
+    PayloadTab payloadTab(const QString &file, const QString &id = {})
+    {
+        // An Item reads the category tables when it is built. They are this
+        // suite's two invented entries; the Name filter does not use them.
+        InitializeMainWindowTestCategories();
+        QFile source(QFINDTESTDATA("fixtures/payloads/" + file));
+        if (!source.open(QIODevice::ReadOnly)) {
+            qFatal("payloadTab: cannot read %s", qPrintable(file));
+        }
+        QByteArray reply = source.readAll();
+        if (!id.isEmpty()) {
+            QJsonObject stash = QJsonDocument::fromJson(reply).object();
+            stash.insert("id", id);
+            reply = QJsonDocument(stash).toJson(QJsonDocument::Compact);
+        }
+        const auto stash = json::readStash(reply);
+        if (!stash) {
+            qFatal("payloadTab: %s does not read as a stash", qPrintable(file));
+        }
+        PayloadTab tab{ItemLocation(*stash), {}};
+        if (stash->items) {
+            for (const poe::Item &item : *stash->items) {
+                tab.items.push_back(std::make_shared<Item>(item, tab.location));
+            }
+        }
+        return tab;
+    }
+
+    // The scene of #371, in real replies: a folder with one tab in it, and
+    // two tabs in no folder. The tab in the folder and one of the others
+    // each hold one belt among their items; the third tab holds none.
+    //   #26 "Special Gear (Remove-only)": Skull Bond Cord Belt
+    //   #27 "3.28 KF Totems (Remove-only)": no belt
+    //   #42 "~price 3333 chaos", the folder
+    //     #18 "Special Gear (Remove-only)": Glittering Cloth Belt of the
+    //         Brute, and ten items that are not belts
+    // The replies are as the game sent them but for one value: the fixtures
+    // hold no folder together with a tab of its own, so the folder's reply
+    // is given the id the tab names as its folder.
+    struct BeltScene
+    {
+        PayloadTab folder = payloadTab("stash-Covens-Folder-1.json", "44d6d31502");
+        PayloadTab inside = payloadTab("stash-Standard-PremiumStash-1.json");
+        PayloadTab beside = payloadTab("stash-Standard-PremiumStash-2.json");
+        PayloadTab other = payloadTab("stash-Standard-PremiumStash-3.json");
+
+        World world() const
+        {
+            World world;
+            for (const PayloadTab *tab : {&beside, &other, &folder, &inside}) {
+                world.setTab(tab->location);
+                if (!tab->location.IsFolder()) {
+                    world.items[tab->location.id()] = tab->items;
+                }
+            }
+            return world;
+        }
+    };
+
+    const char *const kBeltSceneLoaded = "[+] #26, \"Special Gear (Remove-only)\"\n"
+                                         "[+] #27, \"3.28 KF Totems (Remove-only)\"\n"
+                                         "[-] #42, \"~price 3333 chaos\"\n"
+                                         "  [+] #18, \"Special Gear (Remove-only)\"";
+
+    // What a search for belts shows when the user has collapsed nothing.
+    const char *const kBeltsFound = "[-] #26, \"Special Gear (Remove-only)\"\n"
+                                    "      Skull Bond Cord Belt\n"
+                                    "[-] #42, \"~price 3333 chaos\"\n"
+                                    "  [-] #18, \"Special Gear (Remove-only)\"\n"
+                                    "        Glittering Cloth Belt of the Brute";
+
+    // The Name column of what the tree shows (viewtranscript.h), without the
+    // selection marks.
+    QString shown(const QTreeView &view)
+    {
+        QStringList lines;
+        for (const QString &row : viewTranscript(view, 1)) {
+            lines << row.mid(2);
+        }
+        return lines.join('\n');
+    }
+
+    // Shows the window, so the view lays its rows out as it does for a user.
+    bool showWindow(Harness &h)
+    {
+        h.fixture.window->resize(1000, 700);
+        h.fixture.window->show();
+        return QTest::qWaitForWindowExposed(h.fixture.window.get());
+    }
+
+    // Types `text` into the search form's Name box, as a user does. The
+    // form applies it after its own delay; the caller waits for the tree.
+    void typeNameFilter(Harness &h, const QString &text)
+    {
+        auto *name = findNameFilter(*h.fixture.window);
+        if (!name) {
+            qFatal("typeNameFilter: no name filter");
+        }
+        name->setFocus();
+        name->selectAll();
+        QTest::keyClicks(name, text);
+    }
+
+} // namespace
+
+// #371: a search shows a match inside a folder the way it shows a match in
+// a tab outside one. With nothing collapsed by the user, the folder is open
+// and so is the tab in it (D9: folders are expanded after a reset, and a
+// filtered search opens every tab it shows, nested or not). A refresh under
+// the search leaves it so.
+void FolderTreeTest::searchOpensAFolderAndTheTabInIt()
+{
+    const BeltScene scene;
+    Harness h(scene.world(), false);
+    QVERIFY(showWindow(h));
+    QCOMPARE(shown(*h.tree), QString(kBeltSceneLoaded));
+
+    typeNameFilter(h, "belt");
+    QTRY_COMPARE(shown(*h.tree), QString(kBeltsFound));
+    h.resets->clear(); // the refilter's own reset; the refresh has none
+
+    // A refresh replaces every item with a new object of the same id.
+    const BeltScene again;
+    h.delta(again.beside.location, again.beside.items);
+    h.delta(again.folder.location, {});
+    h.delta(again.inside.location, again.inside.items);
+    QCOMPARE(shown(*h.tree), QString(kBeltsFound));
+    h.snapshot();
+    QCOMPARE(shown(*h.tree), QString(kBeltsFound));
+    QCOMPARE(h.resets->count(), 0);
+}
+
+// #371: the same when the search is there first and a refresh brings the
+// tabs, the folder ahead of its tab as the game lists them. The folder and
+// the tab arrive as inserted rows, and both are opened.
+void FolderTreeTest::tabsArrivingUnderASearchOpenInTheirFolder()
+{
+    const BeltScene scene;
+    World seed;
+    seed.setTab(scene.other.location);
+    seed.items[scene.other.location.id()] = scene.other.items;
+    Harness h(seed, false);
+    QVERIFY(showWindow(h));
+    QCOMPARE(shown(*h.tree), QString("[+] #27, \"3.28 KF Totems (Remove-only)\""));
+
+    // The one tab known so far holds no belt.
+    typeNameFilter(h, "belt");
+    QTRY_COMPARE(shown(*h.tree), QString());
+    h.resets->clear(); // the refilter's own reset; the refresh has none
+
+    h.delta(scene.folder.location, {});
+    QCOMPARE(shown(*h.tree), QString()); // a folder with nothing to show
+    h.delta(scene.inside.location, scene.inside.items);
+    QCOMPARE(shown(*h.tree),
+             QString("[-] #42, \"~price 3333 chaos\"\n"
+                     "  [-] #18, \"Special Gear (Remove-only)\"\n"
+                     "        Glittering Cloth Belt of the Brute"));
+    h.delta(scene.beside.location, scene.beside.items);
+    QCOMPARE(shown(*h.tree), QString(kBeltsFound));
+    h.snapshot();
+    QCOMPARE(shown(*h.tree), QString(kBeltsFound));
+    QCOMPARE(h.resets->count(), 0);
+}
+
+void FolderTreeTest::searchLeavesAFolderTheUserCollapsedClosed_data()
+{
+    QTest::addColumn<bool>("collapse_all");
+    QTest::newRow("the folder, by its header") << false;
+    QTest::newRow("Collapse All") << true;
+}
+
+// #371, what the picture in the report shows: a folder row closed beside an
+// open tab that is in no folder. D9 keeps a folder the user collapsed closed
+// across refilters, so a search does not open it, whether the user closed
+// it by its header or with Collapse All. Opening the folder then shows the
+// tab in it already open, with the match.
+void FolderTreeTest::searchLeavesAFolderTheUserCollapsedClosed()
+{
+    QFETCH(bool, collapse_all);
+    const BeltScene scene;
+    Harness h(scene.world(), false);
+    QVERIFY(showWindow(h));
+    if (collapse_all) {
+        h.fixture.window->OnCollapseAll();
+    } else {
+        h.tree->collapse(headerFor(*h.model, "#42, \"~price 3333 chaos\""));
+    }
+    QCOMPARE(shown(*h.tree),
+             QString("[+] #26, \"Special Gear (Remove-only)\"\n"
+                     "[+] #27, \"3.28 KF Totems (Remove-only)\"\n"
+                     "[+] #42, \"~price 3333 chaos\""));
+
+    typeNameFilter(h, "belt");
+    QTRY_COMPARE(shown(*h.tree),
+                 QString("[-] #26, \"Special Gear (Remove-only)\"\n"
+                         "      Skull Bond Cord Belt\n"
+                         "[+] #42, \"~price 3333 chaos\""));
+
+    h.tree->expand(headerFor(*h.model, "#42, \"~price 3333 chaos\""));
+    QCOMPARE(shown(*h.tree), QString(kBeltsFound));
 }
 
 namespace {
