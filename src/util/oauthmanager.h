@@ -33,6 +33,10 @@ public:
     // opening the browser, when the callback listener cannot be opened on
     // 127.0.0.1.
     bool initLogin();
+    // Ends the browser login in progress, if there is one: nothing listens
+    // for its redirect any more, so it can log nobody in. For whoever starts
+    // a session with the login already held (#408).
+    void endLogin();
 
 private slots:
     void onRequestFailure(const QAbstractOAuth::Error error);
@@ -66,9 +70,6 @@ private:
 
     void noteTokenReply(QNetworkReply *reply);
     void failStoredLogin(const TokenReply &reply);
-    // Ends the browser login in progress, if there is one: nothing listens
-    // for its redirect any more.
-    void endLogin();
     void failLogin(const QString &reason);
 
     NetworkManager &m_network_manager;

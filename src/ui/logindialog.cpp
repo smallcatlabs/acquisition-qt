@@ -335,6 +335,10 @@ void LoginDialog::LoginWithOAuth()
             m_settings.setValue("account", identity->account());
             m_settings.setValue("realm", identity->realm());
             m_settings.setValue("league", identity->league());
+            // The session is this token's account's from here on. A browser
+            // login still waiting, started to authenticate as someone else,
+            // must not finish under it (#408).
+            m_oauth_manager.endLogin();
             emit LoginComplete(*identity);
         } else if (token.refresh_expiration && (now < *token.refresh_expiration)) {
             DisplayError("The OAuth token needs to be refreshed");
