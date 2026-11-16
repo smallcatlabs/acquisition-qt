@@ -219,9 +219,16 @@ void OAuthManager::onServerError(const QString &error,
                   errorDescription,
                   uri.toDisplayString());
 
+    // An error the token endpoint gave a refresh (Qt 6.11.3 and 6.12.0
+    // report it here first) is not the browser login's: requestFailed, which
+    // Qt emits next, deals with the refresh.
+    if (m_token_reply && m_token_reply->refresh) {
+        return;
+    }
+
     // The error a redirect brought is shown only when the redirect is this
-    // login's. With another state it is anybody's text: requestFailed, which
-    // Qt emits next, then reports the mismatch instead.
+    // login's. With another state it is anybody's text: requestFailed then
+    // reports the mismatch instead.
     if (m_login_in_progress && !m_state_mismatch) {
         failLogin(errorDescription.isEmpty()
                       ? QString("Authentication failed: %1").arg(error)
