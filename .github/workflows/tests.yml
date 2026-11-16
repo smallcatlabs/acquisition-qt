@@ -185,9 +185,13 @@ jobs:
       - name: Build
         run: cmake --build --preset release --parallel 4
 
+      # On Windows the offscreen platform finds no fonts by itself and draws
+      # every letter as an empty box; QT_QPA_FONTDIR gives it the system's, so
+      # that a screenshot kept with a failed run can be read.
       - name: Test
         env:
           ACQ_TEST_SCREENSHOT_DIR: ${{ github.workspace }}/build/test-screenshots
+          QT_QPA_FONTDIR: C:\Windows\Fonts
         run: ctest --preset release
 
       - name: Upload test output and screenshots
