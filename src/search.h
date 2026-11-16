@@ -57,6 +57,8 @@ public:
     // Expansion is keyed by the stable (type, id) display key (M2 R6-3):
     // header text mutates on rename, so a header-keyed save would orphan
     // the expansion state exactly when a delta renames the expanded tab.
+    // The keys are the tabs open in the unfiltered By Tab view; they are
+    // kept while a filter is active or By Item is shown (#387).
     const std::set<LocationInventory::Key> &expandedKeys() const { return m_expanded_keys; }
     void setExpandedKeys(std::set<LocationInventory::Key> keys);
 

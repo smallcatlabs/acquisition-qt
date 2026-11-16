@@ -199,6 +199,14 @@ acq_add_scenario_test(tst_applogin
     rejectedStoredTokenGivesNoSession
     redirectWithWrongStateIsIgnored)
 
+# Which tabs are open once a filter has come and gone (#387), on the real
+# Application; one scenario per process, as tst_applogin.
+acq_add_scenario_test(tst_appexpansion
+    tabsOpenedWithExpandAllReturnAfterAFilter
+    tabsOpenedOneByOneReturnAfterAFilter
+    changesUnderAFilterStayWithTheFilter
+    openedTabsReturnAfterByItem)
+
 acq_add_scenario_test(tst_workerintegration
     fullChainStashListSucceeds
     i_cancel_pacing

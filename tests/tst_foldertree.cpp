@@ -89,6 +89,7 @@ private slots:
     void expandAllSortsEveryTabInOnePass();
     void folderExpansionMaterializesNothing();
     void nestedTabExpansionSurvivesRefilter();
+    void filterComingAndGoingKeepsFoldersAndOpenedTabs();
     void folderHeaderSelectionShowsHeaderText();
     void nestedScrollAnchorSurvivesRefilter();
     void collapsedRowsSurviveReselectionOnRefresh_data();
@@ -1508,6 +1509,59 @@ void FolderTreeTest::nestedTabExpansionSurvivesRefilter()
                           "  #5, \"Gamma\" -",
                           "#6, \"Delta\" +",
                           "#7, \"Echo\" -"}));
+}
+
+// #387 beside D9: a filter that comes and goes brings back the tabs the
+// user had open, nested or top-level, and leaves the rest closed. Folders
+// keep D9's rule through it: one the user collapsed stays collapsed, under
+// the filter and after it, whether it was collapsed before the filter or
+// under it.
+void FolderTreeTest::filterComingAndGoingKeepsFoldersAndOpenedTabs()
+{
+    Harness h(baseWorld(), false);
+    h.tree->collapse(headerFor(*h.model, "#4, \"Folder G\""));
+    h.tree->expand(headerFor(*h.model, "#2, \"Alpha\""));
+    h.tree->expand(headerFor(*h.model, "#7, \"Echo\""));
+    QCOMPARE(expansionSignature(*h.tree),
+             QStringList({"#1, \"Folder F\" +",
+                          "  #2, \"Alpha\" +",
+                          "  #3, \"Beta\" -",
+                          "#4, \"Folder G\" -",
+                          "  #5, \"Gamma\" -",
+                          "#6, \"Delta\" -",
+                          "#7, \"Echo\" +"}));
+
+    // The filter opens every tab it shows (Echo has no match and is not
+    // shown); the collapsed folder stays collapsed.
+    auto *name = findNameFilter(*h.fixture.window);
+    QVERIFY(name);
+    name->setFocus();
+    QTest::keyClicks(name, "sword");
+    h.fixture.window->OnSearchFormChange();
+    QCOMPARE(expansionSignature(*h.tree),
+             QStringList({"#1, \"Folder F\" +",
+                          "  #2, \"Alpha\" +",
+                          "  #3, \"Beta\" +",
+                          "#4, \"Folder G\" -",
+                          "  #5, \"Gamma\" +",
+                          "#6, \"Delta\" +"}));
+
+    // Under the filter the user collapses the other folder too.
+    h.tree->collapse(headerFor(*h.model, "#1, \"Folder F\""));
+
+    // The filter removed: the tabs are as before it, and both folders are
+    // collapsed.
+    name->selectAll();
+    QTest::keyClick(name, Qt::Key_Backspace);
+    h.fixture.window->OnSearchFormChange();
+    QCOMPARE(expansionSignature(*h.tree),
+             QStringList({"#1, \"Folder F\" -",
+                          "  #2, \"Alpha\" +",
+                          "  #3, \"Beta\" -",
+                          "#4, \"Folder G\" -",
+                          "  #5, \"Gamma\" -",
+                          "#6, \"Delta\" -",
+                          "#7, \"Echo\" +"}));
 }
 
 // D9: selecting a folder header shows its header text in the details pane.
