@@ -47,9 +47,9 @@ for the change in hand:
 - **The live API.** `live_capture` (`BUILD.md`, "Live capture") refreshes once
   against the real API. Run it only with a live directory and an account the
   user names for it, and never on a branch that changes the refresh or network
-  code (the `src/` paths in `.github/workflows/sanitizers.yml`). The directory
-  and the account are local settings: they stay out of the repository, issues,
-  pull requests and commits.
+  code (the `src/` paths in `.github/workflows/sanitizers.yml`; it checks, and
+  refuses). The directory and the account are local settings: they stay out
+  of the repository, issues, pull requests and commits.
 
 ## Working Rules
 
