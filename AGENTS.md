@@ -67,12 +67,13 @@ for the change in hand:
   `8.00%` and `20 (Max)`; item classes are named `rings` and
   `one hand swords`; requirements arrive as both `Int` and `Intelligence`.
   Tests built on invented formats have hidden real defects here.
-- **Pull requests** must pass the Tests check; no other check gates a merge.
-  CodeQL and the sanitizer run happen on release tags (the sanitizer job also
-  runs, without gating, on a pull request that touches the refresh or network
-  code); a finding on a beta tag is fixed before the final release. Keep one
-  topic per pull request. The maintainer merges and decides which release a
-  change rides in; do not bump the version unless asked.
+- **Pull requests** must pass the Linux Tests check; no other check gates a
+  merge. The Windows job beside it does not gate; a pull request says so if
+  it is red. CodeQL and the sanitizer run happen on release tags (the
+  sanitizer job also runs, without gating, on a pull request that touches the
+  refresh or network code); a finding on a beta tag is fixed before the final
+  release. Keep one topic per pull request. The maintainer merges and decides
+  which release a change rides in; do not bump the version unless asked.
 - When UI behaviour changes, update `docs/user/`.
 - The C++ tree is checked against `.clang-format` in CI with a pinned
   clang-format version (`BUILD.md`, "Formatting"); format with that

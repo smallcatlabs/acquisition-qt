@@ -344,6 +344,11 @@ required while the repository has a single maintainer, and a branch need not be
 rebased onto the latest `master` before merging. Force pushes and deletion of
 the default branch are blocked.
 
+The same workflow (`.github/workflows/tests.yml`) builds and tests on Windows
+as `Build + CTest (Windows, advisory)`. The ruleset does not require that job:
+it shows a broken Windows build on the pull request that breaks it, and blocks
+nothing.
+
 ## Linux
 
 Linux builds require OpenSSL 3.x support at build and runtime. On Ubuntu-like
