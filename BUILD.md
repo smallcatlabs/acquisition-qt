@@ -261,6 +261,73 @@ usable it stops and says so. It does not start Sentry. Do not run it while
 another Acquisition is using the same account: the rate-limit counters are
 per account (N37).
 
+### Windows from another machine
+
+The pull-request job shows whether Windows builds and passes. To work on a
+failure that only happens there, an agent session on another machine (or
+anyone) can build and test on a Windows machine over SSH (#379). The machine
+is reached by a host alias, `acq-win`, in the user's own `~/.ssh/config`. The
+address, the user and the key are local settings: they stay in that file and
+out of the repository, issues, pull requests and commits.
+
+One-time setup of the Windows machine, the same tools as the pull-request job:
+
+- OpenSSH Server, with key login and PowerShell as the shell SSH starts;
+- Visual Studio 2022 Build Tools with "Desktop development with C++" (it
+  brings the compiler, CMake and Ninja);
+- Qt 6.11.3, the `msvc2022_64` kit with Qt Network Authorization, under
+  `C:\Qt`;
+- Git, and a clone of this repository at `C:\src\acquisition-qt`.
+
+Build and test a branch that has been pushed. PowerShell goes on after a
+program fails, hence the checks:
+
+```sh
+ssh acq-win '
+  $vs = "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools"
+  Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+  Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments "-arch=x64 -host_arch=x64" | Out-Null
+  Set-Location C:\src\acquisition-qt
+  git fetch origin; if ($LASTEXITCODE) { exit 1 }
+  git checkout --detach origin/<branch>; if ($LASTEXITCODE) { exit 1 }
+  cmake --preset release -G Ninja "-DCMAKE_PREFIX_PATH=C:\Qt\6.11.3\msvc2022_64"; if ($LASTEXITCODE) { exit 1 }
+  cmake --build --preset release --parallel 4; if ($LASTEXITCODE) { exit 1 }
+  ctest --preset release
+'
+```
+
+This is the `release` preset without `ACQ_WERROR`, as in the pull-request
+job. Give a long run `-o ServerAliveInterval=30`. To run one suite, add
+`-R '^tst_search$'` to `ctest`, or run the executable, which on Windows is
+`build\release\acq_tests.exe` and needs Qt on the path:
+
+```sh
+ssh acq-win '
+  Set-Location C:\src\acquisition-qt
+  $env:PATH = "C:\Qt\6.11.3\msvc2022_64\bin;$env:PATH"
+  $env:QT_QPA_PLATFORM = "offscreen"
+  .\build\release\acq_tests.exe tst_search <function> -v2
+'
+```
+
+Screenshots: on Windows the offscreen platform finds no fonts by itself, and
+every letter in a picture is drawn as an empty box. Point Qt at the system's
+fonts with `QT_QPA_FONTDIR`, then copy the pictures back:
+
+```sh
+ssh acq-win '
+  ...the Visual Studio lines and Set-Location from above...
+  $env:QT_QPA_FONTDIR = "C:\Windows\Fonts"
+  $env:ACQ_TEST_SCREENSHOT_DIR = "C:\src\shots"
+  ctest --preset release -R tst_appsmoke
+'
+scp "acq-win:C:/src/shots/*.png" <a directory outside the repository>/
+```
+
+Leave the clone as `git status` found it: change the code on the branch and
+push, not on the Windows machine. There is no live directory on it, so
+`live_capture` is not run there.
+
 ## Formatting
 
 The C++ files under `src/` and `tests/` follow `.clang-format`, and the test
