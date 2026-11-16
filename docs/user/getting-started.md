@@ -35,9 +35,16 @@ the button offers **Authenticate** again:
 | *Authentication failed: no token was received from Path of Exile.* | The browser answered, but Path of Exile did not complete the login, or could not be reached |
 
 Acquisition keeps the OAuth token, so on later launches you only need to click
-**Login**. The token is refreshed at startup; if the refresh fails you will see
-*The OAuth token needs to be refreshed* or *The OAuth token is not valid* — click
-**Authenticate** again.
+**Login**. The token is refreshed at startup. If that fails, **Login** stays
+disabled and a red message says which of two things happened:
+
+| Message | Meaning |
+|---|---|
+| *The stored login was refused by Path of Exile. Please authenticate again.* | Path of Exile no longer accepts the stored token (it can expire or be withdrawn on their side). Acquisition has removed it; click **Authenticate** |
+| *Could not refresh the stored login: the Path of Exile server could not be reached.* | The network or the server failed. The stored token is kept: restart Acquisition to try again, or click **Authenticate** to log in afresh |
+
+If **Login** is enabled but answers *The OAuth token needs to be refreshed* or
+*The OAuth token is not valid*, click **Authenticate** again.
 
 Login is also refused, with a message under the button, when it cannot tell
 who the session is for: *The OAuth token does not name an account; please

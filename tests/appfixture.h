@@ -109,11 +109,6 @@ public:
         seedUserStore();
         seedSettings();
 
-        auto scripted = std::make_unique<ScriptedNetwork>();
-        network = scripted.get();
-        answerStartUp();
-        answerApi();
-
         // A modal dialog would block the test until CTest's timeout; close it
         // and keep its title and text, so the scenario fails with what it said.
         QObject::connect(&m_dialog_watch, &QTimer::timeout, &m_dialog_watch, [this] {
@@ -145,10 +140,20 @@ public:
         });
         m_dialog_watch.start(100);
 
-        if (before_start) {
-            before_start(*this);
+        start(before_start);
+    }
+
+    // Ends the application and builds it again over the same data directory,
+    // with a new script, as when the user quits Acquisition and starts it
+    // again. `before_start` runs as the constructor's does. Only while
+    // nobody has logged in: a process holds one user session.
+    void restart(const std::function<void(AppFixture &)> &before_start = {})
+    {
+        if (access().hasSession()) {
+            qFatal("AppFixture: restart() after a login");
         }
-        app = std::make_unique<Application>(QDir(dir.path()), std::move(scripted));
+        app.reset();
+        start(before_start);
     }
 
     ApplicationTestAccess access() const { return ApplicationTestAccess(*app); }
@@ -540,6 +545,19 @@ public:
     std::unique_ptr<Application> app;
 
 private:
+    // Builds the application over the data directory, with a new script.
+    void start(const std::function<void(AppFixture &)> &before_start)
+    {
+        auto scripted = std::make_unique<ScriptedNetwork>();
+        network = scripted.get();
+        answerStartUp();
+        answerApi();
+        if (before_start) {
+            before_start(*this);
+        }
+        app = std::make_unique<Application>(QDir(dir.path()), std::move(scripted));
+    }
+
     // The rate-limit headers the API sends with every reply, HEAD included:
     // one rule with room to spare, so the limiter never has to wait for more
     // than its own spacing between sends.

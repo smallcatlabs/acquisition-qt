@@ -118,6 +118,10 @@ LoginDialog::LoginDialog(QSettings &settings,
     // Listen for access from the OAuth manager, and for a login that fails.
     connect(&m_oauth_manager, &OAuthManager::grantAccess, this, &LoginDialog::OnOAuthAccessGranted);
     connect(&m_oauth_manager, &OAuthManager::loginFailed, this, &LoginDialog::OnOAuthLoginFailed);
+    connect(&m_oauth_manager,
+            &OAuthManager::storedLoginFailed,
+            this,
+            &LoginDialog::OnOAuthStoredLoginFailed);
 
     // Use OnLoginTabChanged to do things like enable the login button.
     OnLoginTabChanged(ui->loginTabs->currentIndex());
@@ -358,6 +362,16 @@ void LoginDialog::OnOAuthLoginFailed(const QString &reason)
 {
     spdlog::trace("LoginDialog::OnOAuthLoginFailed() entered");
     DisplayAuthenticationError(reason);
+}
+
+void LoginDialog::OnOAuthStoredLoginFailed(const QString &reason)
+{
+    spdlog::trace("LoginDialog::OnOAuthStoredLoginFailed() entered");
+    // The Authenticate button is left alone: a browser login the user has
+    // started meanwhile is still waiting, and the button says so.
+    DisplayError(reason);
+    // DisplayError re-enables Login; it stays as it was without a token.
+    ui->loginButton->setEnabled(m_current_token.has_value());
 }
 
 void LoginDialog::OnLoginTabChanged(int index)

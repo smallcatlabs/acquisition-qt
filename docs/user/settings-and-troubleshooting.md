@@ -90,6 +90,8 @@ sharing either.
 | *SSL support is missing* at start-up | Acquisition found no working TLS backend; the log lists the backends it found, and `acquisition --check-tls` prints the same. Report it with that output |
 | Login button stays disabled | You have not authenticated, or no league is selected |
 | The button reads *Authenticating...* and nothing happens | The browser has not answered; click the button again to start over |
+| *The stored login was refused by Path of Exile* at start-up | The stored token is no longer accepted and has been removed; click **Authenticate** |
+| *Could not refresh the stored login* at start-up | The network or the Path of Exile server failed; the token is kept. Restart to try again, or click **Authenticate** |
 | *Authentication failed: ...* on the login window | The browser login did not complete; see [Logging in](getting-started.md#logging-in), then click **Authenticate** again |
 | *Update failed: Path of Exile rejected the login (HTTP 401)* | The login has expired or was revoked; restart Acquisition and log in again |
 | Refresh seems stuck | Open the Rate Limit Status Window; the API is probably throttling |

@@ -10,8 +10,11 @@
 #include <QUrl>
 #include <QVariantMap>
 
+#include <optional>
+
 #include "util/oauthtoken.h"
 
+class QNetworkReply;
 class QOAuth2AuthorizationCodeFlow;
 class QOAuthHttpServerReplyHandler;
 
@@ -44,8 +47,24 @@ signals:
     // `reason` is a line for the user. It holds at most the error code and
     // the description the server sent, never a code or a token.
     void loginFailed(const QString &reason);
+    // The refresh of the stored login, at start, has failed: the server
+    // refused the token, which is then gone from the store, or could not be
+    // reached, and the token is kept. `reason` says which, to the user. A
+    // browser login the user has started meanwhile is still waiting.
+    void storedLoginFailed(const QString &reason);
 
 private:
+    // What a reply of the token endpoint said, beyond what Qt reports.
+    struct TokenReply
+    {
+        bool refresh;       // it answers a refresh, not a code exchange
+        bool token_refused; // its body is the server's `invalid_grant`
+        int http_status;    // 0 when no answer came
+        int network_error;  // QNetworkReply::NetworkError
+    };
+
+    void noteTokenReply(QNetworkReply *reply);
+    void failStoredLogin(const TokenReply &reply);
     // Ends the browser login in progress, if there is one: nothing listens
     // for its redirect any more.
     void endLogin();
@@ -63,4 +82,6 @@ private:
     bool m_login_in_progress{false};
     // The last redirect received carried another state than its login's.
     bool m_state_mismatch{false};
+    // The token endpoint's reply that Qt is handling, while it handles it.
+    std::optional<TokenReply> m_token_reply;
 };
