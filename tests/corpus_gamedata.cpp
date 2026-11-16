@@ -41,7 +41,6 @@
 
 #include "corpusdump.h"
 #include "repoe/baseitem.h"
-#include "repoe/itemclass.h"
 #include "util/glaze_qt.h" // IWYU pragma: keep
 
 namespace {
@@ -186,69 +185,27 @@ namespace {
         return kept;
     }
 
-    // Cut the base items with a wanted name. Returns how many were kept.
-    //
-    // The application keeps one item class for a name. Where the game data
-    // gives a name entries of different classes, the one it keeps is the one
-    // its hash table happens to yield last, which depends on the other names
-    // in the table. So that the excerpt cannot give a different answer from
-    // the whole, only the entries of the class the application chose with
-    // the whole game data, which is loaded when this runs, are kept for such
-    // a name; each is reported.
-    size_t cutBaseItems(const QString &from,
-                        const QString &to,
-                        const QString &classes_file,
-                        const std::set<QString> &wanted)
+    // Cut the base items with a wanted name: every entry of that name, so a
+    // name the game data gives several item classes keeps them all and the
+    // excerpt resolves it as the whole does (#390). Returns how many were kept.
+    size_t cutBaseItems(const QString &from, const QString &to, const std::set<QString> &wanted)
     {
         const std::string text = corpus::readFile(from).toStdString();
         std::map<std::string, glz::raw_json> entries;
         if (const auto error = glz::read<permissive>(entries, text)) {
             qFatal("cannot parse %s: %s", qPrintable(from), glz::format_error(error, text).c_str());
         }
-        const std::string classes_text = corpus::readFile(classes_file).toStdString();
-        std::map<QString, repoe::ItemClass> classes;
-        if (const auto error = glz::read<permissive>(classes, classes_text)) {
-            qFatal("cannot parse %s", qPrintable(classes_file));
-        }
-        const auto categoryOf = [&classes](const QString &class_id) {
-            const auto found = classes.find(class_id);
-            return (found == classes.end()) ? QString() : found->second.name.toLower();
-        };
-
-        // The categories each wanted name could get.
-        std::map<QString, std::set<QString>> categories;
-        std::vector<std::pair<std::string, repoe::BaseItem>> candidates;
+        QByteArray out = "{";
+        size_t kept = 0;
         for (const auto &[key, entry] : entries) {
             repoe::BaseItem base;
             if (glz::read<permissive>(base, entry.str) || !wanted.contains(base.name)) {
                 continue;
             }
-            if (base.release_state != "unreleased") {
-                categories[base.name].insert(categoryOf(base.item_class));
-            }
-            candidates.emplace_back(key, base);
-        }
-
-        QByteArray out = "{";
-        size_t kept = 0;
-        for (const auto &[key, base] : candidates) {
-            const std::set<QString> &possible = categories[base.name];
-            if (possible.size() > 1) {
-                const QString chosen = GetItemCategory(base.name);
-                if (categoryOf(base.item_class) != chosen) {
-                    std::printf("left out: %s, one of %zu categories for '%s'; the application "
-                                "chose '%s'\n",
-                                key.c_str(),
-                                possible.size(),
-                                qPrintable(base.name),
-                                qPrintable(chosen));
-                    continue;
-                }
-            }
             std::string quoted;
             (void) glz::write_json(key, quoted);
             out += (kept == 0 ? "\n" : ",\n") + QByteArray::fromStdString(quoted) + ":"
-                   + QByteArray::fromStdString(entries.at(key).str);
+                   + QByteArray::fromStdString(entry.str);
             ++kept;
         }
         out += "\n}\n";
@@ -279,7 +236,6 @@ int main(int argc, char *argv[])
 
     const size_t base_items = cutBaseItems(repoe.filePath("base_items.min.json"),
                                            out.filePath("base_items.min.json"),
-                                           repoe.filePath("item_classes.min.json"),
                                            whole.base_names);
     const size_t translations = cutTranslations(repoe.filePath("stat_translations.min.json"),
                                                 out.filePath("stat_translations.min.json"),

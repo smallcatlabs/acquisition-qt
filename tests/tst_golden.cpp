@@ -20,6 +20,8 @@
 
 #include <QDir>
 #include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
 
 #include "corpusdump.h"
 #include "testsuite.h"
@@ -122,6 +124,9 @@ private slots:
     void aChangedLineIsReported();
     void aMissingGoldenFileIsReported();
     void theGameDataReachesTheItems();
+
+    // #390. Last: it loads other base items, and puts the excerpt back.
+    void aNameWithSeveralClassesGetsTheSameOneWhateverElseIsLoaded();
 };
 
 void GoldenTest::initTestCase()
@@ -224,6 +229,59 @@ void GoldenTest::theGameDataReachesTheItems()
              qPrintable(QString("%1 of %2 items have a category").arg(categorised).arg(items_seen)));
     QVERIFY2(with_mods * 3 > items_seen,
              qPrintable(QString("%1 of %2 items have a mod table").arg(with_mods).arg(items_seen)));
+}
+
+// The game data gives some names entries of several item classes. Which one
+// an item of that name gets must not depend on what else is loaded, or on
+// the order the entries are written in: it is the entry whose key comes last.
+// The three names are the corpus's own; their items say which class is meant
+// (the resonators carry a stack size, the invitation a quest item's frame).
+void GoldenTest::aNameWithSeveralClassesGetsTheSameOneWhateverElseIsLoaded()
+{
+    const QDir game_data = fixtureDir("payloads-repoe");
+    const std::map<QString, QString> expected{
+        {"Polaric Invitation", "quest items"},
+        {"Potent Chaotic Resonator", "delve stackable socketable currency"},
+        {"Powerful Alchemical Resonator", "delve stackable socketable currency"},
+    };
+
+    // The excerpt's entries, as written: these names' and the others'.
+    const QJsonObject all = QJsonDocument::fromJson(
+                                corpus::readFile(game_data.filePath("base_items.min.json")))
+                                .object();
+    QStringList theirs;
+    QStringList others;
+    for (auto entry = all.begin(); entry != all.end(); ++entry) {
+        const QString text = '"' + entry.key() + "\":"
+                             + QJsonDocument(entry.value().toObject()).toJson(QJsonDocument::Compact);
+        const QString name = entry.value().toObject().value("name").toString();
+        (expected.contains(name) ? theirs : others) << text;
+    }
+    QCOMPARE(theirs.size(), 6); // two entries for each name
+    QVERIFY(others.size() > 100);
+
+    // Beside more and more of the other entries, and written in either
+    // order: a table that yields its entries in another order each time.
+    QStringList seen;
+    for (const qsizetype beside : {0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144}) {
+        for (const bool reversed : {false, true}) {
+            QStringList entries = theirs + others.first(beside);
+            if (reversed) {
+                std::reverse(entries.begin(), entries.end());
+            }
+            InitItemBaseTypes(('{' + entries.join(',') + '}').toUtf8());
+            for (const auto &[name, category] : expected) {
+                if (GetItemCategory(name) != category) {
+                    seen << QString("%1 is '%2' beside %3 other entries%4")
+                                .arg(name, GetItemCategory(name))
+                                .arg(beside)
+                                .arg(reversed ? ", written in reverse" : "");
+                }
+            }
+        }
+    }
+    corpus::loadGameData(game_data);
+    QVERIFY2(seen.isEmpty(), qPrintable(seen.join('\n')));
 }
 
 ACQ_TEST_GUILESS_MAIN(GoldenTest)

@@ -1280,7 +1280,7 @@ hash: 95ff28313f1d0ae74a5ffef9af93dbc9
 id: d6f63cc4d121909bdfe634b51004a153eb004567892d8552dc1a9268b0f8e0ba
 location: ExampleCharacter1
 forum code: [linkItem location="MainInventory" character="ExampleCharacter1" x="9" y="0" realm="pc"]
-frame type 7, category 'misc map items', item level 0, 1x1, count 1
+frame type 7, category 'quest items', item level 0, 1x1, count 1
 flags: identified
 tooltip:
   <center><font color='#fff'>Polaric Invitation</font><hr>

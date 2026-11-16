@@ -83,7 +83,10 @@ void InitItemBaseTypes(const QByteArray &baseTypes)
 {
     static bool basetypes_initialized = false;
 
-    std::unordered_map<QString, repoe::BaseItem> base_items;
+    // By key, in order: the game data gives some names entries of several
+    // item classes, and the loop below keeps the last one it meets. In an
+    // unordered table that depended on what else was loaded (#390).
+    std::map<QString, repoe::BaseItem> base_items;
 
     const std::string_view sv{baseTypes.constBegin(), size_t(baseTypes.size())};
     constexpr const glz::opts permissive{.error_on_unknown_keys = false};
@@ -112,6 +115,7 @@ void InitItemBaseTypes(const QByteArray &baseTypes)
             || name.startsWith("[DNT")) {
             continue;
         }
+        // The entry whose key comes last wins.
         data.m_itemBaseTypeToClass[name] = item_info.item_class;
     }
 
