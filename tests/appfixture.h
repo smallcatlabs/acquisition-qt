@@ -62,9 +62,9 @@
 // therefore a local of the test function, destroyed when it returns; only
 // Qt Test's own clean-up follows.
 //
-// What it does not exercise: the OAuth login (logIn() starts where the login
-// dialog ends), and the request headers and cookies NetworkManager adds
-// (scriptednetwork.h).
+// What it does not exercise: the request headers and cookies NetworkManager
+// adds (scriptednetwork.h). logIn() starts where the login dialog ends; the
+// dialog and the OAuth exchange before it are tst_applogin's.
 // The scripted API has one rate-limit rule with room to spare, so the
 // limiter's waits beyond its own spacing between sends never happen here.
 //
@@ -86,7 +86,11 @@ public:
         QByteArray reply; // the reply's `stash` object, byte for byte
     };
 
-    AppFixture()
+    // `before_start` runs once the scene and the script are in place and
+    // before the application is built: what the application reads or asks
+    // for while it is built (a stored OAuth token, the token endpoint) has to
+    // be there by then.
+    explicit AppFixture(const std::function<void(AppFixture &)> &before_start = {})
     {
         QStandardPaths::setTestModeEnabled(true);
         if (!dir.isValid()) {
@@ -141,13 +145,16 @@ public:
         });
         m_dialog_watch.start(100);
 
+        if (before_start) {
+            before_start(*this);
+        }
         app = std::make_unique<Application>(QDir(dir.path()), std::move(scripted));
     }
 
     ApplicationTestAccess access() const { return ApplicationTestAccess(*app); }
 
     // What the login dialog does once the user is authenticated and presses
-    // Login. The OAuth exchange before it needs a browser and stays manual.
+    // Login. The OAuth exchange before it is tst_applogin's.
     void logIn()
     {
         emit access().login().LoginComplete(makeTestIdentity(kAccount, kRealm, kLeague));

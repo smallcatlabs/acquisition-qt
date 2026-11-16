@@ -189,6 +189,14 @@ acq_add_test(tst_workerparse)
 acq_add_test(tst_workerupdate)
 acq_add_test(tst_wiretypes)
 
+# Logging in on the real Application and a scripted network (#380), one
+# scenario per process (appfixture.h says why).
+acq_add_scenario_test(tst_applogin
+    storedTokenIsRefreshedAndLogsIn
+    browserLoginStoresTheTokenAndLogsIn
+    rejectedStoredTokenGivesNoSession
+    redirectWithWrongStateIsIgnored)
+
 acq_add_scenario_test(tst_workerintegration
     fullChainStashListSucceeds
     i_cancel_pacing
