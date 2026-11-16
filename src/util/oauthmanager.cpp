@@ -38,8 +38,15 @@ namespace {
 
     constexpr const std::chrono::seconds REFRESH_LEAD_TIME{300};
 
-    // How much of a token-endpoint reply is read for the error it names.
+    // The error code with which the token endpoint refuses a token it was
+    // sent (RFC 6749, 5.2; N46), and how much of a reply is read for the
+    // error it names.
+    constexpr const char *TOKEN_REFUSED = "invalid_grant";
     constexpr qint64 ERROR_BODY_LIMIT = 4096;
+
+    // The request attribute that says which stage of the flow
+    // (QAbstractOAuth::Stage) a request to the token endpoint belongs to.
+    constexpr QNetworkRequest::Attribute STAGE_ATTRIBUTE = QNetworkRequest::User;
 
     // This list is complete as of Qt 6.9.1:
     // See https://doc.qt.io/qt-6/qabstractoauth.html#Error-enum
@@ -79,8 +86,10 @@ namespace {
     // endpoint to `note` before Qt handles it, and calls `note` with nullptr
     // once Qt has. What Qt makes of an error reply depends on its release:
     // 6.11.1 reports a failed request and reads no body; 6.11.3 and 6.12.0
-    // read the body and report the error it names. Reading the reply here
-    // gives the user the same line with each.
+    // read the body and report the error it names. None says whether the
+    // server answered at all, or with what status. Reading the reply here
+    // gives the user the same line with each, and tells a refused token from
+    // a server that could not be reached.
     class ReplyHandler : public QOAuthHttpServerReplyHandler
     {
     public:
@@ -144,6 +153,16 @@ OAuthManager::OAuthManager(NetworkManager &network_manager, DataStore &datastore
             }
         });
 
+    // Every request to the token endpoint says which stage it belongs to, so
+    // that its reply is known for a refresh's or a code exchange's. The
+    // flow's status does not say: starting a browser login resets it while a
+    // refresh is still in flight.
+    m_oauth->setNetworkRequestModifier(this,
+                                       [](QNetworkRequest &request, QAbstractOAuth::Stage stage) {
+                                           request.setAttribute(STAGE_ATTRIBUTE,
+                                                                static_cast<int>(stage));
+                                       });
+
     // Connect the oauth code flow and add error logging.
     connect(m_oauth, &QAbstractOAuth::authorizeWithBrowser, this, &QDesktopServices::openUrl);
     connect(m_oauth, &QAbstractOAuth::granted, this, &OAuthManager::receiveGrant);
@@ -180,6 +199,17 @@ void OAuthManager::onRequestFailure(const QAbstractOAuth::Error error)
     }
     spdlog::error("OAuth: request failed: error {} ({})", static_cast<int>(error), name);
 
+    // A refresh that failed. Before anything has been granted in this run it
+    // can only be the refresh of the stored login, at start (#402); a later
+    // one, of a token granted in this run, is left at the log line above.
+    // Either way it is no failure of a browser login that may be waiting.
+    if (m_token_reply && m_token_reply->refresh) {
+        if (m_token.access_token.isEmpty()) {
+            failStoredLogin(*m_token_reply);
+        }
+        return;
+    }
+
     // Qt names no cause beyond `error`. A redirect it refused for its state
     // was noted by receiveCallback, and an error the token endpoint named by
     // noteTokenReply; anything else left the login without a token, whether
@@ -206,9 +236,16 @@ void OAuthManager::onServerError(const QString &error,
                   errorDescription,
                   uri.toDisplayString());
 
+    // An error the token endpoint gave a refresh (Qt 6.11.3 and 6.12.0
+    // report it here first) is not the browser login's: requestFailed, which
+    // Qt emits next, deals with the refresh.
+    if (m_token_reply && m_token_reply->refresh) {
+        return;
+    }
+
     // The error a redirect brought is shown only when the redirect is this
-    // login's. With another state it is anybody's text: requestFailed, which
-    // Qt emits next, then reports the mismatch instead.
+    // login's. With another state it is anybody's text: requestFailed then
+    // reports the mismatch instead.
     if (m_login_in_progress && !m_state_mismatch) {
         failLogin(serverErrorReason(error, errorDescription));
     }
@@ -230,9 +267,33 @@ void OAuthManager::noteTokenReply(QNetworkReply *reply)
     // peek(), not read(): the body is Qt's to read.
     const QJsonObject body = QJsonDocument::fromJson(reply->peek(ERROR_BODY_LIMIT)).object();
     m_token_reply = TokenReply{
+        .refresh = (reply->request().attribute(STAGE_ATTRIBUTE).toInt()
+                    == static_cast<int>(QAbstractOAuth::Stage::RefreshingAccessToken)),
         .error = body.value("error").toString(),
         .description = body.value("error_description").toString(),
+        .http_status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(),
+        .network_error = static_cast<int>(reply->error()),
     };
+}
+
+void OAuthManager::failStoredLogin(const TokenReply &reply)
+{
+    if (reply.error == TOKEN_REFUSED) {
+        // One refusal is final (N46): the token is of no further use, and
+        // refreshing it at every start would spend a request each time.
+        spdlog::error("OAuth: the server refused the stored login (HTTP {}): removing it",
+                      reply.http_status);
+        m_data.Set("oauth_token", "");
+        emit storedLoginFailed("The stored login was refused by Path of Exile. "
+                               "Please authenticate again.");
+    } else {
+        spdlog::error("OAuth: the stored login could not be refreshed (HTTP {}, network error "
+                      "{}): keeping it",
+                      reply.http_status,
+                      reply.network_error);
+        emit storedLoginFailed("Could not refresh the stored login: the Path of Exile server "
+                               "could not be reached.");
+    }
 }
 
 void OAuthManager::endLogin()

@@ -196,7 +196,13 @@ acq_add_test(tst_wiretypes)
 acq_add_scenario_test(tst_applogin
     storedTokenIsRefreshedAndLogsIn
     browserLoginStoresTheTokenAndLogsIn
-    rejectedStoredTokenGivesNoSession
+    rejectedStoredTokenIsDroppedAndSaid
+    unreachableServerKeepsTheStoredToken
+    serverErrorKeepsTheStoredToken
+    otherRefusalKeepsTheStoredToken
+    storedLoginRefusedWhileTheBrowserIsOut
+    refreshRejectedDuringARunIsLeftAlone
+    failedReauthenticationKeepsTheLogin
     redirectWithWrongStateEndsTheAttempt
     deniedInTheBrowserIsShown
     refusedCodeExchangeIsShown

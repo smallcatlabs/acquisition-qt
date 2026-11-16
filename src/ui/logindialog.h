@@ -49,6 +49,7 @@ private slots:
     void OnThemeChanged(const QString &theme);
     void OnOAuthAccessGranted(const OAuthToken &token);
     void OnOAuthLoginFailed(const QString &reason);
+    void OnOAuthStoredLoginFailed(const QString &reason);
 
 protected:
     bool event(QEvent *e);
