@@ -16,6 +16,7 @@
 #include <spdlog/spdlog.h>
 
 #include "appfixture.h"
+#include "liverecord.h"
 #include "shop.h"
 #include "testsuite.h"
 #include "viewtranscript.h"
@@ -30,6 +31,7 @@ private slots:
 
     // Step 2: start with cached items; the window is usable while they load.
     void startsWithCachedItems();
+    void aLiveRunsRecordIsWhatTheWindowShows();
     // Logging in before the game data has arrived (#386).
     void categoryFilterWorksAfterAnEarlyLogin();
     // Step 3: a refresh keeps selection, the current row and collapsed tabs.
@@ -155,6 +157,48 @@ void AppSmokeTest::initTestCase()
 void AppSmokeTest::cleanupTestCase()
 {
     spdlog::drop("main");
+}
+
+// Not a smoke step: what live_capture writes down after a live refresh
+// (liverecord.h), made here from the scripted window.
+void AppSmokeTest::aLiveRunsRecordIsWhatTheWindowShows()
+{
+    AppFixture fixture;
+    QVERIFY(QTest::qWaitFor([&] { return fixture.access().gameDataLoaded(); }, 10000));
+    fixture.logIn();
+    ScreenshotOnFailure screenshot{fixture.window()};
+    QTRY_COMPARE(fixture.tree().model()->rowCount(), 3);
+    // Whatever is open when the run ends, the record opens every tab.
+    fixture.tree().collapseAll();
+    QTemporaryDir out;
+    QVERIFY(out.isValid());
+
+    QCOMPARE(WriteLiveRecord(fixture.window(), fixture.tree(), QDir(out.path())), QString());
+
+    QFile transcript(QDir(out.path()).filePath("transcript.txt"));
+    QVERIFY(transcript.open(QIODevice::ReadOnly));
+    const QString text = QString::fromUtf8(transcript.readAll());
+    QVERIFY(text.endsWith('\n'));
+    const QStringList lines = text.chopped(1).split('\n');
+    QCOMPARE(lines, viewTranscript(fixture.tree()));
+    QCOMPARE(lines.filter("[-] ").size(), 3);
+    QVERIFY2(lines.filter("Viper Suit Loricated Ringmail").size() == 1, qPrintable(text));
+
+    const QImage picture(QDir(out.path()).filePath("window.png"));
+    QVERIFY(!picture.isNull());
+    QCOMPARE(picture.size(), fixture.window().grab().size());
+
+    // A record that cannot be written is said, not passed over: here the
+    // transcript's name is taken by a directory, then the picture's.
+    for (const char *taken : {"transcript.txt", "window.png"}) {
+        QTemporaryDir blocked;
+        QVERIFY(blocked.isValid());
+        QVERIFY(QDir(blocked.path()).mkdir(taken));
+        const QString problem = WriteLiveRecord(fixture.window(),
+                                                fixture.tree(),
+                                                QDir(blocked.path()));
+        QVERIFY2(problem.contains(taken), qPrintable(problem));
+    }
 }
 
 void AppSmokeTest::startsWithCachedItems()

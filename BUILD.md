@@ -227,8 +227,15 @@ application-data location in which you have logged in once, with
 it into the repository, an issue or a pull request.
 
 ```sh
-./build/dev/tests/live_capture --data-dir <dir> --account '<name#1234>' --league <league>
+./build/dev/tests/live_capture --data-dir <dir> --account '<name#1234>' --league <league> [--out <dir>]
 ```
+
+With `--out` it leaves two files in that directory when the refresh has
+ended: `transcript.txt`, what the item tree shows with every tab opened
+(`tests/viewtranscript.h` describes the format), and `window.png`, a picture
+of the window. They name your tabs, characters and items. The directory must
+exist, and it is refused inside the source tree, where the files could be
+committed, and inside the platform's application-data location.
 
 It refuses a directory that is the platform's application-data location or
 inside it, a directory logged in as another account, and a session with a

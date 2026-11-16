@@ -45,7 +45,8 @@ for the change in hand:
   `Application` over a temporary data directory, with the network answered
   from files. `tests/tst_appsmoke.cpp` runs the release smoke list this way.
 - **The live API.** `live_capture` (`BUILD.md`, "Live capture") refreshes once
-  against the real API. Run it only with a live directory and an account the
+  against the real API, and with `--out` leaves what the window then shows as
+  text and as a picture. Run it only with a live directory and an account the
   user names for it, and never on a branch that changes the refresh or network
   code (the `src/` paths in `.github/workflows/sanitizers.yml`; it checks, and
   refuses). The directory and the account are local settings: they stay out

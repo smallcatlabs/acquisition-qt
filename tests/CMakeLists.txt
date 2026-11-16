@@ -91,7 +91,7 @@ endforeach()
 qt_add_executable(live_capture live_capture.cpp)
 acq_first_party(live_capture)
 target_include_directories(live_capture PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(live_capture PRIVATE acquisition_core)
+target_link_libraries(live_capture PRIVATE acquisition_core Qt6::Test)
 # It looks at this source tree's branch before it runs (tests/liveguards.h).
 target_compile_definitions(live_capture PRIVATE ACQ_SOURCE_DIR="${acquisition_SOURCE_DIR}")
 if(WIN32)
@@ -207,6 +207,7 @@ acq_add_scenario_test(tst_workerintegration
 # as scenarios, one per process (appfixture.h says why).
 acq_add_scenario_test(tst_appsmoke
     startsWithCachedItems
+    aLiveRunsRecordIsWhatTheWindowShows
     categoryFilterWorksAfterAnEarlyLogin
     refreshCheckedKeepsTheView
     refreshSelectedKeepsTheView

@@ -63,6 +63,13 @@ LiveChanges LiveChangesSinceMaster(const QDir &source);
 // refused.
 QString LiveBranchRefusal(const QDir &source);
 
+// Checked before anything is opened. What a live run writes down
+// (liverecord.h) names the user's tabs, characters and items, so `out` must
+// exist and must not be one of `forbidden_roots` or inside one: the source
+// tree, where it could be committed, and the platform's application-data
+// locations.
+QString LiveOutputRefusal(const QDir &out, const QStringList &forbidden_roots);
+
 inline QStringList PlatformDataRoots()
 {
     QStringList roots = QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation);
@@ -99,6 +106,22 @@ namespace liveguards_detail {
                || path.startsWith(root + '/', Qt::CaseInsensitive);
     }
 
+    // The one of `roots` that `path` is or is inside, in any spelling of
+    // either; nothing if there is none.
+    inline QString RootHolding(const QString &path, const QStringList &roots)
+    {
+        for (const QString &root : roots) {
+            for (const QString &root_spelling : Spellings(root)) {
+                for (const QString &path_spelling : Spellings(path)) {
+                    if (IsOrIsInside(path_spelling, root_spelling)) {
+                        return root;
+                    }
+                }
+            }
+        }
+        return {};
+    }
+
 } // namespace liveguards_detail
 
 inline QString LiveDirectoryRefusal(const QDir &dir,
@@ -111,15 +134,10 @@ inline QString LiveDirectoryRefusal(const QDir &dir,
     if (!dir.exists()) {
         return "the live directory does not exist: " + dir.absolutePath();
     }
-    for (const QString &root : forbidden_roots) {
-        for (const QString &root_spelling : liveguards_detail::Spellings(root)) {
-            for (const QString &dir_spelling : liveguards_detail::Spellings(dir.absolutePath())) {
-                if (liveguards_detail::IsOrIsInside(dir_spelling, root_spelling)) {
-                    return "a live run never uses the platform's application-data location, and "
-                           + dir.absolutePath() + " is " + root + " or inside it";
-                }
-            }
-        }
+    const QString root = liveguards_detail::RootHolding(dir.absolutePath(), forbidden_roots);
+    if (!root.isEmpty()) {
+        return "a live run never uses the platform's application-data location, and "
+               + dir.absolutePath() + " is " + root + " or inside it";
     }
     const QString settings_file = dir.filePath("settings.ini");
     if (!QFile::exists(settings_file)) {
@@ -292,4 +310,17 @@ inline QString LiveBranchRefusal(const QDir &source)
     // A stale origin/master makes master's own later changes look like the
     // branch's; say what the comparison was with.
     return refusal.isEmpty() ? refusal : refusal + " (compared with origin/master as last fetched)";
+}
+
+inline QString LiveOutputRefusal(const QDir &out, const QStringList &forbidden_roots)
+{
+    if (!out.exists()) {
+        return "the output directory does not exist: " + out.absolutePath();
+    }
+    const QString root = liveguards_detail::RootHolding(out.absolutePath(), forbidden_roots);
+    if (!root.isEmpty()) {
+        return "what a live run writes down names the user's tabs, characters and items, and "
+               + out.absolutePath() + " is " + root + " or inside it";
+    }
+    return {};
 }

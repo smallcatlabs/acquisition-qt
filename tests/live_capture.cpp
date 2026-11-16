@@ -11,6 +11,10 @@
 // project's identity. Run it by hand:
 //
 //   live_capture --data-dir <dir> --account <name#1234> --league <league>
+//                [--out <dir>]
+//
+// With --out it leaves what the window shows when the refresh has ended, as
+// text and as a picture (tests/liverecord.h).
 //
 // It refuses (tests/liveguards.h) a directory under the platform's
 // application-data location, a directory logged in as another account, a
@@ -33,6 +37,7 @@
 #include <QSslSocket>
 #include <QTextStream>
 #include <QTimer>
+#include <QTreeView>
 
 #include <chrono>
 #include <clocale>
@@ -46,6 +51,7 @@
 #include "applicationtestaccess.h"
 #include "itemsmanager.h"
 #include "liveguards.h"
+#include "liverecord.h"
 #include "refreshoutcome.h"
 #include "shop.h"
 #include "ui/logindialog.h"
@@ -70,10 +76,15 @@ namespace {
     class Capture : public QObject
     {
     public:
-        Capture(Application &app, QString account, QString league, std::chrono::minutes limit)
+        Capture(Application &app,
+                QString account,
+                QString league,
+                QString out,
+                std::chrono::minutes limit)
             : m_access(app)
             , m_account(std::move(account))
             , m_league(std::move(league))
+            , m_out(std::move(out))
             , m_limit(limit)
         {
             m_clock.start();
@@ -204,12 +215,31 @@ namespace {
             }
             // Let whatever the terminal event queued run before the loop ends.
             m_stage = Stage::Leaving;
-            QTimer::singleShot(1s, this, &Capture::leave);
+            QTimer::singleShot(1s, this, &Capture::recordAndLeave);
+        }
+
+        void recordAndLeave()
+        {
+            auto *tree = m_access.mainWindow().findChild<QTreeView *>("treeView");
+            if (!m_out.isEmpty() && !tree) {
+                m_succeeded = false;
+                say("FAILED: the main window has no item tree to write down");
+            } else if (!m_out.isEmpty()) {
+                const QString problem = WriteLiveRecord(m_access.mainWindow(), *tree, QDir(m_out));
+                m_succeeded = m_succeeded && problem.isEmpty();
+                // Where they are, not what they hold: the rows name the
+                // user's tabs and characters.
+                say(problem.isEmpty()
+                        ? QString("Wrote transcript.txt and window.png to %1.").arg(m_out)
+                        : "FAILED: " + problem);
+            }
+            leave();
         }
 
         ApplicationTestAccess m_access;
         const QString m_account;
         const QString m_league;
+        const QString m_out;
         const std::chrono::minutes m_limit;
         QElapsedTimer m_clock;
         QTimer m_tick;
@@ -237,10 +267,11 @@ int main(int argc, char *argv[])
     QCommandLineOption option_data_dir("data-dir", "The live data directory.", "dir");
     QCommandLineOption option_account("account", "The account logged in there.", "account");
     QCommandLineOption option_league("league", "The league to refresh.", "league");
+    QCommandLineOption option_out("out", "Where to leave what the window shows.", "dir");
     QCommandLineOption option_minutes("minutes", "Give up after this many minutes.", "n", "30");
     QCommandLineParser parser;
     parser.addHelpOption();
-    parser.addOptions({option_data_dir, option_account, option_league, option_minutes});
+    parser.addOptions({option_data_dir, option_account, option_league, option_out, option_minutes});
     parser.process(a);
     if (!parser.isSet(option_data_dir) || !parser.isSet(option_league)) {
         say("FAILED: --data-dir, --account and --league are all required");
@@ -259,6 +290,14 @@ int main(int argc, char *argv[])
     if (!branch_refusal.isEmpty()) {
         say("FAILED: " + branch_refusal);
         return EXIT_FAILURE;
+    }
+    if (parser.isSet(option_out)) {
+        const QString out_refusal = LiveOutputRefusal(QDir(parser.value(option_out)),
+                                                      PlatformDataRoots() << ACQ_SOURCE_DIR);
+        if (!out_refusal.isEmpty()) {
+            say("FAILED: " + out_refusal);
+            return EXIT_FAILURE;
+        }
     }
     if (!QSslSocket::supportsSsl()) {
         say("FAILED: this Qt has no TLS backend that supports SSL");
@@ -284,6 +323,8 @@ int main(int argc, char *argv[])
     Capture capture(app,
                     account,
                     parser.value(option_league),
+                    parser.isSet(option_out) ? QDir(parser.value(option_out)).absolutePath()
+                                             : QString(),
                     std::chrono::minutes(parser.value(option_minutes).toInt()));
     a.exec();
     return capture.succeeded() ? EXIT_SUCCESS : EXIT_FAILURE;
