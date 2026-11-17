@@ -919,6 +919,7 @@ mod table:
   +# total to Intelligence = 38
   +# total to Strength = 38
   +#% to Fire Resistance = 44
+  +#% to Item Rarity = 20
   +#% total Elemental Resistance = 44
   +#% total Resistance = 44
   +#% total to Fire Resistance = 44
@@ -964,6 +965,7 @@ mod table:
   +# to maximum Life = 53
   +#% to Cold Resistance = 49
   +#% to Fire Resistance = -1
+  +#% to Item Rarity = 45
   +#% to Lightning Resistance = 39
   +#% total Elemental Resistance = 87
   +#% total Resistance = 87
@@ -1260,6 +1262,7 @@ properties:
 number without a property: Map Tier = 6
 mod table:
   #% more Monster Life = 20
+  Area contains the Viridian Wildwood = 0
   Monsters cannot be Stunned = 0
   Players are Cursed with Elemental Weakness = 0
   Players have #% less Cooldown Recovery Rate = 30

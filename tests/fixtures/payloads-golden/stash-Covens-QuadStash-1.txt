@@ -101,7 +101,7 @@ hash: 7544b2b13ee0d9e796baa852ed861a04
 id: df6b3a2482f75fd0fe08dee55f5317b9e4d767599ead5e83db00ef31e8f8cf8a
 location: #1, "Dump Tab"
 forum code: [linkItem location="Stash1" league="Corpus" x="1" y="0" realm="pc"]
-frame type 15, category '', item level 71, 2x2, count 1
+frame type 15, category 'viscera', item level 71, 2x2, count 1
 flags: identified
 mod table:
   Corpses you Spawn have #% increased Maximum Life = 8
