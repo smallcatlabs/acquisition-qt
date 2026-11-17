@@ -13,6 +13,7 @@ properties:
 number without a property: Map Tier = 6
 mod table:
   #% increased Monster Damage = 19
+  Area contains a Mirror of Delirium = 0
   Monsters gain a Power Charge on Hit = 0
   Players have #% less Accuracy Rating = 20
 tooltip:

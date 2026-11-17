@@ -1,11 +1,7 @@
 items, with those socketed in others: 202
-items without a category: 4
-  Breach Thread
-  Chitinous Leg
-  Expedition Thread
-  Mycelium Core
+items without a category: 0
 mod lines read into mod tables: 777
-mod lines that reach no mod name: 256, 222 of them different
+mod lines that reach no mod name: 252, 218 of them different
   
   +0.2 metres to radius
   +0.3 metres to radius
@@ -16,11 +12,9 @@ mod lines that reach no mod name: 256, 222 of them different
   +1 metre to radius
   +1.7 metres to radius
   +1.9 metres to radius
-  +14% to Item Rarity
-  +20% to Item Rarity
-  +31% to Item Rarity
   10% increased Effect of Curse
   10% increased Effect of Offering
+  10% increased Rarity of Items found
   100% more Damage with Hits at Maximum Charge Distance
   14% increased Rogue's Marker value of primary Heist Target
   15% more Damage with Hits and Ailments for each remaining Chain
@@ -47,6 +41,7 @@ mod lines that reach no mod name: 256, 222 of them different
   79% chance to Summon a Phantasm when Supported Skills, or Non-Phantasm Minions\nfrom Supported Skills, deal a Killing Blow
   8 to 12 Added Physical Damage per 15 Armour or Evasion Rating on Shield
   8% increased Job Experience gain
+  9% increased Rarity of Items found
   9% reduced Hiring Fee
   <currencyitem>{20x Orb of Fusing}
   <currencyitem>{5x Currency}
@@ -67,8 +62,6 @@ mod lines that reach no mod name: 256, 222 of them different
   Amulet: (30-34)% increased Global Critical Strike Chance
   Animated Lingering Blades become Bows
   Animated Lingering Blades deal 17 to 80 Added Attack Physical Damage
-  Area contains a Mirror of Delirium
-  Area contains the Viridian Wildwood
   Aura grants 10 to 195 added Lightning Damage
   Aura grants 19% chance to Shock
   Base Aura radius is 4.2 metres
@@ -122,7 +115,6 @@ mod lines that reach no mod name: 256, 222 of them different
   Grants Minions +35% Chance to Block Attack Damage
   Grants Minions 4% of Life Regenerated per Second if they have Blocked recently
   Grants an atlas passive skill refund point
-  Grows four random Passive Skills when Anointed\nPassive Skills grown are influenced by Oils used when Anointing
   Helmet: (61-75) to maximum Life
   Hindering Flasks
   Identifies an item

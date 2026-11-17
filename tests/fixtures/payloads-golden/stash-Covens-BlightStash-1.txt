@@ -17,8 +17,19 @@ hash: 23748942f582b8f13c3ae0a50a8ddfd7
 id: d64175814267a7752e69acf0c5466ed20ed49247164b4b8e077867dcced40efa
 location: #4, "Blight"
 forum code: [linkItem location="Stash1" league="Corpus" x="13" y="0" realm="pc"]
-frame type 3, category '', item level 74, 1x1, count 1
-flags: identified
+frame type 3, category 'jewels', item level 74, 1x1, count 1
+flags: identified, path of building item
+mod table:
+  Grows four random Passive Skills when Anointed\nPassive Skills grown are influenced by Oils used when Anointing = 0
+path of building:
+  Rarity: UNIQUE
+  Putrid Seed
+  Mycelium Core
+  Unique ID: d64175814267a7752e69acf0c5466ed20ed49247164b4b8e077867dcced40efa
+  Item Level: 74
+  Implicits: 0
+  Grows four random Passive Skills when Anointed
+  Passive Skills grown are influenced by Oils used when Anointing
 tooltip:
   <center><font color='#fff'>Putrid Seed Mycelium Core</font><hr>
   <font color='#88f'>Grows four random Passive Skills when Anointed\nPassive Skills grown are influenced by Oils used when Anointing</font></center>

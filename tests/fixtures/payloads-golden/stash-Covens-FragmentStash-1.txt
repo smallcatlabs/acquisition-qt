@@ -4,7 +4,7 @@
 id: 7cf925297691a191b9fd1d6501864613fc1682b7a0b96ec521dd3449a8056cf8
 location: #11, "Fragments"
 forum code: [linkItem location="Stash1" league="Corpus" x="20" y="1" realm="pc"]
-frame type 0, category '', item level 0, 1x1, count 7
+frame type 0, category 'map fragments', item level 0, 1x1, count 7
 flags: identified
 properties:
   Stack Size = 7/100
@@ -19,7 +19,7 @@ hash: 1ce3e82febe9536714c2d66ae047cd75
 id: b300a5fc34c592c0ad9d9271c21835342be892b8c2788382f8b92f3da964c9b6
 location: #11, "Fragments"
 forum code: [linkItem location="Stash1" league="Corpus" x="21" y="1" realm="pc"]
-frame type 0, category '', item level 0, 1x1, count 7
+frame type 0, category 'map fragments', item level 0, 1x1, count 7
 flags: identified
 properties:
   Stack Size = 7/100
