@@ -6,6 +6,7 @@
 #include <QString>
 
 #include <optional>
+#include <vector>
 
 namespace repoe {
 
@@ -13,6 +14,10 @@ namespace repoe {
     struct EnglishTranslation
     {
         std::vector<QString> format;
+        // What the game does to each stat's value before it prints it. Most
+        // are arithmetic; a few name a table the value is looked up in, and
+        // the placeholder then holds a name, not a number (#419).
+        std::vector<std::vector<QString>> index_handlers;
         QString string;
 
         // This was added with the change to process json files inside

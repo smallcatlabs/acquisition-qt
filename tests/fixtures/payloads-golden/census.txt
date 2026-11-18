@@ -1,7 +1,7 @@
 items, with those socketed in others: 202
 items without a category: 0
 mod lines read into mod tables: 777
-mod lines that reach no mod name: 252, 218 of them different
+mod lines that reach no mod name: 249, 215 of them different
   
   +0.2 metres to radius
   +0.3 metres to radius
@@ -161,9 +161,6 @@ mod lines that reach no mod name: 252, 218 of them different
   Ring: (18-20)% increased Global Critical Strike Chance
   Shield: (100-114) to maximum Life
   Shield: (58-63)% increased Chance to Block
-  Socketed Gems are Supported by Level 20 Spell Totem Support
-  Socketed Gems are Supported by Level 25 Frigid Bond Support
-  Socketed Gems are Supported by Level 29 Added Chaos Damage Support
   Spawned corpses' level matches the area level, up to a maximum of Level 20
   Spawns 5 corpses
   Spends 62% of current Mana

@@ -10,7 +10,8 @@ hand. Entries are copied byte for byte.
 
 - `item_classes.min.json`: the whole file.
 - `base_items.min.json`: the entries named like the base type of an item in
-  the corpus.
+  the corpus, and the support gems named in a mod name of an item's mod
+  table (#419).
 - `stat_translations.min.json`, `stat_translations/necropolis.min.json`: the
   entries that give a mod name in an item's mod table, and the entries whose
   text is the text of a mod line in the corpus once numbers and signs are

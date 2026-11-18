@@ -51,6 +51,8 @@ private slots:
     void markupInAPropertyNameIsReadAsItsText();
     void markupInAModNameIsReadAsItsText();
     void bracketsThatAreNotMarkupAreKept();
+    // #419. Last: it loads the corpus's base items.
+    void socketedSupportHasAModNameForEachSupportGem();
 };
 
 // Real RePoE stat translations, cut from the game data (see
@@ -652,6 +654,38 @@ void ItemTest::bracketsThatAreNotMarkupAreKept()
     // Two in one line, and one whose id has colons in it.
     QCOMPARE(Util::WithoutMarkup("[ThreadInfoBreach|Threads] of [FeastOfFlesh::15|Feast of Flesh]"),
              QString("Threads of Feast of Flesh"));
+}
+
+// The game data has one string for every support a socket can grant,
+// "Socketed Gems are Supported by Level {0} {1}", and its second placeholder
+// stands for a support gem's name. Each support gem among the base items
+// gives a mod name, and the line the game sends reaches it (#419).
+void ItemTest::socketedSupportHasAModNameForEachSupportGem()
+{
+    const auto read = [](const char *name) {
+        const QString path = QFINDTESTDATA(QString("fixtures/payloads-repoe/%1").arg(name));
+        QFile file(path);
+        if (path.isEmpty() || !file.open(QIODevice::ReadOnly)) {
+            qFatal("missing the corpus game data file %s", name);
+        }
+        return file.readAll();
+    };
+    InitItemClasses(read("item_classes.min.json"));
+    InitItemBaseTypes(read("base_items.min.json"));
+    loadCorpusStatTranslations();
+
+    const auto item = makeItem("supported", R"json(,
+        "explicitMods": [{"description":
+            "Socketed Gems are Supported by Level 20 [SupportSpellTotem::20|Spell Totem Support]"}]
+    )json");
+    const QString name = "Socketed Gems are Supported by Level # Spell Totem Support";
+    QVERIFY(item->mod_table().contains(name));
+    QCOMPARE(item->mod_table().at(name), 20.0);
+
+    const QStringList offered = mod_list_model().stringList();
+    QVERIFY(offered.contains(name));
+    // The string with a number where the gem's name goes is not a mod name.
+    QVERIFY(!offered.contains("Socketed Gems are Supported by Level # #"));
 }
 
 // RePoE writes some negative values as their own entry with a literal sign

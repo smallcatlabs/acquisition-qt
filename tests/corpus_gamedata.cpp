@@ -9,7 +9,8 @@
 // laid out as the application keeps them (the `repoe` directory inside a data
 // directory). The tool builds every item of the corpus with that game data,
 // then writes to <out-dir> the entries those items use, in the same layout:
-// the base items the items are named after, and every stat translation
+// the base items the items are named after, the support gems a mod name in
+// their mod tables names (#419), and every stat translation
 // that gives a mod name in their mod tables or whose text is the text of one
 // of their mod lines once numbers and signs are left out of both and the
 // game's [id|text] markup is read as its text. The second
@@ -234,9 +235,21 @@ int main(int argc, char *argv[])
         pseudo.insert(name);
     }
 
+    // A mod name can hold a support gem's name, which the application takes
+    // from the base items (#419): those gems are wanted too.
+    std::set<QString> base_names = whole.base_names;
+    for (const QString &gem : BaseTypesOfClass("Support Skill Gem")) {
+        for (const QString &mod : whole.mod_names) {
+            if (mod.contains(gem)) {
+                base_names.insert(gem);
+                break;
+            }
+        }
+    }
+
     const size_t base_items = cutBaseItems(repoe.filePath("base_items.min.json"),
                                            out.filePath("base_items.min.json"),
-                                           whole.base_names);
+                                           base_names);
     const size_t translations = cutTranslations(repoe.filePath("stat_translations.min.json"),
                                                 out.filePath("stat_translations.min.json"),
                                                 whole,
