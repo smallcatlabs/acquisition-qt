@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "item.h"
+#include "itemcategories.h"
 #include "pseudomods.h"
 #include "repoe/stattranslation.h"
 #include "util/glaze_qt.h"
@@ -202,6 +203,39 @@ namespace {
         std::unordered_map<QString, std::vector<size_t>> m_by_shape;
     };
 
+    // The index handler of a placeholder the game fills with a support
+    // gem's name, and the item class of those gems among the base items.
+    constexpr QLatin1StringView SUPPORT_GEM_HANDLER{"display_indexable_support"};
+    constexpr QLatin1StringView SUPPORT_GEM_CLASS{"Support Skill Gem"};
+
+    // The mod names a stat translation's string gives before its number
+    // placeholders are written: the string itself, or, if one placeholder
+    // stands for a support gem, the string once for each support gem among
+    // the base items ("Socketed Gems are Supported by Level {0} {1}" gives
+    // "... Level {0} Spell Totem Support" and the rest, #419). Without base
+    // items the string is left as it is.
+    QStringList withSupportGemNames(const repoe::EnglishTranslation &stat, const QString &string)
+    {
+        const auto names_a_support_gem = [](const QString &handler) {
+            return handler == SUPPORT_GEM_HANDLER;
+        };
+        for (size_t i = 0; i < stat.index_handlers.size(); ++i) {
+            const QString placeholder = QStringLiteral("{%1}").arg(i);
+            if (!std::ranges::any_of(stat.index_handlers[i], names_a_support_gem)
+                || !string.contains(placeholder)) {
+                continue;
+            }
+            QStringList named;
+            for (const QString &gem : BaseTypesOfClass(SUPPORT_GEM_CLASS)) {
+                named.append(QString(string).replace(placeholder, gem));
+            }
+            if (!named.isEmpty()) {
+                return named;
+            }
+        }
+        return {string};
+    }
+
     QStringListModel m_mod_list_model;
     std::set<QString> mods;
     // Read without a lock by AddModToTable, from the parser thread during
@@ -261,17 +295,19 @@ void AddStatTranslations(const QByteArray &statTranslations)
             }
             // The game's markup is not part of a mod's name: items hold
             // their lines without it (#391).
-            QString stat_string = Util::WithoutMarkup(stat.string);
-            // A stat whose format is "ignore" is not displayed and has no
-            // placeholder in the string; every other stat's placeholder is
-            // replaced, whichever stat comes first (#265).
-            for (size_t i = 0; i < stat.format.size(); i++) {
-                if (stat.format[i] != QLatin1String("ignore")) {
-                    stat_string.replace(QStringLiteral("{%1}").arg(i), stat.format[i]);
+            for (QString &stat_string :
+                 withSupportGemNames(stat, Util::WithoutMarkup(stat.string))) {
+                // A stat whose format is "ignore" is not displayed and has
+                // no placeholder in the string; every other stat's
+                // placeholder is replaced, whichever stat comes first (#265).
+                for (size_t i = 0; i < stat.format.size(); i++) {
+                    if (stat.format[i] != QLatin1String("ignore")) {
+                        stat_string.replace(QStringLiteral("{%1}").arg(i), stat.format[i]);
+                    }
                 }
-            }
-            if (stat_string.length() > 0) {
-                mods.insert(stat_string);
+                if (stat_string.length() > 0) {
+                    mods.insert(stat_string);
+                }
             }
         }
     }

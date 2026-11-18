@@ -795,6 +795,7 @@ mod table:
   +# to Intelligence = 25
   +# total to Intelligence = 25
   Skills gain a Base Life Cost equal to #% of Base Mana Cost = 100
+  Socketed Gems are Supported by Level # Added Chaos Damage Support = 29
 path of building:
   Rarity: UNIQUE
   The Covenant

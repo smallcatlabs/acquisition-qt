@@ -727,6 +727,7 @@ mod table:
   #% increased Spell Damage = 21
   #% increased Totem Life = 22
   Inflicts a random Hex on you when your Totems die = 0
+  Socketed Gems are Supported by Level # Spell Totem Support = 20
 path of building:
   Rarity: UNIQUE
   Soul Mantle

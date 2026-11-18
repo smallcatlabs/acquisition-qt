@@ -12,6 +12,10 @@ void InitItemBaseTypes(const QByteArray &baseTypes);
 
 QString GetItemCategory(const QString &baseType);
 
+// The names of the base items of one item class, by the class's key in the
+// game data ("Support Skill Gem"), in order. Empty before the base items load.
+QStringList BaseTypesOfClass(const QString &classId);
+
 const QStringList &GetItemCategories();
 
 // The item classes, besides gear, whose items Path of Building imports:

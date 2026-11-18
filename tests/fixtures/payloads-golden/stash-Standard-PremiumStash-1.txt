@@ -261,6 +261,7 @@ mod table:
   #% reduced Energy Shield Recharge Rate = 50
   +# to maximum Mana = 69
   +#% to Cold Damage over Time Multiplier = 50
+  Socketed Gems are Supported by Level # Frigid Bond Support = 25
 path of building:
   Rarity: UNIQUE
   Foulborn Rime Gaze

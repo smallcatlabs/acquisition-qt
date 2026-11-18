@@ -150,6 +150,17 @@ QString GetItemCategory(const QString &baseType)
     return "";
 }
 
+QStringList BaseTypesOfClass(const QString &classId)
+{
+    QStringList names;
+    for (const auto &[name, item_class] : CATEGORY_DATA::instance().m_itemBaseTypeToClass) {
+        if (item_class == classId) {
+            names.append(name);
+        }
+    }
+    return names;
+}
+
 const QStringList &GetItemCategories()
 {
     auto &data = CATEGORY_DATA::instance();
