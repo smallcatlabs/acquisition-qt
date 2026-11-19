@@ -12,6 +12,11 @@ appear somewhere in the mod name, case-insensitively, in any order. Typing
 `total fire` shows `+#% total to Fire Resistance`; typing `socketed minion`
 shows `+# total to Level of Socketed Minion Gems`.
 
+The list is as wide as the names it shows, up to the edge of the screen, so a
+name wider than the search form can still be read. With more than a thousand
+names in the list, only the first thousand set the width; type more to narrow
+it.
+
 Mod names use `#` as the placeholder for the number, exactly as the trade site
 does. Unlike the trade site, Acquisition does **not** separate implicit,
 explicit, crafted, enchant, or fractured lines: they all go into one table
