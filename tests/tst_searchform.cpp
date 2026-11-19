@@ -2,12 +2,15 @@
 
 #include <QtTest/QtTest>
 
+#include <QAbstractItemView>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QCompleter>
 #include <QGridLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QScreen>
 #include <QSignalSpy>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -24,6 +27,7 @@
 #include "testfixtures.h"
 #include "testsuite.h"
 #include "ui/modsfilterform.h"
+#include "ui/searchcombobox.h"
 #include "ui/searchform.h"
 
 class SearchFormTest : public QObject
@@ -43,6 +47,9 @@ private slots:
     void modsFormAdapterBlankTextChoosesNoMod();
     void numberFieldsRejectTextThatIsNotANumber();
     void modsFormAdapterDoesNotArmCompleterOnProgrammaticRows();
+    void modsNameListIsAsWideAsItsLongestName();
+    void modsNameListStopsAtTheScreenEdge();
+    void modsNameListMeasuresOnlyItsFirstRows();
     void modsFormAdapterRepacksRows();
     void modsFormAdapterDisconnectsOnDestruction();
     void searchFormUnbindsDeletedSearch();
@@ -831,6 +838,104 @@ void SearchFormTest::modsFormAdapterDoesNotArmCompleterOnProgrammaticRows()
     QSignalSpy restoredRowTimeouts(timer, &QTimer::timeout);
     QTest::qWait(timer->interval() + 75);
     QCOMPARE(restoredRowTimeouts.count(), 0);
+}
+
+// The list a mods row opens, after typing `text` into the row of a form
+// `width` pixels wide. Null if the list did not open.
+static QAbstractItemView *openModsNameList(SearchHarness &harness, int width, const QString &text)
+{
+    harness.host.resize(width, 400);
+    harness.host.show();
+    if (!QTest::qWaitForWindowExposed(&harness.host)) {
+        return nullptr;
+    }
+    auto *addButton = harness.host.findChild<QPushButton *>("modsAddButton");
+    if (!addButton) {
+        return nullptr;
+    }
+    addButton->click();
+    auto *modCombo = harness.host.findChild<QComboBox *>("modsRowCombo");
+    if (!modCombo || !modCombo->completer()) {
+        return nullptr;
+    }
+    modCombo->setEditText(text);
+    QAbstractItemView *list = modCombo->completer()->popup();
+    return QTest::qWaitFor([list] { return list->isVisible(); }, 2000) ? list : nullptr;
+}
+
+// #424. The names #421 added share their first 38 characters, and the filter
+// panel is narrower than that: a list as wide as the box showed the same cut
+// text for every one of them.
+void SearchFormTest::modsNameListIsAsWideAsItsLongestName()
+{
+    mod_list_model().setStringList({
+        "Socketed Gems are Supported by Level # Added Fire Damage Support",
+        "Socketed Gems are Supported by Level # Spell Totem Support",
+        "+# to maximum Life",
+    });
+    SearchHarness harness;
+    QAbstractItemView *list = openModsNameList(harness, 220, "Socketed");
+    QVERIFY(list);
+
+    auto *modCombo = harness.host.findChild<QComboBox *>("modsRowCombo");
+    QCOMPARE(list->model()->rowCount(), 2);
+    const int longest = list->sizeHintForColumn(0);
+    // The case is only this one if the names do not fit the box.
+    QVERIFY2(longest > modCombo->width(),
+             qPrintable(QString("the names need %1 and the box is %2 wide")
+                            .arg(longest)
+                            .arg(modCombo->width())));
+    QVERIFY2(list->viewport()->width() >= longest,
+             qPrintable(QString("the names need %1 and the list shows %2")
+                            .arg(longest)
+                            .arg(list->viewport()->width())));
+}
+
+// The game data has names of 387 characters. The list does not leave the
+// screen for them.
+void SearchFormTest::modsNameListStopsAtTheScreenEdge()
+{
+    mod_list_model().setStringList({QString("Socketed %1").arg(QString(600, 'm'))});
+    SearchHarness harness;
+    QAbstractItemView *list = openModsNameList(harness, 220, "Socketed");
+    QVERIFY(list);
+
+    auto *modCombo = harness.host.findChild<QComboBox *>("modsRowCombo");
+    const QRect screen = modCombo->screen()->availableGeometry();
+    QVERIFY(list->sizeHintForColumn(0) > screen.width());
+    const QRect shown = list->frameGeometry();
+    QVERIFY2(shown.right() <= screen.right(),
+             qPrintable(QString("the list ends at %1 and the screen at %2")
+                            .arg(shown.right())
+                            .arg(screen.right())));
+    // Still wider than the box: as wide as the screen allows.
+    QVERIFY(shown.width() > modCombo->width());
+}
+
+// One typed letter matches some 15,000 names, and measuring every one of
+// them held the list back by a quarter of a second. Only the first rows set
+// the width; a longer name further down is cut off until more is typed.
+void SearchFormTest::modsNameListMeasuresOnlyItsFirstRows()
+{
+    QStringList names;
+    for (int i = 0; i < SearchComboCompleter::MEASURED_ROWS; ++i) {
+        names << QString("Socketed %1").arg(i, 4, 10, QChar('0'));
+    }
+    // Sorts after the others, so it is the first row not measured.
+    const QString last = "Socketed z, and a name much wider than the box and the others";
+    names << last;
+    mod_list_model().setStringList(names);
+    SearchHarness harness;
+    QAbstractItemView *list = openModsNameList(harness, 120, "Socketed");
+    QVERIFY(list);
+
+    const QAbstractItemModel *shown = list->model();
+    QCOMPARE(shown->rowCount(), SearchComboCompleter::MEASURED_ROWS + 1);
+    const QModelIndex first = shown->index(0, 0);
+    const QModelIndex beyond = shown->index(SearchComboCompleter::MEASURED_ROWS, 0);
+    QCOMPARE(beyond.data().toString(), last);
+    QVERIFY(list->viewport()->width() >= list->sizeHintForIndex(first).width());
+    QVERIFY(list->viewport()->width() < list->sizeHintForIndex(beyond).width());
 }
 
 void SearchFormTest::modsFormAdapterRepacksRows()
