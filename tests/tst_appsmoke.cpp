@@ -416,7 +416,8 @@ void AppSmokeTest::notePriceOverridesAndGivesWay()
                        withNote(fixture.tabs[0], "Viper Suit", "~b/o 5 jewellers"));
     QVERIFY(AppFixture::isClean(fixture.refresh(refresh_selected)));
     saveTestScreenshot(fixture.window(), "noted");
-    QCOMPARE(line(fixture, "Viper Suit"), QString("Viper Suit Loricated Ringmail | b/o 5 jew"));
+    QCOMPARE(line(fixture, "Viper Suit"),
+             QString("Viper Suit Loricated Ringmail | b/o 5 jewellers"));
 
     // The note goes: the user's own price is back, and was never dropped.
     fixture.serveStash(fixture.tabs[0].id, fixture.tabs[0].reply);

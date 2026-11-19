@@ -36,6 +36,7 @@ private slots:
     void manualPriceSurvivesANoteInAGameWord();
     void noteOnlyCurrencyIsNeverPosted();
     void itemBuyoutRoundTrip();
+    void aJewellersPriceIsStoredUnderItsOldKey();
     void tabBuyoutRoundTrip();
     void itemShowsItsTabsPrice();
     void clearingItemBuyoutRemovesInMemoryValue();
@@ -561,6 +562,30 @@ void BuyoutManagerTest::itemBuyoutRoundTrip()
     fixture.manager->Set(item, buyout);
 
     QCOMPARE(fixture.manager->Get(item), buyout);
+}
+
+// #426. `jew` stays the key a Jeweller's price is stored under, whatever
+// word the price is written with: a store from an earlier version reads as
+// it did, and this version's rows read there.
+void BuyoutManagerTest::aJewellersPriceIsStoredUnderItsOldKey()
+{
+    BuyoutManagerFixture fixture;
+    const Item item = makeTestItem("item-jewellers");
+    const Buyout buyout(5.0,
+                        Buyout::BUYOUT_TYPE_BUYOUT,
+                        Currency::CURRENCY_JEWELLERS_ORB,
+                        QDateTime::fromSecsSinceEpoch(1));
+    fixture.manager->Set(item, buyout);
+    fixture.manager->Save();
+
+    QSqlQuery q(*fixture.db);
+    QVERIFY(q.exec("SELECT currency FROM item_buyouts WHERE item_id = 'item-jewellers'"));
+    QVERIFY(q.next());
+    QCOMPARE(q.value(0).toString(), QString("jew"));
+
+    fixture.manager->ReloadBuyouts();
+    QCOMPARE(fixture.manager->Get(item), buyout);
+    QCOMPARE(fixture.manager->Get(item).AsText(), QString("b/o 5 jewellers"));
 }
 
 void BuyoutManagerTest::tabBuyoutRoundTrip()

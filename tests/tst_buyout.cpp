@@ -12,6 +12,7 @@ class BuyoutTest : public QObject
 private slots:
     void nullSemantics();
     void statePredicates();
+    void aPriceIsWrittenWithItsCurrencysWord();
 };
 
 void BuyoutTest::nullSemantics()
@@ -79,6 +80,19 @@ void BuyoutTest::statePredicates()
     QVERIFY(!noPrice.IsInherited());
     QVERIFY(noPrice.IsActive());
     QVERIFY(noPrice.RequiresRefresh());
+}
+
+// #426. The text of a price, as the Price column and a priced tab's title
+// show it.
+void BuyoutTest::aPriceIsWrittenWithItsCurrencysWord()
+{
+    const QDateTime when = QDateTime::fromSecsSinceEpoch(1);
+    const Buyout jewellers(5, Buyout::BUYOUT_TYPE_BUYOUT, Currency::CURRENCY_JEWELLERS_ORB, when);
+    QCOMPARE(jewellers.AsText(), QString("b/o 5 jewellers"));
+    QCOMPARE(jewellers.CurrencyAsTag(), QString("jew"));
+
+    const Buyout chaos(5, Buyout::BUYOUT_TYPE_FIXED, Currency::CURRENCY_CHAOS_ORB, when);
+    QCOMPARE(chaos.AsText(), QString("price 5 chaos"));
 }
 
 ACQ_TEST_GUILESS_MAIN(BuyoutTest)

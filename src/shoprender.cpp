@@ -32,7 +32,7 @@ namespace {
         QString out = "";
         out += "[spoiler=\"" + bo.BuyoutTypeAsPrefix();
         if (bo.IsPriced()) {
-            out += " " + QString::number(bo.value, 'g', 15) + " " + bo.CurrencyAsTag();
+            out += " " + QString::number(bo.value, 'g', 15) + " " + bo.CurrencyAsWord();
         }
         out += "\"]";
         return out;

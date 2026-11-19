@@ -77,6 +77,7 @@ public:
     const QString &BuyoutTypeAsPrefix() const;
     const QString &BuyoutSourceAsTag() const;
     const QString &CurrencyAsTag() const;
+    const QString &CurrencyAsWord() const;
 
 private:
     static const QString m_buyout_type_error;
