@@ -143,6 +143,7 @@ private slots:
     void renderOnePage();
     void renderTwoPagesAtThePostLimit();
     void renderGroupsMixedBuyouts();
+    void renderWritesJewellersInFull();
     void renderCharacterItem();
     void renderLeavesOutGameAndUnindexedItems();
     void renderShopNeverPostsAGamePrice();
@@ -1442,6 +1443,24 @@ void ShopTest::renderGroupsMixedBuyouts()
                          + "[/spoiler]"
                            R"([spoiler=""])"
                          + stashLink(1, 4) + "[/spoiler]"});
+}
+
+// #426. A Jeweller's price is posted as `jewellers`, the word the game
+// writes (T9), not as the key it is stored under.
+void ShopTest::renderWritesJewellersInFull()
+{
+    ShopFixture fixture;
+    const ItemLocation tab = makeTestStashLocation();
+    const QStringList pages = renderedPages(fixture,
+                                            {{makeShopItem("jewellers", tab, 0),
+                                              makeBuyout(5,
+                                                         Buyout::BUYOUT_TYPE_BUYOUT,
+                                                         CurrencyType::CURRENCY_JEWELLERS_ORB)}},
+                                            {tab});
+    QCOMPARE(pages,
+             QStringList{"[spoiler]"
+                         R"([spoiler=" ~b/o  5 jewellers"])"
+                         + stashLink(1, 0) + "[/spoiler]"});
 }
 
 // A character item links by its slot and the character's name (T7, T8).

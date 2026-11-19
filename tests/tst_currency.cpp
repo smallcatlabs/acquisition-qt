@@ -22,6 +22,8 @@ private slots:
     void gameWordsAreRecognised_data();
     void gameWordsAreRecognised();
     void wordsMatchInAnyCase();
+    void aPriceIsWrittenWithAWordANoteReads();
+    void onlyJewellersIsWrittenDifferentlyFromItsKey();
 };
 
 namespace {
@@ -201,6 +203,38 @@ void CurrencyTest::wordsMatchInAnyCase()
 {
     QVERIFY(Currency::FromWord(u"Chaos") == Currency(Currency::CURRENCY_CHAOS_ORB));
     QVERIFY(Currency::FromWord(u"DIVINE") == Currency(Currency::CURRENCY_DIVINE_ORB));
+}
+
+// Whatever word a price is written with, a price note in that word names
+// the same currency: what the application posts, it can read back.
+void CurrencyTest::aPriceIsWrittenWithAWordANoteReads()
+{
+    const CurrencyTable &table = CurrencyTable::Default();
+    QVERIFY(table.size() >= existing().size());
+    for (size_t row = 0; row < table.size(); ++row) {
+        const Currency currency = Currency::AtRow(row);
+        QVERIFY2(!currency.AsWord().isEmpty(), qPrintable(currency.AsString()));
+        QVERIFY2(Currency::FromWord(currency.AsWord()) == currency, qPrintable(currency.AsWord()));
+    }
+}
+
+// #426. A Jeweller's price is written `jewellers`, the game's own word (T9),
+// and still stored under `jew`. The ruling was for this currency alone: the
+// others are written with their key, as they always were.
+void CurrencyTest::onlyJewellersIsWrittenDifferentlyFromItsKey()
+{
+    const Currency jewellers(Currency::CURRENCY_JEWELLERS_ORB);
+    QCOMPARE(jewellers.AsWord(), QString("jewellers"));
+    QCOMPARE(jewellers.AsTag(), QString("jew"));
+    QVERIFY(Currency::FromTag("jew") == jewellers);
+
+    const CurrencyTable &table = CurrencyTable::Default();
+    for (size_t row = 0; row < table.size(); ++row) {
+        const Currency currency = Currency::AtRow(row);
+        if (currency != jewellers) {
+            QCOMPARE(currency.AsWord(), currency.AsTag());
+        }
+    }
 }
 
 ACQ_TEST_MAIN(CurrencyTest)

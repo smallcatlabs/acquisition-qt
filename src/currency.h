@@ -17,8 +17,8 @@
 struct CurrencyInfo
 {
     // The persistence key in both buyout tables, in the currency dialog's
-    // saved ratios and in the legacy importer, and the word posted to the
-    // forum. Never changed once a currency is in the table.
+    // saved ratios and in the legacy importer. Never changed once a currency
+    // is in the table.
     QString tag;
     // The display name, which is also the item name the currency dialog
     // counts.
@@ -37,6 +37,11 @@ struct CurrencyInfo
     // are only words read from notes the game writes (game prices are never
     // posted).
     bool choosable;
+    // The word a price is written with, in the Price column and in the forum
+    // shop, where that is not the tag. It is one of `words`, so a note in it
+    // reads back as this currency. Changing it posts every thread that holds
+    // such a price again, once.
+    QString written = {};
 };
 
 // The currencies of one game. A table is a value: one per realm could be
@@ -122,6 +127,9 @@ public:
     // Empty for no currency.
     const QString &AsString() const;
     const QString &AsTag() const;
+    // The word a price in this currency is written with: in the Price
+    // column and in the forum shop. The tag, unless the table gives another.
+    const QString &AsWord() const;
     // The rank from the table; 0 for no currency.
     int AsRank() const;
     // What the Price column sorts on first: by rank, the unranked currencies

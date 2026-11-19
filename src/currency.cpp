@@ -28,7 +28,9 @@ const CurrencyTable &CurrencyTable::Default()
     // The first 19 rows are the currencies the application has always had,
     // in their old order, with their stored tags; the history is positional,
     // so new currencies are appended. The words include the game's own
-    // (trade-ground-truth T9). Ranks are the old ones, except that Divine
+    // (trade-ground-truth T9). A Jeweller's price is written with the game's
+    // word and stored under its old tag (#426); the other eighteen are
+    // written with their tags. Ranks are the old ones, except that Divine
     // ranks above Exalted since the 3.25 swap (#38). Wisdom values are the
     // currency dialog's (Scroll of Wisdom equivalents). Only the first 19
     // are choosable for a price: nothing says the forum reads the others'
@@ -42,7 +44,7 @@ const CurrencyTable &CurrencyTable::Default()
         {"gcp", "Gemcutter's Prism", {"gcp", "gcps", "gemcutter", "gemcutters"}, 15, 0, true},
         {"exa", "Exalted Orb", {"exalted", "exa"}, 16, 0, true},
         {"chrom", "Chromatic Orb", {"chrome", "chrom", "chromes", "chromatic", "chromatics"}, 1, 0, true},
-        {"jew", "Jeweller's Orb", {"jewellers", "jew", "jewel", "jewels", "jeweler", "jewelers"}, 3, 0, true},
+        {"jew", "Jeweller's Orb", {"jewellers", "jew", "jewel", "jewels", "jeweler", "jewelers"}, 3, 0, true, "jewellers"},
         {"chance", "Orb of Chance", {"chance"}, 4, 0, true},
         {"chisel", "Cartographer's Chisel", {"chisel", "chisels", "cartographer", "cartographers"}, 5, 0, true},
         {"scour", "Orb of Scouring", {"scour", "scours", "scouring"}, 10, 0, true},
@@ -149,6 +151,15 @@ const QString &Currency::AsTag() const
 {
     const CurrencyInfo *info = Info();
     return info ? info->tag : kEmpty;
+}
+
+const QString &Currency::AsWord() const
+{
+    const CurrencyInfo *info = Info();
+    if (!info) {
+        return kEmpty;
+    }
+    return info->written.isEmpty() ? info->tag : info->written;
 }
 
 int Currency::AsRank() const

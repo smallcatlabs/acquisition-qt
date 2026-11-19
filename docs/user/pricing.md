@@ -99,8 +99,8 @@ is found on one.
 ### Currencies
 
 You can set a price in these currencies. The *Tag* is the word Acquisition
-posts to the forum shop; a price note may also name the currency by any of
-the *Note words*, in any case.
+shows in the Price column and posts to the forum shop; a price note may also
+name the currency by any of the *Note words*, in any case.
 
 | Currency | Tag | Note words |
 |---|---|---|
@@ -111,7 +111,7 @@ the *Note words*, in any case.
 | Gemcutter's Prism | `gcp` | gcp, gcps, gemcutter, gemcutters |
 | Exalted Orb | `exa` | exalted, exa |
 | Chromatic Orb | `chrom` | chrome, chrom, chromes, chromatic, chromatics |
-| Jeweller's Orb | `jew` | jewellers, jew, jewel, jewels, jeweler, jewelers |
+| Jeweller's Orb | `jewellers` | jewellers, jew, jewel, jewels, jeweler, jewelers |
 | Orb of Chance | `chance` | chance |
 | Cartographer's Chisel | `chisel` | chisel, chisels, cartographer, cartographers |
 | Orb of Scouring | `scour` | scour, scours, scouring |

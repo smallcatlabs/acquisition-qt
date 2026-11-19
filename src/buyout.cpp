@@ -109,7 +109,7 @@ QString Buyout::AsText() const
     if (IsPriced()) {
         // 'g' with wide precision: QString::number(double) defaults to six
         // significant digits, turning large prices into scientific notation.
-        return BuyoutTypeAsTag() + " " + QString::number(value, 'g', 15) + " " + CurrencyAsTag();
+        return BuyoutTypeAsTag() + " " + QString::number(value, 'g', 15) + " " + CurrencyAsWord();
     } else {
         return BuyoutTypeAsTag();
     }
@@ -157,6 +157,11 @@ const QString &Buyout::BuyoutSourceAsTag() const
 const QString &Buyout::CurrencyAsTag() const
 {
     return currency.AsTag();
+}
+
+const QString &Buyout::CurrencyAsWord() const
+{
+    return currency.AsWord();
 }
 
 bool Buyout::operator==(const Buyout &o) const
