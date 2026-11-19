@@ -15,6 +15,9 @@ class SearchComboCompleter : public QCompleter
     Q_OBJECT
 public:
     using QCompleter::QCompleter;
+
+    // How many options complete() measures to set the list's width.
+    static constexpr int MEASURED_ROWS = 1000;
 public slots:
     void complete(const QRect &rect = QRect());
 };

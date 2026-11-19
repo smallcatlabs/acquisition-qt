@@ -20,6 +20,7 @@
 #include "filters/fieldnumber.h"
 #include "modlist.h"
 #include "ui/fieldvalidity.h"
+#include "ui/searchcombobox.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 
 namespace {
@@ -90,7 +91,7 @@ public:
         , m_maxText(new QLineEdit)
         , m_deleteButton(new QPushButton("X"))
         , m_proxy(new TokenAndFilterProxy(m_modSelect))
-        , m_completer(new QCompleter(m_proxy, m_modSelect))
+        , m_completer(new SearchComboCompleter(m_proxy, m_modSelect))
         , m_timer(new QTimer(m_modSelect))
     {
         auto *baseModel = &mod_list_model();
@@ -195,7 +196,7 @@ private:
     QLineEdit *m_maxText = nullptr;
     QPushButton *m_deleteButton = nullptr;
     TokenAndFilterProxy *m_proxy = nullptr;
-    QCompleter *m_completer = nullptr;
+    SearchComboCompleter *m_completer = nullptr;
     QTimer *m_timer = nullptr;
 };
 
