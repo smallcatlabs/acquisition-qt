@@ -97,6 +97,7 @@ private slots:
     void refreshWhileTheBrowserIsOutLeavesItWaiting();
     void failedRefreshWhileTheBrowserIsOutLeavesItWaiting();
     void loginDuringTheCodeExchangeKeepsTheSession();
+    void secondAuthenticateDuringTheCodeExchange();
 
 private:
     std::shared_ptr<spdlog::logger> m_previous_logger;
@@ -1714,6 +1715,90 @@ void AppLoginTest::loginDuringTheCodeExchangeKeepsTheSession()
                          kOtherRefresh,
                          kRefreshedAccess,
                          kRefreshedRefresh});
+}
+
+// The redirect arrives, and the user presses Authenticate again before the
+// code exchange is answered. The answer is the abandoned attempt's, and is
+// refused: nothing is stored, nothing is said, and the new attempt goes on
+// waiting. Its own redirect then logs in, so the refusal left Qt able to
+// exchange a code again.
+void AppLoginTest::secondAuthenticateDuringTheCodeExchange()
+{
+    AppFixture fixture([](AppFixture &f) {
+        answerTokenRequestsInTurn(
+            f,
+            {// The first attempt's exchange, as the other account, kept back
+             // until the second attempt has started.
+             heldBack(
+                 tokenAnswer(200, grantedToken(kOtherAccess, kOtherRefresh, 36000, kOtherAccount))),
+             // The second attempt's.
+             tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh))});
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+    auto &authenticated = child<QLabel>(dialog, "authenticateLabel");
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto first = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(first);
+    QVERIFY(
+        deliverRedirect(first->redirect, kAbandonedCode, first->state).contains(kAuthorizedText));
+    QVERIFY(QTest::qWaitFor([&] { return tokenPosts(fixture).size() == 1; }, 10000));
+    QCOMPARE(AppFixture::formField(tokenPosts(fixture)[0], "code"), kAbandonedCode);
+
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 2);
+    const auto second = checkAuthorizeUrl(m_browser.opened.last());
+    QVERIFY(second);
+
+    // The first attempt's exchange is answered now.
+    QCOMPARE(fixture.network->release(), 1);
+    QVERIFY(QTest::qWaitFor(
+        [] {
+            return loggedText().contains(kExchangeRefusedLog)
+                   || loggedText().contains(kOtherAccount);
+        },
+        10000));
+    QCOMPARE(storedToken(fixture).has_value(), false);
+    QCOMPARE(authenticated.text(), QString("You must be authenticated to login."));
+    QCOMPARE(authenticate.text(), QString(kAuthenticating));
+    QVERIFY(error.isHidden());
+    QVERIFY(!login.isEnabled());
+
+    QVERIFY(deliverRedirect(second->redirect, kCode, second->state).contains(kAuthorizedText));
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
+    const QList<QByteArray> posts = tokenPosts(fixture);
+    QCOMPARE(posts.size(), 2);
+    QCOMPARE(AppFixture::formField(posts[1], "code"), kCode);
+    QCOMPARE(challengeOf(AppFixture::formField(posts[1], "code_verifier")), second->challenge);
+    QCOMPARE(authenticated.text(),
+             QString("You are authenticated as \"%1\"").arg(AppFixture::kAccount));
+    const auto stored = storedToken(fixture);
+    QVERIFY(stored);
+    QCOMPARE(stored->refresh_token, kFreshRefresh);
+    QVERIFY(error.isHidden());
+    QVERIFY(!loggedText().contains("OAuth: request failed"));
+
+    league.setCurrentIndex(league.findText(AppFixture::kLeague));
+    login.click();
+    QVERIFY2(fixture.access().hasSession(), qPrintable(error.text()));
+    QCOMPARE(fixture.access().identity().account(), QString(AppFixture::kAccount));
+
+    QCOMPARE(m_browser.opened.size(), 2);
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged({kAbandonedCode,
+                         kCode,
+                         AppFixture::formField(posts[0], "code_verifier"),
+                         AppFixture::formField(posts[1], "code_verifier"),
+                         kOtherAccess,
+                         kOtherRefresh,
+                         kFreshAccess,
+                         kFreshRefresh});
 }
 
 ACQ_TEST_GUI_SCENARIO_MAIN(AppLoginTest)

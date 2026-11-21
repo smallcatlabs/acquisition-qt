@@ -76,6 +76,7 @@ private:
     bool noteTokenReply(QNetworkReply *reply);
     void failStoredLogin(const TokenReply &reply);
     void failLogin(const QString &reason);
+    bool loginInProgress() const { return !m_attempt.isEmpty(); }
 
     NetworkManager &m_network_manager;
     DataStore &m_data;
@@ -85,8 +86,9 @@ private:
 
     OAuthToken m_token;
 
-    // A browser login has started and has neither been granted nor failed.
-    bool m_login_in_progress{false};
+    // The state of the browser login that has started and has neither been
+    // granted nor failed; empty when there is none.
+    QString m_attempt;
     // The last redirect received carried another state than its login's.
     bool m_state_mismatch{false};
     // The token endpoint's reply that Qt is handling, while it handles it.

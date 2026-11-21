@@ -47,6 +47,9 @@ namespace {
     // The request attribute that says which stage of the flow
     // (QAbstractOAuth::Stage) a request to the token endpoint belongs to.
     constexpr QNetworkRequest::Attribute STAGE_ATTRIBUTE = QNetworkRequest::User;
+    // And which browser login it was sent for: that login's state.
+    constexpr QNetworkRequest::Attribute ATTEMPT_ATTRIBUTE = static_cast<QNetworkRequest::Attribute>(
+        QNetworkRequest::User + 1);
 
     // This list is complete as of Qt 6.9.1:
     // See https://doc.qt.io/qt-6/qabstractoauth.html#Error-enum
@@ -170,13 +173,15 @@ OAuthManager::OAuthManager(NetworkManager &network_manager, DataStore &datastore
         });
 
     // Every request to the token endpoint says which stage it belongs to, so
-    // that its reply is known for a refresh's or a code exchange's. The
-    // flow's status does not say: starting a browser login resets it while a
-    // refresh is still in flight.
+    // that its reply is known for a refresh's or a code exchange's, and for
+    // which browser login it was sent. The flow's status does not say:
+    // starting a browser login resets it while a refresh is still in flight.
     m_oauth->setNetworkRequestModifier(this,
-                                       [](QNetworkRequest &request, QAbstractOAuth::Stage stage) {
+                                       [this](QNetworkRequest &request,
+                                              QAbstractOAuth::Stage stage) {
                                            request.setAttribute(STAGE_ATTRIBUTE,
                                                                 static_cast<int>(stage));
+                                           request.setAttribute(ATTEMPT_ATTRIBUTE, m_attempt);
                                        });
 
     // Connect the oauth code flow and add error logging.
@@ -229,7 +234,7 @@ void OAuthManager::onRequestFailure(const QAbstractOAuth::Error error)
     // was noted by receiveCallback, and an error the token endpoint named by
     // noteTokenReply; anything else left the login without a token, whether
     // the redirect brought no code or the exchange got no usable answer.
-    if (!m_login_in_progress) {
+    if (!loginInProgress()) {
         return;
     }
     if (m_state_mismatch) {
@@ -261,7 +266,7 @@ void OAuthManager::onServerError(const QString &error,
     // The error a redirect brought is shown only when the redirect is this
     // login's. With another state it is anybody's text: requestFailed then
     // reports the mismatch instead.
-    if (m_login_in_progress && !m_state_mismatch) {
+    if (loginInProgress() && !m_state_mismatch) {
         failLogin(serverErrorReason(error, errorDescription));
     }
 }
@@ -281,7 +286,7 @@ bool OAuthManager::noteTokenReply(QNetworkReply *reply)
         // browser login that waits started from NotAuthenticated, which
         // grant() sets, and is put back there so that its redirect is
         // taken (#410). Qt's token, refreshed or not, is left as it is.
-        if (m_token_reply && m_token_reply->refresh && m_login_in_progress) {
+        if (m_token_reply && m_token_reply->refresh && loginInProgress()) {
             static_cast<CodeFlow *>(m_oauth)->setStatus(QAbstractOAuth::Status::NotAuthenticated);
         }
         m_token_reply.reset();
@@ -290,10 +295,13 @@ bool OAuthManager::noteTokenReply(QNetworkReply *reply)
     const bool refresh = (reply->request().attribute(STAGE_ATTRIBUTE).toInt()
                           == static_cast<int>(QAbstractOAuth::Stage::RefreshingAccessToken));
     // A refresh is always taken: it renews the login held. A code exchange
-    // is the browser login's, and is taken only while that login waits for
-    // it (#414): after Login has started a session, a token it brought would
-    // replace the session's under it.
-    if (!refresh && !m_login_in_progress) {
+    // is taken only by the browser login that sent it, while it waits:
+    // after Login has started a session, a token it brought would replace
+    // the session's under it (#414), and after Authenticate was pressed
+    // again it would end the new attempt with the old one's account.
+    if (!refresh
+        && (!loginInProgress()
+            || (reply->request().attribute(ATTEMPT_ATTRIBUTE).toString() != m_attempt))) {
         spdlog::info("OAuth: refusing the answer to a code exchange that no login waits for");
         return false;
     }
@@ -331,7 +339,7 @@ void OAuthManager::failStoredLogin(const TokenReply &reply)
 
 void OAuthManager::endLogin()
 {
-    m_login_in_progress = false;
+    m_attempt.clear();
     m_handler->close();
 }
 
@@ -378,7 +386,7 @@ void OAuthManager::receiveToken(const QVariantMap &tokens)
     // a browser login that waits alone (#410); with none waiting, it closes
     // the listener the handler opened when it was built. Qt's granted() is
     // not used: it follows a refresh too, a failed one included.
-    if (!m_token_reply->refresh || !m_login_in_progress) {
+    if (!m_token_reply->refresh || !loginInProgress()) {
         endLogin();
     }
     // A reply without a scope grants the scope requested (RFC 6749, 5.1).
@@ -413,8 +421,8 @@ bool OAuthManager::initLogin()
     // Every login has its own state: left alone, Qt sends the one it made
     // when the flow was built with every login, and a redirect for a login
     // the user gave up would pass for this one's.
-    m_oauth->setState(makeState());
-    m_login_in_progress = true;
+    m_attempt = makeState();
+    m_oauth->setState(m_attempt);
     spdlog::info("OAuth: starting authentication.");
     m_oauth->grant();
     return true;
