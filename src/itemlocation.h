@@ -23,6 +23,14 @@ public:
     enum class ItemLocationType : int { STASH, CHARACTER };
     Q_ENUM(ItemLocationType)
 
+    // Where on a character an item sits when it is not the character's own
+    // (#418, F63): on its guardian, or attached to its Wickerman. Such an item
+    // shows under its character and cannot be listed for sale where it is: a
+    // guardian's gear cannot be taken off it, and a Wickerman part has to be
+    // taken off first. Like the slot and position, this is the item's own
+    // placement: it takes no part in the location's identity, order or row.
+    enum class Container { None, Guardian, Wickerman };
+
     ItemLocation();
     // A character has no tab index: nothing reads one for a character (its
     // header and sort order use its name), so it stays at the default (#294).
@@ -30,6 +38,15 @@ public:
     ItemLocation(const poe::StashTab &stash);
 
     ItemLocation getItemLocation(const poe::Item &item) const;
+    // The same location, for the items of one of the character's containers.
+    ItemLocation inContainer(Container container) const;
+    Container container() const { return m_container; }
+    // False for an item on a guardian or the Wickerman: it has no price,
+    // from any source, is never posted and has no forum code.
+    bool CanBeListed() const;
+    // The location line of an item shown under `row` (the row's current
+    // metadata): the row's header, and the container the item is in.
+    QString GetItemHeader(const ItemLocation &row) const;
     QString GetHeader() const;
     QRectF GetRect() const;
     QString GetForumCode(const QString &realm,
@@ -85,6 +102,7 @@ private:
     int m_x{0}, m_y{0}, m_w{0}, m_h{0};
     int m_red{0}, m_green{0}, m_blue{0};
     bool m_socketed{false};
+    Container m_container{Container::None};
     bool m_removeonly{false};
     ItemLocationType m_type;
     int m_tab_id{0};

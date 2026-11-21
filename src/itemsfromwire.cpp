@@ -6,6 +6,7 @@
 #include <array>
 #include <memory>
 #include <optional>
+#include <tuple>
 #include <utility>
 
 #include "itemlocation.h"
@@ -50,5 +51,21 @@ void AppendWireItems(const poe::Character &character,
             visit(name, (*items)->size());
         }
         AppendWireItems(**items, base, out);
+    }
+    // Their items show under the character and cannot be listed for sale
+    // where they sit (#418, F63). A guardian's item names the character's own
+    // slot, so the array an item arrived in is what says where it is.
+    const std::array set_apart{
+        std::make_tuple("guardian", &character.guardian, ItemLocation::Container::Guardian),
+        std::make_tuple("wickerman", &character.wickerman, ItemLocation::Container::Wickerman),
+    };
+    for (const auto &[name, items, container] : set_apart) {
+        if (!*items) {
+            continue;
+        }
+        if (visit) {
+            visit(name, (*items)->size());
+        }
+        AppendWireItems(**items, base.inContainer(container), out);
     }
 }

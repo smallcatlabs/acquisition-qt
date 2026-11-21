@@ -165,6 +165,19 @@ below all the others, in the order of the second table.
 A price in a currency this version does not know (stored by a newer
 version, say) is shown but not posted to the forum shop.
 
+## Items that cannot be priced
+
+The items on a character's guardian and the parts attached to its Wickerman
+show under the character (see [Searching](searching.md)), but they cannot be
+listed for sale where they are: a guardian's gear cannot be taken off it, and
+a Wickerman part has to be taken off before it can be listed. Such an item
+has no price at all, whatever its note, a price you set on it or its
+character's price says, and it is never posted to the forum shop. The buyout
+controls are disabled for it, and a price set for a selection that includes it
+leaves it alone and says so. A price you set on an item before it went onto
+the guardian or the Wickerman is kept: take the item off and the price shows
+again.
+
 ## Prices set in the game
 
 If a stash tab's name, or an item's note, contains a trade-site price string such

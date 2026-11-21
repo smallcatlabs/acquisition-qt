@@ -20,6 +20,7 @@
 
 #include "item.h"
 #include "itemlocation.h"
+#include "itemsfromwire.h"
 #include "poe/types/character.h"
 #include "poe/types/item.h"
 #include "poe/types/itemmod.h"
@@ -46,6 +47,8 @@ private slots:
     void rareOnlyDoesNotOverrideCrafted();
     void doubleCorruptedCountsAsCorrupted();
     void characterWickermanIsRead();
+    void guardianAndWickermanItemsAreWalked_data();
+    void guardianAndWickermanItemsAreWalked();
     void passiveNodeVariantFieldsAreRead();
     void passiveNodeConnectionsAreRead();
     void characterWithNumericConnectionTargetIsRead();
@@ -206,6 +209,59 @@ void WireTypesTest::characterWickermanIsRead()
     QVERIFY(character->wickerman);
     QCOMPARE(character->wickerman->size(), size_t(1));
     QCOMPARE(character->wickerman->front().typeLine, QString("Test Item"));
+}
+
+// #418, F63: real replies with a guardian (character-2) and a Wickerman
+// (character-1). Their items are walked after the character's own, under the
+// character's location, and cannot be listed; the character's own can.
+void WireTypesTest::guardianAndWickermanItemsAreWalked_data()
+{
+    QTest::addColumn<QString>("file");
+    QTest::addColumn<QString>("container");
+    QTest::addColumn<int>("count");
+    QTest::addColumn<QString>("typeLine");
+    QTest::newRow("guardian") << "character-2.json" << "guardian" << 5 << "Festival Mask";
+    QTest::newRow("wickerman") << "character-1.json" << "wickerman" << 2 << "Flaming Furnace";
+}
+
+void WireTypesTest::guardianAndWickermanItemsAreWalked()
+{
+    QFETCH(QString, file);
+    QFETCH(QString, container);
+    QFETCH(int, count);
+    QFETCH(QString, typeLine);
+    QFile reply(QFINDTESTDATA("fixtures/payloads/" + file));
+    QVERIFY(reply.open(QIODevice::ReadOnly));
+    const auto character = json::readCharacter(reply.readAll());
+    QVERIFY(character);
+
+    poe::Character own = *character;
+    own.guardian.reset();
+    own.wickerman.reset();
+    const ItemLocation base(*character);
+    Items without;
+    AppendWireItems(own, base, without);
+
+    Items items;
+    std::vector<QString> visited;
+    AppendWireItems(*character, base, items, [&](const char *name, size_t) {
+        visited.emplace_back(name);
+    });
+    QCOMPARE(visited.back(), container);
+    QCOMPARE(items.size(), without.size() + size_t(count));
+
+    bool named = false;
+    for (size_t i = without.size(); i < items.size(); ++i) {
+        const ItemLocation &location = items[i]->location();
+        QVERIFY(location == base);
+        QCOMPARE(location.fetch_id(), base.fetch_id());
+        QVERIFY(!location.CanBeListed());
+        named = named || (items[i]->typeLine() == typeLine);
+    }
+    QVERIFY(named);
+    for (size_t i = 0; i < without.size(); ++i) {
+        QVERIFY(items[i]->location().CanBeListed());
+    }
 }
 
 void WireTypesTest::passiveNodeVariantFieldsAreRead()
