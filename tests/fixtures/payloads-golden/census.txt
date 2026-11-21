@@ -1,6 +1,6 @@
-items, with those socketed in others: 202
+items, with those socketed in others: 209
 items without a category: 0
-mod lines read into mod tables: 777
+mod lines read into mod tables: 811
 mod lines that reach no mod name: 232, 198 of them different
   
   +0.2 metres to radius
@@ -221,8 +221,8 @@ mod lines filed under their own text: 20, 20 of them different
   Socketed Gems are Supported by Level 29 Added Chaos Damage Support
   Threads Breaches into an Area
   Threads an Expedition Encounter into an Area
-properties with a value: 477
-properties whose value is not one number: 134
+properties with a value: 487
+properties whose value is not one number: 135
   
   Any Heist member can equip this item.
   Attack Damage
