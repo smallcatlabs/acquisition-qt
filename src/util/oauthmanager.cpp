@@ -321,8 +321,11 @@ bool OAuthManager::noteTokenReply(QNetworkReply *reply)
                                "for");
         return false;
     }
-    // peek(), not read(): the body is Qt's to read.
-    const QJsonObject body = QJsonDocument::fromJson(reply->peek(ERROR_BODY_LIMIT)).object();
+    // peek(), not read(): the body is Qt's to read. A reply Qt abandoned (a
+    // timeout, a lost connection) is closed and has no body to peek at.
+    const QJsonObject body = reply->isOpen()
+                                 ? QJsonDocument::fromJson(reply->peek(ERROR_BODY_LIMIT)).object()
+                                 : QJsonObject();
     m_token_reply = TokenReply{
         .refresh = refresh,
         .error = body.value("error").toString(),

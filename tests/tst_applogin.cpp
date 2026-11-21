@@ -2253,6 +2253,8 @@ void AppLoginTest::exchangeWithNoAnswerEndsTheAttempt()
 
     QCOMPARE(m_browser.opened.size(), 1);
     QCOMPARE(surprises(fixture), QString());
+    // The abandoned reply is not read for an error body: Qt has closed it.
+    QVERIFY(!loggedText().contains("device not open"));
     checkNoSecretLogged({kCode, AppFixture::formField(tokenPosts(fixture)[0], "code_verifier")});
 }
 
@@ -2287,6 +2289,8 @@ void AppLoginTest::refreshWithNoAnswerAtStartIsSaid()
 
     QCOMPARE(m_browser.opened, QList<QUrl>());
     QCOMPARE(surprises(fixture), QString());
+    // The abandoned reply is not read for an error body: Qt has closed it.
+    QVERIFY(!loggedText().contains("device not open"));
     checkNoSecretLogged({kStoredAccess, kStoredRefresh});
 }
 
