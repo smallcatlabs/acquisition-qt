@@ -373,6 +373,12 @@ void Item::LoadModifiers(const poe::Item &item)
             AddModToTable(mod, m_mod_table, unnamed_lines());
         }
     }
+
+    for (const auto &[name, value] : m_mod_table) {
+        if (!IsModName(name)) {
+            m_own_text_mods.push_back(name);
+        }
+    }
 }
 
 UnnamedLine Item::unnamed_lines() const

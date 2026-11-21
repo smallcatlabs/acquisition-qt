@@ -3,8 +3,12 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSet>
+#include <QSettings>
+#include <QSignalSpy>
+#include <QStringListModel>
 #include <QtTest/QtTest>
 
+#include <algorithm>
 #include <clocale>
 #include <cmath>
 #include <memory>
@@ -12,6 +16,7 @@
 
 #include "item.h"
 #include "itemcategories.h"
+#include "itemsmanager.h"
 #include "modlist.h"
 #include "testfixtures.h"
 #include "testsuite.h"
@@ -55,6 +60,9 @@ private slots:
     void lineWithoutAModNameIsFiledUnderItsText();
     void describingLinesAreNotFiled();
     void aLineWithoutTextHasNoName();
+    void ownTextNamesAreKnownToTheItem();
+    void ownTextNamesJoinTheModList();
+    void refreshedItemsNamesJoinTheModList();
     // #419. Last: it loads the corpus's base items.
     void socketedSupportHasAModNameForEachSupportGem();
 };
@@ -773,6 +781,108 @@ void ItemTest::aLineWithoutTextHasNoName()
     AddModToTable("", table, UnnamedLine::FiledUnderItsText);
     AddModToTable(" ", table, UnnamedLine::FiledUnderItsText);
     QVERIFY(table.empty());
+}
+
+// The item of lineWithoutAModNameIsFiledUnderItsText: four lines filed under
+// their own text and one under a mod name.
+static std::shared_ptr<Item> makeItemWithUnnamedLines(const QString &id)
+{
+    return makeItem(id, R"json(,
+        "enchantMods": [
+            "Allocates [totem_ranged_notable2670|Watchtowers]",
+            "Added Small Passive Skills grant: 12% increased Totem Damage"
+        ],
+        "implicitMods": [{"description": "9% increased Rarity of Items found"}],
+        "explicitMods": [
+            {"description": "Players have -9% to all maximum Resistances"},
+            {"description": "+14% to [PlayerItemRarity|Item Rarity]"}
+        ]
+    )json");
+}
+
+static const QStringList kOwnTextNames = {
+    "#% increased Rarity of Items found",
+    "Added Small Passive Skills grant: #% increased Totem Damage",
+    "Allocates Watchtowers",
+    "Players have -#% to all maximum Resistances",
+};
+
+// #429: the item says which names in its mod table are a line's own text.
+// A mod name of the game data is not one, and a gem has none.
+void ItemTest::ownTextNamesAreKnownToTheItem()
+{
+    loadCorpusStatTranslations();
+
+    const auto item = makeItemWithUnnamedLines("own-text");
+    QStringList names(item->own_text_mods().begin(), item->own_text_mods().end());
+    names.sort();
+    QCOMPARE(names, kOwnTextNames);
+
+    const auto gem = makeItemOfFrame("own-text-gem", poe::FrameType::Gem, R"json(,
+        "explicitMods": [{"description": "Supported Skills deal 39% more Spell Damage"}]
+    )json");
+    QVERIFY(gem->own_text_mods().empty());
+}
+
+// #429: the Mods filter's list of names takes the own-text names of the
+// items it is given: each once, in its place in the order, and as inserted
+// rows, since a reset clears what the mod rows hold. Loading the game data
+// again starts the list over.
+void ItemTest::ownTextNamesJoinTheModList()
+{
+    loadCorpusStatTranslations();
+    QStringListModel &list = mod_list_model();
+    const QStringList before = list.stringList();
+    QCOMPARE(before.count("+#% to Item Rarity"), 1);
+    for (const QString &name : kOwnTextNames) {
+        QVERIFY2(!before.contains(name), qPrintable(name));
+    }
+
+    const auto item = makeItemWithUnnamedLines("joins");
+    QSignalSpy resets(&list, &QAbstractItemModel::modelReset);
+    AddOwnTextModNames({item});
+
+    const QStringList after = list.stringList();
+    QCOMPARE(after.size(), before.size() + kOwnTextNames.size());
+    for (const QString &name : kOwnTextNames) {
+        QVERIFY2(after.count(name) == 1, qPrintable(name));
+    }
+    QCOMPARE(after.count("+#% to Item Rarity"), 1);
+    QVERIFY(std::is_sorted(after.begin(), after.end(), [](const QString &a, const QString &b) {
+        return a.compare(b, Qt::CaseInsensitive) < 0;
+    }));
+    QCOMPARE(resets.count(), 0);
+
+    // The same names again, from the same item and from another: nothing new.
+    AddOwnTextModNames({item, makeItemWithUnnamedLines("joins-again")});
+    QCOMPARE(list.stringList(), after);
+
+    loadCorpusStatTranslations();
+    QCOMPARE(list.stringList(), before);
+}
+
+// #429: the items manager gives the list the items of a whole refresh and
+// of one tab's.
+void ItemTest::refreshedItemsNamesJoinTheModList()
+{
+    loadCorpusStatTranslations();
+    BuyoutManagerFixture buyouts;
+    QSettings settings(buyouts.tempDir.filePath("settings.ini"), QSettings::IniFormat);
+    ItemsManager items(settings, *buyouts.manager);
+    const ItemLocation tab = makeTestStashLocation();
+
+    const auto whole = makeItem("whole", R"json(,
+        "enchantMods": ["Allocates [totem_ranged_notable2670|Watchtowers]"]
+    )json");
+    items.OnItemsRefreshed({whole}, {tab}, true);
+    QVERIFY(mod_list_model().stringList().contains("Allocates Watchtowers"));
+
+    const auto delta = makeItem("delta", R"json(,
+        "explicitMods": [{"description": "9% reduced Hiring Fee"}]
+    )json");
+    QVERIFY(!mod_list_model().stringList().contains("#% reduced Hiring Fee"));
+    items.OnTabRefreshed(tab, {delta});
+    QVERIFY(mod_list_model().stringList().contains("#% reduced Hiring Fee"));
 }
 
 // The game data has one string for every support a socket can grant,
