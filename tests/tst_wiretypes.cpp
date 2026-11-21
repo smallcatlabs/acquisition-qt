@@ -47,8 +47,8 @@ private slots:
     void passiveNodeConnectionsAreRead();
     void characterWithNumericConnectionTargetIsRead();
     void leagueAccountVariantsAreRead();
-    void unreadTextFieldsDoNotRefuseATab_data();
-    void unreadTextFieldsDoNotRefuseATab();
+    void unreadFieldsDoNotRefuseATab_data();
+    void unreadFieldsDoNotRefuseATab();
 
     // Earlier reference changes the headers had not caught up with.
     void characterSpecialisationsAreRead();
@@ -351,20 +351,24 @@ void WireTypesTest::leagueAccountVariantsAreRead()
     QCOMPARE(variants.at("12345"), 67890);
 }
 
-// #422: the reference gives flavourTextNote and prophecyText as strings, and
-// no reply in the corpus carries either, so the shape the game sends is not
-// known. Nothing reads them. A real stash reply with one of them added to its
-// first item, in either shape, is read with all its items.
-void WireTypesTest::unreadTextFieldsDoNotRefuseATab_data()
+// #422: a field nothing reads is not modeled, and its key is skipped
+// whatever its shape. The reference gives flavourTextNote and prophecyText as
+// strings, and no reply in the corpus carries either, so the shape the game
+// sends is not known. A real stash reply with such keys added to its first
+// item is read with all its items: those two in either shape, and three
+// others in shapes their types refused when they were modeled.
+void WireTypesTest::unreadFieldsDoNotRefuseATab_data()
 {
     QTest::addColumn<QByteArray>("field");
     QTest::newRow("flavourTextNote as a string") << QByteArray(R"("flavourTextNote": "note",)");
     QTest::newRow("flavourTextNote as an array") << QByteArray(R"("flavourTextNote": ["note"],)");
     QTest::newRow("prophecyText as a string") << QByteArray(R"("prophecyText": "text",)");
     QTest::newRow("prophecyText as an array") << QByteArray(R"("prophecyText": ["text"],)");
+    QTest::newRow("three others in other shapes")
+        << QByteArray(R"("notableProperties": "text", "extended": [], "foreseeing": "yes",)");
 }
 
-void WireTypesTest::unreadTextFieldsDoNotRefuseATab()
+void WireTypesTest::unreadFieldsDoNotRefuseATab()
 {
     QFETCH(QByteArray, field);
     QFile file(QFINDTESTDATA("fixtures/payloads/stash-Standard-NormalStash-1.json"));
