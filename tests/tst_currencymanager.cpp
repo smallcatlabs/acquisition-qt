@@ -38,6 +38,7 @@ private slots:
 
     // #295: a failed read of the stored currency is not an empty store.
     void failedReadLeavesTheStoredCurrencyAlone();
+    void unparseableCurrencyIsNotSavedOver();
 };
 
 namespace {
@@ -388,6 +389,21 @@ void CurrencyManagerTest::failedReadLeavesTheStoredCurrencyAlone()
     QSqlDatabase::database(connection).close();
     QSqlDatabase::removeDatabase(connection);
 
+    QCOMPARE(store.Get("currency_items"), stored);
+}
+
+// #295: a stored value that cannot be parsed (a newer version's format,
+// say) is not saved over with the defaults either.
+void CurrencyManagerTest::unparseableCurrencyIsNotSavedOver()
+{
+    CurrencyFixture fixture;
+    DataStore &store = *fixture.buyouts.data;
+    const QString stored
+        = R"([{"currency":"alt","count":0,"chaos_ratio":1,"exalt_ratio":12.5,"new":1}])";
+    QVERIFY(store.Set("currency_items", stored));
+    {
+        CurrencyManager currency(fixture.settings, store, fixture.items);
+    }
     QCOMPARE(store.Get("currency_items"), stored);
 }
 

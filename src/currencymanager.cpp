@@ -57,8 +57,12 @@ CurrencyManager::CurrencyManager(QSettings &settings,
             MigrateCurrency(**base);
             spdlog::warn("Found old currency values, migrated them to the new system");
         }
-    } else {
-        InitCurrency(**items);
+    } else if (!InitCurrency(**items)) {
+        // A value this version cannot parse (a newer version's, say) is
+        // kept for the version that can.
+        spdlog::error("CurrencyManager: the stored currency could not be parsed, so it will not "
+                      "be saved this session");
+        m_loaded = false;
     }
 }
 
@@ -136,10 +140,10 @@ void CurrencyManager::MakeCurrencyItems()
     }
 }
 
-void CurrencyManager::InitCurrency(const QString &currency_items)
+bool CurrencyManager::InitCurrency(const QString &currency_items)
 {
     MakeCurrencyItems();
-    Deserialize(currency_items, m_currencies);
+    return Deserialize(currency_items, m_currencies);
 }
 
 void CurrencyManager::FirstInitCurrency()
@@ -192,12 +196,12 @@ QString CurrencyManager::Serialize(const std::vector<std::shared_ptr<CurrencyIte
     return QString::fromStdString(*result);
 }
 
-void CurrencyManager::Deserialize(const QString &string_data,
+bool CurrencyManager::Deserialize(const QString &string_data,
                                   std::vector<std::shared_ptr<CurrencyItem>> &currencies)
 {
     // Maybe clear something would be good
     if (string_data.isEmpty()) {
-        return;
+        return true;
     }
 
     const auto bytes = string_data.toUtf8();
@@ -206,7 +210,7 @@ void CurrencyManager::Deserialize(const QString &string_data,
     if (!result) {
         const auto msg = glz::format_error(result.error(), sv);
         spdlog::error("Error deserializing currency: {}", msg);
-        return;
+        return false;
     }
 
     for (const auto &obj : *result) {
@@ -221,6 +225,7 @@ void CurrencyManager::Deserialize(const QString &string_data,
             }
         }
     }
+    return true;
 }
 
 void CurrencyManager::SaveCurrencyItems()
