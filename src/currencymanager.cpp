@@ -246,8 +246,13 @@ void CurrencyManager::SaveCurrencyValue()
             empty = false;
         }
     }
-    QString old_value = m_data.Get("currency_last_value", "");
-    if (value != old_value && !empty) {
+    // A last value that cannot be read is not "none" (#295): taken for
+    // none, this update would be recorded again even when nothing changed.
+    const DataStore::ReadResult old_value = m_data.Read("currency_last_value");
+    if (!old_value) {
+        return;
+    }
+    if (value != old_value->value_or(QString()) && !empty) {
         CurrencyUpdate update = CurrencyUpdate();
         update.timestamp = QDateTime::currentSecsSinceEpoch();
         update.value = value;

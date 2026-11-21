@@ -40,6 +40,7 @@ private slots:
     void failedReadLeavesTheStoredCurrencyAlone();
     void failedReadOfTheOldListWritesNothing();
     void failedReadRecordsNoHistory();
+    void failedReadOfTheLastValueRecordsNoDuplicate();
 };
 
 namespace {
@@ -455,6 +456,39 @@ void CurrencyManagerTest::failedReadRecordsNoHistory()
     }
     QVERIFY(fixture.buyouts.data->GetAllCurrency().empty());
     QCOMPARE(fixture.buyouts.data->Get("currency_items"), QString("[]"));
+}
+
+// #295: when the last recorded value cannot be read, the update is not taken
+// for a change from nothing: no row is recorded that may repeat the last.
+void CurrencyManagerTest::failedReadOfTheLastValueRecordsNoDuplicate()
+{
+    CurrencyFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-295l", "Currency", 0);
+    fixture.items.OnItemsRefreshed({makeStack("chaos-295l", "Chaos Orb", 3, 20, tab)}, {tab}, false);
+    {
+        CurrencyManager currency(fixture.settings, *fixture.buyouts.data, fixture.items);
+        currency.Update();
+    }
+    QCOMPARE(fixture.buyouts.data->GetAllCurrency().size(), size_t(1));
+    // Rows are keyed by the second (#285): move the first one back, so a
+    // repeat within this second is a second row, not a replacement.
+    const QString connection = "currency-295l";
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connection);
+        db.setDatabaseName(fixture.buyouts.tempDir.filePath("acquisition.sqlite"));
+        QVERIFY(db.open());
+        QSqlQuery q(db);
+        QVERIFY(q.exec("UPDATE currency SET timestamp = 1"));
+        db.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+
+    OneKeyFails store(*fixture.buyouts.data, "currency_last_value");
+    {
+        CurrencyManager currency(fixture.settings, store, fixture.items);
+        currency.Update();
+    }
+    QCOMPARE(fixture.buyouts.data->GetAllCurrency().size(), size_t(1));
 }
 
 ACQ_TEST_MAIN(CurrencyManagerTest)
