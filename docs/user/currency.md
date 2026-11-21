@@ -16,9 +16,8 @@ many Alteration Orbs one Chaos buys); Acquisition does not fetch market rates.
 Totals at the bottom show **Total Chaos Orbs**, **Total Exalted Orbs**, and
 **Total Scrolls of Wisdom**. The **show chaos ratio** and **show exalt ratio**
 check boxes hide or reveal the ratio columns and are remembered between runs.
-If the saved ratios cannot be read when you log in (or were saved by a newer
-version), the defaults are shown and nothing is saved that session, so the
-saved ratios are kept; the log says why.
+If the saved ratios cannot be read when you log in, the defaults are shown and
+nothing is saved that session, so the saved ratios are kept; the log says why.
 
 The dialog stays open and updates as refreshes complete.
 

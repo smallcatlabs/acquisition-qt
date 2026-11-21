@@ -141,8 +141,7 @@ private:
     void EmitPendingChanges();
 
     QString Serialize(const std::unordered_map<QString, bool> &obj);
-    // False when `data` is not empty and cannot be parsed.
-    bool Deserialize(const QString &data, std::unordered_map<QString, bool> &obj);
+    void Deserialize(const QString &data, std::unordered_map<QString, bool> &obj);
 
     DataStore &m_data;
     BuyoutRepo &m_repo;
@@ -164,8 +163,8 @@ private:
     std::set<QString> m_refresh_locked;
     bool m_save_needed;
     bool m_loaded{false};
-    // False when the stored refresh check state could not be read or parsed
-    // (#295): the changes of this session are kept but never saved over it.
+    // False when the stored refresh check state could not be read (#295):
+    // the changes of this session are kept but never saved over it.
     bool m_checks_loaded{true};
     std::vector<ItemLocation> m_tabs;
 

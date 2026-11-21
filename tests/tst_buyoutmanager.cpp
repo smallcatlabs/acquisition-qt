@@ -25,7 +25,7 @@ private slots:
 
     // #295: a failed read of the refresh check state is not an empty one.
     void failedReadOfRefreshChecksIsNotSavedOver();
-    void unparseableRefreshChecksAreNotSavedOver();
+    void unparseableRefreshChecksAreReplaced();
     // #293 step 2: a tab's price is not copied onto its items.
     void tabPriceWritesOneRow();
     void inheritedRowIsIgnoredOnLoad();
@@ -1098,8 +1098,9 @@ void BuyoutManagerTest::failedReadOfRefreshChecksIsNotSavedOver()
     QCOMPARE(fixture.data->Get("refresh_checked_state"), stored);
 }
 
-// #295: a stored check state that cannot be parsed is not saved over either.
-void BuyoutManagerTest::unparseableRefreshChecksAreNotSavedOver()
+// #295: unlike a failed read, a stored check state that is present but
+// cannot be parsed is replaced, as before #295.
+void BuyoutManagerTest::unparseableRefreshChecksAreReplaced()
 {
     BuyoutManagerFixture fixture;
     const QString stored = R"({"stash-295c": "no"})";
@@ -1109,7 +1110,7 @@ void BuyoutManagerTest::unparseableRefreshChecksAreNotSavedOver()
         QVERIFY(manager.SetRefreshChecked(makeTestStashLocation("stash-295d", "D", 0), false));
         manager.Save();
     }
-    QCOMPARE(fixture.data->Get("refresh_checked_state"), stored);
+    QCOMPARE(fixture.data->Get("refresh_checked_state"), QString(R"({"stash-295d":false})"));
 }
 
 ACQ_TEST_GUILESS_MAIN(BuyoutManagerTest)

@@ -38,7 +38,7 @@ private slots:
 
     // #295: a failed read of the stored currency is not an empty store.
     void failedReadLeavesTheStoredCurrencyAlone();
-    void unparseableCurrencyIsNotSavedOver();
+    void ratiosFromBeforeVersion016AreReplacedOnce();
     void failedReadOfTheOldListWritesNothing();
     void failedReadRecordsNoHistory();
     void failedReadOfTheLastValueRecordsNoDuplicate();
@@ -426,21 +426,6 @@ void CurrencyManagerTest::failedReadLeavesTheStoredCurrencyAlone()
     QCOMPARE(store.Get("currency_items"), stored);
 }
 
-// #295: a stored value that cannot be parsed (a newer version's format,
-// say) is not saved over with the defaults either.
-void CurrencyManagerTest::unparseableCurrencyIsNotSavedOver()
-{
-    CurrencyFixture fixture;
-    DataStore &store = *fixture.buyouts.data;
-    const QString stored
-        = R"([{"currency":"alt","count":0,"chaos_ratio":1,"exalt_ratio":12.5,"new":1}])";
-    QVERIFY(store.Set("currency_items", stored));
-    {
-        CurrencyManager currency(fixture.settings, store, fixture.items);
-    }
-    QCOMPARE(store.Get("currency_items"), stored);
-}
-
 // #295: on a first run (no currency_items), a failed read of the list from
 // before the JSON format is not taken for no list: nothing is written, so
 // the old list is still there to migrate next time.
@@ -505,6 +490,31 @@ void CurrencyManagerTest::failedReadOfTheLastValueRecordsNoDuplicate()
         currency.Update();
     }
     QCOMPARE(fixture.buyouts.data->GetAllCurrency().size(), size_t(1));
+}
+
+// #295 review: from v0.9 to v0.15 currency_items was a JSON object keyed by
+// the currency's name (v0.15.2's Serialize); since v0.16 it is read as an
+// array, so a league file kept from then cannot be parsed. Its ratios are
+// replaced by the defaults, and from then on edits and history are saved.
+void CurrencyManagerTest::ratiosFromBeforeVersion016AreReplacedOnce()
+{
+    CurrencyFixture fixture;
+    DataStore &store = *fixture.buyouts.data;
+    const QString v015 = R"({"Orb of Alteration":{"count":0,"chaos_ratio":1.0,)"
+                         R"("exalt_ratio":12.5,"currency":"alt"},"Chaos Orb":{"count":3,)"
+                         R"("chaos_ratio":1.0,"exalt_ratio":1.0,"currency":"chaos"}})";
+    QVERIFY(store.Set("currency_items", v015));
+    const ItemLocation tab = makeTestStashLocation("stash-295v", "Currency", 0);
+    fixture.items.OnItemsRefreshed({makeStack("chaos-295v", "Chaos Orb", 3, 20, tab)}, {tab}, false);
+    {
+        CurrencyManager currency(fixture.settings, store, fixture.items);
+        currency.currencies().at(0)->exalt.value1 = 7;
+        currency.SaveCurrencyItems();
+        currency.Update();
+    }
+    const QString saved = store.Get("currency_items");
+    QVERIFY2(saved.startsWith("[") && saved.contains("\"exalt_ratio\":7"), qPrintable(saved));
+    QCOMPARE(store.GetAllCurrency().size(), size_t(1));
 }
 
 ACQ_TEST_MAIN(CurrencyManagerTest)
