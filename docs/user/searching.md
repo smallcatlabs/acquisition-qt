@@ -30,7 +30,9 @@ From top to bottom:
   are, and partly filled when some are. Ticking or clearing it ticks or clears
   those tabs. (A tab that has a price, or holds a priced item, also shows a
   partly filled box: it is always refreshed so its prices stay current, and
-  cannot be cleared.)
+  cannot be cleared.) If the saved check boxes cannot be read when you log in,
+  every tab starts ticked and changes to them are not saved that session, so
+  the saved ones are kept; the log says why.
   Right-click for **Refresh Selected**, **Check Selected**, **Uncheck Selected**,
   **Check All**, **Uncheck All**, **Expand All**, and **Collapse All**. Check
   All and Uncheck All act on the tab and character rows shown, so they do

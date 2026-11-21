@@ -369,13 +369,13 @@ QString BuyoutManager::Serialize(const std::unordered_map<QString, bool> &obj)
     return QString::fromStdString(*result);
 }
 
-void BuyoutManager::Deserialize(const QString &data, std::unordered_map<QString, bool> &obj)
+bool BuyoutManager::Deserialize(const QString &data, std::unordered_map<QString, bool> &obj)
 {
     obj.clear();
 
     // if data is empty (on first use) we shouldn't make user panic by showing ERROR messages
     if (data.isEmpty()) {
-        return;
+        return true;
     }
 
     const QByteArray bytes{data.toUtf8()};
@@ -384,17 +384,18 @@ void BuyoutManager::Deserialize(const QString &data, std::unordered_map<QString,
     if (!result) {
         const auto msg = glz::format_error(result.error());
         spdlog::error("Error deserializing boolean buyout map: {}", msg);
-        return;
+        return false;
     }
 
     for (const auto &[key, value] : *result) {
         obj[key] = value;
     }
+    return true;
 }
 
 void BuyoutManager::Save()
 {
-    if (m_save_needed) {
+    if (m_save_needed && m_checks_loaded) {
         m_data.Set("refresh_checked_state", Serialize(m_refresh_checked));
         m_save_needed = false;
     }
@@ -403,7 +404,15 @@ void BuyoutManager::Save()
 void BuyoutManager::Load()
 {
     m_loaded = LoadBuyouts();
-    Deserialize(m_data.Get("refresh_checked_state"), m_refresh_checked);
+    // A stored state that cannot be read or parsed is not an empty one
+    // (#295): saved over, it would check every tab the user unchecked.
+    const DataStore::ReadResult checks = m_data.Read("refresh_checked_state");
+    m_checks_loaded = checks && Deserialize(checks->value_or(QString()), m_refresh_checked);
+    if (!m_checks_loaded) {
+        spdlog::error("BuyoutManager: the stored refresh check state could not be {}, so "
+                      "check-box changes will not be saved this session",
+                      checks ? "parsed" : "read");
+    }
 }
 
 void BuyoutManager::ReloadBuyouts()
