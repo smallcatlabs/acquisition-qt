@@ -23,6 +23,7 @@
 #include "ui/flowlayout.h"
 #include "ui/modsfilterform.h"
 #include "ui/searchcombobox.h"
+#include "ui/widgetutil.h"
 #include "util/util.h"
 
 namespace {

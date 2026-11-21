@@ -508,6 +508,8 @@ set(ACQ_UI
     src/ui/updateprompt.h
     src/ui/verticalscrollarea.cpp
     src/ui/verticalscrollarea.h
+    src/ui/widgetutil.cpp
+    src/ui/widgetutil.h
     # Forms
     src/ui/logindialog.ui
     src/ui/mainwindow.ui

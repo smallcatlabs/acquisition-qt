@@ -6,6 +6,7 @@
 
 #include "currency.h"
 #include "testsuite.h"
+#include "ui/widgetutil.h"
 #include "util/util.h"
 
 // The currency table (#301, #273, #38).
