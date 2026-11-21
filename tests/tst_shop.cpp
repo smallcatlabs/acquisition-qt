@@ -3,7 +3,9 @@
 
 #include <QtTest/QtTest>
 
+#include <QApplication>
 #include <QBuffer>
+#include <QClipboard>
 #include <QFile>
 #include <QMap>
 #include <QSettings>
@@ -166,6 +168,13 @@ private slots:
     void loggedOutHeadingIsARejectedSession();
     void automaticFailuresWarnOncePerKind();
     void unrecognisedErrorShowsNoPageText();
+
+    // #278: Copy renders on demand, without posting, and says what happened.
+    void copyWithoutThreadsCopiesEveryPageJoined();
+    void copyWithoutPoesessidCopiesNothingAndSaysWhy();
+    void copyWithNothingPricedCopiesNothing();
+    void copyIndexFailureCopiesNothingAndSaysWhy();
+    void copyRejectedPoesessidIsTreatedAsForASubmission();
 };
 
 namespace {
@@ -2044,6 +2053,121 @@ void ShopTest::unrecognisedErrorShowsNoPageText()
     QVERIFY2(notice.contains("does not recognise"), qPrintable(notice));
 }
 
-ACQ_TEST_MAIN(ShopTest)
+namespace {
 
+    // What separates two pages on the clipboard (#278, "Joined").
+    constexpr const char *kCopyPageSeparator = "\n\n-------- next page --------\n\n";
+
+} // namespace
+
+// #278: with a POESESSID and no threads, Copy fetches the tab numbers,
+// renders the shop, and copies every page joined by a separator line. It
+// posts nothing and leaves the posted shop's hash alone.
+void ShopTest::copyWithoutThreadsCopiesEveryPageJoined()
+{
+    ShopFixture fixture;
+    armTwoPageShop(fixture);
+    fixture.shop->SetThread({});
+    // Setting threads forgets the posted hash; this one stands for a shop
+    // posted earlier.
+    fixture.buyoutFixture.data->Set("shop_hash", "previous-hash");
+    QApplication::clipboard()->setText("before");
+    QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+
+    fixture.shop->CopyToClipboard();
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(1));
+    QCOMPARE(fixture.rateLimiter->pendingFuture(0).endpoint,
+             QString("https://www.pathofexile.com/character-window/get-stash-items"));
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+
+    const QString copied = QApplication::clipboard()->text();
+    QCOMPARE(warnings.count(), 0);
+    QVERIFY2(lastStatus(statuses).contains("2 pages"), qPrintable(lastStatus(statuses)));
+    QCOMPARE(fixture.networkManager->count(), 0);
+    QCOMPARE(fixture.buyoutFixture.data->Get("shop_hash"), QString("previous-hash"));
+
+    // The same pages a submission renders, in order.
+    fixture.shop->SetThread({kThread, "2"});
+    fixture.shop->SubmitShopToForum();
+    fixture.rateLimiter->resolve(1, kStashIndexJson);
+    drainEvents();
+    QCOMPARE(fixture.shop->shop_data().size(), 2);
+    QCOMPARE(copied, fixture.shop->shop_data().join(kCopyPageSeparator));
+}
+
+// #278: the tab numbers come only from the legacy request, which needs the
+// POESESSID (N21). Without one nothing is copied, and the user is told.
+void ShopTest::copyWithoutPoesessidCopiesNothingAndSaysWhy()
+{
+    ShopFixture fixture;
+    armTwoPageShop(fixture);
+    fixture.settings->remove("session_id");
+    QApplication::clipboard()->setText("before");
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+
+    fixture.shop->CopyToClipboard();
+    drainEvents();
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(0));
+    QCOMPARE(QApplication::clipboard()->text(), QString("before"));
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY(warnings.first().first().toString().contains("POESESSID"));
+}
+
+// #278: a shop with nothing priced has nothing to copy, and says so.
+void ShopTest::copyWithNothingPricedCopiesNothing()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    QApplication::clipboard()->setText("before");
+    QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
+
+    fixture.shop->CopyToClipboard();
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    QCOMPARE(QApplication::clipboard()->text(), QString("before"));
+    QVERIFY2(lastStatus(statuses).contains("nothing is priced"), qPrintable(lastStatus(statuses)));
+}
+
+// #278: when the tab numbers cannot be read, nothing is copied and the user
+// is told why.
+void ShopTest::copyIndexFailureCopiesNothingAndSaysWhy()
+{
+    ShopFixture fixture;
+    armTwoPageShop(fixture);
+    QApplication::clipboard()->setText("before");
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+
+    fixture.shop->CopyToClipboard();
+    fixture.rateLimiter->reject(0, RateLimit::FetchError::Kind::Http, "HTTP status 503");
+    drainEvents();
+    QCOMPARE(QApplication::clipboard()->text(), QString("before"));
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY(warnings.first().first().toString().contains("not copied"));
+    QCOMPARE(fixture.networkManager->count(), 0);
+}
+
+// #278: a POESESSID the copy's request finds rejected is handled as a
+// submission handles it: automatic updates off, the session cleared, the
+// user told; nothing is copied.
+void ShopTest::copyRejectedPoesessidIsTreatedAsForASubmission()
+{
+    ShopFixture fixture;
+    armTwoPageShop(fixture);
+    fixture.shop->SetAutoUpdate(true);
+    QApplication::clipboard()->setText("before");
+    QSignalSpy rejected(fixture.shop.get(), &Shop::PoeSessionRejected);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+
+    fixture.shop->CopyToClipboard();
+    fixture.rateLimiter->reject(0, RateLimit::FetchError::Kind::Http, "HTTP status 403", 403);
+    drainEvents();
+    QCOMPARE(rejected.count(), 1);
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY(!fixture.shop->auto_update());
+    QCOMPARE(QApplication::clipboard()->text(), QString("before"));
+}
+
+ACQ_TEST_MAIN(ShopTest)
 #include "tst_shop.moc"

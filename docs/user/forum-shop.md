@@ -29,8 +29,14 @@ your stash directly. Acquisition writes and updates those threads for you.
   refresh, but only if something changed since the last post. If no thread or
   no POESESSID is set, a warning says so once per session rather than after
   every refresh; updating by hand tells you each time.
-- **Shop → Copy shop data to clipboard** gives you the generated forum markup
-  without posting, for pasting by hand.
+- **Shop → Copy shop data to clipboard** builds the forum markup from the
+  current prices and copies it without posting, for pasting by hand. It needs
+  no thread, but it does need the POESESSID: a stash item's link carries its
+  tab's number, which pathofexile.com gives only to a POESESSID. Without one
+  nothing is copied and you are told why. Every page is copied, separated by a
+  `-------- next page --------` line, and the status bar says how many pages
+  were copied. Copying never changes what was last posted, so the next update
+  still posts if the shop changed.
 
 Items priced *[Ignore]* are omitted; *No price* items appear without a tag.
 Which tag each buyout type produces is listed in [Pricing](pricing.md).
