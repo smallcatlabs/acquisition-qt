@@ -1304,6 +1304,7 @@ mod table:
   Added Small Passive Skills also grant: #% increased Mana Regeneration Rate = 5
   Added Small Passive Skills also grant: +# to Maximum Mana = 8
   Added Small Passive Skills also grant: +#% to Cold Resistance = 2
+  Added Small Passive Skills grant: #% increased Totem Damage = 12
   Adds # Passive Skills = 4
 path of building:
   Rarity: RARE
@@ -1346,6 +1347,7 @@ mod table:
   1 Added Passive Skill is Prismatic Heart = 0
   Added Small Passive Skills also grant: #% increased Damage = 3
   Added Small Passive Skills also grant: +#% to all Elemental Resistances = 2
+  Added Small Passive Skills grant: #% increased Lightning Damage = 12
   Adds # Passive Skills = 9
 path of building:
   Rarity: RARE

@@ -51,6 +51,10 @@ private slots:
     void markupInAPropertyNameIsReadAsItsText();
     void markupInAModNameIsReadAsItsText();
     void bracketsThatAreNotMarkupAreKept();
+    // #429: lines that fit no mod name of the game data.
+    void lineWithoutAModNameIsFiledUnderItsText();
+    void describingLinesAreNotFiled();
+    void aLineWithoutTextHasNoName();
     // #419. Last: it loads the corpus's base items.
     void socketedSupportHasAModNameForEachSupportGem();
 };
@@ -654,6 +658,121 @@ void ItemTest::bracketsThatAreNotMarkupAreKept()
     // Two in one line, and one whose id has colons in it.
     QCOMPARE(Util::WithoutMarkup("[ThreadInfoBreach|Threads] of [FeastOfFlesh::15|Feast of Flesh]"),
              QString("Threads of Feast of Flesh"));
+}
+
+// A minimal wire item of one frame type, with extra JSON appended.
+static std::shared_ptr<Item> makeItemOfFrame(const QString &id,
+                                             poe::FrameType frame,
+                                             const QString &extraJson)
+{
+    const QByteArray json = QString(R"json({
+        "baseType": "Test Item",
+        "frameType": %2,
+        "h": 1,
+        "icon": "https://web.poecdn.com/image/test.png",
+        "id": "%1",
+        "identified": true,
+        "ilvl": 84,
+        "name": "",
+        "typeLine": "Test Item",
+        "verified": false,
+        "w": 1,
+        "x": 0,
+        "y": 0%3
+    })json")
+                                .arg(id)
+                                .arg(static_cast<unsigned>(frame))
+                                .arg(extraJson)
+                                .toUtf8();
+    return std::make_shared<Item>(makeTestItem(json.constData(), makeTestStashLocation()));
+}
+
+// #429: four lines the game sent that fit no mod name of game data
+// 3.30.0.4, each for another reason: a passive's name where the game data
+// has a placeholder, a mod's text inside another's, a wording the game had
+// before 3.30, and a string in a file the application does not load. Each
+// is in the mod table under its own text, its numbers written "#", and a
+// sign stays in the text. A line that does fit a mod name is filed under
+// that name only.
+void ItemTest::lineWithoutAModNameIsFiledUnderItsText()
+{
+    loadCorpusStatTranslations();
+
+    const auto item = makeItem("unnamed", R"json(,
+        "enchantMods": [
+            "Allocates [totem_ranged_notable2670|Watchtowers]",
+            "Added Small Passive Skills grant: 12% increased Totem Damage"
+        ],
+        "implicitMods": [{"description": "9% increased Rarity of Items found"}],
+        "explicitMods": [
+            {"description": "Players have -9% to all maximum Resistances"},
+            {"description": "+14% to [PlayerItemRarity|Item Rarity]"}
+        ]
+    )json");
+    const ModTable &table = item->mod_table();
+    const std::vector<std::pair<QString, double>> expected = {
+        {"Allocates Watchtowers", 0.0},
+        {"Added Small Passive Skills grant: #% increased Totem Damage", 12.0},
+        {"#% increased Rarity of Items found", 9.0},
+        {"Players have -#% to all maximum Resistances", 9.0},
+        {"+#% to Item Rarity", 14.0},
+    };
+    for (const auto &[name, value] : expected) {
+        QVERIFY2(table.contains(name), qPrintable(name));
+        QCOMPARE(table.at(name), value);
+    }
+    QCOMPARE(table.size(), expected.size());
+
+    // Two numbers: their mean, as for a line with a mod name. The line is
+    // a gem's in the corpus, so it is given to the function, not to an item.
+    ModTable two;
+    AddModToTable("Minions' Attacks deal 126 to 184 additional Physical Damage",
+                  two,
+                  UnnamedLine::FiledUnderItsText);
+    QCOMPARE(two.at("Minions' Attacks deal # to # additional Physical Damage"), 155.0);
+}
+
+// #429: on a gem, a currency item and a divination card the lines describe
+// the item. They are shown and are not in the mod table. One line the game
+// sent for each.
+void ItemTest::describingLinesAreNotFiled()
+{
+    loadCorpusStatTranslations();
+
+    const auto gem = makeItemOfFrame("gem", poe::FrameType::Gem, R"json(,
+        "explicitMods": [{"description": "Supported Skills deal 39% more Spell Damage"}]
+    )json");
+    QCOMPARE(gem->text_mods().at("explicitMods"),
+             ItemMods{"Supported Skills deal 39% more Spell Damage"});
+    QVERIFY(gem->mod_table().empty());
+
+    const auto currency = makeItemOfFrame("currency", poe::FrameType::Currency, R"json(,
+        "explicitMods": [{"description": "Creates a portal to town"}]
+    )json");
+    QVERIFY(currency->mod_table().empty());
+
+    const auto card = makeItemOfFrame("card", poe::FrameType::DivinationCard, R"json(,
+        "explicitMods": [{"description": "<currencyitem>{20x Orb of Fusing}"}]
+    )json");
+    QVERIFY(card->mod_table().empty());
+
+    // The same line on an item of another frame is filed.
+    const auto other = makeItemOfFrame("other", poe::FrameType::Normal, R"json(,
+        "explicitMods": [{"description": "Creates a portal to town"}]
+    )json");
+    QVERIFY(other->mod_table().contains("Creates a portal to town"));
+}
+
+// #429: two essences in the payload corpus carry a mod line with no text.
+// Such a line has no name to be filed under.
+void ItemTest::aLineWithoutTextHasNoName()
+{
+    loadCorpusStatTranslations();
+
+    ModTable table;
+    AddModToTable("", table, UnnamedLine::FiledUnderItsText);
+    AddModToTable(" ", table, UnnamedLine::FiledUnderItsText);
+    QVERIFY(table.empty());
 }
 
 // The game data has one string for every support a socket can grant,

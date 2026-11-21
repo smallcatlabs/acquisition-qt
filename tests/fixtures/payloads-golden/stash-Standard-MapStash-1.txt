@@ -19,6 +19,7 @@ mod table:
   Players have #% less Area of Effect = 27
   Players have #% less Armour = 30
   Players have #% reduced Chance to Block = 40
+  Players have -#% to all maximum Resistances = 9
 tooltip:
   <center><font color='#fff'>Arcane Slough Nightmare Map</font><hr>
   Atlas Drops: <font color='#88f'>+81%</font><br>

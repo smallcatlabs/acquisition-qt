@@ -751,6 +751,7 @@ mod table:
   +# total to Intelligence = 16
   +# total to Strength = 16
   +#% to Quality of all Skill Gems = 25
+  Allocates Death Attunement = 0
 path of building:
   Rarity: UNIQUE
   Ashes of the Stars
@@ -1877,6 +1878,7 @@ mod table:
   1 Added Passive Skill is a Jewel Socket = 0
   Added Small Passive Skills also grant: +#% to Chaos Resistance = 4
   Added Small Passive Skills also grant: +#% to all Elemental Resistances = 3
+  Added Small Passive Skills grant: Minions have #% increased maximum Life = 12
   Adds # Passive Skills = 4
 path of building:
   Rarity: RARE
@@ -1921,6 +1923,7 @@ mod table:
   Added Small Passive Skills also grant: +# to Maximum Mana = 9
   Added Small Passive Skills also grant: +#% to Chaos Resistance = 5
   Added Small Passive Skills also grant: +#% to all Elemental Resistances = 5
+  Added Small Passive Skills grant: #% increased Armour = 15
   Adds # Passive Skills = 2
 path of building:
   Rarity: RARE
