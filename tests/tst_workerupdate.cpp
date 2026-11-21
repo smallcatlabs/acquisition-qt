@@ -174,6 +174,10 @@ private slots:
     void timerTickDuringUpdateIsDroppedQuietly();
     void timerTickWhileInitializingKeepsTheUsersQueuedRequest();
     void timerTickWhenIdleRefreshesCheckedTabs();
+
+    // #358: an update that would fetch nothing is refused before it starts.
+    void refreshCheckedWithNothingCheckedIsRefused();
+    void refreshSelectedOfAnUnlistedTabIsRefused();
 };
 
 namespace {
@@ -4283,17 +4287,119 @@ void WorkerUpdateTest::timerTickWhileInitializingKeepsTheUsersQueuedRequest()
 void WorkerUpdateTest::timerTickWhenIdleRefreshesCheckedTabs()
 {
     WorkerFixture f("timer-idle");
+    const auto tab_a = json::readStash(stashJson("stashaaaa1", "Tab A", 0));
+    QVERIFY(tab_a);
+    {
+        UserStore store(QDir(f.dataDir()), "timer-idle");
+        QVERIFY(store.stashes().saveStashList({*tab_a}, kRealm, kLeague));
+    }
     f.start();
     f.attachManager();
     f.connectRefreshRequests();
     QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
 
-    // Nothing is checked, so the update needs no list and completes at once.
+    // A tab is checked unless it was unchecked.
     f.manager->OnAutoRefreshTimer();
     QVERIFY(WorkerFixture::drainUntilIdle());
+    QVERIFY(f.hasPendingStashList());
+    f.deliverStashList({*tab_a});
+    f.deliverStash("stashaaaa1", *tab_a);
     QCOMPARE(f.terminals.size(), size_t(1));
     QVERIFY(std::holds_alternative<CompletedRefresh>(f.terminals[0].outcome));
     QVERIFY(f.notify_messages.isEmpty());
+}
+
+namespace {
+
+    // What a refused update must leave: nothing requested, no snapshot, no
+    // terminal event (D4) and no message box; one status line naming why.
+    void verifyRefusedWithStatus(const WorkerFixture &f, size_t statuses_before, const QString &why)
+    {
+        QCOMPARE(f.callCount(), size_t(0));
+        QCOMPARE(f.refresh_count, 1);
+        QCOMPARE(f.terminals.size(), size_t(0));
+        QVERIFY(f.notify_messages.isEmpty());
+        QCOMPARE(f.status_updates.size(), statuses_before + 1);
+        QCOMPARE(f.status_updates.back().state, ProgramState::Ready);
+        QVERIFY2(f.status_updates.back().message.contains(why),
+                 qPrintable(f.status_updates.back().message));
+    }
+
+} // namespace
+
+// #358: with every tab unchecked, Refresh Checked would fetch nothing. It is
+// refused before it starts, from the menu and from the timer alike: no
+// terminal event, so no automatic shop submission (which waits for a clean
+// CompletedRefresh, Shop::OnRefreshFinished). The user is told on the status
+// line, not in a message box.
+void WorkerUpdateTest::refreshCheckedWithNothingCheckedIsRefused()
+{
+    WorkerFixture f("refuse-unchecked");
+    const auto tab_a = json::readStash(stashJson("stashaaaa1", "Tab A", 0));
+    QVERIFY(tab_a);
+    {
+        UserStore store(QDir(f.dataDir()), "refuse-unchecked");
+        QVERIFY(store.stashes().saveStashList({*tab_a}, kRealm, kLeague));
+    }
+    f.start();
+    f.attachManager();
+    f.connectRefreshRequests();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    f.bm.manager->SetRefreshChecked(ItemLocation(*tab_a), false);
+
+    // The menu's Refresh Checked.
+    size_t statuses_before = f.status_updates.size();
+    f.manager->Update(TabSelection::Checked);
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    verifyRefusedWithStatus(f, statuses_before, "no tab is checked");
+
+    // The auto-refresh timer.
+    statuses_before = f.status_updates.size();
+    f.manager->OnAutoRefreshTimer();
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    verifyRefusedWithStatus(f, statuses_before, "no tab is checked");
+
+    // The refusal left the worker idle: once a tab is checked, it refreshes.
+    f.bm.manager->SetRefreshChecked(ItemLocation(*tab_a), true);
+    f.manager->Update(TabSelection::Checked);
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    f.deliverStashList({*tab_a});
+    f.deliverStash("stashaaaa1", *tab_a);
+    QCOMPARE(f.terminals.size(), size_t(1));
+}
+
+// #358: Refresh Selected with a tab the worker no longer lists (an item
+// whose tab was deleted, say) would fetch nothing either, and is refused the
+// same way.
+void WorkerUpdateTest::refreshSelectedOfAnUnlistedTabIsRefused()
+{
+    WorkerFixture f("refuse-unlisted");
+    const auto tab_a = json::readStash(stashJson("stashaaaa1", "Tab A", 0));
+    const auto gone = json::readStash(stashJson("stashgone1", "Gone", 1));
+    QVERIFY(tab_a && gone);
+    {
+        UserStore store(QDir(f.dataDir()), "refuse-unlisted");
+        QVERIFY(store.stashes().saveStashList({*tab_a}, kRealm, kLeague));
+    }
+    f.start();
+    f.attachManager();
+    f.connectRefreshRequests();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+    QVERIFY(WorkerFixture::drainUntilIdle());
+
+    const size_t statuses_before = f.status_updates.size();
+    f.manager->Update(TabSelection::Selected, {ItemLocation(*gone)});
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    verifyRefusedWithStatus(f, statuses_before, "no longer listed");
+
+    // A listed tab beside it is still refreshed.
+    f.manager->Update(TabSelection::Selected, {ItemLocation(*gone), ItemLocation(*tab_a)});
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    f.deliverStashList({*tab_a});
+    QVERIFY(!f.hasPendingStash("stashgone1"));
+    f.deliverStash("stashaaaa1", *tab_a);
+    QCOMPARE(f.terminals.size(), size_t(1));
 }
 
 // #299: the worker runs as the identity decided at login. A league in the

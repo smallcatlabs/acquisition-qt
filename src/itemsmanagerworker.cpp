@@ -192,30 +192,6 @@ void ItemsManagerWorker::Update(TabSelection type, const std::vector<ItemLocatio
         spdlog::trace("ItemsManagerWorker: characters = {}", character_names.join(", "));
         spdlog::trace("ItemsManagerWorker: stashes = {}", stash_names.join(", "));
     }
-    m_state = WorkerState::Updating;
-    // A fresh stop_source per update (D2): every facade call below takes this
-    // update's token, and a terminal failure request_stop()s it. The previous
-    // update's source (stopped or not) is dropped here, so the new update's
-    // calls carry a distinct, unstopped token — which is what makes the token
-    // the update's sole identity under the post-await check (W-IDENTITY).
-    m_stop_source = std::stop_source{};
-    m_update_tab_contents = (type != TabSelection::TabsOnly);
-
-    // The terminal vocabulary resets at each accepted update (D4): the
-    // first-error slot and the deterministic skip list belong to this
-    // update alone.
-    m_first_error = RateLimit::FetchError{};
-    m_first_error_set = false;
-    m_skipped_sources.clear();
-
-    // Reset the completion counters here, once per update: this is their only
-    // reset. Each lane's LaunchContent() accumulates into them (never resets),
-    // so a fresh update must not inherit a previous one's totals.
-    m_stashes_needed = 0;
-    m_stashes_received = 0;
-    m_characters_needed = 0;
-    m_characters_received = 0;
-
     // Build the content selection. Nothing is culled here: tab entries are
     // reconciled against the fresh lists as they arrive, and each tab's
     // items are replaced atomically when its reply arrives, so a failed
@@ -278,6 +254,46 @@ void ItemsManagerWorker::Update(TabSelection type, const std::vector<ItemLocatio
             }
         }
     }
+
+    // An update that would fetch nothing is refused before it starts
+    // (#358): no list is needed only when the selection names no listed
+    // tab — every tab unchecked, or a selected tab the lists no longer
+    // carry. Accepting it would run straight to a clean completed refresh,
+    // which an automatic shop submission waits for. Refused like any other
+    // update (D4: no terminal event); the user is told on the status line,
+    // for the timer as for the menu.
+    if (!m_need_stash_list && !m_need_character_list) {
+        const QString why = (type == TabSelection::Checked)
+                                ? "no tab is checked for refresh"
+                                : "the selected tabs are no longer listed";
+        spdlog::info("ItemsManagerWorker: not refreshing: {}", why);
+        emit StatusUpdate(ProgramState::Ready, "Nothing refreshed: " + why);
+        return;
+    }
+
+    m_state = WorkerState::Updating;
+    // A fresh stop_source per update (D2): every facade call below takes this
+    // update's token, and a terminal failure request_stop()s it. The previous
+    // update's source (stopped or not) is dropped here, so the new update's
+    // calls carry a distinct, unstopped token — which is what makes the token
+    // the update's sole identity under the post-await check (W-IDENTITY).
+    m_stop_source = std::stop_source{};
+    m_update_tab_contents = (type != TabSelection::TabsOnly);
+
+    // The terminal vocabulary resets at each accepted update (D4): the
+    // first-error slot and the deterministic skip list belong to this
+    // update alone.
+    m_first_error = RateLimit::FetchError{};
+    m_first_error_set = false;
+    m_skipped_sources.clear();
+
+    // Reset the completion counters here, once per update: this is their only
+    // reset. Each lane's LaunchContent() accumulates into them (never resets),
+    // so a fresh update must not inherit a previous one's totals.
+    m_stashes_needed = 0;
+    m_stashes_received = 0;
+    m_characters_needed = 0;
+    m_characters_received = 0;
 
     m_has_stash_list = false;
     m_has_character_list = false;
