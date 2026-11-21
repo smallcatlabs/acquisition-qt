@@ -9,7 +9,9 @@
 #include <QStringListModel>
 #include <QStringView>
 
+#include <memory>
 #include <unordered_map>
+#include <vector>
 
 class Item;
 typedef std::unordered_map<QString, double> ModTable;
@@ -32,3 +34,13 @@ void AddStatTranslations(const QByteArray &statTranslations);
 enum class UnnamedLine { Dropped, FiledUnderItsText };
 
 void AddModToTable(const QString &mod, ModTable &output, UnnamedLine unnamed = UnnamedLine::Dropped);
+
+// Whether the game data, or the pseudo-mods, give this mod name.
+bool IsModName(const QString &name);
+
+// Adds the items' own-text names (Item::own_text_mods) to the list of names
+// the Mods filter offers, each once and in its place in the order, as
+// inserted rows: a reset would clear the text of every mod row (#429).
+// Names stay in the list until the game data is loaded again. Main thread
+// only: the list is a model the search form's widgets read.
+void AddOwnTextModNames(const std::vector<std::shared_ptr<Item>> &items);

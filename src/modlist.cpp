@@ -88,6 +88,8 @@ namespace {
             return result;
         }
 
+        bool contains(const QString &name) const { return m_names.contains(name); }
+
         std::optional<Match> match(const QString &line, const QString &generic_line) const
         {
             if (m_names.contains(generic_line)) {
@@ -309,6 +311,36 @@ void AddStatTranslations(const QByteArray &statTranslations)
                     mods.insert(stat_string);
                 }
             }
+        }
+    }
+}
+
+bool IsModName(const QString &name)
+{
+    return catalogue && catalogue->contains(name);
+}
+
+void AddOwnTextModNames(const std::vector<std::shared_ptr<Item>> &items)
+{
+    const auto before = [](const QString &a, const QString &b) {
+        return a.compare(b, Qt::CaseInsensitive) < 0;
+    };
+    for (const auto &item : items) {
+        for (const QString &name : item->own_text_mods()) {
+            int row = 0;
+            {
+                // The list is in this order (InitModList); names that
+                // differ only in case sit together. The copy shares the
+                // model's list, so it is gone before the model changes.
+                const QStringList list = m_mod_list_model.stringList();
+                const auto [first, last] = std::equal_range(list.begin(), list.end(), name, before);
+                if (std::find(first, last, name) != last) {
+                    continue;
+                }
+                row = static_cast<int>(first - list.begin());
+            }
+            m_mod_list_model.insertRows(row, 1);
+            m_mod_list_model.setData(m_mod_list_model.index(row), name);
         }
     }
 }
