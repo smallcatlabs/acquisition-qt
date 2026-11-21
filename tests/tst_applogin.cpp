@@ -94,6 +94,8 @@ private slots:
     void redirectForAnAbandonedAttemptIsRefused();
     void loginEndsAWaitingBrowserLogin();
     void refusedLoginLeavesTheBrowserLoginWaiting();
+    void refreshWhileTheBrowserIsOutLeavesItWaiting();
+    void failedRefreshWhileTheBrowserIsOutLeavesItWaiting();
     void loginDuringTheCodeExchangeKeepsTheSession();
 
 private:
@@ -1480,6 +1482,152 @@ namespace {
         = "OAuth: refusing the answer to a code exchange that no login waits for";
 
 } // namespace
+
+// The stored login's refresh is answered while the user is in the browser
+// (#410). The refresh is taken, and the browser login goes on waiting: its
+// redirect is answered, and the sign-in finished there, as another account,
+// is the login held afterwards.
+void AppLoginTest::refreshWhileTheBrowserIsOutLeavesItWaiting()
+{
+    AppFixture fixture([](AppFixture &f) {
+        storeToken(f, kStoredAccess, kStoredRefresh);
+        answerRefreshThenOtherAccount(f);
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+    auto &authenticated = child<QLabel>(dialog, "authenticateLabel");
+
+    // No event has been processed since the application was built: the
+    // refresh is on its way and its answer has not come.
+    QCOMPARE(tokenPosts(fixture).size(), 1);
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(authorize);
+
+    // The refresh is granted. The dialog takes it as it takes any grant: the
+    // held login is shown, and the button offers to re-authenticate.
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
+    QCOMPARE(authenticated.text(),
+             QString("You are authenticated as \"%1\"").arg(AppFixture::kAccount));
+    QCOMPARE(authenticate.text(), QString("Re-authenticate (as someone else)."));
+    QVERIFY(error.isHidden());
+
+    // The browser login is still waiting: its redirect is taken.
+    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kAuthorizedText));
+    QVERIFY(QTest::qWaitFor(
+        [&] {
+            return authenticated.text()
+                   == QString("You are authenticated as \"%1\"").arg(kOtherAccount);
+        },
+        10000));
+    const QList<QByteArray> posts = tokenPosts(fixture);
+    QCOMPARE(posts.size(), 2);
+    QCOMPARE(AppFixture::formField(posts[1], "code"), kCode);
+    const auto stored = storedToken(fixture);
+    QVERIFY(stored);
+    QCOMPARE(stored->username, kOtherAccount);
+    QCOMPARE(stored->refresh_token, kOtherRefresh);
+    QVERIFY(error.isHidden());
+
+    league.setCurrentIndex(league.findText(AppFixture::kLeague));
+    login.click();
+    QVERIFY2(fixture.access().hasSession(), qPrintable(error.text()));
+    QCOMPARE(fixture.access().identity().account(), kOtherAccount);
+
+    QCOMPARE(m_browser.opened.size(), 1);
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged({kStoredAccess,
+                         kStoredRefresh,
+                         kFreshAccess,
+                         kFreshRefresh,
+                         kCode,
+                         AppFixture::formField(posts[1], "code_verifier"),
+                         kOtherAccess,
+                         kOtherRefresh});
+}
+
+// A refresh later in the run fails while the user is in the browser (#410).
+// Qt then reports the token it already had as granted again; that is no
+// grant of the browser login, which goes on waiting: nothing is said, the
+// button still reads "Authenticating...", and the redirect logs in.
+void AppLoginTest::failedRefreshWhileTheBrowserIsOutLeavesItWaiting()
+{
+    AppFixture fixture([](AppFixture &f) {
+        answerTokenRequestsInTurn(
+            f,
+            {// The first browser login. Its token expires one second past the
+             // lead time at which the application refreshes it.
+             tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh, 301)),
+             // That refresh, refused once the user is back in the browser.
+             heldBack(tokenAnswer(400, kInvalidGrant)),
+             // The second browser login, as someone else.
+             tokenAnswer(200, grantedToken(kOtherAccess, kOtherRefresh, 36000, kOtherAccount))});
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+    auto &authenticated = child<QLabel>(dialog, "authenticateLabel");
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto first = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(first);
+    QVERIFY(deliverRedirect(first->redirect, kCode, first->state).contains(kAuthorizedText));
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
+
+    // The user authenticates again before the refresh is sent.
+    QCOMPARE(tokenPosts(fixture).size(), 1);
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 2);
+    const auto second = checkAuthorizeUrl(m_browser.opened.last());
+    QVERIFY(second);
+    QVERIFY(QTest::qWaitFor([&] { return tokenPosts(fixture).size() == 2; }, 10000));
+    QCOMPARE(AppFixture::formField(tokenPosts(fixture)[1], "grant_type"), QString("refresh_token"));
+    QCOMPARE(fixture.network->release(), 1);
+    QVERIFY(QTest::qWaitFor(
+        [] { return loggedText().contains("OAuth: request failed: error 2 (ServerError)"); },
+        10000));
+    QVERIFY(error.isHidden());
+    QCOMPARE(authenticate.text(), QString(kAuthenticating));
+
+    QVERIFY(deliverRedirect(second->redirect, kSecondCode, second->state).contains(kAuthorizedText));
+    QVERIFY(QTest::qWaitFor(
+        [&] {
+            return authenticated.text()
+                   == QString("You are authenticated as \"%1\"").arg(kOtherAccount);
+        },
+        10000));
+    const QList<QByteArray> posts = tokenPosts(fixture);
+    QCOMPARE(posts.size(), 3);
+    QCOMPARE(AppFixture::formField(posts[2], "code"), kSecondCode);
+    const auto stored = storedToken(fixture);
+    QVERIFY(stored);
+    QCOMPARE(stored->username, kOtherAccount);
+    QVERIFY(error.isHidden());
+
+    league.setCurrentIndex(league.findText(AppFixture::kLeague));
+    login.click();
+    QVERIFY2(fixture.access().hasSession(), qPrintable(error.text()));
+    QCOMPARE(fixture.access().identity().account(), kOtherAccount);
+
+    QCOMPARE(m_browser.opened.size(), 2);
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged({kCode,
+                         kSecondCode,
+                         AppFixture::formField(posts[0], "code_verifier"),
+                         AppFixture::formField(posts[2], "code_verifier"),
+                         kFreshAccess,
+                         kFreshRefresh,
+                         kOtherAccess,
+                         kOtherRefresh});
+}
 
 // With a login held, the user authenticates as someone else, the redirect
 // arrives, and Login is pressed before the code exchange is answered (#414).

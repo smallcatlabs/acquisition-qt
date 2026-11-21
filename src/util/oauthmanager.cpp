@@ -113,6 +113,16 @@ namespace {
         std::function<bool(QNetworkReply *)> m_note;
     };
 
+    // The code flow, with Qt's protected status setter in reach. Qt keeps
+    // one status for the whole flow, and ignores the redirect of a browser
+    // login unless the status is the one grant() left: see noteTokenReply.
+    class CodeFlow : public QOAuth2AuthorizationCodeFlow
+    {
+    public:
+        using QAbstractOAuth::setStatus;
+        using QOAuth2AuthorizationCodeFlow::QOAuth2AuthorizationCodeFlow;
+    };
+
 }; // namespace
 
 OAuthManager::OAuthManager(NetworkManager &network_manager, DataStore &datastore, QObject *parent)
@@ -127,7 +137,8 @@ OAuthManager::OAuthManager(NetworkManager &network_manager, DataStore &datastore
     m_handler->setCallbackPath(CALLBACK_PATH);
     m_handler->setCallbackText("Acquisition has been authorized.");
 
-    // Setup a connection to grab the details of a token before granted() has been received.
+    // A token is taken here, before Qt's own handling of it: connected before
+    // the flow is given the handler, so ahead of the flow's connection.
     connect(m_handler,
             &QAbstractOAuthReplyHandler::tokensReceived,
             this,
@@ -137,7 +148,7 @@ OAuthManager::OAuthManager(NetworkManager &network_manager, DataStore &datastore
     const QSet<QByteArray> scope_tokens{SCOPE.begin(), SCOPE.end()};
 
     // Setup OAuth for the Path of Exile API.
-    m_oauth = new QOAuth2AuthorizationCodeFlow(this);
+    m_oauth = new CodeFlow(this);
     m_oauth->setNetworkAccessManager(&network_manager);
     m_oauth->setAuthorizationUrl(QUrl{AUTHORIZATION_URL});
     m_oauth->setTokenUrl(QUrl{TOKEN_URL});
@@ -170,7 +181,6 @@ OAuthManager::OAuthManager(NetworkManager &network_manager, DataStore &datastore
 
     // Connect the oauth code flow and add error logging.
     connect(m_oauth, &QAbstractOAuth::authorizeWithBrowser, this, &QDesktopServices::openUrl);
-    connect(m_oauth, &QAbstractOAuth::granted, this, &OAuthManager::receiveGrant);
     connect(m_oauth, &QAbstractOAuth::requestFailed, this, &OAuthManager::onRequestFailure);
     connect(m_oauth,
             &QAbstractOAuth2::serverReportedErrorOccurred,
@@ -266,6 +276,14 @@ void OAuthManager::receiveCallback(const QVariantMap &data)
 bool OAuthManager::noteTokenReply(QNetworkReply *reply)
 {
     if (!reply) {
+        // Qt has handled a refresh's reply, granted or not, and its status
+        // now says Granted, where it ignores a browser login's redirect. A
+        // browser login that waits started from NotAuthenticated, which
+        // grant() sets, and is put back there so that its redirect is
+        // taken (#410). Qt's token, refreshed or not, is left as it is.
+        if (m_token_reply && m_token_reply->refresh && m_login_in_progress) {
+            static_cast<CodeFlow *>(m_oauth)->setStatus(QAbstractOAuth::Status::NotAuthenticated);
+        }
         m_token_reply.reset();
         return true;
     }
@@ -331,6 +349,11 @@ void OAuthManager::receiveToken(const QVariantMap &tokens)
     if (tokens.value("access_token").toString().isEmpty()) {
         return;
     }
+    // Tokens come only in a reply of the token endpoint, which
+    // noteTokenReply has let through and noted.
+    if (!m_token_reply) {
+        return;
+    }
 
     m_token = OAuthToken::fromTokens(tokens);
     spdlog::info("OAuth: tokens recieved for {}", m_token.username);
@@ -350,17 +373,24 @@ void OAuthManager::receiveToken(const QVariantMap &tokens)
         m_data.Set("oauth_token", QString::fromStdString(serialized_token));
     }
     m_network_manager.setBearerToken(m_token.access_token);
-}
 
-void OAuthManager::receiveGrant()
-{
-    endLogin();
-    auto requested = m_oauth->requestedScopeTokens();
-    const auto &granted = m_oauth->grantedScopeTokens();
-    const auto &diff = requested.subtract(granted);
-    if (!diff.empty()) {
-        spdlog::error("OAuth: was not granted these requested scopes: {}",
-                      QStringList(diff.begin(), diff.end()).join(", "));
+    // A code exchange is what the browser login waited for. A refresh leaves
+    // a browser login that waits alone (#410); with none waiting, it closes
+    // the listener the handler opened when it was built. Qt's granted() is
+    // not used: it follows a refresh too, a failed one included.
+    if (!m_token_reply->refresh || !m_login_in_progress) {
+        endLogin();
+    }
+    // A reply without a scope grants the scope requested (RFC 6749, 5.1).
+    const QStringList granted = m_token.scope.split(' ', Qt::SkipEmptyParts);
+    QStringList missing;
+    for (const char *scope : SCOPE) {
+        if (!granted.isEmpty() && !granted.contains(QLatin1StringView(scope))) {
+            missing << scope;
+        }
+    }
+    if (!missing.isEmpty()) {
+        spdlog::error("OAuth: was not granted these requested scopes: {}", missing.join(", "));
     }
     spdlog::info("OAuth: access was granted.");
     emit grantAccess(m_token);
