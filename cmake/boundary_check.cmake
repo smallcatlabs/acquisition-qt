@@ -25,6 +25,7 @@
 #   BOUNDARY        what is checked, for the report ("The filter core")
 #   SOURCES_DIR     every .h and .cpp under this directory is checked, or
 #   SOURCES_FILE    a file listing the sources to check, one path per line
+#                   (relative paths are taken from the working directory)
 #   SRC_DIR         the directory includes are relative to (src/), with
 #   FORBIDDEN_FILE  optionally, a file listing headers of other libraries the
 #                   sources may not include, one path per line
@@ -71,6 +72,8 @@ set(foreign_headers "")
 if(DEFINED FORBIDDEN_FILE)
     file(STRINGS "${FORBIDDEN_FILE}" foreign_paths)
     foreach(path IN LISTS foreign_paths)
+        # A relative path is taken from the working directory.
+        get_filename_component(path "${path}" ABSOLUTE)
         file(RELATIVE_PATH relative "${SRC_DIR}" "${path}")
         list(APPEND foreign_headers "${relative}")
     endforeach()

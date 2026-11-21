@@ -8,7 +8,7 @@
 qt_add_executable(acq_tests testrunner.cpp)
 acq_first_party(acq_tests)
 target_include_directories(acq_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(acq_tests PRIVATE acquisition_core Qt6::Test)
+target_link_libraries(acq_tests PRIVATE acquisition_gui Qt6::Test)
 
 function(_acq_test_environment out_var)
     set(test_environment "QT_QPA_PLATFORM=offscreen")
@@ -77,7 +77,7 @@ foreach(benchmark m2m2_benchmark m3_holdpoint_benchmark m1m2_benchmark)
     qt_add_executable(${benchmark} ${benchmark}.cpp)
     acq_first_party(${benchmark})
     target_include_directories(${benchmark} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-    target_link_libraries(${benchmark} PRIVATE acquisition_core)
+    target_link_libraries(${benchmark} PRIVATE acquisition_gui)
     if(WIN32)
         set_target_properties(${benchmark} PROPERTIES EXCLUDE_FROM_ALL TRUE)
     endif()
@@ -91,7 +91,7 @@ endforeach()
 qt_add_executable(live_capture live_capture.cpp)
 acq_first_party(live_capture)
 target_include_directories(live_capture PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(live_capture PRIVATE acquisition_core Qt6::Test)
+target_link_libraries(live_capture PRIVATE acquisition_gui Qt6::Test)
 # It looks at this source tree's branch before it runs (tests/liveguards.h).
 target_compile_definitions(live_capture PRIVATE ACQ_SOURCE_DIR="${acquisition_SOURCE_DIR}")
 
@@ -110,7 +110,9 @@ target_link_libraries(modmatch_census PRIVATE acquisition_core)
 qt_add_executable(corpus_gamedata corpus_gamedata.cpp)
 acq_first_party(corpus_gamedata)
 target_include_directories(corpus_gamedata PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(corpus_gamedata PRIVATE acquisition_core)
+# The GUI library for the tooltip text (ui/itemtooltiptext), which is free
+# of widgets but kept with the rest of src/ui.
+target_link_libraries(corpus_gamedata PRIVATE acquisition_gui)
 
 # The filter core must stay free of the UI (Phase 5, D5). A STATIC archive has
 # no link step, so this cannot be left to target_link_libraries.
@@ -121,6 +123,24 @@ add_test(NAME filters_boundary
         -D "ARCHIVE=$<TARGET_FILE:acquisition_filters>"
         -P "${acquisition_SOURCE_DIR}/cmake/boundary_check.cmake")
 add_dependencies(acq_tests acquisition_filters)
+
+# The core library must stay free of the UI as well (#299): its sources may
+# not include a widget header or a header of the GUI library, and its archive
+# asks for no widget symbols. The lists are the two targets' own sources.
+file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/core_boundary_sources.txt"
+    CONTENT "$<JOIN:$<FILTER:$<TARGET_PROPERTY:acquisition_core,SOURCES>,INCLUDE,^src/.*\\.(h|cpp)$>,\n>\n")
+file(GENERATE OUTPUT "${CMAKE_BINARY_DIR}/gui_headers.txt"
+    CONTENT "$<JOIN:$<FILTER:$<TARGET_PROPERTY:acquisition_gui,SOURCES>,INCLUDE,^src/.*\\.h$>,\n>\n")
+add_test(NAME core_boundary
+    COMMAND ${CMAKE_COMMAND}
+        "-DBOUNDARY=The core library (#299)"
+        -D "SOURCES_FILE=${CMAKE_BINARY_DIR}/core_boundary_sources.txt"
+        -D "SRC_DIR=${acquisition_SOURCE_DIR}/src"
+        -D "FORBIDDEN_FILE=${CMAKE_BINARY_DIR}/gui_headers.txt"
+        -D "ARCHIVE=$<TARGET_FILE:acquisition_core>"
+        -P "${acquisition_SOURCE_DIR}/cmake/boundary_check.cmake"
+    WORKING_DIRECTORY "${acquisition_SOURCE_DIR}")
+add_dependencies(acq_tests acquisition_core)
 
 # The application finds a TLS backend that supports SSL (#370): a Qt whose
 # TLS plugins load but cannot make an encrypted connection fails here, not at
