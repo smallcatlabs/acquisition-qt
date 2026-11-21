@@ -36,6 +36,7 @@
 #include <QCryptographicHash>
 #include <QDesktopServices>
 #include <QHostAddress>
+#include <QOAuth2AuthorizationCodeFlow>
 #include <QPushButton>
 #include <QTcpSocket>
 #include <QUrlQuery>
@@ -53,6 +54,7 @@
 #include "datastore/sqlitedatastore.h"
 #include "testsuite.h"
 #include "util/glaze_qt.h" // IWYU pragma: keep
+#include "util/oauthmanager.h"
 #include "util/oauthtoken.h"
 
 // Stands in for the user's browser: QDesktopServices hands it every http and
@@ -1477,6 +1479,19 @@ namespace {
         return answer;
     }
 
+    // Refreshes the login held now, as Qt does on its own when the access
+    // token is about to expire: its timer calls the same refreshTokens().
+    // A scenario that calls it decides the moment, instead of a token's
+    // expiry against the wall clock.
+    void refreshNow(AppFixture &f)
+    {
+        auto *flow = f.access().oauth().findChild<QOAuth2AuthorizationCodeFlow *>();
+        if (!flow) {
+            qFatal("tst_applogin: the OAuth manager has no code flow");
+        }
+        flow->refreshTokens();
+    }
+
     // What the log says when an answer of the token endpoint is refused
     // before Qt sees it.
     constexpr const char *kExchangeRefusedLog
@@ -1560,11 +1575,10 @@ void AppLoginTest::failedRefreshWhileTheBrowserIsOutLeavesItWaiting()
     AppFixture fixture([](AppFixture &f) {
         answerTokenRequestsInTurn(
             f,
-            {// The first browser login. Its token expires one second past the
-             // lead time at which the application refreshes it.
-             tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh, 301)),
-             // That refresh, refused once the user is back in the browser.
-             heldBack(tokenAnswer(400, kInvalidGrant)),
+            {// The first browser login.
+             tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh)),
+             // Its refresh, refused once the user is back in the browser.
+             tokenAnswer(400, kInvalidGrant),
              // The second browser login, as someone else.
              tokenAnswer(200, grantedToken(kOtherAccess, kOtherRefresh, 36000, kOtherAccount))});
     });
@@ -1583,15 +1597,14 @@ void AppLoginTest::failedRefreshWhileTheBrowserIsOutLeavesItWaiting()
     QVERIFY(deliverRedirect(first->redirect, kCode, first->state).contains(kAuthorizedText));
     QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
 
-    // The user authenticates again before the refresh is sent.
-    QCOMPARE(tokenPosts(fixture).size(), 1);
+    // The user authenticates again, and the token is refreshed meanwhile.
     authenticate.click();
     QCOMPARE(m_browser.opened.size(), 2);
     const auto second = checkAuthorizeUrl(m_browser.opened.last());
     QVERIFY(second);
+    refreshNow(fixture);
     QVERIFY(QTest::qWaitFor([&] { return tokenPosts(fixture).size() == 2; }, 10000));
     QCOMPARE(AppFixture::formField(tokenPosts(fixture)[1], "grant_type"), QString("refresh_token"));
-    QCOMPARE(fixture.network->release(), 1);
     QVERIFY(QTest::qWaitFor(
         [] { return loggedText().contains("OAuth: request failed: error 2 (ServerError)"); },
         10000));
@@ -1641,9 +1654,8 @@ void AppLoginTest::loginDuringTheCodeExchangeKeepsTheSession()
         storeToken(f, kStoredAccess, kStoredRefresh);
         answerTokenRequestsInTurn(
             f,
-            {// The refresh at start. Its token expires three seconds past the
-             // lead time, so the next refresh follows the scenario's steps.
-             tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh, 303)),
+            {// The refresh at start.
+             tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh)),
              // The code exchange, as the other account, kept back until the
              // session has started.
              heldBack(
@@ -1688,6 +1700,7 @@ void AppLoginTest::loginDuringTheCodeExchangeKeepsTheSession()
     QCOMPARE(fixture.access().identity().account(), QString(AppFixture::kAccount));
 
     // The next refresh is the held login's, and is taken.
+    refreshNow(fixture);
     QVERIFY(QTest::qWaitFor([&] { return tokenPosts(fixture).size() == 3; }, 10000));
     const QList<QByteArray> posts = tokenPosts(fixture);
     QCOMPARE(AppFixture::formField(posts[2], "grant_type"), QString("refresh_token"));
