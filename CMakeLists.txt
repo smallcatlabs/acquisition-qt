@@ -504,6 +504,8 @@ set(ACQ_UI
     src/ui/searchcombobox.h
     src/ui/searchform.cpp
     src/ui/searchform.h
+    src/ui/updateprompt.cpp
+    src/ui/updateprompt.h
     src/ui/verticalscrollarea.cpp
     src/ui/verticalscrollarea.h
     # Forms
