@@ -236,11 +236,11 @@ void EffectivePriceTest::readersAgree_data()
         << "b/o 5 chaos" << false << chaos << 5.0 << false << "null"   << true  << true  << true  << PS::Note       << false;
     QTest::newRow("manual item, manual tab")  << "Dump"          << 3.0 << ""             << bo   << false
         << "b/o 7 chaos" << false << chaos << 7.0 << true  << "fixed" << true  << false << true  << PS::ManualItem << true;
-    // Today's inconsistency, pinned as it is (the maintainer's to rule on):
-    // an item's own price in a game-named tab is refused by a price edit
-    // but posted to the forum.
+    // #365: an item's own price is in force in a tab priced by its name
+    // (T12: the site lists the forum's price), so it can be edited as well
+    // as posted.
     QTest::newRow("manual item, tab name")    << "~price 2 chaos" << 0.0 << ""            << bo   << false
-        << "b/o 7 chaos" << false << chaos << 7.0 << true  << "fixed" << true  << true  << true  << PS::ManualItem << true;
+        << "b/o 7 chaos" << false << chaos << 7.0 << true  << "fixed" << true  << false << true  << PS::ManualItem << true;
     QTest::newRow("note, manual tab")         << "Dump"          << 3.0 << "~b/o 5 chaos" << none << false
         << "b/o 5 chaos" << false << chaos << 5.0 << false << "null"   << true  << true  << true  << PS::Note       << false;
     // Since #293 step 3 the price set in Acquisition stays stored under the
@@ -261,7 +261,7 @@ void EffectivePriceTest::readersAgree_data()
     QTest::newRow("manual tab, delta")        << "Dump"          << 3.0 << ""             << none << true
         << "b/o 3 chaos" << true  << chaos << 3.0 << true  << "fixed" << true  << false << true  << PS::ManualTab  << true;
     QTest::newRow("manual item, tab name, delta") << "~price 2 chaos" << 0.0 << ""        << bo   << true
-        << "b/o 7 chaos" << false << chaos << 7.0 << true  << "fixed" << true  << true  << true  << PS::ManualItem << true;
+        << "b/o 7 chaos" << false << chaos << 7.0 << true  << "fixed" << true  << false << true  << PS::ManualItem << true;
     // clang-format on
 }
 
