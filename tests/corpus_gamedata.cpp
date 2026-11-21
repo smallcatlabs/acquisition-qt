@@ -132,6 +132,8 @@ namespace {
                 addBaseNames(character->inventory, result.base_names);
                 addBaseNames(character->rucksack, result.base_names);
                 addBaseNames(character->jewels, result.base_names);
+                addBaseNames(character->guardian, result.base_names);
+                addBaseNames(character->wickerman, result.base_names);
             } else {
                 addBaseNames(json::readStash(json)->items, result.base_names);
             }

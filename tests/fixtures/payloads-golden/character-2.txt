@@ -1,4 +1,4 @@
-60 item(s)
+65 item(s)
 
 === Impairing Eternal Life Flask of Thawing
 id: 5fc2b5717f1a237751a507d1fe00b10a06dbc64ead7d9ff734713f6375683831
@@ -2096,6 +2096,281 @@ tooltip:
   <font color='#88f'>Gain 9% of Cold Damage as Extra Chaos Damage<br>
   Passives granting Cold Resistance or all Elemental Resistances in Radius\nalso grant Chance to Suppress Spell Damage at 70% of its value</font></center>
 hash: 29b5991915439a80cdc2a4fbb6164af2
+
+=== Cospri's Will Assassin's Garb
+id: a40a1017538fda205b7b26842602dec953ef66fed21aadd6d8030569358739da
+location: ExampleCharacter2
+forum code: 
+frame type 3, category 'body armours', item level 85, 2x3, count 1
+flags: identified, path of building item
+sockets: W-W-W (3 sockets, 3 linked; r0 g0 b0 w3)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w3
+properties:
+  Evasion Rating = 1929 (number 1929)
+requirements: Dex 183, Level 68
+mod table:
+  #% increased Evasion Rating = 161
+  #% increased Movement Speed = 3
+  +#% to Chaos Resistance = 48
+  +#% total Resistance = 48
+  +#% total to Chaos Resistance = 48
+  Always Poison on Hit against Cursed Enemies = 0
+  You can apply an additional Curse = 0
+  Your Hexes can affect Hexproof Enemies = 0
+path of building:
+  Rarity: UNIQUE
+  Cospri's Will
+  Assassin's Garb
+  Unique ID: a40a1017538fda205b7b26842602dec953ef66fed21aadd6d8030569358739da
+  Item Level: 85
+  Sockets: W-W-W
+  LevelReq: 68
+  Implicits: 1
+  3% increased Movement Speed
+  161% increased Evasion Rating
+  +48% to Chaos Resistance
+  You can apply an additional Curse
+  Your Hexes can affect Hexproof Enemies
+  Always Poison on Hit against Cursed Enemies
+tooltip:
+  <center><font color='#fff'>Cospri's Will Assassin's Garb</font><hr>
+  Evasion Rating: <font color='#88f'>1929</font><br>
+  <hr>
+  Requires Level <font color='#fff'>68</font>, Dex <font color='#fff'>183</font><br>
+  <hr>
+  <font color='#88f'>3% increased Movement Speed</font><br>
+  <hr>
+  <font color='#88f'>161% increased Evasion Rating<br>
+  +48% to Chaos Resistance<br>
+  You can apply an additional Curse<br>
+  Your Hexes can affect Hexproof Enemies<br>
+  Always Poison on Hit against Cursed Enemies</font></center>
+hash: 7216e9f603e7e0ae31df5568257493c5
+
+=== Windscream Reinforced Greaves
+id: 41f837f10fb61cd886c9c9a9ef2570a268ab52f6d53820d0656463c6f16ab325
+location: ExampleCharacter2
+forum code: 
+frame type 3, category 'boots', item level 85, 2x2, count 1
+flags: identified, path of building item
+sockets: W-W (2 sockets, 2 linked; r0 g0 b0 w2)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w2
+properties:
+  Armour = 168 (number 168)
+requirements: Level 33, Str 61
+mod table:
+  #% increased Area of Effect of Hex Skills = 50
+  #% increased Armour = 51
+  #% increased Movement Speed = 20
+  +#% to all Elemental Resistances = 14
+  +#% total Elemental Resistance = 42
+  +#% total Resistance = 42
+  +#% total to Cold Resistance = 14
+  +#% total to Fire Resistance = 14
+  +#% total to Lightning Resistance = 14
+  You can apply an additional Curse = 0
+path of building:
+  Rarity: UNIQUE
+  Windscream
+  Reinforced Greaves
+  Unique ID: 41f837f10fb61cd886c9c9a9ef2570a268ab52f6d53820d0656463c6f16ab325
+  Item Level: 85
+  Sockets: W-W
+  LevelReq: 33
+  Implicits: 0
+  51% increased Armour
+  +14% to all Elemental Resistances
+  20% increased Movement Speed
+  You can apply an additional Curse
+  50% increased Area of Effect of Hex Skills
+tooltip:
+  <center><font color='#fff'>Windscream Reinforced Greaves</font><hr>
+  Armour: <font color='#88f'>168</font><br>
+  <hr>
+  Requires Level <font color='#fff'>33</font>, Str <font color='#fff'>61</font><br>
+  <hr>
+  <font color='#88f'>51% increased Armour<br>
+  +14% to all Elemental Resistances<br>
+  20% increased Movement Speed<br>
+  You can apply an additional Curse<br>
+  50% increased Area of Effect of Hex Skills</font></center>
+hash: e6d80ba927fd4844db6c4db740a211cb
+
+=== Asenath's Gentle Touch Silk Gloves
+id: 27d38614191b43343d3dad140dfca01088c3c0a1a935835ddf140142fad9a5a8
+location: ExampleCharacter2
+forum code: 
+frame type 3, category 'gloves', item level 80, 2x2, count 1
+flags: identified, corrupted, path of building item
+sockets: W-W-W-W (4 sockets, 4 linked; r0 g0 b0 w4)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w4
+properties:
+  Energy Shield = 25 (number 25)
+  Quality = 20 (number 20)
+requirements: Int 39, Level 25
+mod table:
+  +# to Intelligence = 28
+  +# to Level of Socketed AoE Gems = 2
+  +# to maximum Life = 70
+  +# to maximum Mana = 80
+  +# total to Intelligence = 28
+  Curse Enemies with Enfeeble on Hit = 0
+  Curse Enemies with Temporal Chains on Hit = 0
+  Enemies near corpses affected by your Curses are Blinded\nEnemies Killed near corpses affected by your Curses explode, dealing\n#% of their Life as Physical Damage = 3
+  Non-Aura Curses you inflict are not removed from Dying Enemies = 0
+path of building:
+  Rarity: UNIQUE
+  Asenath's Gentle Touch
+  Silk Gloves
+  Unique ID: 27d38614191b43343d3dad140dfca01088c3c0a1a935835ddf140142fad9a5a8
+  Item Level: 80
+  Quality: 20
+  Sockets: W-W-W-W
+  LevelReq: 25
+  Implicits: 2
+  +2 to Level of Socketed AoE Gems
+  Curse Enemies with Enfeeble on Hit
+  +28 to Intelligence
+  +70 to maximum Life
+  +80 to maximum Mana
+  Curse Enemies with Temporal Chains on Hit
+  Non-Aura Curses you inflict are not removed from Dying Enemies
+  Enemies near corpses affected by your Curses are Blinded
+  Enemies Killed near corpses affected by your Curses explode, dealing
+  3% of their Life as Physical Damage
+  Corrupted
+tooltip:
+  <center><font color='#fff'>Asenath's Gentle Touch Silk Gloves</font><hr>
+  Quality: <font color='#88f'>+20%</font><br>
+  Energy Shield: <font color='#88f'>25</font><br>
+  <hr>
+  Requires Level <font color='#fff'>25</font>, Int <font color='#fff'>39</font><br>
+  <hr>
+  <font color='#88f'>+2 to Level of Socketed AoE Gems<br>
+  Curse Enemies with Enfeeble on Hit</font><br>
+  <hr>
+  <font color='#88f'>+28 to Intelligence<br>
+  +70 to maximum Life<br>
+  +80 to maximum Mana<br>
+  Curse Enemies with Temporal Chains on Hit<br>
+  Non-Aura Curses you inflict are not removed from Dying Enemies<br>
+  Enemies near corpses affected by your Curses are Blinded\nEnemies Killed near corpses affected by your Curses explode, dealing\n3% of their Life as Physical Damage</font><br>
+  <hr>
+  <font color='#d20000'>Corrupted</font></center>
+hash: 547bdfeb6218fb6dc0adceb2c22459b8
+
+=== Dying Breath Iron Staff
+id: 8ddf3c3ff7509f7f4bea05467cf926a1c57f95d27e0bc8beccb109a9bbb44027
+location: ExampleCharacter2
+forum code: 
+frame type 3, category 'warstaves', item level 83, 2x4, count 1
+flags: identified, corrupted, path of building item
+sockets: W-R-W-W W-W (6 sockets, 4 linked; r1 g0 b0 w5)
+socket groups: r0 g0 b0 w0; r1 g0 b0 w3; r0 g0 b0 w2
+properties:
+  Attacks per Second = 1.30 (number 1.3)
+  Critical Strike Chance = 7.60% (number 7.6)
+  Physical Damage = 14-42
+  Weapon Range: {0} metres = 1.3 (number 1.3)
+dps: 36.4 (physical 36.4, elemental 0, chaos 0)
+requirements: Int 27, Level 13, Str 27
+mod table:
+  #% increased Area of Effect of Aura Skills = 18
+  #% increased Area of Effect of Hex Skills = 18
+  #% increased Cast Speed = 18
+  #% increased effect of Non-Curse Auras from your Skills = 18
+  #% increased maximum Mana = 18
+  +#% Chance to Block Attack Damage = 20
+  +#% total Cast Speed = 18
+  Allies within 7.5 metres gain #% increased Damage = 18
+  Enemies within 7.5 metres have #% increased Effect of Curses on them = 18
+path of building:
+  Rarity: UNIQUE
+  Dying Breath
+  Iron Staff
+  Unique ID: 8ddf3c3ff7509f7f4bea05467cf926a1c57f95d27e0bc8beccb109a9bbb44027
+  Item Level: 83
+  Sockets: W-R-W-W W-W
+  LevelReq: 13
+  Implicits: 1
+  +20% Chance to Block Attack Damage
+  18% increased Cast Speed
+  18% increased maximum Mana
+  18% increased Area of Effect of Aura Skills
+  18% increased Area of Effect of Hex Skills
+  Enemies within 7.5 metres have 18% increased Effect of Curses on them
+  Allies within 7.5 metres gain 18% increased Damage
+  18% increased effect of Non-Curse Auras from your Skills
+  Corrupted
+tooltip:
+  <center><font color='#fff'>Dying Breath Iron Staff</font><hr>
+  Warstaff<br>
+  Physical Damage: <font color='#fff'>14-42</font><br>
+  Critical Strike Chance: <font color='#fff'>7.60%</font><br>
+  Attacks per Second: <font color='#fff'>1.30</font><br>
+  Weapon Range: <font color='#fff'>1.3</font> metres<br>
+  <hr>
+  Requires Level <font color='#fff'>13</font>, Str <font color='#fff'>27</font>, Int <font color='#fff'>27</font><br>
+  <hr>
+  <font color='#88f'>+20% Chance to Block Attack Damage</font><br>
+  <hr>
+  <font color='#88f'>18% increased Cast Speed<br>
+  18% increased maximum Mana<br>
+  18% increased Area of Effect of Aura Skills<br>
+  18% increased Area of Effect of Hex Skills<br>
+  Enemies within 7.5 metres have 18% increased Effect of Curses on them<br>
+  Allies within 7.5 metres gain 18% increased Damage<br>
+  18% increased effect of Non-Curse Auras from your Skills</font><br>
+  <hr>
+  <font color='#d20000'>Corrupted</font></center>
+hash: 9792cf25be32229ef2fa6d2b4d5d177b
+
+=== Leer Cast Festival Mask
+id: d7a870aec32a3072f10486a20fe01d3bb182be4e215941a7789fdd4c9b3f37ba
+location: ExampleCharacter2
+forum code: 
+frame type 3, category 'helmets', item level 85, 2x2, count 1
+flags: identified, path of building item
+sockets: W (1 sockets, 1 linked; r0 g0 b0 w1)
+socket groups: r0 g0 b0 w0; r0 g0 b0 w1
+properties:
+  Energy Shield = 17 (number 17)
+  Evasion Rating = 78 (number 78)
+requirements: Dex 33, Int 33, Level 28
+mod table:
+  #% reduced Damage = 25
+  +# to Dexterity = 24
+  +# to maximum Life = 70
+  +# to maximum Mana = 85
+  +# total to Dexterity = 24
+  You and Allies within 7.5 metres gain #% increased Damage = 50
+path of building:
+  Rarity: UNIQUE
+  Leer Cast
+  Festival Mask
+  Unique ID: d7a870aec32a3072f10486a20fe01d3bb182be4e215941a7789fdd4c9b3f37ba
+  Item Level: 85
+  Sockets: W
+  LevelReq: 28
+  Implicits: 0
+  +24 to Dexterity
+  25% reduced Damage
+  +70 to maximum Life
+  +85 to maximum Mana
+  You and Allies within 7.5 metres gain 50% increased Damage
+tooltip:
+  <center><font color='#fff'>Leer Cast Festival Mask</font><hr>
+  Evasion Rating: <font color='#fff'>78</font><br>
+  Energy Shield: <font color='#fff'>17</font><br>
+  <hr>
+  Requires Level <font color='#fff'>28</font>, Dex <font color='#fff'>33</font>, Int <font color='#fff'>33</font><br>
+  <hr>
+  <font color='#88f'>+24 to Dexterity<br>
+  25% reduced Damage<br>
+  +70 to maximum Life<br>
+  +85 to maximum Mana<br>
+  You and Allies within 7.5 metres gain 50% increased Damage</font></center>
+hash: 67d0868383bebce0eeabe384777f44e8
 
 === forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
 [spoiler][spoiler=" ~b/o  1 chaos"]

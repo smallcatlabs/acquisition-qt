@@ -1,4 +1,4 @@
-42 item(s)
+44 item(s)
 
 === The Black Cane Royal Sceptre
 id: f567596cb1b259e891fa10a858db20662a39d13d67f7d35466d78277b8b5b49b
@@ -1406,6 +1406,36 @@ tooltip:
   <hr>
   <font color='#d20000'>Corrupted</font></center>
 hash: 9d66355509942bb99116bc8675e5eb4b
+
+=== Flaming Furnace
+id: aa78e0017ccb24ccb5f6997f18ae1dd36a9ce807d9887c3ecd4a3a5424e39a31
+location: ExampleCharacter1
+forum code: 
+frame type 15, category 'viscera', item level 75, 2x2, count 1
+flags: identified
+mod table:
+  #% chance to inflict Fire Exposure on Hit = 18
+tooltip:
+  <center><font color='#fff'>Flaming Furnace</font><hr>
+  Torso<br>
+  <hr>
+  <font color='#88f'>18% chance to inflict Fire Exposure on Hit</font></center>
+hash: 02ec72283fe3da58903dd4c510130fb6
+
+=== Terrifying Maw
+id: aa43aed308060afa99b49ef4d04229b15e70dba4e4998bc675ed00b07cd17fe9
+location: ExampleCharacter1
+forum code: 
+frame type 15, category 'viscera', item level 75, 2x2, count 1
+flags: identified
+mod table:
+  #% reduced Effect of Curses on you = 50
+tooltip:
+  <center><font color='#fff'>Terrifying Maw</font><hr>
+  Head<br>
+  <hr>
+  <font color='#88f'>50% reduced Effect of Curses on you</font></center>
+hash: b00482c6848643be466b1cb9af4e523b
 
 === forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
 [spoiler][spoiler=" ~b/o  1 chaos"]
