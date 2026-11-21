@@ -93,6 +93,8 @@ private:
     QString m_attempt;
     // The last redirect received carried another state than its login's.
     bool m_state_mismatch{false};
+    // The browser login in progress has had a redirect.
+    bool m_redirect_received{false};
     // The token endpoint's reply that Qt is handling, while it handles it.
     std::optional<TokenReply> m_token_reply;
 };

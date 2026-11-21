@@ -102,6 +102,7 @@ private slots:
     void secondAuthenticateDuringTheCodeExchange();
     void staleRefreshLeavesANewerLoginAlone();
     void redirectDuringARefreshIsTaken();
+    void replayedRedirectIsNotExchangedAgain();
 
 private:
     std::shared_ptr<spdlog::logger> m_previous_logger;
@@ -1976,6 +1977,87 @@ void AppLoginTest::redirectDuringARefreshIsTaken()
                          kFreshRefresh,
                          kCode,
                          AppFixture::formField(posts[2], "code_verifier"),
+                         kRefreshedAccess,
+                         kRefreshedRefresh,
+                         kOtherAccess,
+                         kOtherRefresh});
+}
+
+// The browser sends the redirect again (a reload of the page) while its code
+// is being exchanged, once before a refresh is answered and once after. Qt
+// has taken the first redirect, and the code is not exchanged a second time.
+void AppLoginTest::replayedRedirectIsNotExchangedAgain()
+{
+    AppFixture fixture([](AppFixture &f) {
+        storeToken(f, kStoredAccess, kStoredRefresh);
+        answerTokenRequestsInTurn(
+            f,
+            {// The refresh at start.
+             tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh)),
+             // The browser sign-in, as the other account, kept back.
+             heldBack(
+                 tokenAnswer(200, grantedToken(kOtherAccess, kOtherRefresh, 36000, kOtherAccount))),
+             // A refresh while the code is exchanged.
+             tokenAnswer(200, grantedToken(kRefreshedAccess, kRefreshedRefresh))});
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+    auto &authenticated = child<QLabel>(dialog, "authenticateLabel");
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(authorize);
+    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kAuthorizedText));
+    QVERIFY(QTest::qWaitFor([&] { return tokenPosts(fixture).size() == 2; }, 10000));
+
+    // The same redirect again: answered by the page, not exchanged.
+    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kAuthorizedText));
+    QTest::qWait(200);
+    QCOMPARE(tokenPosts(fixture).size(), 2);
+
+    // A refresh is answered while the code is exchanged; the same redirect
+    // once more is still not exchanged.
+    refreshNow(fixture);
+    QVERIFY(QTest::qWaitFor([&] { return tokenPosts(fixture).size() == 3; }, 10000));
+    QCOMPARE(AppFixture::formField(tokenPosts(fixture)[2], "grant_type"), QString("refresh_token"));
+    QVERIFY(QTest::qWaitFor(
+        [&] {
+            const auto stored = storedToken(fixture);
+            return stored && (stored->refresh_token == kRefreshedRefresh);
+        },
+        10000));
+    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kAuthorizedText));
+    QTest::qWait(200);
+    QCOMPARE(tokenPosts(fixture).size(), 3);
+
+    // The exchange is answered: the login is the other account's.
+    QCOMPARE(fixture.network->release(), 1);
+    QVERIFY(QTest::qWaitFor(
+        [&] {
+            return authenticated.text()
+                   == QString("You are authenticated as \"%1\"").arg(kOtherAccount);
+        },
+        10000));
+    const auto stored = storedToken(fixture);
+    QVERIFY(stored);
+    QCOMPARE(stored->username, kOtherAccount);
+    QVERIFY(error.isHidden());
+
+    QCOMPARE(m_browser.opened.size(), 1);
+    QCOMPARE(surprises(fixture), QString());
+    const QList<QByteArray> posts = tokenPosts(fixture);
+    checkNoSecretLogged({kStoredAccess,
+                         kStoredRefresh,
+                         kFreshAccess,
+                         kFreshRefresh,
+                         kCode,
+                         AppFixture::formField(posts[1], "code_verifier"),
                          kRefreshedAccess,
                          kRefreshedRefresh,
                          kOtherAccess,

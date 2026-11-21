@@ -284,9 +284,14 @@ void OAuthManager::receiveCallback(const QVariantMap &data)
     // Qt would ignore the redirect of the browser login that waits (#410).
     // This slot runs before Qt's, so the status is put back first. Qt's
     // token, refreshed or not, is left as it is.
-    if (loginInProgress()) {
+    //
+    // Only for the login's first redirect: Qt either takes it, and then
+    // ignores the same redirect again (a reload of the page) rather than
+    // send its code twice, or refuses it, which ends the login.
+    if (loginInProgress() && !m_redirect_received) {
         static_cast<CodeFlow *>(m_oauth)->setStatus(QAbstractOAuth::Status::NotAuthenticated);
     }
+    m_redirect_received = true;
 }
 
 bool OAuthManager::noteTokenReply(QNetworkReply *reply)
@@ -443,6 +448,7 @@ bool OAuthManager::initLogin()
     // the user gave up would pass for this one's.
     m_attempt = makeState();
     m_oauth->setState(m_attempt);
+    m_redirect_received = false;
     spdlog::info("OAuth: starting authentication.");
     m_oauth->grant();
     return true;
