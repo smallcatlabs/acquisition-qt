@@ -31,6 +31,7 @@ private slots:
     void rarityFilter();
     void modsFilter();
     void valuelessModFilter();
+    void unnamedLineFilter();
     void mapTierFromBaseType();
     // #270: number fields accept a number and nothing else.
     void fieldNumber_data();
@@ -685,6 +686,41 @@ void FiltersTest::valuelessModFilter()
     state.rows.push_back(ModRow{"Cannot be Frozen", std::nullopt, std::nullopt});
     QVERIFY(MatchesFilter(*item, *mods, state));
     state.rows.back().min = 1.0;
+    QVERIFY(!MatchesFilter(*item, *mods, state));
+}
+
+// #429: a line no mod name of the game data fits is found by its own text,
+// its numbers written "#", and its value is checked against the row's range.
+// No game data is loaded here, so no line has a mod name: an item's lines
+// can be searched whatever the game data holds. Both lines are a cluster
+// jewel's and a belt's in the payload corpus.
+void FiltersTest::unnamedLineFilter()
+{
+    InitStatTranslations();
+    InitModList();
+
+    const auto item = makeFilterItem("unnamed",
+                                     R"json(,
+        "enchantMods": [
+            "Added Small Passive Skills grant: 12% increased Totem Damage",
+            "Allocates [totem_ranged_notable2670|Watchtowers]"
+        ]
+    )json");
+    BuyoutManagerFixture buyoutFixture;
+    const FilterCatalog catalog = BuildFilterCatalog(*buyoutFixture.manager);
+    const auto *mods = findFilterSpec(catalog, "Mods");
+    QVERIFY(mods);
+
+    const QString grant = "Added Small Passive Skills grant: #% increased Totem Damage";
+    ModsState state;
+    state.rows.push_back(ModRow{grant, 12.0, std::nullopt});
+    QVERIFY(MatchesFilter(*item, *mods, state));
+    state.rows.back().min = 13.0;
+    QVERIFY(!MatchesFilter(*item, *mods, state));
+
+    state.rows = {ModRow{"Allocates Watchtowers", std::nullopt, std::nullopt}};
+    QVERIFY(MatchesFilter(*item, *mods, state));
+    state.rows = {ModRow{"Allocates Death Attunement", std::nullopt, std::nullopt}};
     QVERIFY(!MatchesFilter(*item, *mods, state));
 }
 

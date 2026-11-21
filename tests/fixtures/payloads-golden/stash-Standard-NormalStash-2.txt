@@ -10,7 +10,9 @@ properties:
   Any Heist member can equip this item. = 
 requirements: Level {0} in {1} 4
 mod table:
+  #% increased Job Experience gain = 8
   #% increased Rarity of Items dropped in Heists = 21
+  #% increased Rogue's Marker value of primary Heist Target = 14
   Heist Chests have a #% chance to Duplicate contained Essences = 7
   Heist Chests have a #% chance to Duplicate contained Legion Splinters = 10
 tooltip:
@@ -38,6 +40,7 @@ properties:
 requirements: Level {0} in {1} 3
 mod table:
   #% increased Projectile Attack Damage = 51
+  #% reduced Hiring Fee = 9
   The Ring's Cut reduced by #% = 8
 tooltip:
   <center><font color='#fff'>Dusk Material Fragmenting Arrowhead</font><hr>

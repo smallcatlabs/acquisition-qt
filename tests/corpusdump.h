@@ -366,11 +366,21 @@ namespace corpus {
                     }
                     for (const QString &line : lines) {
                         ++m_mod_lines;
-                        ModTable table;
-                        AddModToTable(line, table);
-                        if (table.empty()) {
+                        ModTable named;
+                        AddModToTable(line, named);
+                        if (!named.empty()) {
+                            continue;
+                        }
+                        // No mod name of the game data fits. The item
+                        // says what becomes of such a line (#429).
+                        ModTable filed;
+                        AddModToTable(line, filed, item->unnamed_lines());
+                        if (filed.empty()) {
                             ++m_unmatched_lines;
                             m_unmatched.insert(oneLine(line));
+                        } else {
+                            ++m_own_text_lines;
+                            m_own_text.insert(oneLine(line));
                         }
                     }
                 }
@@ -401,6 +411,12 @@ namespace corpus {
             for (const QString &line : m_unmatched) {
                 out << "  " + line;
             }
+            out << QString("mod lines filed under their own text: %1, %2 of them different")
+                       .arg(m_own_text_lines)
+                       .arg(m_own_text.size());
+            for (const QString &line : m_own_text) {
+                out << "  " + line;
+            }
             out << QString("properties with a value: %1").arg(m_properties);
             out << QString("properties whose value is not one number: %1").arg(m_text_properties);
             for (const QString &name : m_text_names) {
@@ -416,10 +432,12 @@ namespace corpus {
         int m_uncategorised_items{0};
         int m_mod_lines{0};
         int m_unmatched_lines{0};
+        int m_own_text_lines{0};
         int m_properties{0};
         int m_text_properties{0};
         std::set<QString> m_uncategorised;
         std::set<QString> m_unmatched;
+        std::set<QString> m_own_text;
         std::set<QString> m_numeric_names;
         std::set<QString> m_text_names;
     };
