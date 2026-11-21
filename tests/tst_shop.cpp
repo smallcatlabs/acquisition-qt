@@ -95,7 +95,6 @@ private slots:
 
     // Items-pipeline M2, D8: the single-active-job foundation (stage 2
     // front-load), plus the delta-dependent capture pins.
-    void olderSubmissionCannotCleanNewerInput();
     void activeJobUnaffectedByLocalEdits();
     void shopSubmissionUsesCapturedSnapshot();
     void manualSubmissionRendersCapturedPublishedState();
@@ -250,24 +249,6 @@ namespace {
     constexpr const char *kEditPageTitleAttribute
         = "value=\"GERWARIC&#x27;s&#x20;Standard&#x20;Shop\"";
 
-    // Walk the active job's forum flow to completion: finish the edit-page
-    // GET at m_sent index `get_index`, wait out the 500ms CSRF delay for the
-    // POST, and finish the POST cleanly.
-    void completeForumSubmission(ShopFixture &fixture, int get_index)
-    {
-        QCOMPARE(fixture.networkManager->sent(get_index).op, QNetworkAccessManager::GetOperation);
-        fixture.networkManager->sent(get_index).reply->finish({},
-                                                              200,
-                                                              QNetworkReply::NoError,
-                                                              editThreadPage());
-        QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), get_index + 2, 5000);
-        QCOMPARE(fixture.networkManager->sent(get_index + 1).op,
-                 QNetworkAccessManager::PostOperation);
-        fixture.networkManager->sent(get_index + 1)
-            .reply->finish({}, 200, QNetworkReply::NoError, afterEditPage());
-        drainEvents();
-    }
-
     // The form fields of a forum POST, decoded the way a server decodes
     // application/x-www-form-urlencoded (the WHATWG URL standard's form
     // parser): '+' is a space, then percent-decoding as UTF-8. Deliberately
@@ -294,6 +275,44 @@ namespace {
             }
         }
         return fields;
+    }
+
+    // Walk the active job's forum flow to completion: finish the edit-page
+    // GET at m_sent index `get_index`, wait out the 500ms CSRF delay for the
+    // POST, and finish the POST cleanly. `posted`, when given, receives the
+    // content the POST carried (read before its reply is released).
+    void completeForumSubmission(ShopFixture &fixture, int get_index, QString *posted = nullptr)
+    {
+        QCOMPARE(fixture.networkManager->sent(get_index).op, QNetworkAccessManager::GetOperation);
+        fixture.networkManager->sent(get_index).reply->finish({},
+                                                              200,
+                                                              QNetworkReply::NoError,
+                                                              editThreadPage());
+        QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), get_index + 2, 5000);
+        QCOMPARE(fixture.networkManager->sent(get_index + 1).op,
+                 QNetworkAccessManager::PostOperation);
+        if (posted) {
+            *posted = postedForm(fixture.networkManager->sent(get_index + 1)).value("content");
+        }
+        fixture.networkManager->sent(get_index + 1)
+            .reply->finish({}, 200, QNetworkReply::NoError, afterEditPage());
+        drainEvents();
+    }
+
+    // What separates two pages on the clipboard (#278, "Joined").
+    constexpr const char *kCopyPageSeparator = "\n\n-------- next page --------\n\n";
+
+    // The pages a copy of the shop puts on the clipboard, the tab numbers
+    // answered with `index_json` at the limiter's request `request`; none
+    // when nothing was copied.
+    QStringList copiedPages(ShopFixture &fixture, const char *index_json, size_t request)
+    {
+        QApplication::clipboard()->clear();
+        fixture.shop->CopyToClipboard();
+        fixture.rateLimiter->resolve(request, index_json);
+        drainEvents();
+        const QString text = QApplication::clipboard()->text();
+        return text.isEmpty() ? QStringList() : text.split(kCopyPageSeparator);
     }
 
     // A Shop over a real per-account UserStore instead of the in-memory
@@ -583,47 +602,6 @@ void ShopTest::continuationDoesNotRunAfterShopDestruction()
     QVERIFY(fixture.rateLimiter->pendingFuture(0).promise == nullptr);
 }
 
-// M2 D8 (stage 2 foundation): monotonic input/cache revisions replace the
-// single outdated flag. Completing job N advances only N's revision — an
-// input expired to N+1 while N was active stays dirty through N's successful
-// completion, and only a job that captured N+1 renders it clean. The old
-// flag reset (shop.cpp's unconditional m_shop_data_outdated = false on
-// render) would have marked the newer input clean here.
-void ShopTest::olderSubmissionCannotCleanNewerInput()
-{
-    ShopFixture fixture;
-    armForSubmission(fixture);
-    publishPricedItem(fixture, "item-a", 1);
-
-    // Fresh shop: nothing rendered yet, so the cache is outdated.
-    QVERIFY(fixture.shop->shop_data_outdated());
-
-    // Job N captures the current input revision, then the input moves on
-    // (a local edit path calls ExpireShopData) while N is still active.
-    fixture.shop->SubmitShopToForum();
-    fixture.shop->ExpireShopData();
-
-    fixture.rateLimiter->resolve(0, kStashIndexJson);
-    drainEvents();
-
-    // N rendered and published the preview cache for its own revision; the
-    // newer input revision is still dirty.
-    QVERIFY(!fixture.shop->shop_data().isEmpty());
-    QVERIFY(fixture.shop->shop_data_outdated());
-
-    // Finishing N successfully still cannot clean the newer revision.
-    completeForumSubmission(fixture, 0);
-    QVERIFY(fixture.shop->shop_data_outdated());
-
-    // A job that captures the newer revision renders it clean. (Same items,
-    // so the unchanged-hash exit releases it without posting.)
-    fixture.shop->SubmitShopToForum();
-    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(2));
-    fixture.rateLimiter->resolve(1, kStashIndexJson);
-    drainEvents();
-    QVERIFY(!fixture.shop->shop_data_outdated());
-}
-
 // M2 D8/R6-4 (stage 2 foundation): the active job's capture is immutable —
 // a buyout edit made while the job is in flight does not reach its rendered
 // output; the edit follows in a later submission. Today's continuation read
@@ -646,14 +624,11 @@ void ShopTest::activeJobUnaffectedByLocalEdits()
     fixture.rateLimiter->resolve(0, kStashIndexJson);
     drainEvents();
 
-    // The rendered output is the captured state, not the edited state.
-    QVERIFY(!fixture.shop->shop_data().isEmpty());
-    QVERIFY(fixture.shop->shop_data().first().contains(" 1 chaos"));
-    QVERIFY(!fixture.shop->shop_data().first().contains(" 2 chaos"));
-
-    // The job completes without re-rendering: the posted state is unchanged.
-    completeForumSubmission(fixture, 0);
-    QVERIFY(fixture.shop->shop_data().first().contains(" 1 chaos"));
+    // The posted output is the captured state, not the edited state.
+    QString posted;
+    completeForumSubmission(fixture, 0, &posted);
+    QVERIFY2(posted.contains(" 1 chaos"), qPrintable(posted));
+    QVERIFY2(!posted.contains(" 2 chaos"), qPrintable(posted));
 }
 
 // M2 D8/R2-1 (stage 2): submission input is captured by value at request
@@ -681,46 +656,43 @@ void ShopTest::shopSubmissionUsesCapturedSnapshot()
     // state — the shop still holds the captured item.
     fixture.rateLimiter->resolve(0, kStashIndexJson);
     drainEvents();
-    QVERIFY(!fixture.shop->shop_data().isEmpty());
-    QVERIFY(fixture.shop->shop_data().first().contains(" 1 chaos"));
-    QVERIFY(fixture.shop->shop_data().first().contains("linkItem"));
+    QString posted;
+    completeForumSubmission(fixture, 0, &posted);
+    QVERIFY2(posted.contains(" 1 chaos"), qPrintable(posted));
+    QVERIFY2(posted.contains("linkItem"), qPrintable(posted));
 }
 
 // M2 D8/R3-1 (stage 2): a forced manual request during an item refresh
-// renders its captured published state even when the preview cache's
-// revision still appears current — deltas deliberately do not advance the
-// input revision (R4-2), so the old cached-data shortcut would have posted
-// pre-delta text.
+// renders its captured published state: deltas deliberately do not advance
+// any input revision (R4-2), so a shortcut through earlier rendered text
+// would have posted pre-delta text.
 void ShopTest::manualSubmissionRendersCapturedPublishedState()
 {
     ShopFixture fixture;
     armForSubmission(fixture);
     const auto item_a = publishPricedItem(fixture, "item-a", 1);
 
-    // A completed submission leaves a preview cache rendered from the
-    // current input revision — the cache "appears current".
     fixture.shop->SubmitShopToForum();
     fixture.rateLimiter->resolve(0, kStashIndexJson);
     drainEvents();
-    completeForumSubmission(fixture, 0);
-    QVERIFY(!fixture.shop->shop_data_outdated());
-    QVERIFY(fixture.shop->shop_data().first().contains(" 1 chaos"));
+    QString posted;
+    completeForumSubmission(fixture, 0, &posted);
+    QVERIFY2(posted.contains(" 1 chaos"), qPrintable(posted));
 
-    // A streamed delta replaces the published item with a repriced one; the
-    // cache revision still appears current.
+    // A streamed delta replaces the published item with a repriced one.
     auto item_b = std::make_shared<Item>(makeTestItem("item-b"));
     fixture.itemsManager->OnTabRefreshed(item_a->location(), {item_b});
     fixture.buyoutFixture.manager->Set(*item_b, makeChaosBuyout(2));
-    QVERIFY(!fixture.shop->shop_data_outdated());
 
     // A forced manual submission renders its own capture of the current
-    // published state instead of reusing the cached pre-delta text.
+    // published state.
     fixture.shop->SubmitShopToForum(true);
     QCOMPARE(fixture.rateLimiter->futureCount(), size_t(2));
     fixture.rateLimiter->resolve(1, kStashIndexJson);
     drainEvents();
-    QVERIFY(fixture.shop->shop_data().first().contains(" 2 chaos"));
-    QVERIFY(!fixture.shop->shop_data().first().contains(" 1 chaos"));
+    completeForumSubmission(fixture, 2, &posted);
+    QVERIFY2(posted.contains(" 2 chaos"), qPrintable(posted));
+    QVERIFY2(!posted.contains(" 1 chaos"), qPrintable(posted));
 }
 
 // M2 D8/R1-1 (stage 7): automatic submission fires only on a CLEAN
@@ -792,16 +764,17 @@ void ShopTest::newestCleanSnapshotSubmitsAfterActive()
     // The active job runs to a successful completion on its own capture.
     fixture.rateLimiter->resolve(0, kStashIndexJson);
     drainEvents();
-    QVERIFY(fixture.shop->shop_data().first().contains(" 1 chaos"));
-    completeForumSubmission(fixture, 0);
+    QString posted;
+    completeForumSubmission(fixture, 0, &posted);
+    QVERIFY2(posted.contains(" 1 chaos"), qPrintable(posted));
 
     // Success drains the waiting capture: a second index fetch goes out,
-    // and the drained job renders the NEWER captured state.
+    // and the drained job posts the NEWER captured state.
     QCOMPARE(fixture.rateLimiter->futureCount(), size_t(2));
     fixture.rateLimiter->resolve(1, kStashIndexJson);
     drainEvents();
-    QVERIFY(fixture.shop->shop_data().first().contains(" 2 chaos"));
-    completeForumSubmission(fixture, 2);
+    completeForumSubmission(fixture, 2, &posted);
+    QVERIFY2(posted.contains(" 2 chaos"), qPrintable(posted));
     QCOMPARE(fixture.rateLimiter->futureCount(), size_t(2)); // nothing else waits
 }
 
@@ -835,9 +808,10 @@ void ShopTest::automaticSubmissionCoalescesLatestEligible()
     QCOMPARE(fixture.rateLimiter->futureCount(), size_t(2));
     fixture.rateLimiter->resolve(1, kStashIndexJson);
     drainEvents();
-    QVERIFY(fixture.shop->shop_data().first().contains(" 3 chaos"));
-    QVERIFY(!fixture.shop->shop_data().first().contains(" 2 chaos"));
-    completeForumSubmission(fixture, 2);
+    QString posted;
+    completeForumSubmission(fixture, 2, &posted);
+    QVERIFY2(posted.contains(" 3 chaos"), qPrintable(posted));
+    QVERIFY2(!posted.contains(" 2 chaos"), qPrintable(posted));
     QCOMPARE(fixture.rateLimiter->futureCount(), size_t(2));
 }
 
@@ -869,7 +843,9 @@ void ShopTest::failedSubmissionDoesNotDrainPendingAutomatic()
     QCOMPARE(fixture.rateLimiter->futureCount(), size_t(2));
     fixture.rateLimiter->resolve(1, kStashIndexJson);
     drainEvents();
-    QVERIFY(fixture.shop->shop_data().first().contains(" 2 chaos"));
+    QString posted;
+    completeForumSubmission(fixture, 0, &posted);
+    QVERIFY2(posted.contains(" 2 chaos"), qPrintable(posted));
 }
 
 // M2 D8/R5-6 (stage 8): disabling shop auto-update drops the waiting
@@ -910,10 +886,8 @@ void ShopTest::skippedRefreshDoesNotInvalidateWaitingCapture()
     fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
     QCOMPARE(fixture.rateLimiter->futureCount(), size_t(1));
 
-    // A completed-with-skips refresh arrives, snapshot first (as in
-    // production: ItemsRefreshed then RefreshFinished), then a failed one.
-    // Neither invalidates the waiting clean capture.
-    fixture.shop->OnPublishedSnapshot();
+    // A completed-with-skips refresh arrives, then a failed one. Neither
+    // invalidates the waiting clean capture.
     RateLimit::FetchError parse_error;
     parse_error.kind = RateLimit::FetchError::Kind::Parse;
     CompletedRefresh with_skips;
@@ -932,8 +906,9 @@ void ShopTest::skippedRefreshDoesNotInvalidateWaitingCapture()
     QCOMPARE(fixture.rateLimiter->futureCount(), size_t(2));
     fixture.rateLimiter->resolve(1, kStashIndexJson);
     drainEvents();
-    QVERIFY(fixture.shop->shop_data().first().contains(" 2 chaos"));
-    completeForumSubmission(fixture, 2);
+    QString posted;
+    completeForumSubmission(fixture, 2, &posted);
+    QVERIFY2(posted.contains(" 2 chaos"), qPrintable(posted));
 }
 
 // M2 D8/R6-4 (stage 8): an output-affecting local edit (ExpireShopData)
@@ -958,8 +933,9 @@ void ShopTest::expireDropsWaitingCapture()
     // The active job is unaffected: it renders and posts its own capture.
     fixture.rateLimiter->resolve(0, kStashIndexJson);
     drainEvents();
-    QVERIFY(fixture.shop->shop_data().first().contains(" 1 chaos"));
-    completeForumSubmission(fixture, 0);
+    QString posted;
+    completeForumSubmission(fixture, 0, &posted);
+    QVERIFY2(posted.contains(" 1 chaos"), qPrintable(posted));
     QCOMPARE(fixture.rateLimiter->futureCount(), size_t(1)); // no drain
 }
 
@@ -1007,11 +983,13 @@ void ShopTest::morePagesThanThreadsWarnsWithoutReposting()
     ShopFixture fixture;
     armTwoPageShop(fixture);
 
+    const QStringList pages = copiedPages(fixture, kStashIndexJson, 0);
+    QCOMPARE(pages.size(), 2);
+
     QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
     fixture.shop->SubmitShopToForum();
-    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    fixture.rateLimiter->resolve(1, kStashIndexJson);
     drainEvents();
-    QCOMPARE(fixture.shop->shop_data().size(), 2);
 
     // The one thread receives page one. Read the POST body before its reply
     // finishes and is released.
@@ -1019,8 +997,7 @@ void ShopTest::morePagesThanThreadsWarnsWithoutReposting()
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
     QCOMPARE(fixture.networkManager->sent(1).request.url().toString(),
              QString("https://www.pathofexile.com/forum/edit-thread/") + kThread);
-    QCOMPARE(postedForm(fixture.networkManager->sent(1)).value("content"),
-             fixture.shop->shop_data().first());
+    QCOMPARE(postedForm(fixture.networkManager->sent(1)).value("content"), pages.first());
     fixture.networkManager->sent(1).reply->finish({}, 200, QNetworkReply::NoError, afterEditPage());
     drainEvents();
 
@@ -1034,7 +1011,7 @@ void ShopTest::morePagesThanThreadsWarnsWithoutReposting()
     // A second manual submission of the same shop posts nothing, but the
     // shortfall is still there, so the user is told again.
     fixture.shop->SubmitShopToForum();
-    fixture.rateLimiter->resolve(1, kStashIndexJson);
+    fixture.rateLimiter->resolve(2, kStashIndexJson);
     drainEvents();
     QCOMPARE(fixture.networkManager->count(), 2);
     QCOMPARE(warnings.count(), 2);
@@ -1209,7 +1186,7 @@ void ShopTest::formValuesArePercentEncoded()
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 2, 5000);
 
     const auto form = postedForm(fixture.networkManager->sent(1));
-    QCOMPARE(form.value("content"), fixture.shop->shop_data().first());
+    QVERIFY(form.value("content").startsWith("[spoiler][spoiler="));
     QVERIFY(form.value("content").endsWith("[/spoiler] +1 & 50% %41 é"));
     QCOMPARE(form.value("title"), QString("WTS +1 gems & 50% off"));
     QCOMPARE(form.value("hash"), QString(kEditPageHash));
@@ -1353,8 +1330,8 @@ namespace {
         return buyout;
     }
 
-    // Publish the items with their buyouts, submit, answer the index, and
-    // return the pages the job rendered. The edit-page GET is left open.
+    // Publish the items with their buyouts, copy the shop, answer the
+    // index, and return the pages copied.
     QStringList renderedPages(ShopFixture &fixture,
                               const std::vector<std::pair<std::shared_ptr<Item>, Buyout>> &priced,
                               const std::vector<ItemLocation> &tabs)
@@ -1368,10 +1345,7 @@ namespace {
         for (const auto &[item, buyout] : priced) {
             fixture.buyoutFixture.manager->Set(*item, buyout);
         }
-        fixture.shop->SubmitShopToForum(true);
-        fixture.rateLimiter->resolve(0, kGoldenIndexJson);
-        drainEvents();
-        return fixture.shop->shop_data();
+        return copiedPages(fixture, kGoldenIndexJson, 0);
     }
 
     // Note for every expected page below: today's renderer closes each
@@ -1407,9 +1381,7 @@ void ShopTest::renderTwoPagesAtThePostLimit()
 {
     ShopFixture fixture;
     armTwoPageShop(fixture);
-    fixture.shop->SubmitShopToForum(true);
-    fixture.rateLimiter->resolve(0, kStashIndexJson);
-    drainEvents();
+    const QStringList pages = copiedPages(fixture, kStashIndexJson, 0);
 
     const QString padding = fixture.shop->shop_template().mid(QStringLiteral("[items]").size());
     const QString head = R"([spoiler][spoiler=" ~b/o  1 chaos"])";
@@ -1417,7 +1389,7 @@ void ShopTest::renderTwoPagesAtThePostLimit()
     // not (see stashLink).
     const QStringList expected{head + stashLink(1, 0) + "[/spoiler][/spoiler]" + padding,
                                head + stashLink(1, 1) + "[/spoiler]" + padding};
-    QCOMPARE(fixture.shop->shop_data(), expected);
+    QCOMPARE(pages, expected);
     for (const QString &page : expected) {
         QVERIFY(page.size() <= 50000);
     }
@@ -1581,7 +1553,8 @@ void ShopTest::captureNeverTakesANoteOrTabNamePrice()
     fixture.shop->SubmitShopToForum(true);
     fixture.rateLimiter->resolve(0, kGoldenIndexJson);
     drainEvents();
-    const QString pages = fixture.shop->shop_data().join("");
+    QString pages;
+    completeForumSubmission(fixture, 0, &pages);
     QVERIFY2(pages.contains(" 1 chaos"), qPrintable(pages));
     QVERIFY2(pages.contains(" 2 chaos"), qPrintable(pages));
     QVERIFY2(!pages.contains("divine"), qPrintable(pages));
@@ -2057,13 +2030,6 @@ void ShopTest::unrecognisedErrorShowsNoPageText()
     QVERIFY2(notice.contains("does not recognise"), qPrintable(notice));
 }
 
-namespace {
-
-    // What separates two pages on the clipboard (#278, "Joined").
-    constexpr const char *kCopyPageSeparator = "\n\n-------- next page --------\n\n";
-
-} // namespace
-
 // #278: with a POESESSID and no threads, Copy fetches the tab numbers,
 // renders the shop, and copies every page joined by a separator line. It
 // posts nothing and leaves the posted shop's hash alone.
@@ -2092,13 +2058,16 @@ void ShopTest::copyWithoutThreadsCopiesEveryPageJoined()
     QCOMPARE(fixture.networkManager->count(), 0);
     QCOMPARE(fixture.buyoutFixture.data->Get("shop_hash"), QString("previous-hash"));
 
-    // The same pages a submission renders, in order.
-    fixture.shop->SetThread({kThread, "2"});
+    // Two pages; the first is what a submission posts to the first thread.
+    const QStringList pages = copied.split(kCopyPageSeparator);
+    QCOMPARE(pages.size(), 2);
+    fixture.shop->SetThread({kThread});
     fixture.shop->SubmitShopToForum();
     fixture.rateLimiter->resolve(1, kStashIndexJson);
     drainEvents();
-    QCOMPARE(fixture.shop->shop_data().size(), 2);
-    QCOMPARE(copied, fixture.shop->shop_data().join(kCopyPageSeparator));
+    QString posted;
+    completeForumSubmission(fixture, 0, &posted);
+    QCOMPARE(posted, pages.first());
 }
 
 // #278: the tab numbers come only from the legacy request, which needs the

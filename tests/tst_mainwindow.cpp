@@ -520,7 +520,6 @@ void MainWindowTest::legacyImportPropagationRefreshesPricingState()
     QCOMPARE(propagated.value, 12.0);
     QVERIFY(propagated.inherited);
     QVERIFY(fixture.buyoutFixture.manager->GetRefreshLocked(tab));
-    QVERIFY(fixture.shop->shop_data_outdated());
 }
 
 // Leaves the fixture's manager in the state a failed item read leaves it
