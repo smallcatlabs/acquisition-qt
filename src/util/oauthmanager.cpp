@@ -183,6 +183,9 @@ OAuthManager::OAuthManager(NetworkManager &network_manager, DataStore &datastore
                                            request.setAttribute(STAGE_ATTRIBUTE,
                                                                 static_cast<int>(stage));
                                            request.setAttribute(LOGIN_ATTRIBUTE, waitingFor(stage));
+                                           // Qt builds these requests, so none had the
+                                           // timeout every other API request carries.
+                                           request.setTransferTimeout(m_token_timeout);
                                        });
 
     // Connect the oauth code flow and add error logging.
@@ -360,6 +363,11 @@ void OAuthManager::failStoredLogin(const TokenReply &reply)
         emit storedLoginFailed("Could not refresh the stored login: the Path of Exile server "
                                "could not be reached.");
     }
+}
+
+void OAuthManager::setTokenTimeout(std::chrono::milliseconds timeout)
+{
+    m_token_timeout = timeout;
 }
 
 void OAuthManager::endLogin()

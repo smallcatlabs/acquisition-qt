@@ -10,8 +10,10 @@
 #include <QUrl>
 #include <QVariantMap>
 
+#include <chrono>
 #include <optional>
 
+#include "replytimeout.h"
 #include "util/oauthtoken.h"
 
 class QNetworkReply;
@@ -37,6 +39,9 @@ public:
     // for its redirect any more, so it can log nobody in. For whoever starts
     // a session with the login already held (#408).
     void endLogin();
+    // How long a request to the token endpoint may take before Qt abandons
+    // it, for the requests sent from now on. kPoeApiTimeout unless set.
+    void setTokenTimeout(std::chrono::milliseconds timeout);
 
 private slots:
     void onRequestFailure(const QAbstractOAuth::Error error);
@@ -95,6 +100,7 @@ private:
     bool m_state_mismatch{false};
     // The browser login in progress has had a redirect.
     bool m_redirect_received{false};
+    std::chrono::milliseconds m_token_timeout{kPoeApiTimeout};
     // The token endpoint's reply that Qt is handling, while it handles it.
     std::optional<TokenReply> m_token_reply;
 };

@@ -106,6 +106,8 @@ private slots:
     void replayedRedirectIsNotExchangedAgain();
     void tokensInARedirectAreNotTaken();
     void qtRefreshesTheHeldLoginAfterARefusedExchange();
+    void exchangeWithNoAnswerEndsTheAttempt();
+    void refreshWithNoAnswerAtStartIsSaid();
 
 private:
     std::shared_ptr<spdlog::logger> m_previous_logger;
@@ -2209,6 +2211,83 @@ void AppLoginTest::qtRefreshesTheHeldLoginAfterARefusedExchange()
                          kOtherRefresh,
                          kRefreshedAccess,
                          kRefreshedRefresh});
+}
+
+// The token endpoint takes the code exchange and never answers. The request
+// carries a transfer timeout, Qt abandons it when that runs out, and the
+// browser login ends: the dialog says no token was received and offers
+// Authenticate again. The timeout is shortened for the scenario.
+void AppLoginTest::exchangeWithNoAnswerEndsTheAttempt()
+{
+    constexpr std::chrono::milliseconds kTimeout{500};
+    AppFixture fixture([](AppFixture &f) {
+        f.network->answer(kTokenUrl, ScriptedNetwork::Answer{.silent = true});
+    });
+    fixture.access().oauth().setTokenTimeout(kTimeout);
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(authorize);
+    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kAuthorizedText));
+    QVERIFY(QTest::qWaitFor([&] { return tokenPosts(fixture).size() == 1; }, 10000));
+
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 20000));
+    QCOMPARE(error.text(), QString(kNoTokenError));
+    QCOMPARE(authenticate.text(), QString(kAuthenticate));
+    QVERIFY(authenticate.isEnabled());
+    QVERIFY(!login.isEnabled());
+    QCOMPARE(storedToken(fixture).has_value(), false);
+    // The exchange carried the timeout.
+    for (const ScriptedNetwork::Request &request : fixture.network->requests()) {
+        if (request.url.toString() == kTokenUrl) {
+            QCOMPARE(request.transfer_timeout, int(kTimeout.count()));
+        }
+    }
+
+    QCOMPARE(m_browser.opened.size(), 1);
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged({kCode, AppFixture::formField(tokenPosts(fixture)[0], "code_verifier")});
+}
+
+// The refresh of the stored login at start is taken and never answered: it
+// ends at the token timeout the application uses for every API request
+// (kPoeApiTimeout, ten seconds, not shortened here), and the dialog says the
+// server could not be reached. The token is kept.
+void AppLoginTest::refreshWithNoAnswerAtStartIsSaid()
+{
+    AppFixture fixture([](AppFixture &f) {
+        storeToken(f, kStoredAccess, kStoredRefresh);
+        f.network->answer(kTokenUrl, ScriptedNetwork::Answer{.silent = true});
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+
+    QCOMPARE(tokenPosts(fixture).size(), 1);
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, kPoeApiTimeout + 20000));
+    QCOMPARE(error.text(), QString(kUnreachableError));
+    const auto stored = storedToken(fixture);
+    QVERIFY(stored);
+    QCOMPARE(stored->refresh_token, kStoredRefresh);
+    QVERIFY(!login.isEnabled());
+    QCOMPARE(authenticate.text(), QString(kAuthenticate));
+    for (const ScriptedNetwork::Request &request : fixture.network->requests()) {
+        if (request.url.toString() == kTokenUrl) {
+            QCOMPARE(request.transfer_timeout, kPoeApiTimeout);
+        }
+    }
+
+    QCOMPARE(m_browser.opened, QList<QUrl>());
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged({kStoredAccess, kStoredRefresh});
 }
 
 ACQ_TEST_GUI_SCENARIO_MAIN(AppLoginTest)

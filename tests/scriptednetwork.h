@@ -3,10 +3,14 @@
 
 #pragma once
 
+#include <QBuffer>
+#include <QHostAddress>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QPointer>
 #include <QStringList>
+#include <QTcpServer>
+#include <QTcpSocket>
 #include <QTimer>
 #include <QUrl>
 
@@ -49,6 +53,10 @@ public:
         // Kept back until release(): for a scenario that acts while the
         // request is on its way.
         bool hold = false;
+        // Sent, through Qt's own HTTP stack, to a local server that takes it
+        // and never answers: only the request's transfer timeout, if it has
+        // one, ends it. The other members are then unused.
+        bool silent = false;
     };
 
     using Rule = std::function<std::optional<Answer>(QNetworkAccessManager::Operation, const QUrl &)>;
@@ -59,6 +67,7 @@ public:
         QUrl url;
         bool claimed;
         QByteArray body; // what a POST or PUT sent, as sent
+        int transfer_timeout = 0; // the request's, in milliseconds; 0 for none
     };
 
     // The rule added last is asked first, so a scenario's rule overrides the
@@ -127,8 +136,12 @@ protected:
                 break;
             }
         }
+        const QByteArray sent = outgoing ? outgoing->readAll() : QByteArray();
         m_requests.push_back(
-            {op, request.url(), found.has_value(), outgoing ? outgoing->readAll() : QByteArray()});
+            {op, request.url(), found.has_value(), sent, request.transferTimeout()});
+        if (found && found->silent) {
+            return sendToSilentServer(op, request, sent);
+        }
         if (!found) {
             found = Answer{.status = 404, .error = QNetworkReply::ContentNotFoundError};
         }
@@ -145,6 +158,36 @@ protected:
     }
 
 private:
+    // A real reply from Qt, for a request redirected to a local server that
+    // accepts the connection, reads nothing back and never answers.
+    QNetworkReply *sendToSilentServer(QNetworkAccessManager::Operation op,
+                                      const QNetworkRequest &request,
+                                      const QByteArray &sent)
+    {
+        if (!m_silent_server.isListening()) {
+            if (!m_silent_server.listen(QHostAddress::LocalHost)) {
+                qFatal("ScriptedNetwork: cannot listen on 127.0.0.1");
+            }
+            QObject::connect(&m_silent_server, &QTcpServer::newConnection, &m_silent_server, [this] {
+                while (QTcpSocket *socket = m_silent_server.nextPendingConnection()) {
+                    socket->setParent(&m_silent_server);
+                }
+            });
+        }
+        QNetworkRequest redirected = request;
+        QUrl url = request.url();
+        url.setScheme("http");
+        url.setHost("127.0.0.1");
+        url.setPort(m_silent_server.serverPort());
+        redirected.setUrl(url);
+        auto *body = new QBuffer(this);
+        body->setData(sent);
+        body->open(QIODevice::ReadOnly);
+        QNetworkReply *reply = QNetworkAccessManager::createRequest(op, redirected, body);
+        body->setParent(reply);
+        return reply;
+    }
+
     // Completed from the event loop; the reply may be gone by then.
     static void complete(const QPointer<InFlightReply> &guarded, const Answer &sent)
     {
@@ -161,4 +204,5 @@ private:
     std::vector<Rule> m_rules;
     std::vector<Request> m_requests;
     std::vector<std::pair<QPointer<InFlightReply>, Answer>> m_held;
+    QTcpServer m_silent_server;
 };
