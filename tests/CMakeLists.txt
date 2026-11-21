@@ -116,9 +116,10 @@ target_link_libraries(corpus_gamedata PRIVATE acquisition_core)
 # no link step, so this cannot be left to target_link_libraries.
 add_test(NAME filters_boundary
     COMMAND ${CMAKE_COMMAND}
-        -D "FILTERS_DIR=${acquisition_SOURCE_DIR}/src/filters"
-        -D "FILTERS_ARCHIVE=$<TARGET_FILE:acquisition_filters>"
-        -P "${acquisition_SOURCE_DIR}/cmake/filters_boundary_check.cmake")
+        "-DBOUNDARY=The filter core (Phase 5, D5)"
+        -D "SOURCES_DIR=${acquisition_SOURCE_DIR}/src/filters"
+        -D "ARCHIVE=$<TARGET_FILE:acquisition_filters>"
+        -P "${acquisition_SOURCE_DIR}/cmake/boundary_check.cmake")
 add_dependencies(acq_tests acquisition_filters)
 
 # The application finds a TLS backend that supports SSL (#370): a Qt whose
