@@ -55,7 +55,8 @@ private slots:
     void markupInAModLineIsReadAsItsText();
     void markupInAPropertyNameIsReadAsItsText();
     void markupInAModNameIsReadAsItsText();
-    void bracketsThatAreNotMarkupAreKept();
+    // #420: the bare [word] form.
+    void bareBracketsAreReadAsTheirWord();
     // #429: lines that fit no mod name of the game data.
     void lineWithoutAModNameIsFiledUnderItsText();
     void describingLinesAreNotFiled();
@@ -648,19 +649,43 @@ void ItemTest::markupInAModNameIsReadAsItsText()
     }
 }
 
-// Brackets without the bar are sometimes the game's markup ("[Onslaught]",
-// sent in a flask's utility mods) and sometimes not (the "[DNT]" that 68 mod
-// names of game data 3.29.3.6 begin with), so they are left as they are.
-void ItemTest::bracketsThatAreNotMarkupAreKept()
+// #420: a bracket without the bar is the game's markup too ("[Onslaught]";
+// 159 mod names of game data 3.30.0.2.2 carry one, and replies send it in
+// mod lines). It is read as its word in a mod name and in a mod line alike,
+// so the two still agree. "[DNT]", which 68 mod names begin with, is not
+// markup and stays.
+void ItemTest::bareBracketsAreReadAsTheirWord()
 {
+    // The string is one #420 quotes from game data 3.30.0.2.2.
+    InitStatTranslations();
+    AddStatTranslations(R"json([
+        {"English":[{"format":["#"],"string":"You gain [Onslaught] for {0} seconds on Kill"}]}
+    ])json");
+    InitModList();
+
+    // The second line is a real reply's (a crucible node's stat, in
+    // tests/fixtures/payloads/stash-Standard-UniqueStash-1.json).
     const auto item = makeItem("brackets", R"json(,
-        "explicitMods": [{"description": "20% reduced Effect of [Onslaught] on you"}]
+        "explicitMods": [
+            {"description": "You gain [Onslaught] for 4 seconds on Kill"},
+            {"description": "20% reduced Effect of [Onslaught] on you"}
+        ]
     )json");
     QCOMPARE(item->text_mods().at("explicitMods"),
-             ItemMods{"20% reduced Effect of [Onslaught] on you"});
+             (ItemMods{"You gain Onslaught for 4 seconds on Kill",
+                       "20% reduced Effect of Onslaught on you"}));
+    const QString name = "You gain Onslaught for # seconds on Kill";
+    QVERIFY(item->mod_table().contains(name));
+    QCOMPARE(item->mod_table().at(name), 4.0);
+    QVERIFY(mod_list_model().stringList().contains(name));
+    for (const QString &offered : mod_list_model().stringList()) {
+        QVERIFY2(!offered.contains("[Onslaught]"), qPrintable(offered));
+    }
 
+    QCOMPARE(Util::WithoutMarkup("[DNT] You gain [Onslaught] for {0} seconds on Kill"),
+             QString("[DNT] You gain Onslaught for {0} seconds on Kill"));
     // No line seen so far has both kinds, so this one is put together from
-    // two that were: the bar's markup goes and the other brackets stay.
+    // two that were: the bar's markup goes and "[DNT]" stays.
     QCOMPARE(Util::WithoutMarkup("[DNT] Allocates [additional_spectre278|Death Attunement]"),
              QString("[DNT] Allocates Death Attunement"));
     // Two in one line, and one whose id has colons in it.
