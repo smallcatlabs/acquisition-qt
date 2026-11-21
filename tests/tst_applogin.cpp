@@ -103,6 +103,7 @@ private slots:
     void staleRefreshLeavesANewerLoginAlone();
     void redirectDuringARefreshIsTaken();
     void replayedRedirectIsNotExchangedAgain();
+    void tokensInARedirectAreNotTaken();
 
 private:
     std::shared_ptr<spdlog::logger> m_previous_logger;
@@ -2062,6 +2063,48 @@ void AppLoginTest::replayedRedirectIsNotExchangedAgain()
                          kRefreshedRefresh,
                          kOtherAccess,
                          kOtherRefresh});
+}
+
+// A redirect that carries tokens instead of a code, with the attempt's state,
+// as anything able to reach the loopback listener could send: no token is
+// taken from it. Tokens are taken only from the token endpoint's answer.
+void AppLoginTest::tokensInARedirectAreNotTaken()
+{
+    // No answer for the token endpoint: an exchange would be a surprise.
+    AppFixture fixture;
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+    auto &authenticated = child<QLabel>(dialog, "authenticateLabel");
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(authorize);
+
+    QUrlQuery forged;
+    forged.addQueryItem("access_token", kOtherAccess);
+    forged.addQueryItem("refresh_token", kOtherRefresh);
+    forged.addQueryItem("token_type", "bearer");
+    forged.addQueryItem("expires_in", "36000");
+    forged.addQueryItem("scope", "account:leagues account:characters account:stashes");
+    forged.addQueryItem("username", kOtherAccount);
+    forged.addQueryItem("state", authorize->state);
+    QVERIFY(deliverRedirect(authorize->redirect, forged).contains(kAuthorizedText));
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
+    QCOMPARE(error.text(), QString(kNoTokenError));
+    QCOMPARE(storedToken(fixture).has_value(), false);
+    QCOMPARE(authenticated.text(), QString("You must be authenticated to login."));
+    QCOMPARE(authenticate.text(), QString(kAuthenticate));
+    QVERIFY(!login.isEnabled());
+    QVERIFY(!loggedText().contains("OAuth: tokens recieved"));
+    QCOMPARE(tokenPosts(fixture), QList<QByteArray>());
+
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged({kOtherAccess, kOtherRefresh, authorize->state});
 }
 
 ACQ_TEST_GUI_SCENARIO_MAIN(AppLoginTest)
