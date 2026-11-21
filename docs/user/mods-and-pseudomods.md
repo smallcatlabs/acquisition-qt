@@ -26,6 +26,11 @@ implicit and an explicit), its values add up: `+30 to maximum Life` and
 `+80 to maximum Life` make `+# to maximum Life` 110. Use the `… total …`
 pseudomods below when you need different mods added together.
 
+The game marks some words in its texts with square brackets, such as
+`[Onslaught]`. Acquisition shows the word without them, in the tooltip and in
+the drop-down alike: the line `You gain [Onslaught] for 4 seconds on Kill` is
+shown and searched as `You gain Onslaught for # seconds on Kill`.
+
 Some mod names keep a number that is part of the mod's own text, such as
 `#% chance to Trigger Level 20 Animate Weapon on Kill`; such a row matches
 only lines with that same number. A line with two numbers, such as
