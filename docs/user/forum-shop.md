@@ -35,7 +35,9 @@ your stash directly. Acquisition writes and updates those threads for you.
   tab's number, which pathofexile.com gives only to a POESESSID. Without one
   nothing is copied and you are told why. Every page is copied, separated by a
   `-------- next page --------` line, and the status bar says how many pages
-  were copied. Copying never changes what was last posted, so the next update
+  were copied. An item whose tab is not in pathofexile.com's list of your tabs
+  cannot be linked: it is left out of the copy, as it is of a post, and the
+  status bar says how many items were left out. Copying never changes what was last posted, so the next update
   still posts if the shop changed.
 
 Items priced *[Ignore]* are omitted; *No price* items appear without a tag.

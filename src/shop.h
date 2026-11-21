@@ -193,9 +193,10 @@ private:
         const std::expected<poe::WebStashListWrapper, RateLimit::FetchError> &result);
     void OnStashIndexUpdated();
 
-    // A rejected POESESSID, wherever it was rejected: automatic updates
-    // off, the session cleared, and the user told.
-    void RejectPoeSession();
+    // A rejected POESESSID, wherever it was rejected: logged with the
+    // reason (which reply rejected it), automatic updates off, the session
+    // cleared, and the user told.
+    void RejectPoeSession(const QString &reason);
 
     // The copy's own path (#278): render once the stash index arrives, then
     // copy every page, or say why nothing was copied.

@@ -598,10 +598,9 @@ void Shop::FailActiveJob(const Failure &failure)
         emit StatusUpdate(ProgramState::Ready, "Forum shop update canceled");
         break;
     case Failure::Kind::SessionRejected:
-        spdlog::warn("Shop: rejecting POESESSID: {}", failure.message);
         emit StatusUpdate(ProgramState::Ready,
                           "Forum shop not updated: Path of Exile rejected the POESESSID");
-        RejectPoeSession();
+        RejectPoeSession(failure.message);
         break;
     case Failure::Kind::Error:
         spdlog::error("Shop: the forum shop was not updated: {}", failure.message);
@@ -614,8 +613,10 @@ void Shop::FailActiveJob(const Failure &failure)
     }
 }
 
-void Shop::RejectPoeSession()
+void Shop::RejectPoeSession(const QString &reason)
 {
+    // The reason names the reply that rejected it, never the POESESSID.
+    spdlog::warn("Shop: rejecting POESESSID: {}", reason);
     SetAutoUpdate(false);
     emit PoeSessionRejected();
     Warn(Notice::SessionRejected,
@@ -869,7 +870,7 @@ void Shop::OnCopyIndexReceived(
         case Failure::Kind::SessionRejected:
             emit StatusUpdate(ProgramState::Ready,
                               "Shop not copied: Path of Exile rejected the POESESSID");
-            RejectPoeSession();
+            RejectPoeSession(failure.message);
             break;
         case Failure::Kind::Error:
             spdlog::error("Shop: the shop was not copied: {}", failure.message);
