@@ -10,6 +10,8 @@
 
 #include <QtTest/QtTest>
 
+#include <QFile>
+
 #include <optional>
 #include <string_view>
 
@@ -23,6 +25,7 @@
 #include "poe/types/league.h"
 #include "poe/types/leagueaccount.h"
 #include "poe/types/passivenode.h"
+#include "poe/types/stashtab.h"
 #include "testfixtures.h"
 #include "testsuite.h"
 #include "util/glaze_qt.h" // IWYU pragma: keep
@@ -44,6 +47,8 @@ private slots:
     void passiveNodeConnectionsAreRead();
     void characterWithNumericConnectionTargetIsRead();
     void leagueAccountVariantsAreRead();
+    void unreadTextFieldsDoNotRefuseATab_data();
+    void unreadTextFieldsDoNotRefuseATab();
 
     // Earlier reference changes the headers had not caught up with.
     void characterSpecialisationsAreRead();
@@ -344,6 +349,39 @@ void WireTypesTest::leagueAccountVariantsAreRead()
     const auto &variants = account->atlas_passive_trees.front().variants;
     QCOMPARE(variants.size(), size_t(1));
     QCOMPARE(variants.at("12345"), 67890);
+}
+
+// #422: the reference gives flavourTextNote and prophecyText as strings, and
+// no reply in the corpus carries either, so the shape the game sends is not
+// known. Nothing reads them. A real stash reply with one of them added to its
+// first item, in either shape, is read with all its items.
+void WireTypesTest::unreadTextFieldsDoNotRefuseATab_data()
+{
+    QTest::addColumn<QByteArray>("field");
+    QTest::newRow("flavourTextNote as a string") << QByteArray(R"("flavourTextNote": "note",)");
+    QTest::newRow("flavourTextNote as an array") << QByteArray(R"("flavourTextNote": ["note"],)");
+    QTest::newRow("prophecyText as a string") << QByteArray(R"("prophecyText": "text",)");
+    QTest::newRow("prophecyText as an array") << QByteArray(R"("prophecyText": ["text"],)");
+}
+
+void WireTypesTest::unreadTextFieldsDoNotRefuseATab()
+{
+    QFETCH(QByteArray, field);
+    QFile file(QFINDTESTDATA("fixtures/payloads/stash-Standard-NormalStash-1.json"));
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    const QByteArray stash = file.readAll();
+    const auto plain = json::readStashPayload("{\"stash\": " + stash + "}");
+    QVERIFY(plain && plain->stash.items);
+
+    QByteArray edited = stash;
+    const qsizetype items = edited.indexOf("\"items\": [");
+    QVERIFY(items >= 0);
+    edited.insert(edited.indexOf('{', items) + 1, field);
+
+    const auto payload = json::readStashPayload("{\"stash\": " + edited + "}");
+    QVERIFY(payload);
+    QVERIFY(payload->stash.items);
+    QCOMPARE(payload->stash.items->size(), plain->stash.items->size());
 }
 
 void WireTypesTest::characterSpecialisationsAreRead()

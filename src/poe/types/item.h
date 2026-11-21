@@ -202,11 +202,9 @@ namespace poe {
         std::optional<QString> gemSkill;                 // ?string; PoE2 only
         std::optional<QString> descrText;                // ?string
         std::optional<std::vector<QString>> flavourText; // ?array of string
-        // NOTE: flavourTextNote and prophecyText are documented as strings but modeled as arrays
-        // of strings; a reply that carries either as a string would fail to parse. Which shape
-        // GGG really sends is an open question.
-        std::optional<std::vector<QString>> flavourTextNote; // ?string; user-generated text
-        std::optional<std::vector<QString>> prophecyText;    // ?string
+        // NOTE: flavourTextNote and prophecyText (?string) are deliberately not modeled (#422).
+        // Nothing reads them, no captured reply carries them, and a known key in a shape other
+        // than the modeled one refuses the whole reply; an unknown key is skipped.
         std::optional<bool> isRelic;                         // ?bool; always true if present
         std::optional<int> foilVariation;                    // ?int
         std::optional<bool> replica;                         // ?bool; always true if present
