@@ -100,6 +100,7 @@ private slots:
     void failedRefreshWhileTheBrowserIsOutLeavesItWaiting();
     void loginDuringTheCodeExchangeKeepsTheSession();
     void secondAuthenticateDuringTheCodeExchange();
+    void staleRefreshLeavesANewerLoginAlone();
 
 private:
     std::shared_ptr<spdlog::logger> m_previous_logger;
@@ -1496,6 +1497,8 @@ namespace {
     // before Qt sees it.
     constexpr const char *kExchangeRefusedLog
         = "OAuth: refusing the answer to a code exchange that no login waits for";
+    constexpr const char *kRefreshRefusedLog
+        = "OAuth: refusing the answer to a refresh of a login no longer held";
 
 } // namespace
 
@@ -1812,6 +1815,93 @@ void AppLoginTest::secondAuthenticateDuringTheCodeExchange()
                          kOtherRefresh,
                          kFreshAccess,
                          kFreshRefresh});
+}
+
+// The stored login's refresh at start is slow. Meanwhile the user signs in
+// in the browser as someone else, that exchange is answered first, and Login
+// starts the session for the new account. The refresh's answer, arriving
+// last, renews a login no longer held: it is refused, and the stored login,
+// the session's account and the next refresh stay the new account's.
+void AppLoginTest::staleRefreshLeavesANewerLoginAlone()
+{
+    AppFixture fixture([](AppFixture &f) {
+        storeToken(f, kStoredAccess, kStoredRefresh);
+        answerTokenRequestsInTurn(
+            f,
+            {// The refresh at start, kept back until the session has started.
+             heldBack(tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh))),
+             // The browser sign-in, as the other account.
+             tokenAnswer(200, grantedToken(kOtherAccess, kOtherRefresh, 36000, kOtherAccount)),
+             // The other account's next refresh.
+             tokenAnswer(200,
+                         grantedToken(kRefreshedAccess, kRefreshedRefresh, 36000, kOtherAccount))});
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+    auto &authenticated = child<QLabel>(dialog, "authenticateLabel");
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    QCOMPARE(tokenPosts(fixture).size(), 1);
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(authorize);
+    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kAuthorizedText));
+    QVERIFY(QTest::qWaitFor(
+        [&] {
+            return authenticated.text()
+                   == QString("You are authenticated as \"%1\"").arg(kOtherAccount);
+        },
+        10000));
+    league.setCurrentIndex(league.findText(AppFixture::kLeague));
+    login.click();
+    QVERIFY2(fixture.access().hasSession(), qPrintable(error.text()));
+    QCOMPARE(fixture.access().identity().account(), kOtherAccount);
+
+    // The refresh at start is answered now, for the account held before.
+    QCOMPARE(fixture.network->release(), 1);
+    QVERIFY(QTest::qWaitFor(
+        [] {
+            return loggedText().contains(kRefreshRefusedLog)
+                   || loggedText().contains("OAuth: tokens recieved for "
+                                            + QString(AppFixture::kAccount));
+        },
+        10000));
+    auto stored = storedToken(fixture);
+    QVERIFY(stored);
+    QCOMPARE(stored->username, kOtherAccount);
+    QCOMPARE(stored->refresh_token, kOtherRefresh);
+    QCOMPARE(fixture.access().identity().account(), kOtherAccount);
+
+    // The next refresh is the other account's.
+    refreshNow(fixture);
+    QVERIFY(QTest::qWaitFor([&] { return tokenPosts(fixture).size() == 3; }, 10000));
+    const QList<QByteArray> posts = tokenPosts(fixture);
+    QCOMPARE(AppFixture::formField(posts[2], "refresh_token"), kOtherRefresh);
+    QVERIFY(QTest::qWaitFor(
+        [&] {
+            stored = storedToken(fixture);
+            return stored && (stored->refresh_token == kRefreshedRefresh);
+        },
+        10000));
+    QCOMPARE(stored->username, kOtherAccount);
+    QVERIFY(!loggedText().contains("OAuth: request failed"));
+
+    QCOMPARE(m_browser.opened.size(), 1);
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged({kStoredAccess,
+                         kStoredRefresh,
+                         kFreshAccess,
+                         kFreshRefresh,
+                         kCode,
+                         AppFixture::formField(posts[1], "code_verifier"),
+                         kOtherAccess,
+                         kOtherRefresh,
+                         kRefreshedAccess,
+                         kRefreshedRefresh});
 }
 
 ACQ_TEST_GUI_SCENARIO_MAIN(AppLoginTest)

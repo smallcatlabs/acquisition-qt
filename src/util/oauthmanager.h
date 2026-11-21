@@ -70,13 +70,16 @@ private:
     };
 
     // Notes a reply of the token endpoint before Qt handles it, and says
-    // whether Qt may: a refresh's always, a code exchange's only while a
-    // browser login waits for it. Called with nullptr once Qt has handled
-    // it, and then lets a waiting browser login go on after a refresh.
+    // whether Qt may: only while the login it was sent for still waits.
+    // Called with nullptr once Qt has handled it, and then lets a waiting
+    // browser login go on after a refresh.
     bool noteTokenReply(QNetworkReply *reply);
     void failStoredLogin(const TokenReply &reply);
     void failLogin(const QString &reason);
     bool loginInProgress() const { return !m_attempt.isEmpty(); }
+    // Which login waits for an answer of this stage now, as a fingerprint;
+    // empty when none does. Each request carries the one it was sent for.
+    QByteArray waitingFor(QAbstractOAuth::Stage stage) const;
 
     NetworkManager &m_network_manager;
     DataStore &m_data;

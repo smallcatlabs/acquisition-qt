@@ -5,6 +5,7 @@
 
 #include <QAbstractOAuth>
 #include <QByteArray>
+#include <QCryptographicHash>
 #include <QDesktopServices>
 #include <QHostAddress>
 #include <QJsonDocument>
@@ -47,8 +48,8 @@ namespace {
     // The request attribute that says which stage of the flow
     // (QAbstractOAuth::Stage) a request to the token endpoint belongs to.
     constexpr QNetworkRequest::Attribute STAGE_ATTRIBUTE = QNetworkRequest::User;
-    // And which browser login it was sent for: that login's state.
-    constexpr QNetworkRequest::Attribute ATTEMPT_ATTRIBUTE = static_cast<QNetworkRequest::Attribute>(
+    // And which login it was sent for (OAuthManager::waitingFor).
+    constexpr QNetworkRequest::Attribute LOGIN_ATTRIBUTE = static_cast<QNetworkRequest::Attribute>(
         QNetworkRequest::User + 1);
 
     // This list is complete as of Qt 6.9.1:
@@ -181,7 +182,7 @@ OAuthManager::OAuthManager(NetworkManager &network_manager, DataStore &datastore
                                               QAbstractOAuth::Stage stage) {
                                            request.setAttribute(STAGE_ATTRIBUTE,
                                                                 static_cast<int>(stage));
-                                           request.setAttribute(ATTEMPT_ATTRIBUTE, m_attempt);
+                                           request.setAttribute(LOGIN_ATTRIBUTE, waitingFor(stage));
                                        });
 
     // Connect the oauth code flow and add error logging.
@@ -292,17 +293,22 @@ bool OAuthManager::noteTokenReply(QNetworkReply *reply)
         m_token_reply.reset();
         return true;
     }
-    const bool refresh = (reply->request().attribute(STAGE_ATTRIBUTE).toInt()
-                          == static_cast<int>(QAbstractOAuth::Stage::RefreshingAccessToken));
-    // A refresh is always taken: it renews the login held. A code exchange
-    // is taken only by the browser login that sent it, while it waits:
-    // after Login has started a session, a token it brought would replace
-    // the session's under it (#414), and after Authenticate was pressed
-    // again it would end the new attempt with the old one's account.
-    if (!refresh
-        && (!loginInProgress()
-            || (reply->request().attribute(ATTEMPT_ATTRIBUTE).toString() != m_attempt))) {
-        spdlog::info("OAuth: refusing the answer to a code exchange that no login waits for");
+    const auto stage = static_cast<QAbstractOAuth::Stage>(
+        reply->request().attribute(STAGE_ATTRIBUTE).toInt());
+    const bool refresh = (stage == QAbstractOAuth::Stage::RefreshingAccessToken);
+    // An answer is taken only while the login it was sent for still waits
+    // for it. Otherwise its token would replace a login that came since:
+    // after Login has started a session, the exchange of a browser login
+    // ended by it would swap the session's token (#414); after Authenticate
+    // was pressed again, the old attempt's exchange would end the new one;
+    // and a slow refresh of the login held before a browser sign-in would
+    // replace the new login.
+    const QByteArray waiting = waitingFor(stage);
+    if (waiting.isEmpty()
+        || (reply->request().attribute(LOGIN_ATTRIBUTE).toByteArray() != waiting)) {
+        spdlog::info(refresh ? "OAuth: refusing the answer to a refresh of a login no longer held"
+                             : "OAuth: refusing the answer to a code exchange that no login waits "
+                               "for");
         return false;
     }
     // peek(), not read(): the body is Qt's to read.
@@ -315,6 +321,18 @@ bool OAuthManager::noteTokenReply(QNetworkReply *reply)
         .network_error = static_cast<int>(reply->error()),
     };
     return true;
+}
+
+QByteArray OAuthManager::waitingFor(QAbstractOAuth::Stage stage) const
+{
+    // A refresh renews the login whose refresh token it sends; a code
+    // exchange answers the browser login whose state its redirect carried.
+    // Only a fingerprint is kept, so no request carries a token.
+    const QString login = (stage == QAbstractOAuth::Stage::RefreshingAccessToken)
+                              ? m_oauth->refreshToken()
+                              : m_attempt;
+    return login.isEmpty() ? QByteArray()
+                           : QCryptographicHash::hash(login.toUtf8(), QCryptographicHash::Sha256);
 }
 
 void OAuthManager::failStoredLogin(const TokenReply &reply)
