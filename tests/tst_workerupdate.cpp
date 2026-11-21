@@ -178,6 +178,8 @@ private slots:
     // #358: an update that would fetch nothing is refused before it starts.
     void refreshCheckedWithNothingCheckedIsRefused();
     void refreshSelectedOfAnUnlistedTabIsRefused();
+    void refreshWithNoTabsKnownSaysToRefreshAll();
+    void uncheckedPricedTabIsStillRefreshed();
 };
 
 namespace {
@@ -4397,7 +4399,8 @@ void WorkerUpdateTest::refreshSelectedOfAnUnlistedTabIsRefused()
     f.manager->Update(TabSelection::Selected, {ItemLocation(*gone), ItemLocation(*tab_a)});
     QVERIFY(WorkerFixture::drainUntilIdle());
     f.deliverStashList({*tab_a});
-    QVERIFY(!f.hasPendingStash("stashgone1"));
+    QCOMPARE(f.api.pendingCount(), size_t(1));
+    QVERIFY(f.hasPendingStash("stashaaaa1"));
     f.deliverStash("stashaaaa1", *tab_a);
     QCOMPARE(f.terminals.size(), size_t(1));
 }
@@ -4541,6 +4544,66 @@ void WorkerUpdateTest::stoppedLoadSeedsNothing()
     QCOMPARE(progress.load(), 1);
     QCOMPARE(b.initial_refreshes, 0);
     QVERIFY(b.ready.isEmpty());
+}
+
+// #358 review: with no tab list at all (a first run, or a cache that did not
+// load), a refresh of checked or selected tabs fetches nothing. The reason
+// shown is that no tabs are known yet, not that none is checked.
+void WorkerUpdateTest::refreshWithNoTabsKnownSaysToRefreshAll()
+{
+    WorkerFixture f("refuse-no-tabs");
+    f.start();
+    f.attachManager();
+    f.connectRefreshRequests();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    const auto tab_a = json::readStash(stashJson("stashaaaa1", "Tab A", 0));
+    QVERIFY(tab_a);
+
+    size_t statuses_before = f.status_updates.size();
+    f.manager->Update(TabSelection::Checked);
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    verifyRefusedWithStatus(f, statuses_before, "refresh all tabs");
+
+    statuses_before = f.status_updates.size();
+    f.manager->Update(TabSelection::Selected, {ItemLocation(*tab_a)});
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    verifyRefusedWithStatus(f, statuses_before, "refresh all tabs");
+}
+
+// #358 review: a tab priced by its name is refreshed whether or not it is
+// checked (its refresh lock counts as checked), so Refresh Checked with every
+// tab unchecked but one priced is accepted, not refused.
+void WorkerUpdateTest::uncheckedPricedTabIsStillRefreshed()
+{
+    WorkerFixture f("priced-unchecked");
+    const auto priced = json::readStash(stashJson("stashaaaa1", "~price 5 chaos", 0));
+    const auto plain = json::readStash(stashJson("stashbbbb1", "Tab B", 1));
+    QVERIFY(priced && plain);
+    {
+        UserStore store(QDir(f.dataDir()), "priced-unchecked");
+        QVERIFY(store.stashes().saveStashList({*priced, *plain}, kRealm, kLeague));
+    }
+    // Both unchecked before the tab's price is known: a locked tab's flag
+    // cannot be written (#353).
+    f.bm.manager->SetRefreshChecked(ItemLocation(*priced), false);
+    f.bm.manager->SetRefreshChecked(ItemLocation(*plain), false);
+    f.start();
+    f.attachManager();
+    f.connectRefreshRequests();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    QVERIFY(f.bm.manager->GetRefreshLocked(ItemLocation(*priced)));
+    QVERIFY(!f.bm.manager->GetRefreshChecked(ItemLocation(*plain)));
+
+    f.manager->Update(TabSelection::Checked);
+    QVERIFY(WorkerFixture::drainUntilIdle());
+    QVERIFY(f.hasPendingStashList());
+    f.deliverStashList({*priced, *plain});
+    QVERIFY(f.hasPendingStash("stashaaaa1"));
+    QVERIFY(!f.hasPendingStash("stashbbbb1"));
+    f.deliverStash("stashaaaa1", *priced);
+    QCOMPARE(f.terminals.size(), size_t(1));
 }
 
 ACQ_TEST_GUILESS_MAIN(WorkerUpdateTest)

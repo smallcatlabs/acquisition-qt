@@ -263,7 +263,10 @@ void ItemsManagerWorker::Update(TabSelection type, const std::vector<ItemLocatio
     // update (D4: no terminal event); the user is told on the status line,
     // for the timer as for the menu.
     if (!m_need_stash_list && !m_need_character_list) {
-        const QString why = (type == TabSelection::Checked)
+        // With no tab list at all (a first run, or a cache that did not
+        // load), nothing can be checked or listed yet.
+        const QString why = m_tabs.empty() ? "no tabs are known yet; refresh all tabs first"
+                            : (type == TabSelection::Checked)
                                 ? "no tab is checked for refresh"
                                 : "the selected tabs are no longer listed";
         spdlog::info("ItemsManagerWorker: not refreshing: {}", why);

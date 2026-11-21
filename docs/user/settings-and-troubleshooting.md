@@ -21,8 +21,9 @@ checked tabs** whenever at least one of a folder's tabs is ticked.
 
 A refresh that would download nothing does not start: **Refresh checked tabs**
 or the timer with no tab ticked, or **Refresh Selected** on tabs that are no
-longer listed (refresh all tabs or fetch the tabs list to update the list). The
-status bar says why, and an automatic shop update does not run.
+longer listed (refresh all tabs or fetch the tabs list to update the list), or
+either of them before any tab is known. The status bar says why, and an
+automatic shop update does not run.
 
 Items already on disk are shown immediately at startup; the refresh replaces
 them tab by tab as downloads finish.
