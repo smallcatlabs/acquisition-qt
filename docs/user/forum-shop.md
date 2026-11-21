@@ -45,6 +45,9 @@ These situations stop or limit a post, and Acquisition tells you about each:
   database at startup, it posts nothing and leaves your threads as they are,
   so a problem on your computer cannot blank your shop. Check the log, fix
   the cause, and restart.
+- **Your shop's threads or template could not be read.** The same: nothing is
+  posted, and a thread or template you set that session lasts until you
+  close Acquisition but is not saved, so the saved ones are kept.
 - **The site or the forum does not take the update.** The status bar says
   "Forum shop not updated" and why: the site did not answer, a thread could
   not be opened for editing, the forum could not find one of your items
