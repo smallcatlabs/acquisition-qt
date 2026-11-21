@@ -175,6 +175,9 @@ private slots:
     void copyWithNothingPricedCopiesNothing();
     void copyIndexFailureCopiesNothingAndSaysWhy();
     void copyRejectedPoesessidIsTreatedAsForASubmission();
+    void copyLeavesTheNextUpdateToPost();
+    void copyAndSubmissionDoNotBlockEachOther();
+    void copyCountsItemsLeftOut();
     void renderWritesNoEmptyPriceGroup();
 };
 
@@ -2160,6 +2163,7 @@ void ShopTest::copyRejectedPoesessidIsTreatedAsForASubmission()
     QApplication::clipboard()->setText("before");
     QSignalSpy rejected(fixture.shop.get(), &Shop::PoeSessionRejected);
     QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    LogCapture log;
 
     fixture.shop->CopyToClipboard();
     fixture.rateLimiter->reject(0, RateLimit::FetchError::Kind::Http, "HTTP status 403", 403);
@@ -2168,6 +2172,119 @@ void ShopTest::copyRejectedPoesessidIsTreatedAsForASubmission()
     QCOMPARE(warnings.count(), 1);
     QVERIFY(!fixture.shop->auto_update());
     QCOMPARE(QApplication::clipboard()->text(), QString("before"));
+    // Logged as a submission logs it, without the POESESSID itself.
+    QVERIFY2(log.text().contains("rejecting POESESSID"), qPrintable(log.text()));
+    QVERIFY2(!log.text().contains("fake-poesessid"), qPrintable(log.text()));
+}
+
+// #278 review: the copy leaves the posted shop's hash alone, so an update
+// after it still posts the changed shop, with the text that was copied.
+void ShopTest::copyLeavesTheNextUpdateToPost()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    const auto item = publishPricedItem(fixture, "copy-then-post", 1);
+    fixture.shop->SubmitShopToForum();
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    completeForumSubmission(fixture, 0);
+    const QString posted_hash = fixture.buyoutFixture.data->Get("shop_hash");
+    QVERIFY(!posted_hash.isEmpty());
+
+    // The price changes, and the shop is copied before it is posted again.
+    fixture.buyoutFixture.manager->Set(*item, makeChaosBuyout(2));
+    fixture.shop->CopyToClipboard();
+    fixture.rateLimiter->resolve(1, kStashIndexJson);
+    drainEvents();
+    const QString copied = QApplication::clipboard()->text();
+    QVERIFY2(copied.contains(" 2 chaos"), qPrintable(copied));
+    QCOMPARE(fixture.buyoutFixture.data->Get("shop_hash"), posted_hash);
+    QCOMPARE(fixture.networkManager->count(), 2);
+
+    // The next update, not forced, posts what was copied.
+    fixture.shop->SubmitShopToForum();
+    fixture.rateLimiter->resolve(2, kStashIndexJson);
+    drainEvents();
+    QCOMPARE(fixture.networkManager->count(), 3);
+    fixture.networkManager->sent(2).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 4, 5000);
+    QCOMPARE(postedForm(fixture.networkManager->sent(3)).value("content"), copied);
+    fixture.networkManager->sent(3).reply->finish({}, 200, QNetworkReply::NoError, afterEditPage());
+    drainEvents();
+}
+
+// #278 review: a copy and a submission each make their own request for the
+// tab numbers; neither refuses, waits for or takes the other's.
+void ShopTest::copyAndSubmissionDoNotBlockEachOther()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    publishPricedItem(fixture, "copy-overlap", 1);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+
+    // A copy while a submission waits for its tab numbers.
+    fixture.shop->SubmitShopToForum();
+    QApplication::clipboard()->setText("before");
+    fixture.shop->CopyToClipboard();
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(2));
+    fixture.rateLimiter->resolve(1, kStashIndexJson);
+    drainEvents();
+    const QString copied = QApplication::clipboard()->text();
+    QVERIFY2(copied.contains(" 1 chaos"), qPrintable(copied));
+    QCOMPARE(fixture.networkManager->count(), 0);
+
+    // The submission goes on to the forum with its own reply.
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    QCOMPARE(fixture.networkManager->count(), 1);
+
+    // A submission while a copy waits: not refused as busy.
+    QApplication::clipboard()->setText("before");
+    fixture.shop->CopyToClipboard();
+    completeForumSubmission(fixture, 0);
+    fixture.shop->SubmitShopToForum(true);
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(4));
+    fixture.rateLimiter->resolve(2, kStashIndexJson);
+    drainEvents();
+    QCOMPARE(QApplication::clipboard()->text(), copied);
+    fixture.rateLimiter->resolve(3, kStashIndexJson);
+    drainEvents();
+    QCOMPARE(fixture.networkManager->count(), 3);
+    completeForumSubmission(fixture, 2);
+    QCOMPARE(warnings.count(), 0);
+}
+
+// #278 review: a priced item whose tab the website's list does not carry is
+// left out of the copy, and the status line counts it.
+void ShopTest::copyCountsItemsLeftOut()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    const ItemLocation listed = makeTestStashLocation();
+    const ItemLocation unlisted = makeTestStashLocation("stash-unlisted", "Unlisted", 1);
+    const QByteArray json = R"({"verified": false, "w": 1, "h": 1,
+        "icon": "https://web.poecdn.com/image/test.png", "id": "ID", "name": "",
+        "typeLine": "Iron Ring", "baseType": "Iron Ring", "identified": true, "ilvl": 1,
+        "x": 0, "y": 0})";
+    QByteArray json_b = json;
+    json_b.replace("\"ID\"", "\"left-out\"");
+    QByteArray json_a = json;
+    json_a.replace("\"ID\"", "\"linked\"");
+    const auto linked = std::make_shared<Item>(makeTestItem(json_a.constData(), listed));
+    const auto left_out = std::make_shared<Item>(makeTestItem(json_b.constData(), unlisted));
+    fixture.itemsManager->OnItemsRefreshed({linked, left_out}, {listed, unlisted}, false);
+    fixture.buyoutFixture.manager->Set(*linked, makeChaosBuyout(1));
+    fixture.buyoutFixture.manager->Set(*left_out, makeChaosBuyout(2));
+    QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
+
+    fixture.shop->CopyToClipboard();
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    const QString copied = QApplication::clipboard()->text();
+    QVERIFY2(copied.contains(" 1 chaos"), qPrintable(copied));
+    QVERIFY2(!copied.contains(" 2 chaos"), qPrintable(copied));
+    QVERIFY2(lastStatus(statuses).contains("1 page; 1 item(s) left out"),
+             qPrintable(lastStatus(statuses)));
 }
 
 // #278 review: a price whose every item is left out (its tab is not in the
