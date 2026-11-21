@@ -71,8 +71,7 @@ private:
 
     // Notes a reply of the token endpoint before Qt handles it, and says
     // whether Qt may: only while the login it was sent for still waits.
-    // Called with nullptr once Qt has handled it, and then lets a waiting
-    // browser login go on after a refresh.
+    // Called with nullptr once Qt has handled it.
     bool noteTokenReply(QNetworkReply *reply);
     void failStoredLogin(const TokenReply &reply);
     void failLogin(const QString &reason);

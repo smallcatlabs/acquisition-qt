@@ -119,7 +119,7 @@ namespace {
 
     // The code flow, with Qt's protected status setter in reach. Qt keeps
     // one status for the whole flow, and ignores the redirect of a browser
-    // login unless the status is the one grant() left: see noteTokenReply.
+    // login unless the status is the one grant() left: see receiveCallback.
     class CodeFlow : public QOAuth2AuthorizationCodeFlow
     {
     public:
@@ -277,19 +277,21 @@ void OAuthManager::receiveCallback(const QVariantMap &data)
     // Qt refuses a redirect whose state is not the one it sent, and reports
     // that as a ServerError like any other.
     m_state_mismatch = (data.value("state").toString() != m_oauth->state());
+
+    // Qt keeps one status for the whole flow, and judges a redirect only in
+    // the status grant() left, NotAuthenticated. A refresh since, answered
+    // or still on its way, has moved it (to Granted or RefreshingToken), and
+    // Qt would ignore the redirect of the browser login that waits (#410).
+    // This slot runs before Qt's, so the status is put back first. Qt's
+    // token, refreshed or not, is left as it is.
+    if (loginInProgress()) {
+        static_cast<CodeFlow *>(m_oauth)->setStatus(QAbstractOAuth::Status::NotAuthenticated);
+    }
 }
 
 bool OAuthManager::noteTokenReply(QNetworkReply *reply)
 {
     if (!reply) {
-        // Qt has handled a refresh's reply, granted or not, and its status
-        // now says Granted, where it ignores a browser login's redirect. A
-        // browser login that waits started from NotAuthenticated, which
-        // grant() sets, and is put back there so that its redirect is
-        // taken (#410). Qt's token, refreshed or not, is left as it is.
-        if (m_token_reply && m_token_reply->refresh && loginInProgress()) {
-            static_cast<CodeFlow *>(m_oauth)->setStatus(QAbstractOAuth::Status::NotAuthenticated);
-        }
         m_token_reply.reset();
         return true;
     }

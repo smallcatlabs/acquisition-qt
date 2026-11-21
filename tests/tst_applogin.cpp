@@ -101,6 +101,7 @@ private slots:
     void loginDuringTheCodeExchangeKeepsTheSession();
     void secondAuthenticateDuringTheCodeExchange();
     void staleRefreshLeavesANewerLoginAlone();
+    void redirectDuringARefreshIsTaken();
 
 private:
     std::shared_ptr<spdlog::logger> m_previous_logger;
@@ -1902,6 +1903,83 @@ void AppLoginTest::staleRefreshLeavesANewerLoginAlone()
                          kOtherRefresh,
                          kRefreshedAccess,
                          kRefreshedRefresh});
+}
+
+// With a login held, the user is in the browser when the token is
+// refreshed, and the redirect arrives before the refresh is answered (#410).
+// The redirect is taken and exchanged. Its answer, as another account, is
+// the login held from then on; the refresh, answered last, renews the login
+// held before and is refused.
+void AppLoginTest::redirectDuringARefreshIsTaken()
+{
+    AppFixture fixture([](AppFixture &f) {
+        storeToken(f, kStoredAccess, kStoredRefresh);
+        answerTokenRequestsInTurn(
+            f,
+            {// The refresh at start.
+             tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh)),
+             // The next refresh, kept back until the browser has come back.
+             heldBack(tokenAnswer(200, grantedToken(kRefreshedAccess, kRefreshedRefresh))),
+             // The browser sign-in, as the other account.
+             tokenAnswer(200, grantedToken(kOtherAccess, kOtherRefresh, 36000, kOtherAccount))});
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+    auto &authenticated = child<QLabel>(dialog, "authenticateLabel");
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(authorize);
+    refreshNow(fixture);
+    QVERIFY(QTest::qWaitFor([&] { return tokenPosts(fixture).size() == 2; }, 10000));
+
+    // The redirect, while the refresh is on its way: it is exchanged.
+    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kAuthorizedText));
+    QVERIFY(QTest::qWaitFor([&] { return tokenPosts(fixture).size() == 3; }, 10000));
+    QList<QByteArray> posts = tokenPosts(fixture);
+    QCOMPARE(AppFixture::formField(posts[1], "grant_type"), QString("refresh_token"));
+    QCOMPARE(AppFixture::formField(posts[2], "code"), kCode);
+    QVERIFY(QTest::qWaitFor(
+        [&] {
+            return authenticated.text()
+                   == QString("You are authenticated as \"%1\"").arg(kOtherAccount);
+        },
+        10000));
+
+    // The refresh is answered last, for the login held before: refused.
+    QCOMPARE(fixture.network->release(), 1);
+    QVERIFY(QTest::qWaitFor([] { return loggedText().contains(kRefreshRefusedLog); }, 10000));
+    const auto stored = storedToken(fixture);
+    QVERIFY(stored);
+    QCOMPARE(stored->username, kOtherAccount);
+    QCOMPARE(stored->refresh_token, kOtherRefresh);
+    QCOMPARE(authenticated.text(), QString("You are authenticated as \"%1\"").arg(kOtherAccount));
+    QVERIFY(error.isHidden());
+
+    league.setCurrentIndex(league.findText(AppFixture::kLeague));
+    login.click();
+    QVERIFY2(fixture.access().hasSession(), qPrintable(error.text()));
+    QCOMPARE(fixture.access().identity().account(), kOtherAccount);
+
+    QCOMPARE(m_browser.opened.size(), 1);
+    QCOMPARE(surprises(fixture), QString());
+    posts = tokenPosts(fixture);
+    checkNoSecretLogged({kStoredAccess,
+                         kStoredRefresh,
+                         kFreshAccess,
+                         kFreshRefresh,
+                         kCode,
+                         AppFixture::formField(posts[2], "code_verifier"),
+                         kRefreshedAccess,
+                         kRefreshedRefresh,
+                         kOtherAccess,
+                         kOtherRefresh});
 }
 
 ACQ_TEST_GUI_SCENARIO_MAIN(AppLoginTest)
