@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QSettings>
 #include <QSqlDatabase>
+#include <QSqlError>
 #include <QSqlQuery>
 #include <QtTest/QtTest>
 
@@ -34,6 +35,9 @@ private slots:
     void historyOfExistingCurrenciesIsUnchanged();
     void legacyRatioListSkipsNoCurrency();
     void savedRatiosFromBeforeTheTableLoad();
+
+    // #295: a failed read of the stored currency is not an empty store.
+    void failedReadLeavesTheStoredCurrencyAlone();
 };
 
 namespace {
@@ -344,6 +348,47 @@ void CurrencyManagerTest::savedRatiosFromBeforeTheTableLoad()
         QCOMPARE(row->chaos.value1, alt ? 12.5 : 1.0);
         QCOMPARE(row->exalt.value1, divine ? 0.8 : 1.0);
     }
+}
+
+// #295: a read of the stored currency that fails is not taken for an empty
+// store. Before, the manager set up the defaults and its destructor saved
+// them over the user's ratios.
+void CurrencyManagerTest::failedReadLeavesTheStoredCurrencyAlone()
+{
+    CurrencyFixture fixture;
+    DataStore &store = *fixture.buyouts.data;
+    {
+        // The user's ratios, saved when an earlier session ends.
+        CurrencyManager earlier(fixture.settings, store, fixture.items);
+        earlier.currencies().at(0)->exalt.value1 = 12.5;
+    }
+    const QString stored = store.Get("currency_items");
+    QVERIFY(stored.contains("12.5"));
+
+    // A second connection hides the table, so reading the store fails.
+    const QString connection = "currency-295";
+    const auto rename = [&](const char *from, const char *to) {
+        QSqlDatabase db = QSqlDatabase::database(connection);
+        QSqlQuery q(db);
+        QVERIFY2(q.exec(QString("ALTER TABLE %1 RENAME TO %2").arg(from, to)),
+                 qPrintable(q.lastError().text()));
+    };
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connection);
+        db.setDatabaseName(fixture.buyouts.tempDir.filePath("acquisition.sqlite"));
+        QVERIFY(db.open());
+    }
+    rename("data", "data_hidden");
+    {
+        CurrencyManager currency(fixture.settings, store, fixture.items);
+        // The table is back before the manager is destroyed, so a write
+        // there would succeed.
+        rename("data_hidden", "data");
+    }
+    QSqlDatabase::database(connection).close();
+    QSqlDatabase::removeDatabase(connection);
+
+    QCOMPARE(store.Get("currency_items"), stored);
 }
 
 ACQ_TEST_MAIN(CurrencyManagerTest)
