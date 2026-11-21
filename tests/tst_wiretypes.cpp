@@ -12,8 +12,11 @@
 
 #include <QFile>
 
+#include <algorithm>
 #include <optional>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 #include "item.h"
 #include "itemlocation.h"
@@ -49,6 +52,8 @@ private slots:
     void leagueAccountVariantsAreRead();
     void unreadFieldsDoNotRefuseATab_data();
     void unreadFieldsDoNotRefuseATab();
+    void unreadFieldsDoNotRefuseACharacter_data();
+    void unreadFieldsDoNotRefuseACharacter();
 
     // Earlier reference changes the headers had not caught up with.
     void characterSpecialisationsAreRead();
@@ -386,6 +391,58 @@ void WireTypesTest::unreadFieldsDoNotRefuseATab()
     QVERIFY(payload);
     QVERIFY(payload->stash.items);
     QCOMPARE(payload->stash.items->size(), plain->stash.items->size());
+}
+
+// #422: the same on a real character reply, with a skipped key of each type
+// below Character, in a shape its type refused when it was modeled, put into
+// the first object after its anchor (for a dictionary, its first entry). The
+// item's flavourText, a member that shares its key with one skipped on
+// PassiveNode, is still read.
+void WireTypesTest::unreadFieldsDoNotRefuseACharacter_data()
+{
+    QTest::addColumn<QByteArray>("anchor");
+    QTest::addColumn<QByteArray>("field");
+    QTest::newRow("Character") << QByteArray()
+                               << QByteArray(R"("active_mercenary_index": "none",)");
+    QTest::newRow("Character::Passives")
+        << QByteArray(R"("passives":)") << QByteArray(R"("alternate_ascendancy": ["x"],)");
+    QTest::newRow("ItemJewelData")
+        << QByteArray(R"("jewel_data": {)") << QByteArray(R"("radiusMin": "small",)");
+    QTest::newRow("PassiveGroup") << QByteArray(R"("groups": {)")
+                                  << QByteArray(R"("isProxy": "yes",)");
+    QTest::newRow("PassiveNode") << QByteArray(R"("nodes": {)")
+                                 << QByteArray(R"("isKeystone": "yes",)");
+}
+
+void WireTypesTest::unreadFieldsDoNotRefuseACharacter()
+{
+    QFETCH(QByteArray, anchor);
+    QFETCH(QByteArray, field);
+    QFile file(QFINDTESTDATA("fixtures/payloads/character-1.json"));
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    const QByteArray character = file.readAll();
+    const auto plain = json::readCharacterPayload("{\"character\": " + character + "}");
+    QVERIFY(plain);
+
+    QByteArray edited = character;
+    const qsizetype at = edited.indexOf(anchor);
+    QVERIFY(at >= 0);
+    edited.insert(edited.indexOf('{', at + anchor.size()) + 1, field);
+
+    const auto payload = json::readCharacterPayload("{\"character\": " + edited + "}");
+    QVERIFY(payload);
+    const poe::Character &read = payload->character;
+    QVERIFY(read.equipment && read.jewels && read.passives);
+    QCOMPARE(read.equipment->size(), plain->character.equipment->size());
+    QCOMPARE(read.jewels->size(), plain->character.jewels->size());
+    QCOMPARE(read.passives->jewel_data.size(), plain->character.passives->jewel_data.size());
+
+    const auto cane = std::ranges::find(*read.equipment,
+                                        QString("The Black Cane"),
+                                        &poe::Item::name);
+    QVERIFY(cane != read.equipment->end());
+    QVERIFY(cane->flavourText);
+    QCOMPARE(cane->flavourText->front(), QString("Lead the army of the damned from the front."));
 }
 
 void WireTypesTest::characterSpecialisationsAreRead()
