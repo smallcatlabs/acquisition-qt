@@ -57,6 +57,31 @@ ItemLocation ItemLocation::getItemLocation(const poe::Item &item) const
     return item_location;
 }
 
+ItemLocation ItemLocation::inContainer(Container container) const
+{
+    ItemLocation location = *this;
+    location.m_container = container;
+    return location;
+}
+
+bool ItemLocation::CanBeListed() const
+{
+    return m_container == Container::None;
+}
+
+QString ItemLocation::GetItemHeader(const ItemLocation &row) const
+{
+    switch (m_container) {
+    case Container::Guardian:
+        return QString("%1 (Guardian)").arg(row.GetHeader());
+    case Container::Wickerman:
+        return QString("%1 (Wickerman)").arg(row.GetHeader());
+    case Container::None:
+        break;
+    }
+    return row.GetHeader();
+}
+
 void ItemLocation::rebaseTabMetadata(const ItemLocation &fresh)
 {
     m_red = fresh.m_red;
@@ -87,6 +112,11 @@ QString ItemLocation::GetHeader() const
 QRectF ItemLocation::GetRect() const
 {
     QRectF result;
+    // A guardian's item names the character's own slot, and a Wickerman part
+    // a slot the picture does not have: neither is drawn.
+    if (!CanBeListed()) {
+        return result;
+    }
     position itemPos{double(m_x), double(m_y)};
 
     if ((!m_inventory_id.isEmpty()) && (m_type == ItemLocationType::CHARACTER)) {
@@ -119,6 +149,11 @@ QString ItemLocation::GetForumCode(const QString &realm,
                                    const QString &league,
                                    unsigned int tab_index) const
 {
+    // Nothing there can be listed, and a guardian's item names its
+    // character's own slot: a code would link the character's item.
+    if (!CanBeListed()) {
+        return "";
+    }
     switch (m_type) {
     case ItemLocationType::STASH:
         return QString(R"([linkItem location="Stash%1" league="%2" x="%3" y="%4" realm="%5"])")

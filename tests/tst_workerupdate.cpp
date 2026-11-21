@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QEventLoop>
+#include <QFile>
 #include <QSettings>
 
 #include <atomic>
@@ -58,6 +59,9 @@ private slots:
     void failedUpdateKeepsItemsIntact();
     void failedUpdateDoesNotLeakIntoTheNext();
     void partialUpdateDoesNotDuplicateCharacters();
+    // #418: a character whose only items are its guardian's.
+    void guardianOnlyCharacterKeepsItsItemsAcrossACharacterList();
+    void refreshSelectedOnAGuardianItemFetchesTheCharacter();
     void renamedTabMetadataRefreshesWithoutFetch();
     void vanishedMapChildItemsAreRemovedOnParentRefresh();
     void failedUpdateDoesNotRebasePublishedLocations();
@@ -304,6 +308,29 @@ namespace {
         }
         json += "}";
         return json.toUtf8();
+    }
+
+    // The guardian of a real reply (tests/fixtures/payloads/character-2.json)
+    // on a character of this test's league with no items of its own.
+    poe::Character guardianOnlyCharacter(const QString &id, const QString &name)
+    {
+        QFile file(QFINDTESTDATA("fixtures/payloads/character-2.json"));
+        if (!file.open(QIODevice::ReadOnly)) {
+            qFatal("test bug: character-2.json is missing");
+        }
+        auto character = json::readCharacter(file.readAll());
+        if (!character || !character->guardian || character->guardian->empty()) {
+            qFatal("test bug: character-2.json has no guardian");
+        }
+        character->id = id;
+        character->name = name;
+        character->realm = kRealm;
+        character->league = kLeague;
+        character->equipment.reset();
+        character->inventory.reset();
+        character->rucksack.reset();
+        character->jewels.reset();
+        return *character;
     }
 
     poe::Character characterOf(const QByteArray &json)
@@ -1072,6 +1099,71 @@ void WorkerUpdateTest::partialUpdateDoesNotDuplicateCharacters()
                                       });
     QVERIFY(item_c2 != f.last_items.cend());
     QCOMPARE((*item_c2)->location().character(), QString("CharTwoRenamed"));
+}
+
+// #418: a character whose only items are its guardian's keeps them across
+// a character list that names it, when it is not in the selection.
+void WorkerUpdateTest::guardianOnlyCharacterKeepsItsItemsAcrossACharacterList()
+{
+    WorkerFixture f("worker-update-account-418a");
+
+    const auto char_1 = json::readCharacter(
+        characterJson("charid0001", "CharOne", QStringList{"c1-item"}));
+    QVERIFY(char_1);
+    const poe::Character char_2 = guardianOnlyCharacter("charid0002", "CharTwo");
+    const size_t guardian_items = char_2.guardian->size();
+    {
+        UserStore store(QDir(f.dataDir()), "worker-update-account-418a");
+        QVERIFY(store.characters().saveCharacterList({*char_1, char_2}));
+        QVERIFY(saveCharacterFixture(store.characters(), *char_1));
+        QVERIFY(saveCharacterFixture(store.characters(), char_2));
+    }
+
+    f.start();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+    QCOMPARE(f.last_items.size(), 1 + guardian_items);
+
+    f.worker->Update(TabSelection::Selected, {ItemLocation(*char_1)});
+    QVERIFY(f.hasPendingCharacterList());
+    f.deliverCharacterList(characterList(
+        {characterJson("charid0001", "CharOne"), characterJson("charid0002", "CharTwo")}));
+    QVERIFY(f.hasPendingCharacter("CharOne"));
+    f.deliverCharacter("CharOne",
+                       characterOf(characterJson("charid0001", "CharOne", QStringList{"c1-item"})));
+
+    QCOMPARE(f.refresh_count, 2);
+    QCOMPARE(f.last_items.size(), 1 + guardian_items);
+}
+
+// #418: Refresh Selected on a guardian's item refreshes its character, and
+// the reply replaces the guardian's items with the rest.
+void WorkerUpdateTest::refreshSelectedOnAGuardianItemFetchesTheCharacter()
+{
+    WorkerFixture f("worker-update-account-418b");
+
+    const poe::Character character = guardianOnlyCharacter("charid0002", "CharTwo");
+    const size_t guardian_items = character.guardian->size();
+    {
+        UserStore store(QDir(f.dataDir()), "worker-update-account-418b");
+        QVERIFY(store.characters().saveCharacterList({character}));
+        QVERIFY(saveCharacterFixture(store.characters(), character));
+    }
+
+    f.start();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+    QCOMPARE(f.last_items.size(), guardian_items);
+    const ItemLocation selected = f.last_items.front()->location();
+    QVERIFY(!selected.CanBeListed());
+
+    f.worker->Update(TabSelection::Selected, {selected});
+    QVERIFY(f.hasPendingCharacterList());
+    f.deliverCharacterList(characterList({characterJson("charid0002", "CharTwo")}));
+    QVERIFY(f.hasPendingCharacter("CharTwo"));
+    poe::Character fresh = character;
+    fresh.guardian->pop_back();
+    f.deliverCharacter("CharTwo", fresh);
+    QCOMPARE(f.refresh_count, 2);
+    QCOMPARE(f.last_items.size(), guardian_items - 1);
 }
 
 // Tab-list reconciliation gives every listed tab fresh metadata, even tabs

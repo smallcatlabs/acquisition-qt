@@ -8,6 +8,7 @@
 #include <functional>
 
 #include "applybuyout.h"
+#include "buyoutmanager.h"
 
 class QComboBox;
 class QLineEdit;
@@ -30,8 +31,8 @@ class BuyoutPanel : public QWidget
 {
     Q_OBJECT
 public:
-    // Reads a target's stored price.
-    using PriceLookup = std::function<Buyout(const PriceTarget &)>;
+    // Reads a target's price in force and where it comes from.
+    using PriceLookup = std::function<EffectivePrice(const PriceTarget &)>;
 
     explicit BuyoutPanel(QWidget *parent = nullptr);
 
@@ -39,7 +40,7 @@ public:
     // Shows `targets`: what is pending for other targets is committed (or,
     // when it cannot be, dropped with a notice) first; then the first
     // target's price is read and shown. The controls are editable unless
-    // that price was set in the game. With no targets nothing is editable.
+    // that price was set in the game or the item cannot be listed. With no targets nothing is editable.
     void showTargets(const PriceTargets &targets);
     // Commits what is pending now (the window closing, a manual shop update,
     // a clipboard copy). What cannot be committed stays pending, and the

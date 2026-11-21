@@ -10,6 +10,8 @@
 #include "column.h"
 #include "filters/filterspec.h"
 #include "itemsmanager.h"
+#include "locationinventory.h"
+#include "poe/types/character.h"
 #include "testfixtures.h"
 #include "testsuite.h"
 
@@ -33,6 +35,7 @@ private slots:
     void upgradeKeepsTheTabPrice();
     void tabTargetsAreLockedAsBefore();
     void activeGameRowsAreIgnoredAndReplaced();
+    void itemThatCannotBeListedHasNoPrice();
 
 private:
     QDateTime m_start;
@@ -505,6 +508,73 @@ void EffectivePriceTest::activeGameRowsAreIgnoredAndReplaced()
     QCOMPARE(manager.Effective(*item).buyout.value, 3.0);
     QCOMPARE(manager.EffectiveTab(tab).source, PriceSource::ManualTab);
     QCOMPARE(manager.EffectiveTab(tab).buyout.value, 2.0);
+}
+
+// #418, F63: an item on a character's guardian cannot be listed for sale
+// where it is. It shows under its character, and has no price from any
+// source: not its note, not a price set on it, not its character's. The
+// character's own price is untouched. An edit on a selection that holds it
+// leaves it alone and says why, and nothing posts it or another copy of its
+// id. A price set on it before it went in stays stored, and is in force
+// again once it is taken out.
+void EffectivePriceTest::itemThatCannotBeListedHasNoPrice()
+{
+    Fixture f;
+    BuyoutManager &manager = *f.buyouts.manager;
+    poe::Character character;
+    character.id = "character-418";
+    character.name = "Builder";
+    const ItemLocation self(character);
+    const ItemLocation guardian = self.inContainer(ItemLocation::Container::Guardian);
+    const ItemLocation stash = makeTestStashLocation();
+
+    const auto in_stash = makeItem(stash, "");
+    QVERIFY(manager.Set(*in_stash, makeChaosBuyout(5.0)));
+    QCOMPARE(manager.Effective(*in_stash).source, PriceSource::ManualItem);
+
+    // Moved onto the guardian, with a price in its note, and its character
+    // priced too.
+    QVERIFY(manager.SetTab(self, makeChaosBuyout(7.0)));
+    const auto in_guardian = makeItem(guardian, "~b/o 3 chaos");
+    QVERIFY(in_guardian->HasNotePrice());
+    const EffectivePrice price = manager.Effective(*in_guardian);
+    QCOMPARE(price.source, PriceSource::Unlistable);
+    QVERIFY(price.CannotBeListed());
+    QVERIFY(price.buyout.IsNull());
+    QVERIFY(!price.IsGameSet());
+    QVERIFY(!price.IsPostable());
+    QCOMPARE(manager.EffectiveTab(self).source, PriceSource::ManualTab);
+    QCOMPARE(manager.Get(*in_guardian).value, 5.0);
+
+    QVERIFY(manager.PostablePrices({in_guardian}).empty());
+    QVERIFY(manager.PostablePrices({in_stash, in_guardian}).empty());
+    QCOMPARE(manager.PostablePrices({in_stash}).size(), size_t(1));
+
+    // A selection of the guardian's item and an ordinary one, as the price
+    // editor resolves and applies it.
+    const auto ordinary = std::make_shared<Item>(makeTestItem("ordinary-418"));
+    LocationInventory locations;
+    locations.ResetTo({self, stash});
+    PriceTargets rows;
+    rows.rows.push_back(PriceTarget::ForItem(in_guardian));
+    rows.rows.push_back(PriceTarget::ForItem(ordinary));
+    const ResolvedTargets resolved = ResolvePriceTargets(rows, {in_guardian, ordinary}, locations);
+    QCOMPARE(resolved.missing, 0);
+    QCOMPARE(resolved.targets.items.size(), size_t(2));
+    const ApplyBuyoutResult result = ApplyBuyout(manager,
+                                                 f.items,
+                                                 resolved.targets,
+                                                 makeChaosBuyout(9.0));
+    QCOMPARE(result.unlistable, 1);
+    QCOMPARE(result.applied, 1);
+    QCOMPARE(result.locked, 0);
+    QVERIFY(ApplyBuyoutNotice(result, true).contains("cannot be listed"));
+    QCOMPARE(manager.Get(*in_guardian).value, 5.0);
+    QCOMPARE(manager.Get(*ordinary).value, 9.0);
+
+    const auto taken_out = makeItem(stash, "");
+    QCOMPARE(manager.Effective(*taken_out).source, PriceSource::ManualItem);
+    QCOMPARE(manager.Effective(*taken_out).buyout.value, 5.0);
 }
 
 ACQ_TEST_MAIN(EffectivePriceTest)

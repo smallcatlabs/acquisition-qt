@@ -71,6 +71,9 @@ struct ApplyBuyoutResult
     // name holds a price, every item in such a tab, and an item whose note
     // holds one. They are left alone.
     int locked{0};
+    // Items that cannot be listed for sale where they are (on a guardian or
+    // the Wickerman): they have no price. Left alone.
+    int unlistable{0};
     // Targets the manager did not save (see BuyoutManager::Set): the
     // buyouts did not load, or the database refused the write.
     int not_saved{0};
