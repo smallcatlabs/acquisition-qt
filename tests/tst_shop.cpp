@@ -175,6 +175,7 @@ private slots:
     void copyWithNothingPricedCopiesNothing();
     void copyIndexFailureCopiesNothingAndSaysWhy();
     void copyRejectedPoesessidIsTreatedAsForASubmission();
+    void renderWritesNoEmptyPriceGroup();
 };
 
 namespace {
@@ -2167,6 +2168,31 @@ void ShopTest::copyRejectedPoesessidIsTreatedAsForASubmission()
     QCOMPARE(warnings.count(), 1);
     QVERIFY(!fixture.shop->auto_update());
     QCOMPARE(QApplication::clipboard()->text(), QString("before"));
+}
+
+// #278 review: a price whose every item is left out (its tab is not in the
+// website's list) writes no spoiler for that price, in a post or a copy.
+void ShopTest::renderWritesNoEmptyPriceGroup()
+{
+    ShopFixture fixture;
+    const ItemLocation first = makeTestStashLocation("stash00001", "Test Tab", 0);
+    const ItemLocation unlisted = makeTestStashLocation("stash00003", "Unlisted Tab", 5);
+    const QStringList pages = renderedPages(fixture,
+                                            {{makeShopItem("listed", first, 0),
+                                              makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)},
+                                             {makeShopItem("unlisted", unlisted, 0),
+                                              makeBuyout(2, Buyout::BUYOUT_TYPE_BUYOUT)}},
+                                            {first, unlisted});
+    QCOMPARE(pages,
+             QStringList{R"([spoiler][spoiler=" ~b/o  1 chaos"])" + stashLink(1, 0) + "[/spoiler]"});
+
+    // Nothing linkable at all: no page.
+    ShopFixture alone;
+    QCOMPARE(renderedPages(alone,
+                           {{makeShopItem("unlisted", unlisted, 0),
+                             makeBuyout(2, Buyout::BUYOUT_TYPE_BUYOUT)}},
+                           {unlisted}),
+             QStringList{});
 }
 
 ACQ_TEST_MAIN(ShopTest)
