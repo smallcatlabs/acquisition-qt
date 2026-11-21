@@ -1536,9 +1536,8 @@ void MainWindow::ReconcileSelectionIntent(const SelectionCapture *capture)
             // the selected item's tab without replacing the item, and
             // the reset-reselect cycle that used to refresh the pane is
             // gone from the delta path.
-            ui->locationLabel->setText(m_items_manager.locationInventory()
-                                           .Canonical(m_current_item->location())
-                                           .GetHeader());
+            ui->locationLabel->setText(m_current_item->location().GetItemHeader(
+                m_items_manager.locationInventory().Canonical(m_current_item->location())));
         } else {
             // The selected row left mid-refresh: the intent stays alive,
             // the visual selection lapses (R1-3). The view may have moved
@@ -2191,8 +2190,9 @@ void MainWindow::UpdateCurrentItem()
     // The location line renders through the canonical inventory (S4
     // review round 1): a metadata delta renames a tab without replacing
     // the items fetched from it, so the embedded location can be stale.
-    ui->locationLabel->setText(
-        m_items_manager.locationInventory().Canonical(m_current_item->location()).GetHeader());
+    // An item on a guardian or the Wickerman says so (#418).
+    ui->locationLabel->setText(m_current_item->location().GetItemHeader(
+        m_items_manager.locationInventory().Canonical(m_current_item->location())));
     ui->pobTooltipButton->setEnabled(m_current_item->Wearable());
 
     emit GetImage(itemImageUrl(*m_current_item));
