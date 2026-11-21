@@ -20,6 +20,7 @@
 #include "datastore/userstore.h"
 #include "fakenetwork.h"
 #include "fakenetworkmanager.h"
+#include "itemsfromwire.h"
 #include "itemsmanager.h"
 #include "mainwindowfixture.h"
 #include "poe/poeapiclient.h"
@@ -27,6 +28,7 @@
 #include "shoprender.h"
 #include "testfixtures.h"
 #include "testsuite.h"
+#include "util/json_readers.h"
 #include "util/networkmanager.h"
 
 class ShopFixture
@@ -97,6 +99,7 @@ private slots:
     void activeJobUnaffectedByLocalEdits();
     void shopSubmissionUsesCapturedSnapshot();
     void manualSubmissionRendersCapturedPublishedState();
+    void guardianItemsAreNotInTheShop();
 
     // Items-pipeline M2, D8/R1-1 (stage 7): the automatic-submission gate
     // on the typed terminal event.
@@ -708,6 +711,62 @@ void ShopTest::manualSubmissionRendersCapturedPublishedState()
     drainEvents();
     QVERIFY(fixture.shop->shop_data().first().contains(" 2 chaos"));
     QVERIFY(!fixture.shop->shop_data().first().contains(" 1 chaos"));
+}
+
+// #418: a character's row priced, its guardian's items with prices stored
+// on them: the shop links the character's own items, and nothing of the
+// guardian's. A guardian's item names the character's own slot at 0,0, so
+// each such slot is linked only for the character's own items there. The
+// reply is a real one (character-2.json), whose guardian names five slots
+// the character's own equipment also fills.
+void ShopTest::guardianItemsAreNotInTheShop()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    BuyoutManager &manager = *fixture.buyoutFixture.manager;
+
+    QFile reply(QFINDTESTDATA("fixtures/payloads/character-2.json"));
+    QVERIFY(reply.open(QIODevice::ReadOnly));
+    const auto character = json::readCharacter(reply.readAll());
+    QVERIFY(character && character->guardian && !character->guardian->empty());
+    const ItemLocation location(*character);
+
+    const auto stash_item = std::make_shared<Item>(makeTestItem("item-a"));
+    Items items{stash_item};
+    AppendWireItems(*character, location, items);
+    fixture.itemsManager->OnItemsRefreshed(items, {stash_item->location(), location}, false);
+    QVERIFY(manager.Set(*stash_item, makeChaosBuyout(1)));
+    QVERIFY(manager.SetTab(location, makeChaosBuyout(3)));
+    int on_guardian = 0;
+    for (const auto &item : items) {
+        if (!item->location().CanBeListed()) {
+            QVERIFY(manager.Set(*item, makeChaosBuyout(5)));
+            ++on_guardian;
+        }
+    }
+    QCOMPARE(on_guardian, int(character->guardian->size()));
+
+    fixture.shop->SubmitShopToForum();
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    const QString pages = fixture.shop->shop_data().join('\n');
+    QVERIFY2(pages.contains(" 3 chaos"), qPrintable(pages));
+    QVERIFY2(!pages.contains(" 5 chaos"), qPrintable(pages));
+    for (const poe::Item &item : *character->guardian) {
+        const QString slot = QString(R"(location="%1" character="%2" x="0" y="0")")
+                                 .arg(*item.inventoryId, character->name);
+        // The character's own item in that slot, and the gems socketed in
+        // it, which link to the same slot.
+        qsizetype own = 0;
+        for (const auto &listed : items) {
+            if (listed->location().CanBeListed()
+                && listed->location().GetForumCode("pc", "league", 0).contains(slot)) {
+                ++own;
+            }
+        }
+        QVERIFY(own > 0);
+        QVERIFY2(pages.count(slot) == own, qPrintable(slot));
+    }
 }
 
 // M2 D8/R1-1 (stage 7): automatic submission fires only on a CLEAN

@@ -100,7 +100,8 @@ private slots:
     // in the same commit window (supersession map; never red).
     void expansionSurvivesRenameByStableKey();
     void selectionSurvivesReplacementByStableIdentity();
-    void guardianItemSaysWhereItIs();
+    void containerItemSaysWhereItIs_data();
+    void containerItemSaysWhereItIs();
     void scrollAndCaptureSurviveUserRefilter();
 
     // Items-pipeline M3, S0: the capture/restore half of the probe surface.
@@ -1350,23 +1351,40 @@ void MainWindowTest::selectionSurvivesReplacementByStableIdentity()
     QTRY_COMPARE_WITH_TIMEOUT(locationLabel->text(), tabA.GetHeader(), 2000);
 }
 
-// #418: a guardian's item sits under its character's row, and the item
-// panel's location line says where it is: "<name> (Guardian)", while the
-// character's own items read the character's name. The line is the same
-// through a refresh delta of the character and one of another tab. The reply
-// is a real one (tests/fixtures/payloads/character-2.json).
-void MainWindowTest::guardianItemSaysWhereItIs()
+// #418: an item on a guardian or the Wickerman sits under its character's
+// row, and the item panel's location line says where it is: "<name>
+// (Guardian)" or "<name> (Wickerman)", while the character's own items read
+// the character's name. The line is the same through a refresh delta of the
+// character and one of another tab. The replies are real ones.
+void MainWindowTest::containerItemSaysWhereItIs_data()
 {
+    QTest::addColumn<QString>("file");
+    QTest::addColumn<QString>("item");
+    QTest::addColumn<QString>("line");
+    QTest::addColumn<QString>("own");
+    QTest::newRow("guardian") << "character-2.json" << "Leer Cast Festival Mask"
+                              << "ExampleCharacter2 (Guardian)"
+                              << "Darkness Enthroned Stygian Vise";
+    QTest::newRow("wickerman") << "character-1.json" << "Flaming Furnace"
+                               << "ExampleCharacter1 (Wickerman)" << "The Black Cane Royal Sceptre";
+}
+
+void MainWindowTest::containerItemSaysWhereItIs()
+{
+    QFETCH(QString, file);
+    QFETCH(QString, item);
+    QFETCH(QString, line);
+    QFETCH(QString, own);
     MainWindowFixture fixture;
     auto *tree = fixture.window->findChild<QTreeView *>("treeView");
     auto *locationLabel = fixture.window->findChild<QLabel *>("locationLabel");
     QVERIFY(tree);
     QVERIFY(locationLabel);
 
-    QFile file(QFINDTESTDATA("fixtures/payloads/character-2.json"));
-    QVERIFY(file.open(QIODevice::ReadOnly));
-    const auto character = json::readCharacter(file.readAll());
-    QVERIFY(character && character->guardian);
+    QFile reply(QFINDTESTDATA("fixtures/payloads/" + file));
+    QVERIFY(reply.open(QIODevice::ReadOnly));
+    const auto character = json::readCharacter(reply.readAll());
+    QVERIFY(character);
     const ItemLocation location(*character);
     Items items;
     AppendWireItems(*character, location, items);
@@ -1388,22 +1406,22 @@ void MainWindowTest::guardianItemSaysWhereItIs()
         return false;
     };
 
-    QVERIFY(select("Leer Cast Festival Mask"));
-    QTRY_COMPARE_WITH_TIMEOUT(locationLabel->text(), QString("ExampleCharacter2 (Guardian)"), 2000);
+    QVERIFY(select(item));
+    QTRY_COMPARE_WITH_TIMEOUT(locationLabel->text(), line, 2000);
 
     // The reply again: the selection follows the replacement object.
     Items delta;
     AppendWireItems(*character, location, delta);
     fixture.itemsManager->OnTabRefreshed(location, delta);
-    QTRY_COMPARE_WITH_TIMEOUT(locationLabel->text(), QString("ExampleCharacter2 (Guardian)"), 2000);
+    QTRY_COMPARE_WITH_TIMEOUT(locationLabel->text(), line, 2000);
     // Another tab's delta: the selected row survives, and the line is
     // rendered again from the row's current metadata.
     fixture.itemsManager->OnTabRefreshed(makeTestStashLocation("stash-418", "Other", 0), {});
     QCoreApplication::processEvents();
-    QCOMPARE(locationLabel->text(), QString("ExampleCharacter2 (Guardian)"));
+    QCOMPARE(locationLabel->text(), line);
 
-    QVERIFY(select("Darkness Enthroned Stygian Vise"));
-    QTRY_COMPARE_WITH_TIMEOUT(locationLabel->text(), QString("ExampleCharacter2"), 2000);
+    QVERIFY(select(own));
+    QTRY_COMPARE_WITH_TIMEOUT(locationLabel->text(), location.GetHeader(), 2000);
 }
 
 // M2 R6-3, retargeted in M3 S5 (supersession map): the throttled reset

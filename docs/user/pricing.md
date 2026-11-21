@@ -172,11 +172,15 @@ show under the character (see [Searching](searching.md)), but they cannot be
 listed for sale where they are: a guardian's gear cannot be taken off it, and
 a Wickerman part has to be taken off before it can be listed. Such an item
 has no price at all, whatever its note, a price you set on it or its
-character's price says, and it is never posted to the forum shop. The buyout
-controls are disabled for it, and a price set for a selection that includes it
-leaves it alone and says so. A price you set on an item before it went onto
-the guardian or the Wickerman is kept: take the item off and the price shows
-again.
+character's price says, and it is never posted to the forum shop. With such
+an item selected first, the buyout controls are disabled; with another item
+first, a price set for the selection leaves it alone and says so. A price you
+set on an item before it went onto the guardian or the Wickerman is kept: take
+the item off and, once its new place is refreshed, the price shows again.
+The forum shop waits a little longer: while the character's last refresh
+still has the item on the guardian or the Wickerman, no copy of it is posted,
+even one priced in a stash tab. Refresh the character to post it (characters
+are refreshed with *Refresh checked tabs* unless you uncheck them).
 
 ## Prices set in the game
 

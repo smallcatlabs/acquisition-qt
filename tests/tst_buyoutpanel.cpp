@@ -35,6 +35,7 @@ private slots:
     void numberWithoutCurrencyWaitsForOne();
     void noTargetsDisablesThePanel();
     void itemThatCannotBeListedCannotBePriced();
+    void firstSelectedRowDecidesWhetherAMixedSelectionCanBePriced();
     void finishEditingKeepsTextItCouldNotCommit();
     void typeChoiceWithEmptyBoxStaysPendingQuietly();
     void currencyBoxSelectsByTag();
@@ -337,6 +338,24 @@ void BuyoutPanelTest::itemThatCannotBeListedCannotBePriced()
     QVERIFY(!p.currency->isEnabled());
     QVERIFY(!p.value->isEnabled());
     QCOMPARE(p.value->text(), QString());
+}
+
+// #418, on record with #361 (item 6): the panel shows, and enables its
+// controls by, the first selected row. A selection whose first row is an
+// item that cannot be listed cannot be priced; one whose first row is an
+// ordinary item can (the commit then leaves the other alone, ApplyBuyout).
+void BuyoutPanelTest::firstSelectedRowDecidesWhetherAMixedSelectionCanBePriced()
+{
+    Panel p;
+    p.unlistable.insert("item-a");
+    p.panel.showTargets(items({"item-a", "item-b"}));
+    QVERIFY(!p.type->isEnabled());
+    QVERIFY(!p.value->isEnabled());
+
+    p.panel.showTargets(items({"item-b", "item-a"}));
+    QVERIFY(p.type->isEnabled());
+    QVERIFY(p.value->isEnabled());
+    QCOMPARE(p.value->text(), QString("12"));
 }
 
 // finishEditing() (a cancelled window close, a manual shop update, a
