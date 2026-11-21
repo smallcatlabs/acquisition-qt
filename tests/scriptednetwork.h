@@ -12,6 +12,7 @@
 
 #include <functional>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "fakesender.h"
@@ -45,6 +46,9 @@ public:
         int status = 200;
         QList<QNetworkReply::RawHeaderPair> headers = {};
         QNetworkReply::NetworkError error = QNetworkReply::NoError;
+        // Kept back until release(): for a scenario that acts while the
+        // request is on its way.
+        bool hold = false;
     };
 
     using Rule = std::function<std::optional<Answer>(QNetworkAccessManager::Operation, const QUrl &)>;
@@ -88,6 +92,18 @@ public:
         return found;
     }
 
+    // Completes every answer kept back so far, from the event loop as any
+    // other; a reply that is gone by then is skipped. Returns how many were
+    // kept back.
+    qsizetype release()
+    {
+        const qsizetype count = qsizetype(m_held.size());
+        for (const auto &[reply, answer] : std::exchange(m_held, {})) {
+            complete(reply, answer);
+        }
+        return count;
+    }
+
     QStringList unanswered() const
     {
         QStringList found;
@@ -120,17 +136,29 @@ protected:
             found->body.clear(); // a HEAD reply has headers only
         }
         auto *reply = new InFlightReply(request, this);
-        // Completed from the event loop; the reply may be gone by then.
-        const QPointer<InFlightReply> guarded(reply);
-        QTimer::singleShot(0, reply, [guarded, sent = *found] {
-            if (guarded && !guarded->isFinished()) {
-                guarded->finish(sent.headers, sent.status, sent.error, sent.body);
-            }
-        });
+        if (found->hold) {
+            m_held.emplace_back(reply, *found);
+        } else {
+            complete(reply, *found);
+        }
         return reply;
     }
 
 private:
+    // Completed from the event loop; the reply may be gone by then.
+    static void complete(const QPointer<InFlightReply> &guarded, const Answer &sent)
+    {
+        if (!guarded) {
+            return;
+        }
+        QTimer::singleShot(0, guarded.data(), [guarded, sent] {
+            if (guarded && !guarded->isFinished()) {
+                guarded->finish(sent.headers, sent.status, sent.error, sent.body);
+            }
+        });
+    }
+
     std::vector<Rule> m_rules;
     std::vector<Request> m_requests;
+    std::vector<std::pair<QPointer<InFlightReply>, Answer>> m_held;
 };

@@ -205,7 +205,8 @@ acq_add_scenario_test(tst_applogin
     secondAuthenticateReplacesTheFirst
     redirectForAnAbandonedAttemptIsRefused
     loginEndsAWaitingBrowserLogin
-    refusedLoginLeavesTheBrowserLoginWaiting)
+    refusedLoginLeavesTheBrowserLoginWaiting
+    loginDuringTheCodeExchangeKeepsTheSession)
 
 # Which tabs are open once a filter has come and gone (#387), on the real
 # Application; one scenario per process, as tst_applogin.

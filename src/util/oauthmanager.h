@@ -68,7 +68,10 @@ private:
         int network_error;   // QNetworkReply::NetworkError
     };
 
-    void noteTokenReply(QNetworkReply *reply);
+    // Notes a reply of the token endpoint before Qt handles it, and says
+    // whether Qt may: a refresh's always, a code exchange's only while a
+    // browser login waits for it. Called with nullptr once Qt has handled it.
+    bool noteTokenReply(QNetworkReply *reply);
     void failStoredLogin(const TokenReply &reply);
     void failLogin(const QString &reason);
 

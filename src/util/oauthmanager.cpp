@@ -84,29 +84,33 @@ namespace {
 
     // Qt's loopback handler, which also shows every reply of the token
     // endpoint to `note` before Qt handles it, and calls `note` with nullptr
-    // once Qt has. What Qt makes of an error reply depends on its release:
-    // 6.11.1 reports a failed request and reads no body; 6.11.3 and 6.12.0
-    // read the body and report the error it names. None says whether the
-    // server answered at all, or with what status. Reading the reply here
-    // gives the user the same line with each, and tells a refused token from
-    // a server that could not be reached.
+    // once Qt has. A reply `note` refuses never reaches Qt, so Qt takes no
+    // token from it and reports nothing about it.
+    //
+    // What Qt makes of an error reply depends on its release: 6.11.1 reports
+    // a failed request and reads no body; 6.11.3 and 6.12.0 read the body
+    // and report the error it names. None says whether the server answered
+    // at all, or with what status. Reading the reply here gives the user the
+    // same line with each, and tells a refused token from a server that
+    // could not be reached.
     class ReplyHandler : public QOAuthHttpServerReplyHandler
     {
     public:
-        ReplyHandler(std::function<void(QNetworkReply *)> note, QObject *parent)
+        ReplyHandler(std::function<bool(QNetworkReply *)> note, QObject *parent)
             : QOAuthHttpServerReplyHandler(parent)
             , m_note(std::move(note))
         {}
 
         void networkReplyFinished(QNetworkReply *reply) override
         {
-            m_note(reply);
-            QOAuthHttpServerReplyHandler::networkReplyFinished(reply);
+            if (m_note(reply)) {
+                QOAuthHttpServerReplyHandler::networkReplyFinished(reply);
+            }
             m_note(nullptr);
         }
 
     private:
-        std::function<void(QNetworkReply *)> m_note;
+        std::function<bool(QNetworkReply *)> m_note;
     };
 
 }; // namespace
@@ -117,7 +121,8 @@ OAuthManager::OAuthManager(NetworkManager &network_manager, DataStore &datastore
     , m_data(datastore)
 {
     // Create the the reply handler.
-    m_handler = new ReplyHandler([this](QNetworkReply *reply) { noteTokenReply(reply); }, this);
+    m_handler = new ReplyHandler([this](QNetworkReply *reply) { return noteTokenReply(reply); },
+                                 this);
     m_handler->setCallbackHost(CALLBACK_HOST);
     m_handler->setCallbackPath(CALLBACK_PATH);
     m_handler->setCallbackText("Acquisition has been authorized.");
@@ -258,22 +263,32 @@ void OAuthManager::receiveCallback(const QVariantMap &data)
     m_state_mismatch = (data.value("state").toString() != m_oauth->state());
 }
 
-void OAuthManager::noteTokenReply(QNetworkReply *reply)
+bool OAuthManager::noteTokenReply(QNetworkReply *reply)
 {
     if (!reply) {
         m_token_reply.reset();
-        return;
+        return true;
+    }
+    const bool refresh = (reply->request().attribute(STAGE_ATTRIBUTE).toInt()
+                          == static_cast<int>(QAbstractOAuth::Stage::RefreshingAccessToken));
+    // A refresh is always taken: it renews the login held. A code exchange
+    // is the browser login's, and is taken only while that login waits for
+    // it (#414): after Login has started a session, a token it brought would
+    // replace the session's under it.
+    if (!refresh && !m_login_in_progress) {
+        spdlog::info("OAuth: refusing the answer to a code exchange that no login waits for");
+        return false;
     }
     // peek(), not read(): the body is Qt's to read.
     const QJsonObject body = QJsonDocument::fromJson(reply->peek(ERROR_BODY_LIMIT)).object();
     m_token_reply = TokenReply{
-        .refresh = (reply->request().attribute(STAGE_ATTRIBUTE).toInt()
-                    == static_cast<int>(QAbstractOAuth::Stage::RefreshingAccessToken)),
+        .refresh = refresh,
         .error = body.value("error").toString(),
         .description = body.value("error_description").toString(),
         .http_status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(),
         .network_error = static_cast<int>(reply->error()),
     };
+    return true;
 }
 
 void OAuthManager::failStoredLogin(const TokenReply &reply)
