@@ -59,8 +59,9 @@ private slots:
     void failedUpdateKeepsItemsIntact();
     void failedUpdateDoesNotLeakIntoTheNext();
     void partialUpdateDoesNotDuplicateCharacters();
-    // #418: a character whose only items are its guardian's.
-    void guardianOnlyCharacterKeepsItsItemsAcrossACharacterList();
+    // #418: a character whose only items are its guardian's or Wickerman's.
+    void containerOnlyCharacterKeepsItsItemsAcrossACharacterList_data();
+    void containerOnlyCharacterKeepsItsItemsAcrossACharacterList();
     void refreshSelectedOnAGuardianItemFetchesTheCharacter();
     void renamedTabMetadataRefreshesWithoutFetch();
     void vanishedMapChildItemsAreRemovedOnParentRefresh();
@@ -310,17 +311,21 @@ namespace {
         return json.toUtf8();
     }
 
-    // The guardian of a real reply (tests/fixtures/payloads/character-2.json)
+    // A real reply's guardian (character-2.json) or Wickerman (character-1.json)
     // on a character of this test's league with no items of its own.
-    poe::Character guardianOnlyCharacter(const QString &id, const QString &name)
+    poe::Character containerOnlyCharacter(const QString &id,
+                                          const QString &name,
+                                          const QString &file_name = "character-2.json")
     {
-        QFile file(QFINDTESTDATA("fixtures/payloads/character-2.json"));
+        QFile file(QFINDTESTDATA("fixtures/payloads/" + file_name));
         if (!file.open(QIODevice::ReadOnly)) {
-            qFatal("test bug: character-2.json is missing");
+            qFatal("test bug: %s is missing", qPrintable(file_name));
         }
         auto character = json::readCharacter(file.readAll());
-        if (!character || !character->guardian || character->guardian->empty()) {
-            qFatal("test bug: character-2.json has no guardian");
+        if (!character
+            || ((!character->guardian || character->guardian->empty())
+                && (!character->wickerman || character->wickerman->empty()))) {
+            qFatal("test bug: %s has neither a guardian nor a Wickerman", qPrintable(file_name));
         }
         character->id = id;
         character->name = name;
@@ -1101,17 +1106,27 @@ void WorkerUpdateTest::partialUpdateDoesNotDuplicateCharacters()
     QCOMPARE((*item_c2)->location().character(), QString("CharTwoRenamed"));
 }
 
-// #418: a character whose only items are its guardian's keeps them across
-// a character list that names it, when it is not in the selection.
-void WorkerUpdateTest::guardianOnlyCharacterKeepsItsItemsAcrossACharacterList()
+// #418: a character whose only items are its guardian's, or its
+// Wickerman's, keeps them from the cache load across a character list that
+// names it, when it is not in the selection.
+void WorkerUpdateTest::containerOnlyCharacterKeepsItsItemsAcrossACharacterList_data()
 {
+    QTest::addColumn<QString>("file");
+    QTest::newRow("guardian") << "character-2.json";
+    QTest::newRow("wickerman") << "character-1.json";
+}
+
+void WorkerUpdateTest::containerOnlyCharacterKeepsItsItemsAcrossACharacterList()
+{
+    QFETCH(QString, file);
     WorkerFixture f("worker-update-account-418a");
 
     const auto char_1 = json::readCharacter(
         characterJson("charid0001", "CharOne", QStringList{"c1-item"}));
     QVERIFY(char_1);
-    const poe::Character char_2 = guardianOnlyCharacter("charid0002", "CharTwo");
-    const size_t guardian_items = char_2.guardian->size();
+    const poe::Character char_2 = containerOnlyCharacter("charid0002", "CharTwo", file);
+    const size_t guardian_items = (char_2.guardian ? char_2.guardian->size() : 0)
+                                  + (char_2.wickerman ? char_2.wickerman->size() : 0);
     {
         UserStore store(QDir(f.dataDir()), "worker-update-account-418a");
         QVERIFY(store.characters().saveCharacterList({*char_1, char_2}));
@@ -1141,7 +1156,7 @@ void WorkerUpdateTest::refreshSelectedOnAGuardianItemFetchesTheCharacter()
 {
     WorkerFixture f("worker-update-account-418b");
 
-    const poe::Character character = guardianOnlyCharacter("charid0002", "CharTwo");
+    const poe::Character character = containerOnlyCharacter("charid0002", "CharTwo");
     const size_t guardian_items = character.guardian->size();
     {
         UserStore store(QDir(f.dataDir()), "worker-update-account-418b");
