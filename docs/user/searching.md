@@ -25,7 +25,9 @@ From top to bottom:
   remembered once the filter is gone (a folder you collapse is). Switching to
   *By Item* and back keeps the open tabs too.
   A character's row also holds the items on its guardian and the parts
-  attached to its Wickerman. They cannot be priced (see [Pricing](pricing.md)).
+  attached to its Wickerman. The item panel's location line tells them apart
+  from the character's own: *Name (Guardian)* or *Name (Wickerman)*. They
+  cannot be priced (see [Pricing](pricing.md)).
   The check box on a tab or character controls whether it is included in
   **Refresh checked tabs**. A folder's check box covers the tabs shown under it
   in the current search: it is ticked when all of them are, empty when none
