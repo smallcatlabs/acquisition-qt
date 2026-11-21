@@ -333,7 +333,7 @@ void InitModList()
     m_mod_list_model.setStringList(mod_list);
 }
 
-void AddModToTable(const QString &raw_mod, ModTable &output)
+void AddModToTable(const QString &raw_mod, ModTable &output, UnnamedLine unnamed)
 {
     const QString generic_mod = ModCatalogue::generic(raw_mod);
     const auto match = catalogue ? catalogue->match(raw_mod, generic_mod) : std::nullopt;
@@ -342,6 +342,22 @@ void AddModToTable(const QString &raw_mod, ModTable &output)
         // The same mod can appear in several sections (implicit and explicit,
         // say); the item's value is the sum of its lines (#262).
         output[match->name] += match->value;
+    } else if ((unnamed == UnnamedLine::FiledUnderItsText) && !raw_mod.trimmed().isEmpty()) {
+        // The game data did not foresee this line; the item still has it
+        // (#429). A sign is left in the text, as the game data leaves it
+        // where it writes one ("-# to ..."). A line without text has no
+        // name to be filed under.
+        static const QRegularExpression number(R"([0-9]+(?:\.[0-9]+)?)");
+        double sum = 0.0;
+        int count = 0;
+        auto numbers = number.globalMatchView(raw_mod);
+        while (numbers.hasNext()) {
+            sum += numbers.next().capturedView(0).toDouble();
+            ++count;
+        }
+        QString own_text = raw_mod;
+        own_text.replace(number, "#");
+        output[own_text] += (count > 0) ? sum / count : 0.0;
     }
 
     // Pseudo-mods sum the mods they name. A line that matched no template

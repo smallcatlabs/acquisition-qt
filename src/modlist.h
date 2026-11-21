@@ -24,4 +24,11 @@ void InitStatTranslations();
 // Reads the support gems' names from the base items (itemcategories.h), so
 // the base items are loaded first, as RePoE::FinishUpdate does (#419).
 void AddStatTranslations(const QByteArray &statTranslations);
-void AddModToTable(const QString &mod, ModTable &output);
+
+// What becomes of a line that fits no mod name of the game data (#429).
+// Filed under its own text, each number is written "#" (a sign before it
+// stays in the text) and the value is the mean of the numbers, 0 if there
+// are none. Item::unnamed_lines says which items' lines are filed.
+enum class UnnamedLine { Dropped, FiledUnderItsText };
+
+void AddModToTable(const QString &mod, ModTable &output, UnnamedLine unnamed = UnnamedLine::Dropped);

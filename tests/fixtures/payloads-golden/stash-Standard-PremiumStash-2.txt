@@ -21,6 +21,7 @@ mod table:
   +#% total Resistance = 57
   +#% total to Chaos Resistance = 25
   +#% total to Cold Resistance = 32
+  Allocates Watchtowers = 0
   Can be Anointed = 0
 path of building:
   Rarity: RARE

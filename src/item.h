@@ -60,6 +60,7 @@ struct ItemSocket
 
 typedef std::vector<QString> ItemMods;
 typedef std::unordered_map<QString, double> ModTable;
+enum class UnnamedLine; // modlist.h
 
 class Item
 {
@@ -111,6 +112,11 @@ public:
     int w() const { return m_w; }
     int h() const { return m_h; }
     int frameType() const { return m_frameType; }
+    // What becomes of a mod line that fits no mod name of the game data
+    // (#429). On a gem, a currency item and a divination card the lines
+    // are the game's description of the item, so they are dropped; on
+    // every other item such a line is filed under its own text.
+    UnnamedLine unnamed_lines() const;
     const QString &icon() const { return m_icon; }
     // Property values as the game displays them ("8.00%", "35-120"), for
     // columns and other display; Quality and Level are stored stripped.

@@ -55,6 +55,7 @@ flags: identified, path of building item
 influence: hunter, hunter
 requirements: Level 54
 mod table:
+  #% increased Rarity of Items found = 9
   #% of Physical Attack Damage Leeched as Mana = 0.4
   +#% to Lightning Resistance = 19
   +#% to all Elemental Resistances = 11

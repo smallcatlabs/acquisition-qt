@@ -33,6 +33,29 @@ only lines with that same number. A line with two numbers, such as
 negative roll keeps its sign: `-22% to Lightning Resistance` is
 `+#% to Lightning Resistance` with the value -22.
 
+### Lines the list has no name for
+
+The names in the drop-down come from the game data Acquisition downloads.
+Some lines on your items fit none of them: a line that names a passive
+(`Allocates Watchtowers`), the wording a mod had in an older league, a mod
+from game data Acquisition does not load. Such a line is still searched,
+under its own text with each number written `#`:
+
+| Line on the item | Name to search for | Value |
+|---|---|---|
+| `Allocates Watchtowers` | `Allocates Watchtowers` | 0 |
+| `Added Small Passive Skills grant: 12% increased Totem Damage` | `Added Small Passive Skills grant: #% increased Totem Damage` | 12 |
+| `Players have -9% to all maximum Resistances` | `Players have -#% to all maximum Resistances` | 9 |
+
+These names are not in the drop-down. Type the name in full into the row,
+exactly as the line reads on the item, upper and lower case included. A plus
+or minus sign before a number stays part of the name, and two numbers give
+their average, as above.
+
+This does not apply to gems, currency items and divination cards. Their
+lines describe the item; they are shown in the tooltip and cannot be
+searched unless the drop-down has a name for them.
+
 Lines the game marks as desecrated are shown and searched like any other
 line. Lines the game marks as vestigial are shown in the item's
 tooltip, in a block of their own after the implicits, but are not

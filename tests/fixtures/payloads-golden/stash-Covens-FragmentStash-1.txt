@@ -8,6 +8,8 @@ frame type 0, category 'map fragments', item level 0, 1x1, count 7
 flags: identified
 properties:
   Stack Size = 7/100
+mod table:
+  Threads an Expedition Encounter into an Area = 0
 tooltip:
   <center><font color='#fff'>Expedition Thread</font><hr>
   Stack Size: <font color='#fff'>7/100</font><br>
@@ -23,6 +25,8 @@ frame type 0, category 'map fragments', item level 0, 1x1, count 7
 flags: identified
 properties:
   Stack Size = 7/100
+mod table:
+  Threads Breaches into an Area = 0
 tooltip:
   <center><font color='#fff'>Breach Thread</font><hr>
   Stack Size: <font color='#fff'>7/100</font><br>
