@@ -2058,16 +2058,30 @@ void ShopTest::copyWithoutThreadsCopiesEveryPageJoined()
     QCOMPARE(fixture.networkManager->count(), 0);
     QCOMPARE(fixture.buyoutFixture.data->Get("shop_hash"), QString("previous-hash"));
 
-    // Two pages; the first is what a submission posts to the first thread.
+    // Two pages, each what a submission posts to its thread.
     const QStringList pages = copied.split(kCopyPageSeparator);
     QCOMPARE(pages.size(), 2);
-    fixture.shop->SetThread({kThread});
+    const QString second_thread = "1234567";
+    fixture.shop->SetThread({kThread, second_thread});
     fixture.shop->SubmitShopToForum();
     fixture.rateLimiter->resolve(1, kStashIndexJson);
     drainEvents();
     QString posted;
     completeForumSubmission(fixture, 0, &posted);
-    QCOMPARE(posted, pages.first());
+    QCOMPARE(posted, pages.at(0));
+    // The second thread: the forum's reply to a post links to that thread.
+    fixture.networkManager->sent(2).reply->finish({}, 200, QNetworkReply::NoError, editThreadPage());
+    QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 4, 5000);
+    QCOMPARE(fixture.networkManager->sent(3).request.url().toString(),
+             QString("https://www.pathofexile.com/forum/edit-thread/") + second_thread);
+    QCOMPARE(postedForm(fixture.networkManager->sent(3)).value("content"), pages.at(1));
+    fixture.networkManager->sent(3).reply->finish({},
+                                                  200,
+                                                  QNetworkReply::NoError,
+                                                  afterEditPage().replace(kThread,
+                                                                          second_thread.toUtf8()));
+    drainEvents();
+    QCOMPARE(fixture.networkManager->count(), 4);
 }
 
 // #278: the tab numbers come only from the legacy request, which needs the

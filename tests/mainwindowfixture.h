@@ -12,6 +12,8 @@
 #include <spdlog/spdlog.h>
 
 #include "currencymanager.h"
+#include "fakenetwork.h"
+#include "fakenetworkmanager.h"
 #include "imagecache.h"
 #include "itemcategories.h"
 #include "itemsmanager.h"
@@ -39,7 +41,11 @@ inline void InitializeMainWindowTestCategories()
 class MainWindowFixture
 {
 public:
-    MainWindowFixture()
+    // Real: no test here starts a request. Fake: the network is answered by
+    // the test (FakeNetworkManager, FakeRateLimiter), for one that does.
+    enum class Network { Real, Fake };
+
+    explicit MainWindowFixture(Network network = Network::Real)
     {
         // NetworkManager creates a disk cache in AppLocalDataLocation.
         QStandardPaths::setTestModeEnabled(true);
@@ -55,8 +61,13 @@ public:
         if (!stashRepo->ensureSchema() || !characterRepo->ensureSchema()) {
             qFatal("MainWindowFixture: failed to create current-store schema");
         }
-        networkManager = std::make_unique<NetworkManager>();
-        rateLimiter = std::make_unique<RateLimiter>(*networkManager);
+        if (network == Network::Fake) {
+            networkManager = std::make_unique<FakeNetworkManager>();
+            rateLimiter = std::make_unique<FakeRateLimiter>(*networkManager);
+        } else {
+            networkManager = std::make_unique<NetworkManager>();
+            rateLimiter = std::make_unique<RateLimiter>(*networkManager);
+        }
         api = std::make_unique<PoeApiClient>(*rateLimiter);
         itemsManager = std::make_unique<ItemsManager>(*settings, *buyoutFixture.manager);
         currencyManager = std::make_unique<CurrencyManager>(*settings,
