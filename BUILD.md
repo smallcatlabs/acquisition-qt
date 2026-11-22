@@ -519,6 +519,14 @@ with 6.12.0 failed at start-up with "SSL support is missing" (#370). The
 Windows workflow runs the packaged binary with `--check-tls` and fails when it
 finds no TLS backend that supports SSL.
 
+The Windows installer removes what older packages left in the install folder
+before it copies the new files (`[InstallDelete]` in `installer.iss`). A Qt
+plugin left behind by an older package can stop the application: v0.18.10
+reported "SSL support is missing" when installed over a folder that still held
+a Qt 6.5 `tls\qopensslbackend.dll` (#440). The workflow installs the finished
+installer over a folder seeded with such files, and fails if TLS does not work
+afterwards or if any of them remain.
+
 ## Platform Notes
 
 Windows release packaging uses MSVC 2022, `windeployqt`, the Visual C++
