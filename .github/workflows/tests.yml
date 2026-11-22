@@ -188,12 +188,18 @@ jobs:
 
       # ACQ_WERROR makes a warning in first-party code fail the pull request.
       # Release builds leave it off, so a newer compiler there only warns.
+      # On the pool, the runner image sets SMALLCAT_CMAKE_TOP_LEVEL_INCLUDES
+      # to a CMake dependency provider that builds the FetchContent
+      # dependencies from copies in the image when it holds that exact
+      # repository and tag, and lets CMake download any other. Elsewhere the
+      # variable is unset and this adds nothing.
       - name: Configure
         run: >
           cmake --preset release
           -DACQ_WERROR=ON
           -DCMAKE_C_COMPILER_LAUNCHER=ccache
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          ${SMALLCAT_CMAKE_TOP_LEVEL_INCLUDES:+"-DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=$SMALLCAT_CMAKE_TOP_LEVEL_INCLUDES"}
 
       # Three wide: the heavy C++23/Qt translation units use enough memory
       # that the runner's four cores cannot all take one at a time safely.

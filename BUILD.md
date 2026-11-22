@@ -458,6 +458,10 @@ the apt packages, the locale and clang-format already installed.
   host; stopping it sets `SMALLCAT_LINUX_POOL` to `off`. (Editing the variable
   by hand lasts only until the running pool's next beat.) Then use "Re-run
   all jobs": "Re-run failed jobs" keeps the earlier choice.
+- On the pool, `Configure` builds the FetchContent dependencies from copies
+  in the runner image instead of cloning them, when the image holds the
+  exact repository and tag `CMakeLists.txt` asks for; a bumped or new
+  dependency downloads as usual.
 - On the pool, the steps that install Qt and packages are skipped, and
   `Check runner image` fails at once if the image's Qt or clang-format does not
   match the versions pinned in `tests.yml`. Refresh the image, or stop the
