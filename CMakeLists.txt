@@ -9,7 +9,7 @@ cmake_minimum_required(VERSION 3.24)
 # tags on github are prefixed with a 'v'.
 
 project(acquisition
-    VERSION 0.18.10
+    VERSION 0.18.11
     DESCRIPTION "Stash and forum shop management for Path of Exile (TM)"
     HOMEPAGE_URL "https://github.com/smallcatlabs/acquisition-qt"
     LANGUAGES CXX
@@ -22,7 +22,7 @@ include(GNUInstallDirs)
 # from master never claims to be a release. A tagged pre-release replaces it
 # with "-beta.1" (and so on), and a final release clears it. The first change
 # of the next train sets the next version with "-dev" again.
-set(app_version_suffix "")
+set(app_version_suffix "-beta.1")
 
 # Variables used in version_defines.h and platforn-specific files and properties.
 set(app_name            "${CMAKE_PROJECT_NAME}")
