@@ -454,12 +454,14 @@ the apt packages, the locale and clang-format already installed.
   the time into the organization variable `SMALLCAT_LINUX_POOL` every minute,
   and `off` when it is stopped. A missing value, `off`, or a time more than
   five minutes old sends the build to `ubuntu-latest`.
-- To build on `ubuntu-latest` on purpose, set `SMALLCAT_LINUX_POOL` to `off`.
-  Then use "Re-run all jobs": "Re-run failed jobs" keeps the earlier choice.
+- To build on `ubuntu-latest` on purpose, stop the pool's service on its
+  host; stopping it sets `SMALLCAT_LINUX_POOL` to `off`. (Editing the variable
+  by hand lasts only until the running pool's next beat.) Then use "Re-run
+  all jobs": "Re-run failed jobs" keeps the earlier choice.
 - On the pool, the steps that install Qt and packages are skipped, and
   `Check runner image` fails at once if the image's Qt or clang-format does not
-  match the versions pinned in `tests.yml`. Refresh the image, or set the
-  variable to `off`.
+  match the versions pinned in `tests.yml`. Refresh the image, or stop the
+  pool.
 
 Every other workflow runs on GitHub-hosted runners.
 

@@ -111,7 +111,7 @@ jobs:
             fail=1
           fi
           if [ "$fail" = 1 ]; then
-            echo "::error::Refresh the runner image, or set SMALLCAT_LINUX_POOL to off to build on ubuntu-latest."
+            echo "::error::Refresh the runner image, or stop the runner pool to build on ubuntu-latest."
             exit 1
           fi
 
