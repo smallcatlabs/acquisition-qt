@@ -10,9 +10,10 @@
 #include <unordered_map>
 #include <vector>
 
+#include <glaze/glaze.hpp>
+
 #include "poe/types/cruciblenode.h"
 #include "poe/types/frametype.h"
-#include "poe/types/gemtab.h"
 #include "poe/types/itemmod.h"
 #include "poe/types/itemproperty.h"
 #include "poe/types/itemsocket.h"
@@ -42,19 +43,6 @@ namespace poe {
             // dictionary of int; the key is a string representing the type of reward. The value is
             // the amount
             std::unordered_map<QString, int> rewards;
-        };
-
-        struct LogbookFaction
-        {
-            QString id;   // string Faction1, Faction2, Faction3, or Faction4
-            QString name; // string
-        };
-
-        struct LogbookMods
-        {
-            QString name;                      // string; area name
-            poe::Item::LogbookFaction faction; // object
-            std::vector<QString> mods;         // array of string
         };
 
         struct UltimatumMods
@@ -102,13 +90,6 @@ namespace poe {
             std::optional<QString> secDescrText;                      // ?string
         };
 
-        struct ExtendedInfo
-        {
-            // NOTE: category and subcategories were removed in 3.26.
-            std::optional<unsigned> prefixes; // ?uint
-            std::optional<unsigned> suffixes; // ?uint
-        };
-
         std::optional<QString> realm;          // ?string; always poe2 if present
         bool verified;                         // bool
         unsigned w;                            // uint
@@ -118,12 +99,9 @@ namespace poe {
         std::optional<int> stackSize;          // ?int
         std::optional<int> maxStackSize;       // ?int
         std::optional<QString> stackSizeText;  // ?string
-        std::optional<QString> iconTierText;   // ?string; usually roman numerals
         std::optional<QString> iconStackLevel; // ?string; describes the level of a stack of items
         std::optional<QString> league;         // ?string
         std::optional<QString> id;             // ?string; a unique 64 digit hexadecimal string
-        // ?array of string; PoE2 only; string is always W
-        std::optional<std::vector<QString>> gemSockets;
         std::optional<poe::Item::Influences> influences; // ?object
         std::optional<bool> elder;                       // ?bool; always true if present
         std::optional<bool> shaper;                      // ?bool; always true if present
@@ -148,86 +126,54 @@ namespace poe {
         std::optional<QString> rarity; // ?string; Normal, Magic, Rare, or Unique
         bool identified;               // bool
         std::optional<int> itemLevel;  // ?int; used for items that always display their item level
-        std::optional<int> unidentifiedTier;         // ?int
-        int ilvl;                                    // int
-        std::optional<QString> note;                 // ?string; user-generated text
-        std::optional<QString> forum_note;           // ?string; user-generated text
-        std::optional<bool> lockedToCharacter;       // ?bool; always true if present
-        std::optional<bool> lockedToAccount;         // ?bool; always true if present
-        std::optional<bool> duplicated;              // ?bool; always true if present
-        std::optional<bool> split;                   // ?bool; always true if present
-        std::optional<bool> corrupted;               // ?bool; always true if present
-        std::optional<bool> doubleCorrupted;         // ?bool; always true if present
-        std::optional<bool> sanctified;              // ?bool; PoE2 only; always true if present
-        std::optional<bool> unmodifiable;            // ?bool; always true if present
-        std::optional<bool> unmodifiableExceptChaos; // ?bool; always true if present
-        std::optional<bool> cisRaceReward;           // ?bool; always true if present
-        std::optional<bool> seaRaceReward;           // ?bool; always true if present
-        std::optional<bool> thRaceReward;            // ?bool; always true if present
-        std::optional<std::vector<poe::ItemProperty>> properties;        // ?array of ItemProperty
-        std::optional<std::vector<poe::ItemProperty>> notableProperties; // ?array of ItemProperty
-        std::optional<std::vector<poe::ItemProperty>> requirements;      // ?array of ItemProperty
-        // ?array of ItemProperty; PoE2 only
-        std::optional<std::vector<poe::ItemProperty>> weaponRequirements;
-        // ?array of ItemProperty; PoE2 only
-        std::optional<std::vector<poe::ItemProperty>> supportGemRequirements;
+        std::optional<int> unidentifiedTier;                        // ?int
+        int ilvl;                                                   // int
+        std::optional<QString> note;                                // ?string; user-generated text
+        std::optional<bool> duplicated;                             // ?bool; always true if present
+        std::optional<bool> split;                                  // ?bool; always true if present
+        std::optional<bool> corrupted;                              // ?bool; always true if present
+        std::optional<bool> doubleCorrupted;                        // ?bool; always true if present
+        std::optional<bool> unmodifiable;                           // ?bool; always true if present
+        std::optional<bool> unmodifiableExceptChaos;                // ?bool; always true if present
+        std::optional<std::vector<poe::ItemProperty>> properties;   // ?array of ItemProperty
+        std::optional<std::vector<poe::ItemProperty>> requirements; // ?array of ItemProperty
         // ?array of ItemProperty
         std::optional<std::vector<poe::ItemProperty>> additionalProperties;
-        // ?array of ItemProperty; PoE2 only
-        std::optional<std::vector<poe::ItemProperty>> tamedBeastProperties;
         // ?array of ItemProperty
         std::optional<std::vector<poe::ItemProperty>> nextLevelRequirements;
-        // ?array of ItemProperty; PoE2 only
-        std::optional<std::vector<poe::ItemProperty>> grantedSkills;
-        std::optional<std::vector<poe::Item::Rewards>> rewards;         // ?array of object
-        std::optional<QString> secDescrText;                            // ?string
-        std::optional<std::vector<QString>> utilityMods;                // ?array of string
-        std::optional<std::vector<poe::Item::LogbookMods>> logbookMods; // ?array of object
-        std::optional<std::vector<QString>> enchantMods;                // ?array of string
-        std::optional<std::vector<QString>> runeMods;          // ?array of string; PoE2 only
-        std::optional<std::vector<QString>> scourgeMods;       // ?array of string
-        std::optional<std::vector<poe::ItemMod>> implicitMods; // ?array of ItemMod
+        std::optional<std::vector<poe::Item::Rewards>> rewards;             // ?array of object
+        std::optional<QString> secDescrText;                                // ?string
+        std::optional<std::vector<QString>> utilityMods;                    // ?array of string
+        std::optional<std::vector<QString>> enchantMods;                    // ?array of string
+        std::optional<std::vector<QString>> scourgeMods;                    // ?array of string
+        std::optional<std::vector<poe::ItemMod>> implicitMods;              // ?array of ItemMod
         std::optional<std::vector<poe::Item::UltimatumMods>> ultimatumMods; // ?array of object
         std::optional<std::vector<poe::ItemMod>> explicitMods;              // ?array of ItemMod
-        std::optional<std::vector<QString>> bondedMods; // ?array of string; PoE2 only
         std::optional<std::vector<poe::MercenarySkill>> mercenarySkills; // ?array of MercenarySkill
         // ?array of string; only allocated mods are included
         std::optional<std::vector<QString>> crucibleMods;
-        std::optional<std::vector<QString>> cosmeticMods; // ?array of string
         std::optional<std::vector<QString>> veiledMods; // ?array of string; random video identifier
         std::optional<bool> veiled;                     // ?bool; always true if present
         std::optional<bool> desecrated;                 // ?bool; PoE2 only; always true if present
-        std::optional<std::vector<poe::GemTab>> gemTabs; // ?array of GemTab; PoE2 only
-        std::optional<QString> gemBackground;            // ?string; PoE2 only
-        std::optional<QString> gemSkill;                 // ?string; PoE2 only
-        std::optional<QString> descrText;                // ?string
+        std::optional<QString> descrText;               // ?string
         std::optional<std::vector<QString>> flavourText; // ?array of string
-        // NOTE: flavourTextNote and prophecyText (?string) are deliberately not modeled (#422).
-        // Nothing reads them, no captured reply carries them, and a known key in a shape other
-        // than the modeled one refuses the whole reply; an unknown key is skipped.
-        std::optional<bool> isRelic;      // ?bool; always true if present
-        std::optional<int> foilVariation; // ?int
-        std::optional<bool> replica;      // ?bool; always true if present
-        std::optional<bool> foreseeing;   // ?bool; always true if present
+        std::optional<bool> isRelic;                     // ?bool; always true if present
+        std::optional<int> foilVariation;                // ?int
+        std::optional<bool> replica;                     // ?bool; always true if present
         // NOTE: marked deprecated in GGG's 3.30 reference, without a changelog entry.
         std::optional<poe::Item::IncubatingInfo> incubatedItem; // ?object
         std::optional<poe::Item::EnshroudedInfo> enshrouded;    // ?object
         std::optional<poe::Item::ScourgedInfo> scourged;        // ?object
         std::optional<poe::Item::CrucibleInfo> crucible;        // ?object
-        std::optional<bool> ruthless;                           // ?bool; always true if present
         std::optional<poe::FrameType> frameType; // ?uint as FrameType; deprecated; use frameTypeId
         QString frameTypeId;                     // string
         std::optional<QString> artFilename;      // ?string
         std::optional<poe::Item::HybridInfo> hybrid; // ?object
-        // ?object; only present in the Public Stash API
-        std::optional<poe::Item::ExtendedInfo> extended;
-        std::optional<unsigned> x;          // ?uint
-        std::optional<unsigned> y;          // ?uint
-        std::optional<QString> inventoryId; // ?string
-        std::optional<unsigned> socket;     // ?uint
-        std::optional<QString> colour;      // ?string; PoE1 only; S, D, I, or G
-        // ?string; PoE2 only; an image URL to use when this item is in the socket of another item
-        std::optional<QString> socketedIcon;
+        std::optional<unsigned> x;                   // ?uint
+        std::optional<unsigned> y;                   // ?uint
+        std::optional<QString> inventoryId;          // ?string
+        std::optional<unsigned> socket;              // ?uint
+        std::optional<QString> colour;               // ?string; PoE1 only; S, D, I, or G
 
         inline bool operator<(const Item &other) const
         {
@@ -239,3 +185,44 @@ namespace poe {
     };
 
 } // namespace poe
+
+// The fields of the reference that nothing reads are not modeled (#422): a
+// known key in another shape than its member's would refuse the whole reply.
+// Their keys are named here, so that a reply carrying one is read whatever
+// the value's shape, and the strict read of the payload corpus
+// (tst_payloads) still knows them. The comments are the reference's.
+template<>
+struct glz::meta<poe::Item>
+{
+    // clang-format off
+    static constexpr auto modify = glz::object(
+        "iconTierText", glz::skip{}, // ?string; usually roman numerals
+        "gemSockets", glz::skip{}, // ?array of string; PoE2 only; string is always W
+        "forum_note", glz::skip{}, // ?string; user-generated text
+        "lockedToCharacter", glz::skip{}, // ?bool; always true if present
+        "lockedToAccount", glz::skip{}, // ?bool; always true if present
+        "sanctified", glz::skip{}, // ?bool; PoE2 only; always true if present
+        "cisRaceReward", glz::skip{}, // ?bool; always true if present
+        "seaRaceReward", glz::skip{}, // ?bool; always true if present
+        "thRaceReward", glz::skip{}, // ?bool; always true if present
+        "notableProperties", glz::skip{}, // ?array of ItemProperty
+        "weaponRequirements", glz::skip{}, // ?array of ItemProperty; PoE2 only
+        "supportGemRequirements", glz::skip{}, // ?array of ItemProperty; PoE2 only
+        "tamedBeastProperties", glz::skip{}, // ?array of ItemProperty; PoE2 only
+        "grantedSkills", glz::skip{}, // ?array of ItemProperty; PoE2 only
+        "logbookMods", glz::skip{}, // ?array of object
+        "runeMods", glz::skip{}, // ?array of string; PoE2 only
+        "bondedMods", glz::skip{}, // ?array of string; PoE2 only
+        "cosmeticMods", glz::skip{}, // ?array of string
+        "gemTabs", glz::skip{}, // ?array of GemTab; PoE2 only
+        "gemBackground", glz::skip{}, // ?string; PoE2 only
+        "gemSkill", glz::skip{}, // ?string; PoE2 only
+        "foreseeing", glz::skip{}, // ?bool; always true if present
+        "ruthless", glz::skip{}, // ?bool; always true if present
+        "extended", glz::skip{}, // ?object; only present in the Public Stash API
+        "socketedIcon", glz::skip{}, // ?string; PoE2 only; an image URL to use when this item is in the socket of another item
+        "flavourTextNote", glz::skip{}, // ?string; user-generated text
+        "prophecyText", glz::skip{} // ?string
+    );
+    // clang-format on
+};

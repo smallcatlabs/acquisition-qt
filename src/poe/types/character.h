@@ -47,7 +47,6 @@ namespace poe {
             std::unordered_map<QString, poe::ItemJewelData> jewel_data;
             // ?array of string; PoE2 only; passives granted via quests
             std::vector<QString> quest_stats;
-            std::optional<QString> alternate_ascendancy; // ?string; PoE1 only; Bloodline class name
         };
 
         struct Metadata
@@ -73,7 +72,6 @@ namespace poe {
         std::optional<std::vector<poe::Item>> jewels;     // ?array of Item
         std::optional<std::vector<poe::Item>> guardian;   // ?array of Item; PoE1 only
         std::optional<std::vector<poe::Item>> wickerman;  // ?array of Item; PoE1 only
-        std::optional<int> active_mercenary_index;        // ?int; PoE1 only
         std::optional<poe::Character::Passives> passives; // ?object
         std::optional<poe::Character::Metadata> metadata; // ?object
 
@@ -98,9 +96,26 @@ namespace poe {
 
 } // namespace poe
 
+// Fields of the reference that nothing reads, skipped whatever their shape (#422;
+// see glz::meta<poe::Item> in poe/types/item.h). The comments are the reference's.
 template<>
 struct glz::meta<poe::Character>
 {
     using T = poe::Character;
-    static constexpr auto modify = glz::object("class", &T::class_);
+    // clang-format off
+    static constexpr auto modify = glz::object(
+        "class", &T::class_,
+        "active_mercenary_index", glz::skip{} // ?int; PoE1 only
+    );
+    // clang-format on
+};
+
+template<>
+struct glz::meta<poe::Character::Passives>
+{
+    // clang-format off
+    static constexpr auto modify = glz::object(
+        "alternate_ascendancy", glz::skip{} // ?string; PoE1 only; Bloodline class name
+    );
+    // clang-format on
 };
