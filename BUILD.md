@@ -442,9 +442,10 @@ nothing.
 
 ## Where CI runs
 
-`Build + CTest (Linux)` runs either on the project's own runner pool or on
-GitHub's `ubuntu-latest`. The `Pick Linux runner` job decides, and the first
-line of every run's summary says which and why. The pool is a set of
+`Build + CTest (Linux)` and the sanitizer job run either on the project's own
+runner pool or on GitHub's `ubuntu-latest`. A `Pick Linux runner` job in each
+workflow decides, by the same rule, and the first line of every run's summary
+says which and why. The pool is a set of
 throwaway virtual machines, each taking one job, running Ubuntu with Qt,
 the apt packages, the locale and clang-format already installed.
 
@@ -466,6 +467,12 @@ the apt packages, the locale and clang-format already installed.
   `Check runner image` fails at once if the image's Qt or clang-format does not
   match the versions pinned in `tests.yml`. Refresh the image, or stop the
   pool.
+- Both jobs build through ccache. On the pool the runner image carries warm
+  caches, built from `master` when the image was last refreshed (weekly):
+  `~/.cache/ccache` for the `release` preset and `~/.cache/ccache-asan` for
+  the `asan` preset. On `ubuntu-latest` the caches are GitHub's, saved after
+  each run; a sanitizer run there restores only one saved on its own branch or
+  tag, so a pull request's first sanitizer run there is a cold build.
 
 Every other workflow runs on GitHub-hosted runners.
 
