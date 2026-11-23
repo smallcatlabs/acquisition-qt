@@ -236,6 +236,9 @@ jobs:
     name: Build + CTest (Windows, advisory)
     runs-on: windows-latest
     timeout-minutes: 60
+    env:
+      # Bound the saved cache; past this ccache evicts least-recently-used objects.
+      CCACHE_MAXSIZE: 1G
 
     steps:
       - name: Checkout code
@@ -260,16 +263,49 @@ jobs:
         with:
           arch: x64
 
+      # The compiler cache is what makes this job cheap after its first run,
+      # as in the Linux job: without it every run compiles all of the
+      # application, the tests and the fetched dependencies from nothing.
+      # Chocolatey puts a launcher stub on the PATH; the compiler launcher is
+      # the real ccache.exe behind it, so each compile starts one process
+      # fewer.
+      - name: Install ccache
+        timeout-minutes: 10
+        run: |
+          choco install ccache --yes --no-progress
+          $exe = Get-ChildItem "$env:ChocolateyInstall\lib\ccache" -Recurse -Filter ccache.exe -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $exe) { $exe = (Get-Command ccache.exe).Source }
+          & $exe --version
+          "CCACHE_EXE=$($exe -replace '\\', '/')" >> $env:GITHUB_ENV
+          "CCACHE_DIR=$env:RUNNER_TEMP\ccache" >> $env:GITHUB_ENV
+
+      - name: Restore compiler cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-tests-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            ccache-tests-${{ runner.os }}-
+
       # No ACQ_WERROR: first-party code has never been held to no warnings
       # under MSVC, and this job is to show a broken build, not a new warning.
+      # ACQ_MSVC_EMBEDDED_DEBUG_INFO: the cache cannot store a compile that
+      # uses /Zi (CMakeLists.txt, "Platform-specific section").
       - name: Configure
         run: >
           cmake --preset release
           -G Ninja
           -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}"
+          -DCMAKE_C_COMPILER_LAUNCHER="${{ env.CCACHE_EXE }}"
+          -DCMAKE_CXX_COMPILER_LAUNCHER="${{ env.CCACHE_EXE }}"
+          -DACQ_MSVC_EMBEDDED_DEBUG_INFO=ON
 
       - name: Build
         run: cmake --build --preset release --parallel 4
+
+      - name: Compiler cache statistics
+        run: '& $env:CCACHE_EXE --show-stats --verbose'
 
       # On Windows the offscreen platform finds no fonts by itself and draws
       # every letter as an empty box; QT_QPA_FONTDIR gives it the system's, so

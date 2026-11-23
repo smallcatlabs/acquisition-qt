@@ -474,6 +474,12 @@ the apt packages, the locale and clang-format already installed.
   each run; a sanitizer run there restores only one saved on its own branch or
   tag, so a pull request's first sanitizer run there is a cold build.
 
+`Build + CTest (Windows, advisory)` always runs on GitHub's `windows-latest`.
+It builds through ccache too, with the cache saved by GitHub after each run,
+and configures with `-DACQ_MSVC_EMBEDDED_DEBUG_INFO=ON`: MSVC's `/Zi` writes
+all debug information into one shared file, which a compiler cache cannot
+store, so this job compiles with `/Z7` instead. Release builds keep `/Zi`.
+
 Every other workflow runs on GitHub-hosted runners.
 
 ## Linux
