@@ -440,6 +440,48 @@ as `Build + CTest (Windows, advisory)`. The ruleset does not require that job:
 it shows a broken Windows build on the pull request that breaks it, and blocks
 nothing.
 
+## Where CI runs
+
+`Build + CTest (Linux)` and the sanitizer job run either on the project's own
+runner pool or on GitHub's `ubuntu-latest`. A `Pick Linux runner` job in each
+workflow decides, by the same rule, and the first line of every run's summary
+says which and why. The pool is a set of
+throwaway virtual machines, each taking one job, running Ubuntu with Qt,
+the apt packages, the locale and clang-format already installed.
+
+- A pull request from a fork, or from Dependabot, always builds on
+  `ubuntu-latest`.
+- Everything else builds on the pool while the pool is up. The pool writes
+  the time into the organization variable `SMALLCAT_LINUX_POOL` every minute,
+  and `off` when it is stopped. A missing value, `off`, or a time more than
+  five minutes old sends the build to `ubuntu-latest`.
+- To build on `ubuntu-latest` on purpose, stop the pool's service on its
+  host; stopping it sets `SMALLCAT_LINUX_POOL` to `off`. (Editing the variable
+  by hand lasts only until the running pool's next beat.) Then use "Re-run
+  all jobs": "Re-run failed jobs" keeps the earlier choice.
+- On the pool, `Configure` builds the FetchContent dependencies from copies
+  in the runner image instead of cloning them, when the image holds the
+  exact repository and tag `CMakeLists.txt` asks for; a bumped or new
+  dependency downloads as usual.
+- On the pool, the steps that install Qt and packages are skipped, and
+  `Check runner image` fails at once if the image's Qt or clang-format does not
+  match the versions pinned in `tests.yml`. Refresh the image, or stop the
+  pool.
+- Both jobs build through ccache. On the pool the runner image carries warm
+  caches, built from `master` when the image was last refreshed (weekly):
+  `~/.cache/ccache` for the `release` preset and `~/.cache/ccache-asan` for
+  the `asan` preset. On `ubuntu-latest` the caches are GitHub's, saved after
+  each run; a sanitizer run there restores only one saved on its own branch or
+  tag, so a pull request's first sanitizer run there is a cold build.
+
+`Build + CTest (Windows, advisory)` always runs on GitHub's `windows-latest`.
+It builds through ccache too, with the cache saved by GitHub after each run,
+and configures with `-DACQ_MSVC_EMBEDDED_DEBUG_INFO=ON`: MSVC's `/Zi` writes
+all debug information into one shared file, which a compiler cache cannot
+store, so this job compiles with `/Z7` instead. Release builds keep `/Zi`.
+
+Every other workflow runs on GitHub-hosted runners.
+
 ## Linux
 
 Linux builds require OpenSSL 3.x support at build and runtime. On Ubuntu-like
