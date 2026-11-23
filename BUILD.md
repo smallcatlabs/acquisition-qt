@@ -440,6 +440,35 @@ as `Build + CTest (Windows, advisory)`. The ruleset does not require that job:
 it shows a broken Windows build on the pull request that breaks it, and blocks
 nothing.
 
+## Where CI runs
+
+`Build + CTest (Linux)` runs either on the project's own runner pool or on
+GitHub's `ubuntu-latest`. The `Pick Linux runner` job decides, and the first
+line of every run's summary says which and why. The pool is a set of
+throwaway virtual machines, each taking one job, running Ubuntu with Qt,
+the apt packages, the locale and clang-format already installed.
+
+- A pull request from a fork, or from Dependabot, always builds on
+  `ubuntu-latest`.
+- Everything else builds on the pool while the pool is up. The pool writes
+  the time into the organization variable `SMALLCAT_LINUX_POOL` every minute,
+  and `off` when it is stopped. A missing value, `off`, or a time more than
+  five minutes old sends the build to `ubuntu-latest`.
+- To build on `ubuntu-latest` on purpose, stop the pool's service on its
+  host; stopping it sets `SMALLCAT_LINUX_POOL` to `off`. (Editing the variable
+  by hand lasts only until the running pool's next beat.) Then use "Re-run
+  all jobs": "Re-run failed jobs" keeps the earlier choice.
+- On the pool, `Configure` builds the FetchContent dependencies from copies
+  in the runner image instead of cloning them, when the image holds the
+  exact repository and tag `CMakeLists.txt` asks for; a bumped or new
+  dependency downloads as usual.
+- On the pool, the steps that install Qt and packages are skipped, and
+  `Check runner image` fails at once if the image's Qt or clang-format does not
+  match the versions pinned in `tests.yml`. Refresh the image, or stop the
+  pool.
+
+Every other workflow runs on GitHub-hosted runners.
+
 ## Linux
 
 Linux builds require OpenSSL 3.x support at build and runtime. On Ubuntu-like
