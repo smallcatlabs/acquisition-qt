@@ -120,7 +120,10 @@ OAuthManager::OAuthManager(NetworkManager &network_manager, DataStore &datastore
     m_handler = new ReplyHandler([this](QNetworkReply *reply) { noteTokenReply(reply); }, this);
     m_handler->setCallbackHost(CALLBACK_HOST);
     m_handler->setCallbackPath(CALLBACK_PATH);
-    m_handler->setCallbackText("Acquisition has been authorized.");
+    // Qt answers every redirect the listener takes with this page, before
+    // the redirect is judged, so it must hold whatever the outcome (#409):
+    // the login window says whether the login succeeded.
+    m_handler->setCallbackText("You can close this page and return to Acquisition.");
 
     // Setup a connection to grab the details of a token before granted() has been received.
     connect(m_handler,

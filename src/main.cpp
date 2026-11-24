@@ -131,6 +131,11 @@ int main(int argc, char *argv[])
 
     QApplication a(argc, argv);
 
+    // Without this Qt takes the version from the executable's numeric version
+    // resource on Windows, which has no pre-release suffix: a beta reported
+    // itself as "0.18.11.0" in --version and at the head of the log.
+    a.setApplicationVersion(APP_VERSION_STRING);
+
     // On Unix, constructing the application adopts the system locale for the
     // C library; number parsing and formatting through it must stay in the C
     // locale (#132), so this comes after the constructor.

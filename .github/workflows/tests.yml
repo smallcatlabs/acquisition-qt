@@ -29,17 +29,91 @@ permissions:
   contents: read
 
 jobs:
+  # Picks where the Linux build runs (BUILD.md, "Where CI runs"): the
+  # project's own runner pool, or ubuntu-latest. The pool writes the time into
+  # the organization variable SMALLCAT_LINUX_POOL every minute while it is up,
+  # and `off` when it is stopped. A pull request from a fork or from
+  # Dependabot always builds on ubuntu-latest, and so does every run while that
+  # time is missing or more than five minutes old. This job must not fail: a
+  # required check whose `needs` failed is skipped, and a skipped check can
+  # pass. Anything unexpected picks ubuntu-latest.
+  route:
+    name: Pick Linux runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      runs-on: ${{ steps.pick.outputs.runs-on }}
+    steps:
+      - name: Pick runner
+        id: pick
+        env:
+          HEARTBEAT: ${{ vars.SMALLCAT_LINUX_POOL }}
+          FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          hosted='"ubuntu-latest"'
+          pool='["self-hosted","smallcat-linux"]'
+          max_age=300
+          now=$(date +%s)
+          if [ "$FORK" = true ]; then
+            runs_on=$hosted why='a pull request from a fork'
+          elif [ "$PR_AUTHOR" = 'dependabot[bot]' ]; then
+            runs_on=$hosted why='a pull request from Dependabot'
+          elif ! [[ $HEARTBEAT =~ ^[1-9][0-9]{0,11}$ ]]; then
+            runs_on=$hosted why='the pool is off (SMALLCAT_LINUX_POOL is not a time)'
+          elif (( now - HEARTBEAT > max_age )); then
+            runs_on=$hosted why="the pool was last heard from $(( (now - HEARTBEAT) / 60 )) minutes ago"
+          else
+            runs_on=$pool why="the pool was heard from $(( now - HEARTBEAT )) seconds ago"
+          fi
+          echo "runs-on=$runs_on" >> "$GITHUB_OUTPUT"
+          where=$([ "$runs_on" = "$pool" ] && echo 'the smallcat runner pool' || echo 'ubuntu-latest')
+          echo "Linux build runs on $where: $why." | tee -a "$GITHUB_STEP_SUMMARY"
+
   ctest:
     name: Build + CTest (Linux)
-    runs-on: ubuntu-latest
+    needs: route
+    runs-on: ${{ fromJSON(needs.route.outputs.runs-on) }}
     timeout-minutes: 60
     env:
       # Bound the saved cache; past this ccache evicts least-recently-used objects.
       CCACHE_MAXSIZE: 1G
+      # The pool's runner image carries these too; "Check runner image"
+      # compares them, so the workflow stays the one place they are pinned.
+      QT_VERSION: 6.11.3
+      CLANG_FORMAT_VERSION: 23.1.5
 
     steps:
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      # On the pool, Qt, the apt packages, the locale and clang-format are in
+      # the runner image, and the job has no sudo; the steps that install them
+      # run on GitHub-hosted runners only. This fails at once, naming both
+      # versions, when the image no longer matches the pins above.
+      - name: Check runner image
+        if: runner.environment == 'self-hosted'
+        run: |
+          echo "Runner $RUNNER_NAME, image $(grep -m1 '^sealed_utc=' /etc/smallcat-runner-image | cut -d= -f2)" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          fail=0
+          qt=$("$QT_ROOT_DIR/bin/qmake" -query QT_VERSION 2>/dev/null || echo none)
+          if [ "$qt" != "$QT_VERSION" ]; then
+            echo "::error::The runner image has Qt $qt; this workflow wants $QT_VERSION."
+            fail=1
+          fi
+          if ! clang-format --version | grep -qF "version ${CLANG_FORMAT_VERSION}"; then
+            echo "::error::The runner image has $(clang-format --version 2>&1 | head -n1); this workflow wants ${CLANG_FORMAT_VERSION}."
+            fail=1
+          fi
+          if ! locale -a | grep -qiE '^de_DE\.utf-?8$'; then
+            echo "::error::The runner image has no de_DE.UTF-8 locale."
+            fail=1
+          fi
+          if [ "$fail" = 1 ]; then
+            echo "::error::Refresh the runner image, or stop the runner pool to build on ubuntu-latest."
+            exit 1
+          fi
 
       # Every first-party C++ file carries a licence line (BUILD.md,
       # "Formatting"); list the ones that do not.
@@ -56,26 +130,29 @@ jobs:
       # Formatting depends on the clang-format version, so the version is
       # pinned (BUILD.md, "Formatting"). Runs first so a formatting slip fails
       # in seconds, before the build.
+      - name: Install clang-format
+        if: runner.environment == 'github-hosted'
+        run: pipx install "clang-format==${CLANG_FORMAT_VERSION}"
+
       - name: Check formatting
-        env:
-          CLANG_FORMAT_VERSION: 23.1.5
         run: |
-          pipx install "clang-format==${CLANG_FORMAT_VERSION}"
           clang-format --version | grep -F "version ${CLANG_FORMAT_VERSION}"
           git ls-files -z 'src/*.cpp' 'src/*.h' 'tests/*.cpp' 'tests/*.h' \
             | xargs -0 clang-format --dry-run -Werror
 
       - name: Setup Qt
+        if: runner.environment == 'github-hosted'
         # Normally 30 to 75 seconds; see sanitizers.yml for why this is capped.
         timeout-minutes: 5
         uses: jurplel/install-qt-action@b344308e4483fc892e0d27b3cd1b173ebdd95f06 # v4.5.0
         with:
-          version: '6.11.3'
+          version: ${{ env.QT_VERSION }}
           modules: 'qtnetworkauth'
           cache: true
-          cache-key-prefix: 'qt-6.11.3-linux-tests'
+          cache-key-prefix: 'qt-${{ env.QT_VERSION }}-linux-tests'
 
       - name: Install dependencies
+        if: runner.environment == 'github-hosted'
         timeout-minutes: 10
         run: |
           sudo apt-get update
@@ -97,8 +174,11 @@ jobs:
 
       # The compiler cache is what makes this job cheap after its first run:
       # the fetched dependencies (sentry-native with crashpad, QXlsx, QCoro,
-      # spdlog) are most of a cold build and almost never change.
+      # spdlog) are most of a cold build and almost never change. The pool's
+      # runner image carries a warm cache at the same path, so a pool run
+      # skips this rather than move up to 1 GB each way.
       - name: Restore compiler cache
+        if: runner.environment == 'github-hosted'
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.cache/ccache
@@ -108,12 +188,18 @@ jobs:
 
       # ACQ_WERROR makes a warning in first-party code fail the pull request.
       # Release builds leave it off, so a newer compiler there only warns.
+      # On the pool, the runner image sets SMALLCAT_CMAKE_TOP_LEVEL_INCLUDES
+      # to a CMake dependency provider that builds the FetchContent
+      # dependencies from copies in the image when it holds that exact
+      # repository and tag, and lets CMake download any other. Elsewhere the
+      # variable is unset and this adds nothing.
       - name: Configure
         run: >
           cmake --preset release
           -DACQ_WERROR=ON
           -DCMAKE_C_COMPILER_LAUNCHER=ccache
           -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          ${SMALLCAT_CMAKE_TOP_LEVEL_INCLUDES:+"-DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=$SMALLCAT_CMAKE_TOP_LEVEL_INCLUDES"}
 
       # Three wide: the heavy C++23/Qt translation units use enough memory
       # that the runner's four cores cannot all take one at a time safely.
@@ -150,6 +236,9 @@ jobs:
     name: Build + CTest (Windows, advisory)
     runs-on: windows-latest
     timeout-minutes: 60
+    env:
+      # Bound the saved cache; past this ccache evicts least-recently-used objects.
+      CCACHE_MAXSIZE: 1G
 
     steps:
       - name: Checkout code
@@ -174,16 +263,49 @@ jobs:
         with:
           arch: x64
 
+      # The compiler cache is what makes this job cheap after its first run,
+      # as in the Linux job: without it every run compiles all of the
+      # application, the tests and the fetched dependencies from nothing.
+      # Chocolatey puts a launcher stub on the PATH; the compiler launcher is
+      # the real ccache.exe behind it, so each compile starts one process
+      # fewer.
+      - name: Install ccache
+        timeout-minutes: 10
+        run: |
+          choco install ccache --yes --no-progress
+          $exe = Get-ChildItem "$env:ChocolateyInstall\lib\ccache" -Recurse -Filter ccache.exe -ErrorAction SilentlyContinue |
+            Select-Object -First 1 -ExpandProperty FullName
+          if (-not $exe) { $exe = (Get-Command ccache.exe).Source }
+          & $exe --version
+          "CCACHE_EXE=$($exe -replace '\\', '/')" >> $env:GITHUB_ENV
+          "CCACHE_DIR=$env:RUNNER_TEMP\ccache" >> $env:GITHUB_ENV
+
+      - name: Restore compiler cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-tests-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            ccache-tests-${{ runner.os }}-
+
       # No ACQ_WERROR: first-party code has never been held to no warnings
       # under MSVC, and this job is to show a broken build, not a new warning.
+      # ACQ_MSVC_EMBEDDED_DEBUG_INFO: the cache cannot store a compile that
+      # uses /Zi (CMakeLists.txt, "Platform-specific section").
       - name: Configure
         run: >
           cmake --preset release
           -G Ninja
           -DCMAKE_PREFIX_PATH="${{ env.Qt6_DIR }}"
+          -DCMAKE_C_COMPILER_LAUNCHER="${{ env.CCACHE_EXE }}"
+          -DCMAKE_CXX_COMPILER_LAUNCHER="${{ env.CCACHE_EXE }}"
+          -DACQ_MSVC_EMBEDDED_DEBUG_INFO=ON
 
       - name: Build
         run: cmake --build --preset release --parallel 4
+
+      - name: Compiler cache statistics
+        run: '& $env:CCACHE_EXE --show-stats --verbose'
 
       # On Windows the offscreen platform finds no fonts by itself and draws
       # every letter as an empty box; QT_QPA_FONTDIR gives it the system's, so
