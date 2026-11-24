@@ -4,13 +4,24 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      runner:
+        description: 'github: a GitHub-hosted Mac. laptop: the maintainer''s one-job VM (label smallcat-macos), started by hand.'
+        type: choice
+        options: [github, laptop]
+        default: github
 
 permissions:
   contents: write
 
 jobs:
   build-macos-dmg:
-    runs-on: macos-latest
+    # A tag push always builds on a GitHub-hosted Mac. When GitHub cannot
+    # allocate one, the maintainer runs this workflow on the tag with
+    # runner=laptop and starts a throwaway macOS VM that takes this one job
+    # (BUILD.md, "Platform Notes"). That VM has Qt 6.11.3 installed and sets
+    # QT_ROOT_DIR, so Setup Qt is skipped there.
+    runs-on: ${{ inputs.runner == 'laptop' && fromJSON('["self-hosted","macOS","ARM64","smallcat-macos"]') || 'macos-latest' }}
 
     steps:
     - name: Checkout code
@@ -19,12 +30,19 @@ jobs:
         fetch-depth: 0
 
     - name: Setup Qt
+      if: inputs.runner != 'laptop'
       uses: jurplel/install-qt-action@b344308e4483fc892e0d27b3cd1b173ebdd95f06 # v4.5.0
       with:
         version: '6.11.3'
         modules: 'qtnetworkauth'
         cache: true
         cache-key-prefix: 'qt-6.11.3-macos'
+
+    - name: Check the laptop VM's Qt
+      if: inputs.runner == 'laptop'
+      run: |
+        test -x "$QT_ROOT_DIR/bin/macdeployqt" || { echo "::error::QT_ROOT_DIR is not set to a Qt install"; exit 1; }
+        grep -q '6.11.3' <<<"$QT_ROOT_DIR" || { echo "::error::expected Qt 6.11.3, got $QT_ROOT_DIR"; exit 1; }
 
     - name: Configure CMake
       run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
