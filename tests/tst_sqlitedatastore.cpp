@@ -27,6 +27,9 @@ class SqliteDataStoreTest : public QObject
 private slots:
     void openingDoesNotRebuildTheFile();
     void clearedTokenLeavesNoBytesInTheFile();
+
+    // #295: a failed read or write says so.
+    void readTellsAFailureFromAnAbsentKey();
 };
 
 namespace {
@@ -110,6 +113,36 @@ void SqliteDataStoreTest::clearedTokenLeavesNoBytesInTheFile()
     const QByteArray bytes = file.readAll();
     QVERIFY(!bytes.contains(token.access_token.toLatin1()));
     QVERIFY(!bytes.contains(token.refresh_token.toLatin1()));
+}
+
+// #295: Read tells a key that holds nothing from a read that failed, which
+// Get cannot; Set says when it did not write.
+void SqliteDataStoreTest::readTellsAFailureFromAnAbsentKey()
+{
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QString filename = dir.filePath("data-file");
+    SqliteDataStore store(filename);
+    QVERIFY(store.Set("present", "value"));
+
+    QCOMPARE(store.Read("present"), DataStore::ReadResult(QString("value")));
+    QCOMPARE(store.Read("absent"), DataStore::ReadResult(std::nullopt));
+
+    // A second connection takes the table away.
+    const QString connection = "hide-" + QUuid::createUuid().toString(QUuid::WithoutBraces);
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connection);
+        db.setDatabaseName(filename);
+        QVERIFY(db.open());
+        QSqlQuery q(db);
+        QVERIFY(q.exec("ALTER TABLE data RENAME TO data_hidden"));
+        db.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+
+    QVERIFY(!store.Read("present").has_value());
+    QCOMPARE(store.Get("present", "default"), QString("default"));
+    QVERIFY(!store.Set("present", "other"));
 }
 
 ACQ_TEST_GUILESS_MAIN(SqliteDataStoreTest)

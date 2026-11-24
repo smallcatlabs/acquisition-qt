@@ -16,10 +16,10 @@ class SqliteDataStore : public DataStore
 public:
     SqliteDataStore(const QString &m_filename);
     ~SqliteDataStore();
-    void Set(const QString &key, const QString &value);
-    QString Get(const QString &key, const QString &default_value = "");
-    bool InsertCurrencyUpdate(const CurrencyUpdate &update);
-    std::vector<CurrencyUpdate> GetAllCurrency();
+    bool Set(const QString &key, const QString &value) override;
+    ReadResult Read(const QString &key) override;
+    bool InsertCurrencyUpdate(const CurrencyUpdate &update) override;
+    std::vector<CurrencyUpdate> GetAllCurrency() override;
     static QString MakeFilename(const QString &name, const QString &league);
 
 private:
