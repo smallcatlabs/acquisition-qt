@@ -234,9 +234,10 @@ void BuyoutManagerTest::unknownStoredCurrencyIsShownButNotPosted()
                    ShopRenderItem{.pretty_name = "Chaos",
                                   .location = tab,
                                   .buyout = fixture.manager->Get(chaos)}};
-    input.tab_index[tab.id().left(10)] = 0;
+    // The index is keyed by the tab's id as the item's location carries it.
+    input.tab_index[tab.id()] = 0;
     const QString pages = RenderShop(input).pages.join('\n');
-    QVERIFY2(pages.contains(" 6 chaos\""), qPrintable(pages));
+    QVERIFY2(pages.contains(" 6 chaos\"]") && pages.contains("[linkItem"), qPrintable(pages));
     QVERIFY2(!pages.contains(" 5"), qPrintable(pages));
 }
 

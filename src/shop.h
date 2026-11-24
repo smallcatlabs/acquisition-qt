@@ -143,6 +143,9 @@ private:
         bool automatic{false};
     };
 
+    // The postable items and every other render input but the stash index,
+    // captured by value from the published state.
+    ShopRenderInput CaptureInput() const;
     std::unique_ptr<ShopJob> CaptureJob(bool force) const;
     void PublishPreviewCache(const ShopJob &job);
 
@@ -189,6 +192,17 @@ private:
     void OnStashIndexReceived(
         const std::expected<poe::WebStashListWrapper, RateLimit::FetchError> &result);
     void OnStashIndexUpdated();
+
+    // A rejected POESESSID, wherever it was rejected: logged with the
+    // reason (which reply rejected it), automatic updates off, the session
+    // cleared, and the user told.
+    void RejectPoeSession(const QString &reason);
+
+    // The copy's own path (#278): render once the stash index arrives, then
+    // copy every page, or say why nothing was copied.
+    void OnCopyIndexReceived(
+        const std::expected<poe::WebStashListWrapper, RateLimit::FetchError> &result,
+        ShopRenderInput input);
 
     // The forum conversation for the current thread: GET its edit page,
     // POST the page there, and either move to the next thread or, when the
