@@ -210,6 +210,11 @@ namespace {
     // handlers' names and strings in game data 3.30.0.4 (#429), not checked
     // against the game. A handler wrongly here costs nothing: the lines of
     // its strings are still filed under their own text.
+    //
+    // Review this list whenever the game data version moves. A name handler
+    // the game adds and this list misses costs a Mods drop-down entry no line
+    // can match ("Allocates #" again); the lines it stands for are still
+    // filed under their own text, since no number fills the name's place.
     constexpr std::array NAME_HANDLERS{
         QLatin1StringView{"affliction_reward_type"},
         QLatin1StringView{"alternate_tree_version_keystone"},
