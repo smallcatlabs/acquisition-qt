@@ -163,6 +163,9 @@ private:
     std::set<QString> m_refresh_locked;
     bool m_save_needed;
     bool m_loaded{false};
+    // False when the stored refresh check state could not be read (#295):
+    // the changes of this session are kept but never saved over it.
+    bool m_checks_loaded{true};
     std::vector<ItemLocation> m_tabs;
 
     int m_batch_depth{0};

@@ -149,6 +149,7 @@ private:
     // refresh.
     enum class Notice {
         BuyoutsNotLoaded,
+        SettingsNotLoaded,
         NoThreads,
         NoSession,
         Busy,
@@ -159,7 +160,8 @@ private:
     void Warn(Notice notice, bool automatic, const QString &message, int detail = 0);
 
     // The admission gate both submission paths ask first: the buyouts
-    // loaded (fail-closed, #250), threads set, and a POESESSID present.
+    // loaded (fail-closed, #250), the shop's own settings read (#295),
+    // threads set, and a POESESSID present.
     // False after telling the user why, by Warn's rule.
     bool ReadyToPost(bool automatic);
 
@@ -211,6 +213,9 @@ private:
 
     QStringList m_threads;
     QString m_shop_template;
+    // False when the stored threads or template could not be read (#295):
+    // edits are kept for this session but not saved, and nothing is posted.
+    bool m_settings_loaded{true};
     bool m_auto_update;
     std::set<std::pair<Notice, int>> m_warned;
     std::chrono::milliseconds m_retry_delay{5000};

@@ -9,6 +9,7 @@
 #include <QFile>
 #include <QMap>
 #include <QSettings>
+#include <QSqlError>
 #include <QSqlQuery>
 #include <QStandardPaths>
 
@@ -178,6 +179,10 @@ private slots:
     void copyAndSubmissionDoNotBlockEachOther();
     void copyCountsItemsLeftOut();
     void renderWritesNoEmptyPriceGroup();
+
+    // #295: a failed read of the shop's settings is not an empty store.
+    void failedReadOfShopSettingsIsNotWrittenOver();
+    void failedReadOfShopSettingsCopiesNothing();
 };
 
 namespace {
@@ -2293,6 +2298,99 @@ void ShopTest::renderWritesNoEmptyPriceGroup()
                              makeBuyout(2, Buyout::BUYOUT_TYPE_BUYOUT)}},
                            {unlisted}),
              QStringList{});
+}
+
+namespace {
+
+    // #295: a Shop made while its settings cannot be read: a second connection
+    // hides the key-value table while the Shop is made, and restores it before
+    // anything is written. Null if the table could not be hidden.
+    std::unique_ptr<Shop> makeShopOverUnreadableSettings(ShopFixture &fixture)
+    {
+        const QString connection = "shop-settings-295";
+        {
+            QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connection);
+            db.setDatabaseName(fixture.buyoutFixture.tempDir.filePath("acquisition.sqlite"));
+            if (!db.open()) {
+                return nullptr;
+            }
+        }
+        const auto rename = [&](const char *from, const char *to) {
+            QSqlQuery q(QSqlDatabase::database(connection));
+            const bool renamed = q.exec(QString("ALTER TABLE %1 RENAME TO %2").arg(from, to));
+            if (!renamed) {
+                qWarning("tst_shop: %s", qPrintable(q.lastError().text()));
+            }
+            return renamed;
+        };
+        std::unique_ptr<Shop> shop;
+        if (rename("data", "data_hidden")) {
+            shop = fixture.makeShop();
+            if (!rename("data_hidden", "data")) {
+                shop.reset();
+            }
+        }
+        QSqlDatabase::database(connection).close();
+        QSqlDatabase::removeDatabase(connection);
+        return shop;
+    }
+
+} // namespace
+
+// #295: when the shop's stored template and threads cannot be read, nothing
+// is written over them, in the store or on the forum: before, the default
+// template stood in, a template or thread edit saved over the stored one,
+// and an update posted the default template to the thread.
+void ShopTest::failedReadOfShopSettingsIsNotWrittenOver()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    publishPricedItem(fixture, "settings-295", 1);
+    fixture.shop->SetShopTemplate("My shop: [items]");
+    DataStore &store = *fixture.buyoutFixture.data;
+    const QString stored_template = store.Get("shop_template");
+    const QString stored_threads = store.Get("shop");
+    QCOMPARE(stored_template, QString("My shop: [items]"));
+
+    auto shop = makeShopOverUnreadableSettings(fixture);
+    QVERIFY(shop);
+    QSignalSpy warnings(shop.get(), &Shop::UserWarning);
+
+    // Edits in this session, with the table back so a write would land.
+    shop->SetShopTemplate("[items]");
+    shop->SetThread({"999"});
+    QCOMPARE(store.Get("shop_template"), stored_template);
+    QCOMPARE(store.Get("shop"), stored_threads);
+
+    // Nothing is posted, and the user is told why.
+    shop->SubmitShopToForum(true);
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(0));
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY2(warnings.first().first().toString().contains("could not read"),
+             qPrintable(warnings.first().first().toString()));
+}
+
+// #295: a copy after a failed read of the shop's settings would render with
+// the default template instead of the user's, so nothing is copied and the
+// user is told why, as for a submission.
+void ShopTest::failedReadOfShopSettingsCopiesNothing()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    publishPricedItem(fixture, "settings-295", 1);
+    fixture.shop->SetShopTemplate("My shop: [items]");
+    auto shop = makeShopOverUnreadableSettings(fixture);
+    QVERIFY(shop);
+    QApplication::clipboard()->setText("before");
+    QSignalSpy warnings(shop.get(), &Shop::UserWarning);
+
+    shop->CopyToClipboard();
+    drainEvents();
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(0));
+    QCOMPARE(QApplication::clipboard()->text(), QString("before"));
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY2(warnings.first().first().toString().contains("could not read"),
+             qPrintable(warnings.first().first().toString()));
 }
 
 ACQ_TEST_MAIN(ShopTest)

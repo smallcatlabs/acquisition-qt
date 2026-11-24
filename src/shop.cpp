@@ -320,9 +320,21 @@ Shop::Shop(QSettings &settings,
     // SkipEmptyParts: an empty or missing "shop" key must load as no
     // threads, or the no-threads warning in SubmitShopToForum is
     // unreachable (F45).
-    m_threads = m_datastore.Get("shop").split(";", Qt::SkipEmptyParts);
+    //
+    // A read that fails is not an empty store (#295): the defaults stand in
+    // for this session, and nothing is written over what could not be read,
+    // in the store or on the forum.
+    const DataStore::ReadResult threads = m_datastore.Read("shop");
+    const DataStore::ReadResult shop_template = m_datastore.Read("shop_template");
+    m_settings_loaded = threads && shop_template;
+    if (!m_settings_loaded) {
+        spdlog::error("Shop: the shop's threads or template could not be read, so they will not "
+                      "be saved and the shop will not be posted this session");
+    }
+    m_threads = threads ? threads->value_or(QString()).split(";", Qt::SkipEmptyParts)
+                        : QStringList();
     m_auto_update = m_settings.value("shop_autoupdate").toBool();
-    m_shop_template = m_datastore.Get("shop_template");
+    m_shop_template = shop_template ? shop_template->value_or(QString()) : QString();
     if (m_shop_template.isEmpty()) {
         m_shop_template = kShopTemplateItems;
     }
@@ -336,9 +348,11 @@ void Shop::SetThread(const QStringList &threads)
     }
     spdlog::debug("Shop: setting {} thread(s) to {}", threads.size(), threads.join(";"));
     m_threads = threads;
-    m_datastore.Set("shop", threads.join(";"));
     DropWaitingCapture();
-    m_datastore.Set("shop_hash", "");
+    if (m_settings_loaded) {
+        m_datastore.Set("shop", threads.join(";"));
+        m_datastore.Set("shop_hash", "");
+    }
 }
 
 void Shop::SetAutoUpdate(bool update)
@@ -363,7 +377,9 @@ void Shop::SetShopTemplate(const QString &shop_template)
 {
     spdlog::debug("Shop: setting template to {}", shop_template);
     m_shop_template = shop_template;
-    m_datastore.Set("shop_template", shop_template);
+    if (m_settings_loaded) {
+        m_datastore.Set("shop_template", shop_template);
+    }
     DropWaitingCapture();
 }
 
@@ -412,6 +428,15 @@ bool Shop::ReadyToPost(bool automatic)
              automatic,
              "Acquisition could not load your prices, so your forum shop was not "
              "updated. Your shop threads have been left as they are."
+             "\n\n"
+             "Check the log file for details.");
+        return false;
+    }
+    if (!m_settings_loaded) {
+        Warn(Notice::SettingsNotLoaded,
+             automatic,
+             "Acquisition could not read your shop's threads and template, so your forum shop "
+             "was not updated. Your shop threads have been left as they are."
              "\n\n"
              "Check the log file for details.");
         return false;
@@ -788,13 +813,25 @@ void Shop::CopyToClipboard()
     // shop_hash. A stash item's link carries its tab's number, which only
     // the legacy stash index gives, and that needs the POESESSID (N21). So
     // without one nothing is copied: a copy without its stash items would
-    // look like the whole shop.
+    // look like the whole shop. Nor is anything copied when the template
+    // could not be read (#295): the default would stand in for the user's.
     if (!m_buyout_manager.BuyoutsLoaded()) {
         spdlog::error("Shop: not copying the shop because the buyouts did not load.");
         emit StatusUpdate(ProgramState::Ready, "Shop not copied: your prices did not load");
         Warn(Notice::BuyoutsNotLoaded,
              false,
              "Acquisition could not load your prices, so your shop was not copied."
+             "\n\n"
+             "Check the log file for details.");
+        return;
+    }
+    if (!m_settings_loaded) {
+        emit StatusUpdate(ProgramState::Ready,
+                          "Shop not copied: your shop's template could not be read");
+        Warn(Notice::SettingsNotLoaded,
+             false,
+             "Acquisition could not read your shop's threads and template, so your shop was "
+             "not copied."
              "\n\n"
              "Check the log file for details.");
         return;

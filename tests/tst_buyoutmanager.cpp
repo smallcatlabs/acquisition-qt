@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <QSettings>
+#include <QSqlError>
 #include <QSqlQuery>
 #include <QtTest/QtTest>
 
@@ -21,6 +22,10 @@ private slots:
     void wordBeforeAHyphenStillReads();
     // A stored price in a currency tag this build does not know.
     void unknownStoredCurrencyIsShownButNotPosted();
+
+    // #295: a failed read of the refresh check state is not an empty one.
+    void failedReadOfRefreshChecksIsNotSavedOver();
+    void unparseableRefreshChecksAreReplaced();
     // #293 step 2: a tab's price is not copied onto its items.
     void tabPriceWritesOneRow();
     void inheritedRowIsIgnoredOnLoad();
@@ -1066,6 +1071,60 @@ void BuyoutManagerTest::priceNamedFolderStaysUnlocked()
     fixture.items.OnItemsRefreshed({}, {folder}, false);
 
     QVERIFY(!fixture.buyouts.manager->GetRefreshLocked(folder));
+}
+
+// #295: when the stored refresh check state cannot be read, nothing is
+// saved over it: before, the next check-box change saved a map holding only
+// that session's changes, and every other unchecked tab was checked again.
+void BuyoutManagerTest::failedReadOfRefreshChecksIsNotSavedOver()
+{
+    BuyoutManagerFixture fixture;
+    const ItemLocation unchecked = makeTestStashLocation("stash-295a", "Unchecked", 0);
+    const ItemLocation other = makeTestStashLocation("stash-295b", "Other", 1);
+    QVERIFY(fixture.manager->SetRefreshChecked(unchecked, false));
+    fixture.manager->Save();
+    const QString stored = fixture.data->Get("refresh_checked_state");
+    QVERIFY(stored.contains("stash-295a"));
+
+    // A second connection hides the table while a manager loads.
+    const QString connection = "refresh-checks-295";
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connection);
+        db.setDatabaseName(fixture.tempDir.filePath("acquisition.sqlite"));
+        QVERIFY(db.open());
+    }
+    const auto rename = [&](const char *from, const char *to) {
+        QSqlQuery q(QSqlDatabase::database(connection));
+        QVERIFY2(q.exec(QString("ALTER TABLE %1 RENAME TO %2").arg(from, to)),
+                 qPrintable(q.lastError().text()));
+    };
+    rename("data", "data_hidden");
+    {
+        BuyoutManager manager(*fixture.data, *fixture.repo);
+        rename("data_hidden", "data");
+        // A change in this session, with the table back so a write would land.
+        QVERIFY(manager.SetRefreshChecked(other, false));
+        manager.Save();
+    }
+    QSqlDatabase::database(connection).close();
+    QSqlDatabase::removeDatabase(connection);
+
+    QCOMPARE(fixture.data->Get("refresh_checked_state"), stored);
+}
+
+// #295: unlike a failed read, a stored check state that is present but
+// cannot be parsed is replaced, as before #295.
+void BuyoutManagerTest::unparseableRefreshChecksAreReplaced()
+{
+    BuyoutManagerFixture fixture;
+    const QString stored = R"({"stash-295c": "no"})";
+    QVERIFY(fixture.data->Set("refresh_checked_state", stored));
+    {
+        BuyoutManager manager(*fixture.data, *fixture.repo);
+        QVERIFY(manager.SetRefreshChecked(makeTestStashLocation("stash-295d", "D", 0), false));
+        manager.Save();
+    }
+    QCOMPARE(fixture.data->Get("refresh_checked_state"), QString(R"({"stash-295d":false})"));
 }
 
 ACQ_TEST_GUILESS_MAIN(BuyoutManagerTest)
