@@ -214,10 +214,11 @@ QString Util::TimeAgoInWords(const QDateTime &buyout_time)
 QString Util::WithoutMarkup(const QString &text)
 {
     // Few texts carry any, and this runs for every mod line of every item.
-    if (!text.contains('|')) {
+    if (!text.contains('[')) {
         return text;
     }
-    static const QRegularExpression markup(R"(\[[^\[\]|]*\|([^\[\]]*)\])");
+    // "[id|text]" or "[text]", but not "[DNT]".
+    static const QRegularExpression markup(R"(\[(?!DNT\])(?:[^\[\]|]*\|)?([^\[\]]*)\])");
     QString plain = text;
     plain.replace(markup, QStringLiteral("\\1"));
     return plain;
