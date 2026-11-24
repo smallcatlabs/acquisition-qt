@@ -530,7 +530,17 @@ void Item::LoadSockets(const std::vector<poe::ItemSocket> &sockets)
         }
 
         const ItemSocket current_socket = {static_cast<unsigned char>(socket.group), *kind};
+        // GCC 13 at -O2 and above reports a false -Wstringop-overflow inside
+        // the vector's reallocation here ("writing 1 byte into a region of
+        // size 0"), which fails a -Werror build. GCC 14 and Clang do not.
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ == 13
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstringop-overflow"
+#endif
         m_text_sockets.push_back(current_socket);
+#if defined(__GNUC__) && !defined(__clang__) && __GNUC__ == 13
+#pragma GCC diagnostic pop
+#endif
         if (prev_group != current_socket.group) {
             counter = 0;
             m_socket_groups.push_back(current_group);

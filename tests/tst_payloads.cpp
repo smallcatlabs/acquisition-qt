@@ -70,6 +70,8 @@ private slots:
     void strictReadRejectsAnUnmodelledKey();
     void strictReadRejectsAnUnmodelledKeyInsideAnItem();
     void applicationReadToleratesAnUnmodelledKey();
+    // A key left out of the types on purpose is not unmodelled (#422).
+    void strictReadAcceptsAKeyLeftOutOnPurpose();
 };
 
 void PayloadsTest::corpusHoldsStashesAndCharacters()
@@ -153,6 +155,32 @@ void PayloadsTest::strictReadRejectsAnUnmodelledKeyInsideAnItem()
 void PayloadsTest::applicationReadToleratesAnUnmodelledKey()
 {
     QVERIFY(json::readStash(payloadWithAnUnmodelledKey()).has_value());
+}
+
+void PayloadsTest::strictReadAcceptsAKeyLeftOutOnPurpose()
+{
+    // Two keys the types name as skipped (nothing reads them), in shapes
+    // their types refused when they were modeled, in a real stash's first
+    // item. A key on no list beside them still fails the strict read.
+    const QByteArray skipped = R"("foreseeing": "yes", "notableProperties": "text",)";
+    for (const QString &name : payloadDir().entryList({"stash-*.json"}, QDir::Files, QDir::Name)) {
+        QByteArray json = readFile(name);
+        const qsizetype items = json.indexOf("\"items\": [");
+        const qsizetype brace = (items < 0) ? -1 : json.indexOf('{', items);
+        if (brace < 0) {
+            continue; // a tab with no items
+        }
+        QByteArray unmodelled = json;
+        json.insert(brace + 1, skipped);
+        const std::string error = strictReadError<poe::StashTab>(json);
+        QVERIFY2(error.empty(), error.c_str());
+
+        unmodelled.insert(brace + 1, skipped + R"("notInTheModel": 1,)");
+        const std::string unknown = strictReadError<poe::StashTab>(unmodelled);
+        QVERIFY2(unknown.find("notInTheModel") != std::string::npos, unknown.c_str());
+        return;
+    }
+    QFAIL("no stash payload has an item");
 }
 
 ACQ_TEST_GUILESS_MAIN(PayloadsTest)

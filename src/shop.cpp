@@ -3,8 +3,8 @@
 
 #include "shop.h"
 
-#include <QApplication>
 #include <QClipboard>
+#include <QGuiApplication>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QRegularExpression>
@@ -14,6 +14,8 @@
 #include <QUrl>
 
 #include <chrono>
+#include <expected>
+#include <map>
 #include <optional>
 #include <variant>
 
@@ -123,6 +125,48 @@ namespace {
     {
         return {Shop::Failure::Kind::SessionRejected, Cause::Session, reason};
     }
+
+    // The legacy stash index from its reply: the first ten characters of a
+    // tab's id to the tab's number (T24), or why it could not be read.
+    std::expected<std::map<QString, unsigned int>, Shop::Failure> ReadStashIndex(
+        const std::expected<poe::WebStashListWrapper, RateLimit::FetchError> &result)
+    {
+        // Every failure the network can produce arrives as one value, already
+        // classified below the facade.
+        if (!result) {
+            const auto &error = result.error();
+            if (error.kind == RateLimit::FetchError::Kind::Canceled) {
+                return std::unexpected(Shop::Failure{Shop::Failure::Kind::Canceled,
+                                                     Cause::Canceled,
+                                                     "the stash index request was canceled"});
+            }
+            if (error.kind == RateLimit::FetchError::Kind::Http
+                && (error.http_status == 401 || error.http_status == 403)) {
+                return std::unexpected(
+                    SessionRejected("the legacy stash index returned HTTP 401/403"));
+            }
+            return std::unexpected(
+                Error(Cause::StashIndex,
+                      QString("Acquisition could not read your stash tab list from "
+                              "pathofexile.com (%1: %2).")
+                          .arg(RateLimit::ToString(error.kind), error.message)));
+        }
+        if (!result->tabs) {
+            return std::unexpected(
+                Error(Cause::StashIndex,
+                      "The stash tab list from pathofexile.com had no tabs in it."));
+        }
+        const auto &tabs = result->tabs.value();
+        spdlog::debug("Shop: received legacy tabs list, there are {} tabs", tabs.size());
+        std::map<QString, unsigned int> index;
+        for (const auto &tab : tabs) {
+            index[tab.id.first(10)] = tab.i;
+        }
+        return index;
+    }
+
+    // What separates two pages of a copied shop (#278).
+    constexpr const char *kCopyPageSeparator = "\n\n-------- next page --------\n\n";
 
     // The edit form a POST needs: the title (HTML-escaped, as the page
     // carries it) and the CSRF token.
@@ -304,7 +348,7 @@ void Shop::SetThread(const QStringList &threads)
     }
     spdlog::debug("Shop: setting {} thread(s) to {}", threads.size(), threads.join(";"));
     m_threads = threads;
-    ExpireShopData();
+    DropWaitingCapture();
     if (m_settings_loaded) {
         m_datastore.Set("shop", threads.join(";"));
         m_datastore.Set("shop_hash", "");
@@ -336,7 +380,7 @@ void Shop::SetShopTemplate(const QString &shop_template)
     if (m_settings_loaded) {
         m_datastore.Set("shop_template", shop_template);
     }
-    ExpireShopData();
+    DropWaitingCapture();
 }
 
 void Shop::OnRefreshFinished(const RefreshOutcome &outcome)
@@ -468,18 +512,24 @@ void Shop::SubmitShopToForum(bool force)
     UpdateStashIndex();
 }
 
+ShopRenderInput Shop::CaptureInput() const
+{
+    ShopRenderInput input;
+    input.shop_template = m_shop_template;
+    input.realm = m_identity.realm();
+    input.league = m_identity.league();
+    for (const auto &[item, bo] : m_buyout_manager.PostablePrices(m_items_manager.items())) {
+        input.items.push_back({item->PrettyName(), item->location(), bo});
+    }
+    return input;
+}
+
 std::unique_ptr<Shop::ShopJob> Shop::CaptureJob(bool force) const
 {
     auto job = std::make_unique<ShopJob>();
-    job->input.shop_template = m_shop_template;
-    job->input.realm = m_identity.realm();
-    job->input.league = m_identity.league();
+    job->input = CaptureInput();
     job->threads = m_threads;
     job->force = force;
-    job->input_revision = m_input_revision;
-    for (const auto &[item, bo] : m_buyout_manager.PostablePrices(m_items_manager.items())) {
-        job->input.items.push_back({item->PrettyName(), item->location(), bo});
-    }
     return job;
 }
 
@@ -502,51 +552,19 @@ void Shop::UpdateStashIndex()
 void Shop::OnStashIndexReceived(
     const std::expected<poe::WebStashListWrapper, RateLimit::FetchError> &result)
 {
-    // Every failure the network can produce arrives as one value, already
-    // classified — the transport check, the status check, and the parse
-    // check this function used to do all live below the facade now.
-    if (!result) {
-        const auto &error = result.error();
-        if (error.kind == RateLimit::FetchError::Kind::Canceled) {
-            FailActiveJob({Failure::Kind::Canceled,
-                           Failure::Cause::Canceled,
-                           "the stash index request was canceled"});
-        } else if (error.kind == RateLimit::FetchError::Kind::Http
-                   && (error.http_status == 401 || error.http_status == 403)) {
-            FailActiveJob(SessionRejected("the legacy stash index returned HTTP 401/403"));
-        } else {
-            FailActiveJob(Error(Cause::StashIndex,
-                                QString("Acquisition could not read your stash tab list from "
-                                        "pathofexile.com (%1: %2).")
-                                    .arg(RateLimit::ToString(error.kind), error.message)));
-        }
+    auto index = ReadStashIndex(result);
+    if (!index) {
+        FailActiveJob(index.error());
         return;
     }
-    const poe::WebStashListWrapper *tabs_wrapper = &result.value();
-
-    if (!tabs_wrapper->tabs) {
-        FailActiveJob(
-            Error(Cause::StashIndex, "The stash tab list from pathofexile.com had no tabs in it."));
-        return;
-    }
-
     // The index is job-local transport state: it completes the job's capture
     // and is never shared with a later job.
-    const auto &tabs = tabs_wrapper->tabs.value();
-    spdlog::debug("Shop: received legacy tabs list, there are {} tabs", tabs.size());
-    for (const auto &tab : tabs) {
-        m_active_job->input.tab_index[tab.id.first(10)] = tab.i;
-    }
-
+    m_active_job->input.tab_index = std::move(*index);
     OnStashIndexUpdated();
 }
 
-void Shop::ExpireShopData()
+void Shop::DropWaitingCapture()
 {
-    // A monotonic revision, not a flag (M2 D8): completing an older job can
-    // only mark its own revision rendered, never this newer one.
-    spdlog::trace("Shop: expiring shop data");
-    ++m_input_revision;
     // An output-affecting local edit drops the waiting automatic capture
     // (R6-4): draining a pre-edit capture after the user's edit would post
     // data older than their intent while telling them the shop updated. The
@@ -555,16 +573,6 @@ void Shop::ExpireShopData()
         spdlog::debug("Shop: dropping the waiting automatic capture — the shop input changed");
         m_waiting_capture.reset();
     }
-}
-
-void Shop::OnPublishedSnapshot()
-{
-    // The snapshot boundary dirties the preview/clipboard cache like any
-    // other input change, but a waiting CLEAN capture survives it (R5-6):
-    // a completed-with-skips or failed refresh publishing its snapshot must
-    // not invalidate the newest clean state waiting to drain.
-    spdlog::trace("Shop: expiring shop data at the published snapshot");
-    ++m_input_revision;
 }
 
 void Shop::CompleteActiveJob()
@@ -600,16 +608,9 @@ void Shop::FailActiveJob(const Failure &failure)
         emit StatusUpdate(ProgramState::Ready, "Forum shop update canceled");
         break;
     case Failure::Kind::SessionRejected:
-        spdlog::warn("Shop: rejecting POESESSID: {}", failure.message);
-        SetAutoUpdate(false);
-        emit PoeSessionRejected();
         emit StatusUpdate(ProgramState::Ready,
                           "Forum shop not updated: Path of Exile rejected the POESESSID");
-        Warn(Notice::SessionRejected,
-             false,
-             "Path of Exile rejected the saved POESESSID. Acquisition has "
-             "cleared it and disabled automatic forum updates as a precaution.\n\n"
-             "Normal stash and character updates are unaffected.");
+        RejectPoeSession(failure.message);
         break;
     case Failure::Kind::Error:
         spdlog::error("Shop: the forum shop was not updated: {}", failure.message);
@@ -622,22 +623,32 @@ void Shop::FailActiveJob(const Failure &failure)
     }
 }
 
+void Shop::RejectPoeSession(const QString &reason)
+{
+    // The reason names the reply that rejected it, never the POESESSID.
+    spdlog::warn("Shop: rejecting POESESSID: {}", reason);
+    SetAutoUpdate(false);
+    emit PoeSessionRejected();
+    Warn(Notice::SessionRejected,
+         false,
+         "Path of Exile rejected the saved POESESSID. Acquisition has "
+         "cleared it and disabled automatic forum updates as a precaution.\n\n"
+         "Normal stash and character updates are unaffected.");
+}
+
 void Shop::OnStashIndexUpdated()
 {
     ShopJob &job = *m_active_job;
     spdlog::debug("Shop: updating {} forum shop threads", job.threads.size());
     const QString previous_hash = m_datastore.Get("shop_hash");
 
-    // Every submission renders from its capture (M2 D8), independent of
-    // preview-cache freshness — a cached preview may predate streamed
-    // deltas that this job's capture already includes, or vice versa.
+    // Every submission renders from its capture (M2 D8).
     job.rendered = RenderShop(job.input);
     for (const auto &item : job.rendered.unlinked) {
         spdlog::error("Shop: cannot determine tab index for {} in {}",
                       item.pretty_name,
                       item.location.GetHeader());
     }
-    PublishPreviewCache(job);
 
     // More pages than threads (#253): the pages that fit are posted and the
     // rest are not. Checked before the unchanged-hash exit, so the user
@@ -668,19 +679,6 @@ void Shop::OnStashIndexUpdated()
     job.requests_completed = 0;
     job.attempts = 0;
     SubmitSingleShop();
-}
-
-void Shop::PublishPreviewCache(const ShopJob &job)
-{
-    // A rendered job publishes the preview cache only if it is not older
-    // than the cache already here (M2 D8), and it can mark only its own
-    // captured revision rendered — an older job finishing late can neither
-    // clobber a newer preview nor mark newer input clean.
-    if (job.input_revision < m_cache_revision) {
-        return;
-    }
-    m_shop_data = job.rendered.pages;
-    m_cache_revision = job.input_revision;
 }
 
 void Shop::SubmitSingleShop()
@@ -810,19 +808,99 @@ void Shop::OnShopSubmitted(QNetworkReply *reply)
 
 void Shop::CopyToClipboard()
 {
-    if (m_shop_data.empty()) {
-        spdlog::warn("Shop: there is nothing to copy to the clipboard");
+    // Rendered on demand from the published state (#278), apart from any
+    // submission: it needs no threads, posts nothing and never writes
+    // shop_hash. A stash item's link carries its tab's number, which only
+    // the legacy stash index gives, and that needs the POESESSID (N21). So
+    // without one nothing is copied: a copy without its stash items would
+    // look like the whole shop.
+    if (!m_buyout_manager.BuyoutsLoaded()) {
+        spdlog::error("Shop: not copying the shop because the buyouts did not load.");
+        emit StatusUpdate(ProgramState::Ready, "Shop not copied: your prices did not load");
+        Warn(Notice::BuyoutsNotLoaded,
+             false,
+             "Acquisition could not load your prices, so your shop was not copied."
+             "\n\n"
+             "Check the log file for details.");
         return;
     }
-    if (shop_data_outdated()) {
-        spdlog::warn("Shop: copying outdated shop data!");
+    if (m_settings.value("session_id").toString().isEmpty()) {
+        spdlog::error("Shop: cannot copy the shop because the POESESSID is not set");
+        emit StatusUpdate(ProgramState::Ready, "Shop not copied: no POESESSID");
+        Warn(Notice::NoSession,
+             false,
+             "Cannot copy your shop because POESESSID has not been set."
+             "\n\n"
+             "Use the Shop --> 'Update Shop POESESSID' menu item."
+             "\n\n"
+             "This is required even if you have logged in with OAuth, because the "
+             "stash tab numbers your shop links to are only available with a POESESSID.");
+        return;
     }
-    if (m_shop_data.size() > 1) {
-        spdlog::warn(
-            "Shop: you have multiple shops; only the first will be copied to the clipboard");
+
+    emit StatusUpdate(ProgramState::Busy, "Copying the shop: reading your stash tab list");
+    const ShopRenderInput input = CaptureInput();
+    // Context-bound (R6-2): the continuation never runs against a
+    // destroyed Shop.
+    m_api.getLegacyStashIndex(m_identity.account(), input.realm, input.league)
+        .then(this,
+              [this, input](
+                  const std::expected<poe::WebStashListWrapper, RateLimit::FetchError> &result) {
+                  OnCopyIndexReceived(result, input);
+              });
+}
+
+void Shop::OnCopyIndexReceived(
+    const std::expected<poe::WebStashListWrapper, RateLimit::FetchError> &result,
+    ShopRenderInput input)
+{
+    auto index = ReadStashIndex(result);
+    if (!index) {
+        const Failure &failure = index.error();
+        switch (failure.kind) {
+        case Failure::Kind::Canceled:
+            emit StatusUpdate(ProgramState::Ready, "Shop not copied: the request was canceled");
+            break;
+        case Failure::Kind::SessionRejected:
+            emit StatusUpdate(ProgramState::Ready,
+                              "Shop not copied: Path of Exile rejected the POESESSID");
+            RejectPoeSession(failure.message);
+            break;
+        case Failure::Kind::Error:
+            spdlog::error("Shop: the shop was not copied: {}", failure.message);
+            emit StatusUpdate(ProgramState::Ready, "Shop not copied: " + failure.message);
+            Warn(Notice::SubmissionFailed,
+                 false,
+                 "Your shop was not copied.\n\n" + failure.message,
+                 static_cast<int>(failure.cause));
+            break;
+        }
+        return;
     }
-    spdlog::trace("Shop: copying {} characters of shop data to the clipboard",
-                  m_shop_data[0].size());
-    QClipboard *clipboard = QApplication::clipboard();
-    clipboard->setText(m_shop_data[0]);
+    input.tab_index = std::move(*index);
+    const RenderedShop rendered = RenderShop(input);
+    for (const auto &item : rendered.unlinked) {
+        spdlog::error("Shop: cannot determine tab index for {} in {}",
+                      item.pretty_name,
+                      item.location.GetHeader());
+    }
+    // Items left out because their tab is not in the stash tab list.
+    const QString left_out = rendered.unlinked.empty()
+                                 ? QString()
+                                 : QString("; %1 item(s) left out, their tab is not in your stash "
+                                           "tab list")
+                                       .arg(rendered.unlinked.size());
+    if (rendered.pages.isEmpty()) {
+        emit StatusUpdate(ProgramState::Ready,
+                          left_out.isEmpty() ? "Shop not copied: nothing is priced"
+                                             : "Shop not copied" + left_out);
+        return;
+    }
+    QGuiApplication::clipboard()->setText(rendered.pages.join(kCopyPageSeparator));
+    const qsizetype pages = rendered.pages.size();
+    emit StatusUpdate(ProgramState::Ready,
+                      QString("Shop copied to the clipboard: %1 %2")
+                              .arg(pages)
+                              .arg(pages == 1 ? "page" : "pages")
+                          + left_out);
 }

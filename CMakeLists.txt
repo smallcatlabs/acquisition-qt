@@ -9,7 +9,7 @@ cmake_minimum_required(VERSION 3.24)
 # tags on github are prefixed with a 'v'.
 
 project(acquisition
-    VERSION 0.18.10
+    VERSION 0.18.12
     DESCRIPTION "Stash and forum shop management for Path of Exile (TM)"
     HOMEPAGE_URL "https://github.com/smallcatlabs/acquisition-qt"
     LANGUAGES CXX
@@ -22,7 +22,7 @@ include(GNUInstallDirs)
 # from master never claims to be a release. A tagged pre-release replaces it
 # with "-beta.1" (and so on), and a final release clears it. The first change
 # of the next train sets the next version with "-dev" again.
-set(app_version_suffix "")
+set(app_version_suffix "-dev")
 
 # Variables used in version_defines.h and platforn-specific files and properties.
 set(app_name            "${CMAKE_PROJECT_NAME}")
@@ -778,9 +778,16 @@ target_link_libraries(acquisition PRIVATE acquisition_core)
 
 if(WIN32)
 
+    # /Zi makes every compile write into one shared .pdb, which a compiler
+    # cache cannot store, so ccache passes such a compile straight through.
+    # ACQ_MSVC_EMBEDDED_DEBUG_INFO asks for /Z7 instead, which keeps each
+    # file's debug information in its own object. Only the pull-request test
+    # job sets it (BUILD.md, "Where CI runs"); release builds keep /Zi.
+    option(ACQ_MSVC_EMBEDDED_DEBUG_INFO
+        "MSVC: /Z7 instead of /Zi, so a compiler cache can store the objects." OFF)
     target_compile_options(acquisition_core PRIVATE
         $<$<CXX_COMPILER_ID:MSVC>:/EHsc>
-        $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<NOT:$<CONFIG:Debug>>>:/Zi>
+        $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<NOT:$<CONFIG:Debug>>>:$<IF:$<BOOL:${ACQ_MSVC_EMBEDDED_DEBUG_INFO}>,/Z7,/Zi>>
     )
     target_link_options(acquisition PRIVATE
         $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<NOT:$<CONFIG:Debug>>>:/DEBUG>

@@ -46,13 +46,21 @@ RenderedShop RenderShop(const ShopRenderInput &input)
     QString data = "";
 
     // Only postable buyouts, sorted so items sharing a buyout render
-    // together.
+    // together. A stash item whose tab the index does not list cannot be
+    // linked; it is left out here, before the price groups are formed, so
+    // a price none of whose items can be linked writes no spoiler.
     std::vector<const ShopRenderItem *> postable;
     postable.reserve(input.items.size());
     for (const auto &item : input.items) {
-        if (item.buyout.IsPostable()) {
-            postable.push_back(&item);
+        if (!item.buyout.IsPostable()) {
+            continue;
         }
+        if ((item.location.type() == ItemLocationType::STASH)
+            && !input.tab_index.contains(item.location.id())) {
+            shop.unlinked.push_back(item);
+            continue;
+        }
+        postable.push_back(&item);
     }
     std::stable_sort(postable.begin(),
                      postable.end(),
@@ -76,12 +84,9 @@ RenderedShop RenderShop(const ShopRenderInput &input)
             if (loc.type() == ItemLocationType::CHARACTER) {
                 item_string = loc.GetForumCode(input.realm, input.league, 0);
             } else {
-                const auto it = input.tab_index.find(loc.id());
-                if (it == input.tab_index.end()) {
-                    shop.unlinked.push_back(*item);
-                    continue;
-                }
-                item_string = loc.GetForumCode(input.realm, input.league, it->second);
+                item_string = loc.GetForumCode(input.realm,
+                                               input.league,
+                                               input.tab_index.at(loc.id()));
             }
             const size_t n = data.size() + item_string.size() + input.shop_template.size()
                              + kSpoilerOverhead + QStringLiteral("[/spoiler]").size();
