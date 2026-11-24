@@ -50,12 +50,7 @@ public:
     // after the user's edit would post data older than their intent. The
     // active job is deliberately unaffected: its capture is immutable and
     // posts as captured.
-    void ExpireShopData();
-    // A published SNAPSHOT boundary (final ItemsRefreshed). Nothing in the
-    // shop depends on it since the preview cache went: a waiting clean
-    // capture survives it (M2 D8/R5-6 keep-and-drain). Kept only for
-    // Application's call, which can go with it.
-    void OnPublishedSnapshot() {}
+    void DropWaitingCapture();
     void SubmitShopToForum(bool force = false);
     // How long to wait before fetching the edit page again after the forum
     // said the security token had expired. Tests shorten it.

@@ -616,10 +616,10 @@ void ShopTest::activeJobUnaffectedByLocalEdits()
     // The job captures the 1-chaos buyout at request time.
     fixture.shop->SubmitShopToForum();
 
-    // A local edit while the job is active: reprice and expire, the
+    // A local edit while the job is active: reprice and drop, the
     // MainWindow buyout-edit path.
     fixture.buyoutFixture.manager->Set(*item, makeChaosBuyout(2));
-    fixture.shop->ExpireShopData();
+    fixture.shop->DropWaitingCapture();
 
     fixture.rateLimiter->resolve(0, kStashIndexJson);
     drainEvents();
@@ -911,7 +911,7 @@ void ShopTest::skippedRefreshDoesNotInvalidateWaitingCapture()
     QVERIFY2(posted.contains(" 2 chaos"), qPrintable(posted));
 }
 
-// M2 D8/R6-4 (stage 8): an output-affecting local edit (ExpireShopData)
+// M2 D8/R6-4 (stage 8): an output-affecting local edit (DropWaitingCapture)
 // drops the waiting automatic capture; the active job's immutable capture
 // is deliberately unaffected and posts as captured.
 void ShopTest::expireDropsWaitingCapture()
@@ -928,7 +928,7 @@ void ShopTest::expireDropsWaitingCapture()
 
     // The user edits an output-affecting input: the waiting capture is
     // dropped — draining it after the edit would post pre-edit data.
-    fixture.shop->ExpireShopData();
+    fixture.shop->DropWaitingCapture();
 
     // The active job is unaffected: it renders and posts its own capture.
     fixture.rateLimiter->resolve(0, kStashIndexJson);
