@@ -394,7 +394,7 @@ void BuyoutManager::Deserialize(const QString &data, std::unordered_map<QString,
 
 void BuyoutManager::Save()
 {
-    if (m_save_needed) {
+    if (m_save_needed && m_checks_loaded) {
         m_data.Set("refresh_checked_state", Serialize(m_refresh_checked));
         m_save_needed = false;
     }
@@ -403,7 +403,17 @@ void BuyoutManager::Save()
 void BuyoutManager::Load()
 {
     m_loaded = LoadBuyouts();
-    Deserialize(m_data.Get("refresh_checked_state"), m_refresh_checked);
+    // A stored state that cannot be read is not an empty one (#295): saved
+    // over, it would check every tab the user unchecked.
+    const DataStore::ReadResult checks = m_data.Read("refresh_checked_state");
+    m_checks_loaded = checks.has_value();
+    if (checks) {
+        Deserialize(checks->value_or(QString()), m_refresh_checked);
+    } else {
+        spdlog::error("BuyoutManager: the stored refresh check state could not be read, so "
+                      "check-box changes will not be saved this session: {}",
+                      checks.error());
+    }
 }
 
 void BuyoutManager::ReloadBuyouts()
