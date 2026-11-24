@@ -135,6 +135,21 @@ if(NOT ACQ_SANITIZE)
         ENVIRONMENT "${test_environment}"
         PASS_REGULAR_EXPRESSION "SSL supported: yes")
     _acq_test_dll_path(app_check_tls)
+
+    # The version the binary reports is the one it was built as, pre-release
+    # suffix included. Qt on Windows otherwise takes it from the executable's
+    # numeric version resource, so a beta called itself "0.18.11.0" in --version
+    # and at the head of the log. The message-box variable makes a Windows GUI
+    # build print to stdout. --version exits before the data directory is
+    # touched.
+    string(REPLACE "." "\\." app_version_pattern "${app_version_string}")
+    add_test(NAME app_version COMMAND acquisition --version)
+    _acq_test_environment(test_environment)
+    list(APPEND test_environment "QT_COMMAND_LINE_PARSER_NO_GUI_MESSAGE_BOXES=1")
+    set_tests_properties(app_version PROPERTIES
+        ENVIRONMENT "${test_environment}"
+        PASS_REGULAR_EXPRESSION " ${app_version_pattern}[ \t\r\n]*$")
+    _acq_test_dll_path(app_version)
 endif()
 
 acq_add_test(tst_buyout)

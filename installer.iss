@@ -80,10 +80,34 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; Flags: unchecked
 
 [InstallDelete]
-; Remove unsupported app-local MSVC runtime files left by older or manual installs.
-Type: files; Name: "{app}\msvcp140*.dll"
-Type: files; Name: "{app}\vcruntime140*.dll"
-Type: files; Name: "{app}\concrt140.dll"
+; Setup overwrites the files a package ships but leaves alone the ones an
+; older package shipped and this one does not. A Qt plugin left that way stops
+; the application: a Qt 6.5 tls\qopensslbackend.dll beside the current plugins
+; fails to load, Qt then never loads the schannel plugin, and start-up reports
+; "SSL support is missing" (#440). So everything the application owns in {app}
+; is removed before the new files are copied: the libraries at its top level
+; (which include the app-local MSVC runtime files that older or manual installs
+; left, and that are not supported), every directory this package ships (listed
+; from DEPLOY_DIR when the installer is compiled, so the list cannot fall
+; behind the package), and what only older packages shipped. Nothing else in
+; {app} is touched. The workflow installs over a stale folder to check this.
+Type: files; Name: "{app}\*.dll"
+#define StaleFind
+#define StaleFound
+#sub EmitShippedDirectory
+#if FindGetFileName(StaleFind) != "." && FindGetFileName(StaleFind) != ".." && DirExists(DEPLOY_DIR + "\" + FindGetFileName(StaleFind))
+Type: filesandordirs; Name: "{app}\{#FindGetFileName(StaleFind)}"
+#endif
+#endsub
+#for {StaleFind = StaleFound = FindFirst(DEPLOY_DIR + "\*", faDirectory); StaleFound; StaleFound = FindNext(StaleFind)} EmitShippedDirectory
+#if StaleFind
+#expr FindClose(StaleFind)
+#endif
+; Shipped by older packages only.
+Type: filesandordirs; Name: "{app}\bearer"
+Type: filesandordirs; Name: "{app}\translations"
+Type: files; Name: "{app}\vc_redist.x64.exe"
+Type: files; Name: "{app}\version_defines.h"
 
 [Files]
 Source: "{#DEPLOY_DIR}\*"; DestDir: "{app}"; Excludes: "vc_redist.x64.exe"; Flags: ignoreversion recursesubdirs createallsubdirs
