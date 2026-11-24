@@ -776,17 +776,19 @@ void ShellTest::loginListensOnLoopbackAfterClose()
     auto *handler = services.oauth.findChild<QOAuthHttpServerReplyHandler *>();
     QVERIFY(handler);
 
-    // As constructed, the handler listens on loopback.
-    QVERIFY(callbackAddress(services.oauth).isLoopback());
+    // As constructed, nothing listens: only a browser login that waits does.
+    QVERIFY(!handler->isListening());
 
-    // A grant closes it (OAuthManager::receiveGrant); the next login must
-    // listen on loopback again, not on every interface.
-    handler->close();
+    // A login listens on loopback, not on every interface; and again after
+    // the listener was closed.
+    QVERIFY(services.oauth.initLogin());
+    QVERIFY(callbackAddress(services.oauth).isLoopback());
+    services.oauth.endLogin();
     QVERIFY(!handler->isListening());
     QVERIFY(services.oauth.initLogin());
     const QHostAddress address = callbackAddress(services.oauth);
     QVERIFY2(address.isLoopback(), qPrintable(address.toString()));
-    QCOMPARE(browser.urls.size(), 1);
+    QCOMPARE(browser.urls.size(), 2);
 }
 
 void ShellTest::everyLoginRedirectsToTheListenerItBinds()
@@ -812,10 +814,10 @@ void ShellTest::everyLoginRedirectsToTheListenerItBinds()
 
 void ShellTest::startupRefreshClosesTheListener()
 {
-    // A stored token is refreshed when OAuthManager is constructed. A
-    // successful refresh emits granted(), which closes the callback server,
-    // so the login dialog's "Re-authenticate" goes through the re-listen
-    // path in initLogin().
+    // A stored token is refreshed when OAuthManager is constructed. Nothing
+    // listens for a redirect then, nor once the refresh is granted: the
+    // listener is open only while a browser login waits, and the login
+    // dialog's "Re-authenticate" opens it in initLogin().
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     FakeNetworkManager network;
@@ -823,7 +825,7 @@ void ShellTest::startupRefreshClosesTheListener()
     datastore.Set("oauth_token", R"({"username":"TestAccount","refresh_token":"old-refresh"})");
     OAuthManager oauth(network, datastore);
     QSignalSpy granted(&oauth, &OAuthManager::grantAccess);
-    QVERIFY(callbackAddress(oauth).isLoopback());
+    QVERIFY(callbackAddress(oauth).isNull());
 
     QTRY_COMPARE_WITH_TIMEOUT(network.count(), 1, 1000);
     QVERIFY(network.sent(0).request.url().path().endsWith("/oauth/token"));
