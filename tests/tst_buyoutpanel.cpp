@@ -6,6 +6,9 @@
 #include <QSignalSpy>
 #include <QtTest/QtTest>
 
+#include <map>
+#include <set>
+
 #include "buyout.h"
 #include "testfixtures.h"
 #include "testsuite.h"
@@ -31,6 +34,8 @@ private slots:
     void emptiedBoxSaysSo();
     void numberWithoutCurrencyWaitsForOne();
     void noTargetsDisablesThePanel();
+    void itemThatCannotBeListedCannotBePriced();
+    void firstSelectedRowDecidesWhetherAMixedSelectionCanBePriced();
     void finishEditingKeepsTextItCouldNotCommit();
     void typeChoiceWithEmptyBoxStaysPendingQuietly();
     void currencyBoxSelectsByTag();
@@ -60,8 +65,11 @@ namespace {
                 qFatal("BuyoutPanelTest: a control is missing");
             }
             panel.setPriceLookup([this](const PriceTarget &target) {
+                if (unlistable.contains(target.item->id())) {
+                    return EffectivePrice{.buyout = Buyout(), .source = PriceSource::Unlistable};
+                }
                 const auto it = prices.find(target.item->id());
-                return (it != prices.end()) ? it->second : Buyout();
+                return EffectivePrice{.buyout = (it != prices.end()) ? it->second : Buyout()};
             });
             QObject::connect(&panel,
                              &BuyoutPanel::committed,
@@ -78,6 +86,8 @@ namespace {
         }
 
         std::map<QString, Buyout> prices;
+        // Ids whose item cannot be listed where it is (#418).
+        std::set<QString> unlistable;
         BuyoutPanel panel;
         QComboBox *type{nullptr};
         QComboBox *currency{nullptr};
@@ -315,6 +325,37 @@ void BuyoutPanelTest::noTargetsDisablesThePanel()
     QVERIFY(!p.currency->isEnabled());
     QVERIFY(!p.value->isEnabled());
     QCOMPARE(p.value->text(), QString());
+}
+
+// #418: an item that cannot be listed where it is (on a guardian or the
+// Wickerman) has no price, and nothing can be typed for it.
+void BuyoutPanelTest::itemThatCannotBeListedCannotBePriced()
+{
+    Panel p;
+    p.unlistable.insert("item-a");
+    p.panel.showTargets(items({"item-a"}));
+    QVERIFY(!p.type->isEnabled());
+    QVERIFY(!p.currency->isEnabled());
+    QVERIFY(!p.value->isEnabled());
+    QCOMPARE(p.value->text(), QString());
+}
+
+// #418, on record with #361 (item 6): the panel shows, and enables its
+// controls by, the first selected row. A selection whose first row is an
+// item that cannot be listed cannot be priced; one whose first row is an
+// ordinary item can (the commit then leaves the other alone, ApplyBuyout).
+void BuyoutPanelTest::firstSelectedRowDecidesWhetherAMixedSelectionCanBePriced()
+{
+    Panel p;
+    p.unlistable.insert("item-a");
+    p.panel.showTargets(items({"item-a", "item-b"}));
+    QVERIFY(!p.type->isEnabled());
+    QVERIFY(!p.value->isEnabled());
+
+    p.panel.showTargets(items({"item-b", "item-a"}));
+    QVERIFY(p.type->isEnabled());
+    QVERIFY(p.value->isEnabled());
+    QCOMPARE(p.value->text(), QString("12"));
 }
 
 // finishEditing() (a cancelled window close, a manual shop update, a

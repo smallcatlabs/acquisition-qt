@@ -167,6 +167,13 @@ namespace {
 
 EffectivePrice BuyoutManager::Effective(const Item &item) const
 {
+    // On a guardian or the Wickerman the item cannot be listed for sale: it
+    // has no price, whatever its note, a price set on it or its character's
+    // says (#418). A stored price stays stored, and is in force again once
+    // the item is taken out.
+    if (!item.location().CanBeListed()) {
+        return EffectivePrice{.buyout = Buyout(), .source = PriceSource::Unlistable};
+    }
     // The note's price; else the price set on the item in Acquisition;
     // else its tab's, read now by the tab's id, which marks it inherited
     // and keeps the tab price's source and date.
@@ -216,10 +223,15 @@ std::vector<std::pair<std::shared_ptr<Item>, Buyout>> BuyoutManager::PostablePri
     // its copy, so while the game prices any copy of an id, none is posted.
     std::vector<std::pair<std::shared_ptr<Item>, Buyout>> postable;
     std::unordered_set<QString> game_priced;
+    // Likewise while any copy sits where it cannot be listed (#418): the
+    // other copy is one the item has left.
+    std::unordered_set<QString> unlistable;
     for (const auto &item : items) {
         EffectivePrice price = Effective(*item);
         if (price.IsGameSet()) {
             game_priced.insert(item->id());
+        } else if (price.CannotBeListed()) {
+            unlistable.insert(item->id());
         } else if (price.IsPostable()) {
             postable.emplace_back(item, std::move(price.buyout));
         }
@@ -227,6 +239,11 @@ std::vector<std::pair<std::shared_ptr<Item>, Buyout>> BuyoutManager::PostablePri
     if (!game_priced.empty()) {
         std::erase_if(postable, [&game_priced](const auto &entry) {
             return game_priced.contains(entry.first->id());
+        });
+    }
+    if (!unlistable.empty()) {
+        std::erase_if(postable, [&unlistable](const auto &entry) {
+            return unlistable.contains(entry.first->id());
         });
     }
     return postable;

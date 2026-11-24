@@ -4,6 +4,7 @@
 
 #include "itemlocation.h"
 #include "poe/types/character.h"
+#include "poe/types/item.h"
 #include "poe/types/stashtab.h"
 #include "testsuite.h"
 
@@ -26,6 +27,9 @@ private slots:
     void folderTestFollowsTabType();
     void rebaseCopiesFolderId();
     void folderIdDoesNotAffectIdentity();
+
+    // #418, F63: a guardian's and the Wickerman's items.
+    void containerIsWhereAnItemSitsNotWhichRow();
 };
 
 static poe::StashTab makeStash(const QString &id, const QString &name, unsigned index = 0)
@@ -149,6 +153,56 @@ void ItemLocationTest::folderIdDoesNotAffectIdentity()
     QVERIFY(!(b < a));
     QCOMPARE(a.GetLegacyHash(), b.GetLegacyHash());
     QCOMPARE(a.GetHeader(), b.GetHeader());
+}
+
+// #418: an item on a character's guardian or Wickerman shows under the
+// character: its location is the character's, the same row, order and fetch.
+// Where it sits is its own: it cannot be listed (so it has no forum code), it
+// is not drawn at the character's slot it names, and its location line says
+// where it is. A rebase onto the character's fresh metadata keeps that.
+void ItemLocationTest::containerIsWhereAnItemSitsNotWhichRow()
+{
+    poe::Character character;
+    character.id = "abcdef0123456789";
+    character.name = "Builder";
+    const ItemLocation self(character);
+    const ItemLocation guardian = self.inContainer(ItemLocation::Container::Guardian);
+    const ItemLocation wickerman = self.inContainer(ItemLocation::Container::Wickerman);
+
+    QVERIFY(guardian == self);
+    QVERIFY(!(guardian < self) && !(self < guardian));
+    QCOMPARE(guardian.id(), self.id());
+    QCOMPARE(guardian.fetch_id(), self.fetch_id());
+    QCOMPARE(guardian.GetHeader(), QString("Builder"));
+    QCOMPARE(guardian.GetLegacyHash(), self.GetLegacyHash());
+
+    QVERIFY(self.CanBeListed());
+    QVERIFY(!guardian.CanBeListed());
+    QVERIFY(!wickerman.CanBeListed());
+
+    // A guardian's item carries the character's own slot name, at 0,0.
+    poe::Item item;
+    item.w = 2;
+    item.h = 2;
+    item.x = 0;
+    item.y = 0;
+    item.inventoryId = "Helm";
+    ItemLocation placed = guardian.getItemLocation(item);
+    const ItemLocation own = self.getItemLocation(item);
+    QVERIFY(!placed.CanBeListed());
+    QVERIFY(!own.GetRect().isEmpty());
+    QVERIFY(placed.GetRect().isEmpty());
+    QVERIFY(!own.GetForumCode("pc", "Standard", 0).isEmpty());
+    QVERIFY(placed.GetForumCode("pc", "Standard", 0).isEmpty());
+    QCOMPARE(own.GetItemHeader(self), QString("Builder"));
+    QCOMPARE(placed.GetItemHeader(self), QString("Builder (Guardian)"));
+    QCOMPARE(wickerman.getItemLocation(item).GetItemHeader(self), QString("Builder (Wickerman)"));
+
+    poe::Character renamed = character;
+    renamed.name = "Mason";
+    placed.rebaseTabMetadata(ItemLocation(renamed));
+    QVERIFY(!placed.CanBeListed());
+    QCOMPARE(placed.GetItemHeader(ItemLocation(renamed)), QString("Mason (Guardian)"));
 }
 
 ACQ_TEST_GUILESS_MAIN(ItemLocationTest)

@@ -2,6 +2,9 @@
 
 #include <QtTest/QtTest>
 
+#include <QFile>
+#include <QTreeView>
+
 #include <algorithm>
 #include <memory>
 #include <variant>
@@ -10,11 +13,14 @@
 #include "buyout.h"
 #include "currency.h"
 #include "filters/filterspec.h"
+#include "itemsfromwire.h"
 #include "locationinventory.h"
 #include "modelprobes.h"
 #include "search.h"
 #include "testfixtures.h"
 #include "testsuite.h"
+#include "util/json_readers.h"
+#include "viewtranscript.h"
 
 class SearchTest : public QObject
 {
@@ -51,6 +57,8 @@ private slots:
     void reconciliationRehomesWrongBucketRow();
     // #271: a mods row with no mod chosen leaves the search unfiltered.
     void blankModsRowLeavesSearchUnfiltered();
+    // #418: a guardian's items show under their character.
+    void guardianItemsShowUnderTheirCharacterThroughADelta();
 };
 
 template<typename Payload>
@@ -828,6 +836,47 @@ void SearchTest::blankModsRowLeavesSearchUnfiltered()
     QCOMPARE(search.buckets().size(), 2);
     QCOMPARE(search.buckets()[1].location().id(), emptyTab.id());
     QVERIFY(!search.defaultExpanded());
+}
+
+// #418: the real reply of character-2.json, whose guardian holds five
+// items. They show under the character's own row, among its items, both as
+// published and when the same reply arrives again as a refresh delta before
+// the final snapshot, which leaves the tree as it was.
+void SearchTest::guardianItemsShowUnderTheirCharacterThroughADelta()
+{
+    QFile file(QFINDTESTDATA("fixtures/payloads/character-2.json"));
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    const auto character = json::readCharacter(file.readAll());
+    QVERIFY(character && character->guardian);
+    const ItemLocation location(*character);
+
+    BuyoutManagerFixture buyoutFixture;
+    buyoutFixture.manager->SetStashTabLocations({location});
+    LocationInventory inventory;
+    inventory.ResetTo({location});
+    const FilterCatalog catalog = BuildFilterCatalog(*buyoutFixture.manager);
+    Search search(*buyoutFixture.manager, "Search", catalog, &inventory);
+
+    Items published;
+    AppendWireItems(*character, location, published);
+    search.FilterItems(published);
+    QTreeView view;
+    view.setModel(&search.model());
+    view.expandAll();
+    const QStringList before = viewTranscript(view, 1);
+    QCOMPARE(before.size(), qsizetype(1 + published.size()));
+    QCOMPARE(before.front(), QString("  [-] ExampleCharacter2"));
+    for (const char *name :
+         {"        Cospri's Will Assassin's Garb", "        Leer Cast Festival Mask"}) {
+        QVERIFY2(before.contains(QString(name)), name);
+    }
+
+    Items delta;
+    AppendWireItems(*character, location, delta);
+    QVERIFY(search.ApplyTabDelta(location, delta).processed);
+    view.expandAll();
+    const QStringList after = viewTranscript(view, 1);
+    QVERIFY2(after == before, qPrintable(viewTranscriptChanges(before, after, {}).join('\n')));
 }
 
 ACQ_TEST_MAIN(SearchTest)

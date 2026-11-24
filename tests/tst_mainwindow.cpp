@@ -32,9 +32,11 @@
 
 #include "buyout.h"
 #include "currency.h"
+#include "itemsfromwire.h"
 #include "mainwindowfixture.h"
 #include "modelprobes.h"
 #include "testsuite.h"
+#include "util/json_readers.h"
 #include "viewtranscript.h"
 
 class MainWindowTest : public QObject
@@ -100,6 +102,8 @@ private slots:
     // in the same commit window (supersession map; never red).
     void expansionSurvivesRenameByStableKey();
     void selectionSurvivesReplacementByStableIdentity();
+    void containerItemSaysWhereItIs_data();
+    void containerItemSaysWhereItIs();
     void scrollAndCaptureSurviveUserRefilter();
 
     // Items-pipeline M3, S0: the capture/restore half of the probe surface.
@@ -1397,6 +1401,79 @@ void MainWindowTest::selectionSurvivesReplacementByStableIdentity()
     // The details panel re-rendered from the adopted object (the deferred
     // update path a user selection takes).
     QTRY_COMPARE_WITH_TIMEOUT(locationLabel->text(), tabA.GetHeader(), 2000);
+}
+
+// #418: an item on a guardian or the Wickerman sits under its character's
+// row, and the item panel's location line says where it is: "<name>
+// (Guardian)" or "<name> (Wickerman)", while the character's own items read
+// the character's name. The line is the same through a refresh delta of the
+// character and one of another tab. The replies are real ones.
+void MainWindowTest::containerItemSaysWhereItIs_data()
+{
+    QTest::addColumn<QString>("file");
+    QTest::addColumn<QString>("item");
+    QTest::addColumn<QString>("line");
+    QTest::addColumn<QString>("own");
+    QTest::newRow("guardian") << "character-2.json" << "Leer Cast Festival Mask"
+                              << "ExampleCharacter2 (Guardian)"
+                              << "Darkness Enthroned Stygian Vise";
+    QTest::newRow("wickerman") << "character-1.json" << "Flaming Furnace"
+                               << "ExampleCharacter1 (Wickerman)" << "The Black Cane Royal Sceptre";
+}
+
+void MainWindowTest::containerItemSaysWhereItIs()
+{
+    QFETCH(QString, file);
+    QFETCH(QString, item);
+    QFETCH(QString, line);
+    QFETCH(QString, own);
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    auto *locationLabel = fixture.window->findChild<QLabel *>("locationLabel");
+    QVERIFY(tree);
+    QVERIFY(locationLabel);
+
+    QFile reply(QFINDTESTDATA("fixtures/payloads/" + file));
+    QVERIFY(reply.open(QIODevice::ReadOnly));
+    const auto character = json::readCharacter(reply.readAll());
+    QVERIFY(character);
+    const ItemLocation location(*character);
+    Items items;
+    AppendWireItems(*character, location, items);
+    fixture.itemsManager->OnItemsRefreshed(items, {location}, false);
+
+    QVERIFY(findBucket(*tree->model(), location.GetHeader()).isValid());
+    tree->expand(findBucket(*tree->model(), location.GetHeader()));
+    const auto select = [&](const QString &name) {
+        const QModelIndex bucket = findBucket(*tree->model(), location.GetHeader());
+        for (int row = 0; row < tree->model()->rowCount(bucket); ++row) {
+            const QModelIndex index = tree->model()->index(row, 0, bucket);
+            if (index.data().toString() == name) {
+                tree->selectionModel()->setCurrentIndex(index,
+                                                        QItemSelectionModel::ClearAndSelect
+                                                            | QItemSelectionModel::Rows);
+                return true;
+            }
+        }
+        return false;
+    };
+
+    QVERIFY(select(item));
+    QTRY_COMPARE_WITH_TIMEOUT(locationLabel->text(), line, 2000);
+
+    // The reply again: the selection follows the replacement object.
+    Items delta;
+    AppendWireItems(*character, location, delta);
+    fixture.itemsManager->OnTabRefreshed(location, delta);
+    QTRY_COMPARE_WITH_TIMEOUT(locationLabel->text(), line, 2000);
+    // Another tab's delta: the selected row survives, and the line is
+    // rendered again from the row's current metadata.
+    fixture.itemsManager->OnTabRefreshed(makeTestStashLocation("stash-418", "Other", 0), {});
+    QCoreApplication::processEvents();
+    QCOMPARE(locationLabel->text(), line);
+
+    QVERIFY(select(own));
+    QTRY_COMPARE_WITH_TIMEOUT(locationLabel->text(), location.GetHeader(), 2000);
 }
 
 // M2 R6-3, retargeted in M3 S5 (supersession map): the throttled reset

@@ -39,7 +39,10 @@ struct BuyoutChangeSet
 // trade site's (trade-ground-truth T12, T29): an item's note, then a price
 // set on the item in Acquisition, then its tab's name, then a price set on
 // the tab in Acquisition.
-enum class PriceSource { None, Note, ManualItem, TabName, ManualTab };
+//
+// Unlistable is none of these: the item sits where it cannot be listed for
+// sale (ItemLocation::CanBeListed), so it has no price from any source.
+enum class PriceSource { None, Note, ManualItem, TabName, ManualTab, Unlistable };
 
 // A price and where it comes from. Whether it can be posted to the forum
 // or edited in Acquisition is decided from where it comes from: a price
@@ -54,6 +57,9 @@ struct EffectivePrice
     {
         return (source == PriceSource::Note) || (source == PriceSource::TabName);
     }
+    // The item sits where it cannot be listed for sale: no price is in
+    // force, an edit is refused, nothing is posted.
+    bool CannotBeListed() const { return source == PriceSource::Unlistable; }
     // The forum may carry it: set in Acquisition, and a price in a currency
     // the post can name, or "no price" (Buyout::IsPostable).
     bool IsPostable() const { return !IsGameSet() && buyout.IsPostable(); }

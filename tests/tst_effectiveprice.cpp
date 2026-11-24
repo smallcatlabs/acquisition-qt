@@ -2,16 +2,24 @@
 // SPDX-FileCopyrightText: 2026 Tom Holz
 
 #include <QApplication>
+#include <QFile>
 #include <QSettings>
 #include <QSqlQuery>
 #include <QtTest/QtTest>
 
+#include <algorithm>
+#include <set>
+
 #include "applybuyout.h"
 #include "column.h"
 #include "filters/filterspec.h"
+#include "itemsfromwire.h"
 #include "itemsmanager.h"
+#include "locationinventory.h"
+#include "poe/types/character.h"
 #include "testfixtures.h"
 #include "testsuite.h"
+#include "util/json_readers.h"
 
 // #293 step 1: what every reader of an item's price returns, for each way
 // an item can come by a price. The reader values were recorded from the
@@ -33,6 +41,9 @@ private slots:
     void upgradeKeepsTheTabPrice();
     void tabTargetsAreLockedAsBefore();
     void activeGameRowsAreIgnoredAndReplaced();
+    void itemThatCannotBeListedHasNoPrice();
+    void partTakenOffTheWickermanWaitsForTheCharacter();
+    void priceFollowsAnItemOntoTheGuardianAndBack();
 
 private:
     QDateTime m_start;
@@ -505,6 +516,178 @@ void EffectivePriceTest::activeGameRowsAreIgnoredAndReplaced()
     QCOMPARE(manager.Effective(*item).buyout.value, 3.0);
     QCOMPARE(manager.EffectiveTab(tab).source, PriceSource::ManualTab);
     QCOMPARE(manager.EffectiveTab(tab).buyout.value, 2.0);
+}
+
+// #418, F63: an item on a character's guardian cannot be listed for sale
+// where it is. It shows under its character, and has no price from any
+// source: not its note, not a price set on it, not its character's. The
+// character's own price is untouched. An edit on a selection that holds it
+// leaves it alone and says why, and nothing posts it or another copy of its
+// id. A price set on it before it went in stays stored, and is in force
+// again once it is taken out.
+void EffectivePriceTest::itemThatCannotBeListedHasNoPrice()
+{
+    Fixture f;
+    BuyoutManager &manager = *f.buyouts.manager;
+    poe::Character character;
+    character.id = "character-418";
+    character.name = "Builder";
+    const ItemLocation self(character);
+    const ItemLocation guardian = self.inContainer(ItemLocation::Container::Guardian);
+    const ItemLocation stash = makeTestStashLocation();
+
+    const auto in_stash = makeItem(stash, "");
+    QVERIFY(manager.Set(*in_stash, makeChaosBuyout(5.0)));
+    QCOMPARE(manager.Effective(*in_stash).source, PriceSource::ManualItem);
+
+    // Moved onto the guardian, with a price in its note, and its character
+    // priced too.
+    QVERIFY(manager.SetTab(self, makeChaosBuyout(7.0)));
+    const auto in_guardian = makeItem(guardian, "~b/o 3 chaos");
+    QVERIFY(in_guardian->HasNotePrice());
+    const EffectivePrice price = manager.Effective(*in_guardian);
+    QCOMPARE(price.source, PriceSource::Unlistable);
+    QVERIFY(price.CannotBeListed());
+    QVERIFY(price.buyout.IsNull());
+    QVERIFY(!price.IsGameSet());
+    QVERIFY(!price.IsPostable());
+    QCOMPARE(manager.EffectiveTab(self).source, PriceSource::ManualTab);
+    QCOMPARE(manager.Get(*in_guardian).value, 5.0);
+
+    QVERIFY(manager.PostablePrices({in_guardian}).empty());
+    QVERIFY(manager.PostablePrices({in_stash, in_guardian}).empty());
+    QCOMPARE(manager.PostablePrices({in_stash}).size(), size_t(1));
+
+    // A selection of the guardian's item and an ordinary one, as the price
+    // editor resolves and applies it.
+    const auto ordinary = std::make_shared<Item>(makeTestItem("ordinary-418"));
+    LocationInventory locations;
+    locations.ResetTo({self, stash});
+    PriceTargets rows;
+    rows.rows.push_back(PriceTarget::ForItem(in_guardian));
+    rows.rows.push_back(PriceTarget::ForItem(ordinary));
+    const ResolvedTargets resolved = ResolvePriceTargets(rows, {in_guardian, ordinary}, locations);
+    QCOMPARE(resolved.missing, 0);
+    QCOMPARE(resolved.targets.items.size(), size_t(2));
+    const ApplyBuyoutResult result = ApplyBuyout(manager,
+                                                 f.items,
+                                                 resolved.targets,
+                                                 makeChaosBuyout(9.0));
+    QCOMPARE(result.unlistable, 1);
+    QCOMPARE(result.applied, 1);
+    QCOMPARE(result.locked, 0);
+    QVERIFY(ApplyBuyoutNotice(result, true).contains("cannot be listed"));
+    QCOMPARE(manager.Get(*in_guardian).value, 5.0);
+    QCOMPARE(manager.Get(*ordinary).value, 9.0);
+
+    const auto taken_out = makeItem(stash, "");
+    QCOMPARE(manager.Effective(*taken_out).source, PriceSource::ManualItem);
+    QCOMPARE(manager.Effective(*taken_out).buyout.value, 5.0);
+}
+
+namespace {
+
+    poe::Character realCharacter(const char *file)
+    {
+        QFile reply(QFINDTESTDATA(QString("fixtures/payloads/%1").arg(file)));
+        if (!reply.open(QIODevice::ReadOnly)) {
+            qFatal("missing payload %s", file);
+        }
+        const auto character = json::readCharacter(reply.readAll());
+        if (!character) {
+            qFatal("unreadable payload %s", file);
+        }
+        return *character;
+    }
+
+    std::set<QString> postableIds(const BuyoutManager &manager, const Items &items)
+    {
+        std::set<QString> ids;
+        for (const auto &[item, buyout] : manager.PostablePrices(items)) {
+            ids.insert(item->id());
+        }
+        return ids;
+    }
+
+} // namespace
+
+// #418, the rule kept on review: while any copy of an id cannot be listed,
+// no copy of it is posted. A part taken off the Wickerman, put in a stash
+// tab and priced there, with only that tab refreshed: the character's last
+// reply still has the part on the Wickerman, so the priced stash copy waits.
+// Refreshing the character, whose reply no longer has it, lets it be posted.
+// The part is a real one (character-1.json).
+void EffectivePriceTest::partTakenOffTheWickermanWaitsForTheCharacter()
+{
+    Fixture f;
+    BuyoutManager &manager = *f.buyouts.manager;
+    const poe::Character character = realCharacter("character-1.json");
+    QVERIFY(character.wickerman && !character.wickerman->empty());
+    const ItemLocation location(character);
+    const ItemLocation stash = makeTestStashLocation();
+
+    Items published;
+    AppendWireItems(character, location, published);
+    f.items.OnItemsRefreshed(published, {location, stash}, false);
+
+    Items in_stash;
+    AppendWireItems({character.wickerman->front()}, stash, in_stash);
+    const QString part = in_stash.front()->id();
+    f.items.OnTabRefreshed(stash, in_stash);
+    QVERIFY(manager.Set(*in_stash.front(), makeChaosBuyout(4.0)));
+    QCOMPARE(manager.Effective(*in_stash.front()).source, PriceSource::ManualItem);
+    QVERIFY(!postableIds(manager, f.items.items()).contains(part));
+
+    poe::Character fetched = character;
+    fetched.wickerman->erase(fetched.wickerman->begin());
+    Items replaced;
+    AppendWireItems(fetched, location, replaced);
+    f.items.OnTabRefreshed(location, replaced);
+    QVERIFY(postableIds(manager, f.items.items()).contains(part));
+}
+
+// #418: an item of a real reply (character-2.json's guardian) priced where
+// it can be listed, then in the guardian in the next reply, then outside it
+// again: no price in force while it is there, the stored price kept, and
+// in force again after.
+void EffectivePriceTest::priceFollowsAnItemOntoTheGuardianAndBack()
+{
+    Fixture f;
+    BuyoutManager &manager = *f.buyouts.manager;
+    const poe::Character on_guardian = realCharacter("character-2.json");
+    QVERIFY(on_guardian.guardian && !on_guardian.guardian->empty());
+    const ItemLocation location(on_guardian);
+    const poe::Item moving = on_guardian.guardian->front();
+
+    poe::Character off_guardian = on_guardian;
+    off_guardian.guardian->erase(off_guardian.guardian->begin());
+    off_guardian.inventory->push_back(moving);
+    off_guardian.inventory->back().inventoryId = "MainInventory";
+
+    const auto find = [&moving](const Items &items) {
+        const auto it = std::ranges::find_if(items, [&moving](const auto &item) {
+            return item->id() == moving.id;
+        });
+        if (it == items.end()) {
+            qFatal("the moving item is missing");
+        }
+        return *it;
+    };
+
+    Items first;
+    AppendWireItems(off_guardian, location, first);
+    QVERIFY(manager.Set(*find(first), makeChaosBuyout(6.0)));
+    QCOMPARE(manager.Effective(*find(first)).source, PriceSource::ManualItem);
+
+    Items second;
+    AppendWireItems(on_guardian, location, second);
+    QCOMPARE(manager.Effective(*find(second)).source, PriceSource::Unlistable);
+    QCOMPARE(manager.Get(*find(second)).value, 6.0);
+
+    Items third;
+    AppendWireItems(off_guardian, location, third);
+    QCOMPARE(manager.Effective(*find(third)).source, PriceSource::ManualItem);
+    QCOMPARE(manager.Effective(*find(third)).buyout.value, 6.0);
 }
 
 ACQ_TEST_MAIN(EffectivePriceTest)

@@ -5,6 +5,7 @@
 #include <QDateTime>
 #include <QDir>
 #include <QEventLoop>
+#include <QFile>
 #include <QSettings>
 
 #include <atomic>
@@ -58,6 +59,10 @@ private slots:
     void failedUpdateKeepsItemsIntact();
     void failedUpdateDoesNotLeakIntoTheNext();
     void partialUpdateDoesNotDuplicateCharacters();
+    // #418: a character whose only items are its guardian's or Wickerman's.
+    void containerOnlyCharacterKeepsItsItemsAcrossACharacterList_data();
+    void containerOnlyCharacterKeepsItsItemsAcrossACharacterList();
+    void refreshSelectedOnAGuardianItemFetchesTheCharacter();
     void renamedTabMetadataRefreshesWithoutFetch();
     void vanishedMapChildItemsAreRemovedOnParentRefresh();
     void failedUpdateDoesNotRebasePublishedLocations();
@@ -304,6 +309,33 @@ namespace {
         }
         json += "}";
         return json.toUtf8();
+    }
+
+    // A real reply's guardian (character-2.json) or Wickerman (character-1.json)
+    // on a character of this test's league with no items of its own.
+    poe::Character containerOnlyCharacter(const QString &id,
+                                          const QString &name,
+                                          const QString &file_name = "character-2.json")
+    {
+        QFile file(QFINDTESTDATA("fixtures/payloads/" + file_name));
+        if (!file.open(QIODevice::ReadOnly)) {
+            qFatal("test bug: %s is missing", qPrintable(file_name));
+        }
+        auto character = json::readCharacter(file.readAll());
+        if (!character
+            || ((!character->guardian || character->guardian->empty())
+                && (!character->wickerman || character->wickerman->empty()))) {
+            qFatal("test bug: %s has neither a guardian nor a Wickerman", qPrintable(file_name));
+        }
+        character->id = id;
+        character->name = name;
+        character->realm = kRealm;
+        character->league = kLeague;
+        character->equipment.reset();
+        character->inventory.reset();
+        character->rucksack.reset();
+        character->jewels.reset();
+        return *character;
     }
 
     poe::Character characterOf(const QByteArray &json)
@@ -1072,6 +1104,81 @@ void WorkerUpdateTest::partialUpdateDoesNotDuplicateCharacters()
                                       });
     QVERIFY(item_c2 != f.last_items.cend());
     QCOMPARE((*item_c2)->location().character(), QString("CharTwoRenamed"));
+}
+
+// #418: a character whose only items are its guardian's, or its
+// Wickerman's, keeps them from the cache load across a character list that
+// names it, when it is not in the selection.
+void WorkerUpdateTest::containerOnlyCharacterKeepsItsItemsAcrossACharacterList_data()
+{
+    QTest::addColumn<QString>("file");
+    QTest::newRow("guardian") << "character-2.json";
+    QTest::newRow("wickerman") << "character-1.json";
+}
+
+void WorkerUpdateTest::containerOnlyCharacterKeepsItsItemsAcrossACharacterList()
+{
+    QFETCH(QString, file);
+    WorkerFixture f("worker-update-account-418a");
+
+    const auto char_1 = json::readCharacter(
+        characterJson("charid0001", "CharOne", QStringList{"c1-item"}));
+    QVERIFY(char_1);
+    const poe::Character char_2 = containerOnlyCharacter("charid0002", "CharTwo", file);
+    const size_t guardian_items = (char_2.guardian ? char_2.guardian->size() : 0)
+                                  + (char_2.wickerman ? char_2.wickerman->size() : 0);
+    {
+        UserStore store(QDir(f.dataDir()), "worker-update-account-418a");
+        QVERIFY(store.characters().saveCharacterList({*char_1, char_2}));
+        QVERIFY(saveCharacterFixture(store.characters(), *char_1));
+        QVERIFY(saveCharacterFixture(store.characters(), char_2));
+    }
+
+    f.start();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+    QCOMPARE(f.last_items.size(), 1 + guardian_items);
+
+    f.worker->Update(TabSelection::Selected, {ItemLocation(*char_1)});
+    QVERIFY(f.hasPendingCharacterList());
+    f.deliverCharacterList(characterList(
+        {characterJson("charid0001", "CharOne"), characterJson("charid0002", "CharTwo")}));
+    QVERIFY(f.hasPendingCharacter("CharOne"));
+    f.deliverCharacter("CharOne",
+                       characterOf(characterJson("charid0001", "CharOne", QStringList{"c1-item"})));
+
+    QCOMPARE(f.refresh_count, 2);
+    QCOMPARE(f.last_items.size(), 1 + guardian_items);
+}
+
+// #418: Refresh Selected on a guardian's item refreshes its character, and
+// the reply replaces the guardian's items with the rest.
+void WorkerUpdateTest::refreshSelectedOnAGuardianItemFetchesTheCharacter()
+{
+    WorkerFixture f("worker-update-account-418b");
+
+    const poe::Character character = containerOnlyCharacter("charid0002", "CharTwo");
+    const size_t guardian_items = character.guardian->size();
+    {
+        UserStore store(QDir(f.dataDir()), "worker-update-account-418b");
+        QVERIFY(store.characters().saveCharacterList({character}));
+        QVERIFY(saveCharacterFixture(store.characters(), character));
+    }
+
+    f.start();
+    QTRY_COMPARE_WITH_TIMEOUT(f.refresh_count, 1, 10000);
+    QCOMPARE(f.last_items.size(), guardian_items);
+    const ItemLocation selected = f.last_items.front()->location();
+    QVERIFY(!selected.CanBeListed());
+
+    f.worker->Update(TabSelection::Selected, {selected});
+    QVERIFY(f.hasPendingCharacterList());
+    f.deliverCharacterList(characterList({characterJson("charid0002", "CharTwo")}));
+    QVERIFY(f.hasPendingCharacter("CharTwo"));
+    poe::Character fresh = character;
+    fresh.guardian->pop_back();
+    f.deliverCharacter("CharTwo", fresh);
+    QCOMPARE(f.refresh_count, 2);
+    QCOMPARE(f.last_items.size(), guardian_items - 1);
 }
 
 // Tab-list reconciliation gives every listed tab fresh metadata, even tabs

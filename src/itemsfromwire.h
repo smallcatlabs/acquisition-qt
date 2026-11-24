@@ -37,8 +37,11 @@ void AppendWireItems(const poe::StashTab &stash, const ItemLocation &base, Items
 using CharacterContainerVisitor = std::function<void(const char *name, size_t count)>;
 
 // Append a character's items from every container Acquisition ingests:
-// equipment, inventory, rucksack and jewels. This is the only place that list
-// is written down; `guardian` and `skills` are deliberately left out (F63).
+// equipment, inventory, rucksack and jewels, then guardian and wickerman, all
+// at the character's location; the last two marked as where they sit
+// (ItemLocation::Container), so they cannot be listed. This is the only place
+// that list is written down; `skills` (PoE2 only) is deliberately left out
+// (F63).
 void AppendWireItems(const poe::Character &character,
                      const ItemLocation &base,
                      Items &out,

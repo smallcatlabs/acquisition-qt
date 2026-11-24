@@ -139,9 +139,15 @@ ApplyBuyoutResult ApplyBuyout(BuyoutManager &buyouts,
         count(buyouts.SetTab(tab, buyout));
     }
     for (const Item *item : targets.items) {
+        const EffectivePrice effective = buyouts.Effective(*item);
+        if (effective.CannotBeListed()) {
+            spdlog::trace("ApplyBuyout: item {} cannot be listed", item->id());
+            ++result.unlistable;
+            continue;
+        }
         // Only the price in force decides: an item's own price wins over its
         // tab's name (T12, #365), and a note wins over both (T29).
-        if (buyouts.Effective(*item).IsGameSet()) {
+        if (effective.IsGameSet()) {
             spdlog::trace("ApplyBuyout: item {} is priced in the game", item->id());
             ++result.locked;
             continue;
@@ -176,6 +182,11 @@ QString ApplyBuyoutNotice(const ApplyBuyoutResult &result, bool buyouts_loaded)
         parts.append(tr("%1 row(s) are priced in the game and were not changed; change their "
                         "price in the game.")
                          .arg(result.locked));
+    }
+    if (result.unlistable > 0) {
+        parts.append(tr("%1 item(s) on a guardian or the Wickerman cannot be listed for sale "
+                        "there and were not changed.")
+                         .arg(result.unlistable));
     }
     if (parts.isEmpty()) {
         return QString();
