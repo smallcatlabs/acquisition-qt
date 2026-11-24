@@ -48,7 +48,9 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       # Fails on a tag that is not v<version>, or on a -dev version, before
-      # anything is built.
+      # anything is built. The release job checks the packages are named for
+      # this version; the installer takes its name from the configured header,
+      # so that also checks this script agrees with CMake.
       - name: Read and check the version
         id: version
         run: .github/scripts/version.sh
@@ -89,19 +91,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check the builds agree
-        env:
-          LINUX: ${{ needs.linux.outputs.version }}
-          MACOS: ${{ needs.macos.outputs.version }}
-          WINDOWS: ${{ needs.windows.outputs.version }}
-        run: |
-          for built in "$LINUX" "$MACOS" "$WINDOWS"; do
-            if [ "$built" != "$VERSION" ]; then
-              echo "::error::A build reports version '$built', expected '$VERSION'"
-              exit 1
-            fi
-          done
-
       - name: Download artifacts
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -111,10 +100,14 @@ jobs:
       - name: Collect release files
         run: .github/scripts/collect-release-files.sh dist "$VERSION" > release-files.txt && cat release-files.txt
 
-      # Before the draft, so that re-running this job after a failed draft
-      # step only repeats the Sentry calls, which accept an existing release.
+      # Cannot block the draft: a missing Sentry release costs release health
+      # and suspect commits, not symbolication (the builds uploaded the
+      # symbols). Re-running the job repeats these calls safely: Sentry
+      # answers 208 for a release that exists and sentry-cli takes that as
+      # success.
       - name: Create Sentry release
         if: vars.SENTRY_ORG != ''
+        continue-on-error: true
         env:
           SENTRY_ORG: ${{ vars.SENTRY_ORG }}
           SENTRY_PROJECT: acquisition
@@ -155,3 +148,17 @@ jobs:
           fi
           mapfile -t files < release-files.txt
           gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" "${flags[@]}" "${files[@]}"
+
+  # A run started by hand creates nothing, and inputs cannot be changed on
+  # re-run, so say so where it will be seen.
+  dry-run:
+    name: No release (dry run)
+    needs: [linux, macos, windows]
+    if: github.event_name == 'workflow_dispatch' && (inputs.dry_run || github.ref_type != 'tag')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say no draft was created
+        run: |
+          msg="No draft release was created: this run was started by hand with dry_run on, or not on a tag. To release, start Release again on the tag with dry_run off (RELEASE.md)."
+          echo "::notice::$msg"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"

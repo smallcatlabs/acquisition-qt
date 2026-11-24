@@ -9,10 +9,6 @@ on:
         description: 'github or laptop, as for workflow_dispatch below.'
         type: string
         default: github
-    outputs:
-      version:
-        description: 'The version this build calls itself.'
-        value: ${{ jobs.build-macos-dmg.outputs.version }}
   workflow_dispatch:
     inputs:
       runner:
@@ -32,8 +28,6 @@ jobs:
     # this one job (BUILD.md, "Platform Notes"). That VM has Qt 6.11.3
     # installed and sets QT_ROOT_DIR, so Setup Qt is skipped there.
     runs-on: ${{ inputs.runner == 'laptop' && fromJSON('["self-hosted","macOS","ARM64","smallcat-macos"]') || 'macos-latest' }}
-    outputs:
-      version: ${{ steps.version.outputs.version }}
 
     steps:
     - name: Checkout code
