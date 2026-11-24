@@ -1,0 +1,164 @@
+name: Release
+
+# The one workflow a version tag starts for a release (RELEASE.md). It checks
+# the tag against the version in CMakeLists.txt, builds the three platforms by
+# calling build-{linux,macos,windows}.yml, and only when all three have
+# succeeded creates the Sentry release and one draft GitHub release with the
+# three packages attached. The maintainer publishes the draft by hand.
+#
+# Started by hand it is a dry run by default: it checks the version, builds,
+# and stops before the release job. With dry_run off on a tag it is the whole
+# release, which is how the macOS build is sent to the maintainer's Mac.
+#
+# CodeQL (codeql.yml) and the sanitizers (sanitizers.yml) run on the same tags
+# from their own workflows; nothing here waits for them.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build only; never create a release. Off has an effect only on a tag.'
+        type: boolean
+        default: true
+      macos_runner:
+        description: 'github: a GitHub-hosted Mac. laptop: the maintainer''s one-job VM (label smallcat-macos), started by hand.'
+        type: choice
+        options: [github, laptop]
+        default: github
+
+permissions:
+  contents: read
+
+# One run per ref; a release run in progress is allowed to finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    name: Check version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      # Fails on a tag that is not v<version>, or on a -dev version, before
+      # anything is built. The release job checks the packages are named for
+      # this version; the installer takes its name from the configured header,
+      # so that also checks this script agrees with CMake.
+      - name: Read and check the version
+        id: version
+        run: .github/scripts/version.sh
+
+  linux:
+    name: Linux
+    needs: version
+    uses: ./.github/workflows/build-linux.yml
+    secrets: inherit
+
+  macos:
+    name: macOS
+    needs: version
+    uses: ./.github/workflows/build-macos.yml
+    with:
+      # Empty on a tag push, so a tag push always builds on a GitHub-hosted Mac.
+      runner: ${{ inputs.macos_runner || 'github' }}
+    secrets: inherit
+
+  windows:
+    name: Windows
+    needs: version
+    uses: ./.github/workflows/build-windows.yml
+    secrets: inherit
+
+  release:
+    name: Create draft release
+    needs: [version, linux, macos, windows]
+    if: github.ref_type == 'tag' && !inputs.dry_run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Collect release files
+        run: .github/scripts/collect-release-files.sh dist "$VERSION" > release-files.txt && cat release-files.txt
+
+      # Cannot block the draft: a missing Sentry release costs release health
+      # and suspect commits, not symbolication (the builds uploaded the
+      # symbols). Re-running the job repeats these calls safely: Sentry
+      # answers 208 for a release that exists and sentry-cli takes that as
+      # success.
+      - name: Create Sentry release
+        if: vars.SENTRY_ORG != ''
+        continue-on-error: true
+        env:
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: acquisition
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SENTRY_AUTH_TOKEN}" ]; then
+            echo "SENTRY_AUTH_TOKEN is not set; skipping Sentry release."
+            exit 0
+          fi
+
+          # Must match SENTRY_RELEASE in src/main.cpp: APP_NAME "@" APP_VERSION_STRING.
+          release="acquisition@${VERSION}"
+
+          # Same pinned release and checksum as .github/actions/sentry-symbols.
+          cli="${RUNNER_TEMP}/sentry-cli-Linux-x86_64"
+          curl -sSfL --retry 3 -o "${cli}" \
+            "https://github.com/getsentry/sentry-cli/releases/download/3.6.2/sentry-cli-Linux-x86_64"
+          echo "3a4bbf2c0d06378d4e59b337647483751a0a2b1603db5fd4991847d0cfd6478c  ${cli}" | sha256sum -c -
+          chmod +x "${cli}"
+
+          "${cli}" releases new "${release}"
+          # Suspect commits need the Sentry GitHub integration; don't fail the
+          # release if it isn't configured.
+          "${cli}" releases set-commits "${release}" --auto \
+            || echo "::warning::Could not associate commits (is the Sentry GitHub integration set up?)"
+          "${cli}" releases finalize "${release}"
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ needs.version.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          flags=(--draft --generate-notes --verify-tag --title "$GITHUB_REF_NAME")
+          if [ "$PRERELEASE" = "true" ]; then
+            flags+=(--prerelease)
+          fi
+          mapfile -t files < release-files.txt
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" "${flags[@]}" "${files[@]}"
+
+  # A run started by hand creates nothing, and inputs cannot be changed on
+  # re-run, so say so where it will be seen.
+  dry-run:
+    name: No release (dry run)
+    needs: [linux, macos, windows]
+    if: github.event_name == 'workflow_dispatch' && (inputs.dry_run || github.ref_type != 'tag')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Say no draft was created
+        run: |
+          msg="No draft release was created: this run was started by hand with dry_run on, or not on a tag. To release, start Release again on the tag with dry_run off (RELEASE.md)."
+          echo "::notice::$msg"
+          echo "$msg" >> "$GITHUB_STEP_SUMMARY"

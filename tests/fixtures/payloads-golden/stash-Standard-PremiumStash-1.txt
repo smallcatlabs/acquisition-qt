@@ -323,6 +323,8 @@ properties:
   Minor Afflictions = Unquenched Thirst
   Minor Boons = Gold Mine
   Resolve: {0}/{1} = 225 (number 225)
+mod table:
+  Gain # Resolve when you kill a Boss = 18
 tooltip:
   <center><font color='#fff'>Sanctum Vaults Research</font><hr>
   Area Level: <font color='#fff'>83</font><br>

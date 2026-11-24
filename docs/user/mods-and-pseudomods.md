@@ -26,12 +26,41 @@ implicit and an explicit), its values add up: `+30 to maximum Life` and
 `+80 to maximum Life` make `+# to maximum Life` 110. Use the `… total …`
 pseudomods below when you need different mods added together.
 
+The game marks some words in its texts with square brackets, such as
+`[Onslaught]`. Acquisition shows the word without them, in the tooltip and in
+the drop-down alike: the line `You gain [Onslaught] for 4 seconds on Kill` is
+shown and searched as `You gain Onslaught for # seconds on Kill`.
+
 Some mod names keep a number that is part of the mod's own text, such as
 `#% chance to Trigger Level 20 Animate Weapon on Kill`; such a row matches
 only lines with that same number. A line with two numbers, such as
 `Adds 10 to 21 Fire Damage`, has their average as its value (15.5). A
 negative roll keeps its sign: `-22% to Lightning Resistance` is
 `+#% to Lightning Resistance` with the value -22.
+
+### Lines the game data has no name for
+
+The names in the drop-down come from the game data Acquisition downloads.
+Some lines on your items fit none of them: a line that names a passive
+(`Allocates Watchtowers`), the wording a mod had in an older league, a mod
+from game data Acquisition does not load. Such a line is still searched,
+under its own text with each number written `#`:
+
+| Line on the item | Name to search for | Value |
+|---|---|---|
+| `Allocates Watchtowers` | `Allocates Watchtowers` | 0 |
+| `Added Small Passive Skills grant: 12% increased Totem Damage` | `Added Small Passive Skills grant: #% increased Totem Damage` | 12 |
+| `Players have -9% to all maximum Resistances` | `Players have -#% to all maximum Resistances` | 9 |
+
+The drop-down offers these names too, for the items Acquisition has loaded:
+once your tabs are loaded, typing `allocates` shows every `Allocates …` line
+on your items beside the game data's own names. A name stays in the list
+until you restart Acquisition, even if the item that had it is gone. A plus or minus sign before a number stays part of
+the name, and two numbers give their average, as above.
+
+This does not apply to gems, currency items and divination cards. Their
+lines describe the item; they are shown in the tooltip and cannot be
+searched unless the drop-down has a name for them.
 
 Lines the game marks as desecrated are shown and searched like any other
 line. Lines the game marks as vestigial are shown in the item's
