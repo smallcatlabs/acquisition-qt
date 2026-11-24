@@ -8,6 +8,7 @@
 #include <QLabel>
 #include <QSettings>
 #include <QSqlDatabase>
+#include <QSqlError>
 #include <QSqlQuery>
 #include <QtTest/QtTest>
 
@@ -34,6 +35,12 @@ private slots:
     void historyOfExistingCurrenciesIsUnchanged();
     void legacyRatioListSkipsNoCurrency();
     void savedRatiosFromBeforeTheTableLoad();
+
+    // #295: a failed read of the stored currency is not an empty store.
+    void failedReadLeavesTheStoredCurrencyAlone();
+    void failedReadOfTheOldListWritesNothing();
+    void failedReadRecordsNoHistory();
+    void failedReadOfTheLastValueRecordsNoDuplicate();
 };
 
 namespace {
@@ -50,6 +57,37 @@ namespace {
         BuyoutManagerFixture buyouts;
         QSettings settings;
         ItemsManager items;
+    };
+
+    // The fixture's real store, except that a read of one key fails: one
+    // table holds every key, so the real store can only fail them together.
+    class OneKeyFails : public DataStore
+    {
+    public:
+        OneKeyFails(DataStore &store, const QString &key)
+            : m_store(store)
+            , m_key(key)
+        {}
+        bool Set(const QString &key, const QString &value) override
+        {
+            return m_store.Set(key, value);
+        }
+        ReadResult Read(const QString &key) override
+        {
+            if (key == m_key) {
+                return std::unexpected(QString("test: the read of %1 fails").arg(key));
+            }
+            return m_store.Read(key);
+        }
+        bool InsertCurrencyUpdate(const CurrencyUpdate &update) override
+        {
+            return m_store.InsertCurrencyUpdate(update);
+        }
+        std::vector<CurrencyUpdate> GetAllCurrency() override { return m_store.GetAllCurrency(); }
+
+    private:
+        DataStore &m_store;
+        QString m_key;
     };
 
     // A stack of currency as the stash API sends it: the count is in the
@@ -344,6 +382,113 @@ void CurrencyManagerTest::savedRatiosFromBeforeTheTableLoad()
         QCOMPARE(row->chaos.value1, alt ? 12.5 : 1.0);
         QCOMPARE(row->exalt.value1, divine ? 0.8 : 1.0);
     }
+}
+
+// #295: a read of the stored currency that fails is not taken for an empty
+// store. Before, the manager set up the defaults and its destructor saved
+// them over the user's ratios.
+void CurrencyManagerTest::failedReadLeavesTheStoredCurrencyAlone()
+{
+    CurrencyFixture fixture;
+    DataStore &store = *fixture.buyouts.data;
+    {
+        // The user's ratios, saved when an earlier session ends.
+        CurrencyManager earlier(fixture.settings, store, fixture.items);
+        earlier.currencies().at(0)->exalt.value1 = 12.5;
+    }
+    const QString stored = store.Get("currency_items");
+    QVERIFY(stored.contains("12.5"));
+
+    // A second connection hides the table, so reading the store fails.
+    const QString connection = "currency-295";
+    const auto rename = [&](const char *from, const char *to) {
+        QSqlDatabase db = QSqlDatabase::database(connection);
+        QSqlQuery q(db);
+        QVERIFY2(q.exec(QString("ALTER TABLE %1 RENAME TO %2").arg(from, to)),
+                 qPrintable(q.lastError().text()));
+    };
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connection);
+        db.setDatabaseName(fixture.buyouts.tempDir.filePath("acquisition.sqlite"));
+        QVERIFY(db.open());
+    }
+    rename("data", "data_hidden");
+    {
+        CurrencyManager currency(fixture.settings, store, fixture.items);
+        // The table is back before the manager is destroyed, so a write
+        // there would succeed.
+        rename("data_hidden", "data");
+    }
+    QSqlDatabase::database(connection).close();
+    QSqlDatabase::removeDatabase(connection);
+
+    QCOMPARE(store.Get("currency_items"), stored);
+}
+
+// #295: on a first run (no currency_items), a failed read of the list from
+// before the JSON format is not taken for no list: nothing is written, so
+// the old list is still there to migrate next time.
+void CurrencyManagerTest::failedReadOfTheOldListWritesNothing()
+{
+    CurrencyFixture fixture;
+    DataStore &real = *fixture.buyouts.data;
+    QVERIFY(real.Set("currency_base", "0;5;7"));
+    OneKeyFails store(real, "currency_base");
+    {
+        CurrencyManager currency(fixture.settings, store, fixture.items);
+    }
+    QCOMPARE(real.Read("currency_items"), DataStore::ReadResult(std::nullopt));
+    QCOMPARE(real.Get("currency_base"), QString("0;5;7"));
+}
+
+// #295: after a failed read no history row is written either: its total
+// would be computed from the default ratios.
+void CurrencyManagerTest::failedReadRecordsNoHistory()
+{
+    CurrencyFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-295h", "Currency", 0);
+    fixture.items.OnItemsRefreshed({makeStack("chaos-295h", "Chaos Orb", 3, 20, tab)}, {tab}, false);
+    QVERIFY(fixture.buyouts.data->Set("currency_items", "[]"));
+    OneKeyFails store(*fixture.buyouts.data, "currency_items");
+    {
+        CurrencyManager currency(fixture.settings, store, fixture.items);
+        currency.Update();
+    }
+    QVERIFY(fixture.buyouts.data->GetAllCurrency().empty());
+    QCOMPARE(fixture.buyouts.data->Get("currency_items"), QString("[]"));
+}
+
+// #295: when the last recorded value cannot be read, the update is not taken
+// for a change from nothing: no row is recorded that may repeat the last.
+void CurrencyManagerTest::failedReadOfTheLastValueRecordsNoDuplicate()
+{
+    CurrencyFixture fixture;
+    const ItemLocation tab = makeTestStashLocation("stash-295l", "Currency", 0);
+    fixture.items.OnItemsRefreshed({makeStack("chaos-295l", "Chaos Orb", 3, 20, tab)}, {tab}, false);
+    {
+        CurrencyManager currency(fixture.settings, *fixture.buyouts.data, fixture.items);
+        currency.Update();
+    }
+    QCOMPARE(fixture.buyouts.data->GetAllCurrency().size(), size_t(1));
+    // Rows are keyed by the second (#285): move the first one back, so a
+    // repeat within this second is a second row, not a replacement.
+    const QString connection = "currency-295l";
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connection);
+        db.setDatabaseName(fixture.buyouts.tempDir.filePath("acquisition.sqlite"));
+        QVERIFY(db.open());
+        QSqlQuery q(db);
+        QVERIFY(q.exec("UPDATE currency SET timestamp = 1"));
+        db.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+
+    OneKeyFails store(*fixture.buyouts.data, "currency_last_value");
+    {
+        CurrencyManager currency(fixture.settings, store, fixture.items);
+        currency.Update();
+    }
+    QCOMPARE(fixture.buyouts.data->GetAllCurrency().size(), size_t(1));
 }
 
 ACQ_TEST_MAIN(CurrencyManagerTest)

@@ -5,6 +5,8 @@
 
 #include <QString>
 
+#include <expected>
+#include <optional>
 #include <vector>
 
 // For now we just serialize/deserialize 'value' inside CurrencyManager
@@ -18,9 +20,19 @@ struct CurrencyUpdate
 class DataStore
 {
 public:
+    // A stored value, nothing when the key holds none, or why the read
+    // failed.
+    using ReadResult = std::expected<std::optional<QString>, QString>;
+
     virtual ~DataStore() {};
-    virtual void Set(const QString &key, const QString &value) = 0;
-    virtual QString Get(const QString &key, const QString &default_value = "") = 0;
+    // False when the value was not written.
+    virtual bool Set(const QString &key, const QString &value) = 0;
+    // A failed read is not an empty store (#295): a caller that writes back
+    // what it read must not write after one.
+    virtual ReadResult Read(const QString &key) = 0;
+    // The stored value, or `default_value` when there is none OR the read
+    // failed. Only for a caller that never writes back what it read.
+    QString Get(const QString &key, const QString &default_value = "");
     // False when the update was not written.
     virtual bool InsertCurrencyUpdate(const CurrencyUpdate &update) = 0;
     virtual std::vector<CurrencyUpdate> GetAllCurrency() = 0;

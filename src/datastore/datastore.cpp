@@ -3,6 +3,12 @@
 
 #include "datastore/datastore.h"
 
+QString DataStore::Get(const QString &key, const QString &default_value)
+{
+    const auto value = Read(key);
+    return (value && value->has_value()) ? **value : default_value;
+}
+
 void DataStore::SetInt(const QString &key, int value)
 {
     Set(key, QString::number(value));
