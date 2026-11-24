@@ -164,6 +164,79 @@ jobs:
       run: |
         & ISCC.exe /DBUILD_DIR="build" /DDEPLOY_DIR="build\deploy" "installer.iss"
 
+    - name: Check the installer over a stale install
+      run: |
+        # Setup must leave nothing behind from an older package. A TLS plugin
+        # that Qt finds but cannot load stops it loading the schannel plugin,
+        # and start-up then reports "SSL support is missing" (#440). The
+        # package check above cannot see this: it runs in a fresh folder.
+        $deploy = Resolve-Path "build\deploy"
+        Remove-Item Env:QT_PLUGIN_PATH -ErrorAction SilentlyContinue
+        $env:PATH = ($env:PATH -split ';' |
+          Where-Object { $_ -and -not $_.StartsWith($env:QT_ROOT_DIR) }) -join ';'
+        $data = Join-Path $env:RUNNER_TEMP "stale-check-data"
+        $stale = Join-Path $env:RUNNER_TEMP "stale-install"
+        Copy-Item $deploy $stale -Recurse
+
+        # The stale plugin: the schannel plugin under the name of the OpenSSL
+        # one that older packages shipped, with its import of Qt6Network.dll
+        # broken. Qt reads its metadata, so it tries to load it, and fails.
+        $bytes = [IO.File]::ReadAllBytes("$stale\tls\qschannelbackend.dll")
+        $text = [Text.Encoding]::GetEncoding(28591).GetString($bytes)
+        $at = $text.IndexOf('Qt6Network.dll')
+        if ($at -lt 0) {
+          throw "qschannelbackend.dll does not import Qt6Network.dll by that name"
+        }
+        $bytes[$at + 6] = [byte][char]'_'
+        [IO.File]::WriteAllBytes("$stale\tls\qopensslbackend.dll", $bytes)
+        # Files of the other kinds older packages left behind.
+        Copy-Item "$stale\Qt6Core.dll" "$stale\Qt6Stale.dll"
+        New-Item -ItemType Directory "$stale\bearer" | Out-Null
+        Copy-Item "$stale\Qt6Core.dll" "$stale\bearer\qgenericbearer.dll"
+        # And one that is not the application's, which Setup must leave alone.
+        Set-Content "$stale\not-ours.txt" "kept"
+
+        function Invoke-TlsCheck {
+          $out = Join-Path $env:RUNNER_TEMP "stale-check-out.txt"
+          $err = Join-Path $env:RUNNER_TEMP "stale-check-err.txt"
+          $p = Start-Process -FilePath "$stale\acquisition.exe" `
+            -ArgumentList '--check-tls', '--data-dir', "`"$data`"" `
+            -NoNewWindow -Wait -PassThru `
+            -RedirectStandardOutput $out -RedirectStandardError $err
+          Get-Content $out, $err | Out-Host
+          return $p.ExitCode
+        }
+
+        # Control: the stale plugin must break TLS before Setup runs, or a
+        # pass afterwards proves nothing.
+        $code = Invoke-TlsCheck
+        if ($code -eq 0) {
+          throw "The stale TLS plugin did not break the TLS check; this step would not catch a leftover plugin"
+        }
+
+        $setup = Get-ChildItem "Output\*_setup_*.exe" | Select-Object -First 1
+        $log = Join-Path $env:RUNNER_TEMP "stale-install-setup.log"
+        $p = Start-Process -FilePath $setup.FullName -Wait -PassThru -ArgumentList `
+          '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CURRENTUSER', `
+          "/DIR=`"$stale`"", "/LOG=`"$log`""
+        if ($p.ExitCode -ne 0) {
+          Get-Content $log | Out-Host
+          throw "Setup failed over the stale install (exit $($p.ExitCode))"
+        }
+
+        $code = Invoke-TlsCheck
+        if ($code -ne 0) {
+          throw "After installing over a stale install the application has no TLS backend that supports SSL (exit $code)"
+        }
+        foreach ($left in 'tls\qopensslbackend.dll', 'Qt6Stale.dll', 'bearer') {
+          if (Test-Path "$stale\$left") {
+            throw "Setup left $left behind"
+          }
+        }
+        if (-not (Test-Path "$stale\not-ours.txt")) {
+          throw "Setup removed a file that is not the application's"
+        }
+
     - name: Name the pdb for distribution
       run: |
         # Every release shipped its symbols as a plain 'acquisition.pdb', so two
