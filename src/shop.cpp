@@ -337,7 +337,7 @@ void Shop::SetThread(const QStringList &threads)
     spdlog::debug("Shop: setting {} thread(s) to {}", threads.size(), threads.join(";"));
     m_threads = threads;
     m_datastore.Set("shop", threads.join(";"));
-    ExpireShopData();
+    DropWaitingCapture();
     m_datastore.Set("shop_hash", "");
 }
 
@@ -364,7 +364,7 @@ void Shop::SetShopTemplate(const QString &shop_template)
     spdlog::debug("Shop: setting template to {}", shop_template);
     m_shop_template = shop_template;
     m_datastore.Set("shop_template", shop_template);
-    ExpireShopData();
+    DropWaitingCapture();
 }
 
 void Shop::OnRefreshFinished(const RefreshOutcome &outcome)
@@ -538,9 +538,8 @@ void Shop::OnStashIndexReceived(
     OnStashIndexUpdated();
 }
 
-void Shop::ExpireShopData()
+void Shop::DropWaitingCapture()
 {
-    spdlog::trace("Shop: expiring shop data");
     // An output-affecting local edit drops the waiting automatic capture
     // (R6-4): draining a pre-edit capture after the user's edit would post
     // data older than their intent while telling them the shop updated. The
