@@ -198,8 +198,9 @@ by the application's own walk and writes out what they become: each item's
 fields, mod table, tooltip and Path of Building text, and the forum shop that
 lists the items. It compares that with the file of the same name in
 `tests/fixtures/payloads-golden`; `census.txt` there counts the items without
-a category, the mod lines that reach no mod name and the property values
-that are not one number, and lists them.
+a category, the mod lines that reach no mod name, the mod lines filed under
+their own text because the game data has no name for them, and the property
+values that are not one number, and lists them.
 
 A failure prints the lines that differ. If the change is intended, rewrite
 the files and review the difference like any other change:

@@ -10,6 +10,7 @@
 
 #include "buyoutmanager.h"
 #include "item.h"
+#include "modlist.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "util/util.h"
 
@@ -84,6 +85,9 @@ void ItemsManager::OnItemsRefreshed(const Items &items,
 {
     spdlog::trace("ItemsManager::OnItemsRefreshed() entered");
     m_items.ResetTo(items);
+    // The Mods filter offers the names these items' lines are filed under
+    // where the game data has none (#429).
+    AddOwnTextModNames(items);
 
     spdlog::debug("There are {} items and {} tabs after the refresh.", m_items.size(), tabs.size());
     // Debug-only diagnostic, gated so release users never pay a
@@ -139,6 +143,7 @@ void ItemsManager::OnTabRefreshed(const ItemLocation &location, const Items &ite
     m_location_inventory.Ingest(location);
 
     ApplyScopedPricing(items);
+    AddOwnTextModNames(items);
 
     emit TabRefreshed(location, items);
 }

@@ -88,6 +88,8 @@ namespace {
             return result;
         }
 
+        bool contains(const QString &name) const { return m_names.contains(name); }
+
         std::optional<Match> match(const QString &line, const QString &generic_line) const
         {
             if (m_names.contains(generic_line)) {
@@ -313,6 +315,36 @@ void AddStatTranslations(const QByteArray &statTranslations)
     }
 }
 
+bool IsModName(const QString &name)
+{
+    return catalogue && catalogue->contains(name);
+}
+
+void AddOwnTextModNames(const std::vector<std::shared_ptr<Item>> &items)
+{
+    const auto before = [](const QString &a, const QString &b) {
+        return a.compare(b, Qt::CaseInsensitive) < 0;
+    };
+    for (const auto &item : items) {
+        for (const QString &name : item->own_text_mods()) {
+            int row = 0;
+            {
+                // The list is in this order (InitModList); names that
+                // differ only in case sit together. The copy shares the
+                // model's list, so it is gone before the model changes.
+                const QStringList list = m_mod_list_model.stringList();
+                const auto [first, last] = std::equal_range(list.begin(), list.end(), name, before);
+                if (std::find(first, last, name) != last) {
+                    continue;
+                }
+                row = static_cast<int>(first - list.begin());
+            }
+            m_mod_list_model.insertRows(row, 1);
+            m_mod_list_model.setData(m_mod_list_model.index(row), name);
+        }
+    }
+}
+
 void InitModList()
 {
     spdlog::trace("InitModList() entered");
@@ -333,7 +365,7 @@ void InitModList()
     m_mod_list_model.setStringList(mod_list);
 }
 
-void AddModToTable(const QString &raw_mod, ModTable &output)
+void AddModToTable(const QString &raw_mod, ModTable &output, UnnamedLine unnamed)
 {
     const QString generic_mod = ModCatalogue::generic(raw_mod);
     const auto match = catalogue ? catalogue->match(raw_mod, generic_mod) : std::nullopt;
@@ -342,6 +374,22 @@ void AddModToTable(const QString &raw_mod, ModTable &output)
         // The same mod can appear in several sections (implicit and explicit,
         // say); the item's value is the sum of its lines (#262).
         output[match->name] += match->value;
+    } else if ((unnamed == UnnamedLine::FiledUnderItsText) && !raw_mod.trimmed().isEmpty()) {
+        // The game data did not foresee this line; the item still has it
+        // (#429). A sign is left in the text, as the game data leaves it
+        // where it writes one ("-# to ..."). A line without text has no
+        // name to be filed under.
+        static const QRegularExpression number(R"([0-9]+(?:\.[0-9]+)?)");
+        double sum = 0.0;
+        int count = 0;
+        auto numbers = number.globalMatchView(raw_mod);
+        while (numbers.hasNext()) {
+            sum += numbers.next().capturedView(0).toDouble();
+            ++count;
+        }
+        QString own_text = raw_mod;
+        own_text.replace(number, "#");
+        output[own_text] += (count > 0) ? sum / count : 0.0;
     }
 
     // Pseudo-mods sum the mods they name. A line that matched no template
