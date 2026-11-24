@@ -29,6 +29,7 @@
 #include "shop.h"
 #include "ui/logindialog.h"
 #include "ui/mainwindow_bridge.h"
+#include "ui/updateprompt.h"
 #include "util/databackup.h"
 #include "util/fatalerror.h"
 #include "util/networkmanager.h"
@@ -54,10 +55,9 @@ void Application::InitCoreServices(std::unique_ptr<NetworkManager> network_manag
     m_core = std::make_unique<Application::CoreServices>(m_data_dir, std::move(network_manager));
 
     // Connect to the update signal in case an update is detected before the main window is open.
-    connect(&update_checker(),
-            &UpdateChecker::UpdateAvailable,
-            &update_checker(),
-            &UpdateChecker::AskUserToUpdate);
+    connect(&update_checker(), &UpdateChecker::UpdateAvailable, &update_checker(), [this] {
+        AskUserToUpdate(update_checker());
+    });
 
     // Connect signals from the login dialog.
     connect(&login(), &LoginDialog::ChangeTheme, this, &Application::SetTheme);
@@ -120,10 +120,7 @@ void Application::InitUserSession(const SessionIdentity &identity)
     connect(worker, &ItemsManagerWorker::RefreshFinished, item_mgr, &ItemsManager::RefreshFinished);
     connect(item_mgr, &ItemsManager::ItemsRefreshed, this, &Application::OnItemsRefreshed);
     // Automatic forum submission rides the terminal event (M2 D8/R1-1):
-    // the shop's slot gates on a clean CompletedRefresh. Connected after
-    // the ItemsRefreshed chain above so ExpireShopData has already run when
-    // the gate evaluates (the worker emits ItemsRefreshed before
-    // RefreshFinished, so this holds by emission order regardless).
+    // the shop's slot gates on a clean CompletedRefresh.
     connect(item_mgr, &ItemsManager::RefreshFinished, &shop(), &Shop::OnRefreshFinished);
     connect(&shop(), &Shop::PoeSessionRejected, this, &Application::ClearSessionId);
 
@@ -434,9 +431,6 @@ void Application::OnItemsRefreshed(bool initial_refresh)
     spdlog::trace("Application::OnItemsRefreshed() initial_refresh = {}", initial_refresh);
     Q_UNUSED(initial_refresh);
     currency_manager().Update();
-    // Snapshot-boundary expiry (M2 D8/R5-6): dirties the preview cache but
-    // keeps any waiting clean automatic capture — only local edits drop it.
-    shop().OnPublishedSnapshot();
     // Automatic forum submission moved to the typed terminal event (M2
     // D8/R1-1): Shop::OnRefreshFinished gates it on a CLEAN CompletedRefresh,
     // which the initial cached load never emits (it is not an update).

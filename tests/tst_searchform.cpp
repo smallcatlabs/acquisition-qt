@@ -21,6 +21,7 @@
 #include <memory>
 #include <optional>
 
+#include "item.h"
 #include "itemcategories.h"
 #include "modlist.h"
 #include "search.h"
@@ -45,6 +46,7 @@ private slots:
     void modsFormAdapterRoundTrip();
     void modsFormAdapterFreeTextPersistsAndRestoresIndex();
     void modsFormAdapterBlankTextChoosesNoMod();
+    void modsRowKeepsWhatItHoldsWhenNamesJoinTheList();
     void numberFieldsRejectTextThatIsNotANumber();
     void modsFormAdapterDoesNotArmCompleterOnProgrammaticRows();
     void modsNameListIsAsWideAsItsLongestName();
@@ -693,6 +695,80 @@ void SearchFormTest::modsFormAdapterFreeTextPersistsAndRestoresIndex()
 
     modCombo->setCurrentIndex(firstModIndex);
     QCOMPARE(std::get<ModsState>(searchA.filterStateAt(modsIndex)).rows.front().mod, "First mod");
+}
+
+// A rare item with one enchant line, as the game sends it.
+static std::shared_ptr<Item> makeItemWithEnchant(const QString &id, const QString &line)
+{
+    const QByteArray json = QString(R"json({
+        "baseType": "Leather Belt",
+        "frameType": 2,
+        "h": 1,
+        "icon": "https://web.poecdn.com/image/test.png",
+        "id": "%1",
+        "identified": true,
+        "ilvl": 84,
+        "name": "Test Item",
+        "typeLine": "Leather Belt",
+        "verified": false,
+        "w": 2,
+        "x": 0,
+        "y": 0,
+        "enchantMods": ["%2"]
+    })json")
+                                .arg(id, line)
+                                .toUtf8();
+    return std::make_shared<Item>(makeTestItem(json.constData(), makeTestStashLocation()));
+}
+
+// #429: the own-text names of loaded items join the list while mod rows are
+// in use, and both names here sort ahead of what the list holds. A row keeps
+// what it holds, typed or chosen, and the search keeps its mod; the new
+// names can be chosen. No game data is loaded, so each line is its own name.
+void SearchFormTest::modsRowKeepsWhatItHoldsWhenNamesJoinTheList()
+{
+    InitStatTranslations();
+    InitModList();
+    mod_list_model().setStringList({"First mod", "Saved mod"});
+    SearchHarness harness;
+    const qsizetype modsIndex = findModsFilterIndex(harness.catalog);
+    QVERIFY(modsIndex >= 0);
+
+    Search search(*harness.buyoutFixture.manager, "A", harness.catalog);
+    harness.form.saveTo(search);
+    const auto heldMod = [&] {
+        return std::get<ModsState>(search.filterStateAt(modsIndex)).rows.front().mod;
+    };
+
+    auto *addButton = harness.host.findChild<QPushButton *>("modsAddButton");
+    QVERIFY(addButton);
+    addButton->click();
+    auto *modCombo = harness.host.findChild<QComboBox *>("modsRowCombo");
+    QVERIFY(modCombo);
+    auto *lineEdit = modCombo->lineEdit();
+    QVERIFY(lineEdit);
+    lineEdit->setFocus();
+    QTest::keyClicks(lineEdit, "Free typed mod");
+    QCOMPARE(heldMod(), "Free typed mod");
+
+    AddOwnTextModNames(
+        {makeItemWithEnchant("typed", "Allocates [totem_ranged_notable2670|Watchtowers]")});
+    QCOMPARE(modCombo->currentText(), "Free typed mod");
+    QCOMPARE(heldMod(), "Free typed mod");
+    const int joined = modCombo->findText("Allocates Watchtowers", Qt::MatchFixedString);
+    QVERIFY(joined >= 0);
+
+    modCombo->setCurrentIndex(modCombo->findText("Saved mod", Qt::MatchFixedString));
+    QCOMPARE(heldMod(), "Saved mod");
+    AddOwnTextModNames(
+        {makeItemWithEnchant("chosen",
+                             "Added Small Passive Skills grant: 12% increased Totem Damage")});
+    QCOMPARE(modCombo->currentText(), "Saved mod");
+    QCOMPARE(heldMod(), "Saved mod");
+    QCOMPARE(modCombo->count(), 4);
+
+    modCombo->setCurrentIndex(modCombo->findText("Allocates Watchtowers", Qt::MatchFixedString));
+    QCOMPARE(heldMod(), "Allocates Watchtowers");
 }
 
 // #271: a mods row whose text is only whitespace is the same as a row with

@@ -3,8 +3,12 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSet>
+#include <QSettings>
+#include <QSignalSpy>
+#include <QStringListModel>
 #include <QtTest/QtTest>
 
+#include <algorithm>
 #include <clocale>
 #include <cmath>
 #include <memory>
@@ -12,6 +16,7 @@
 
 #include "item.h"
 #include "itemcategories.h"
+#include "itemsmanager.h"
 #include "modlist.h"
 #include "testfixtures.h"
 #include "testsuite.h"
@@ -50,7 +55,15 @@ private slots:
     void markupInAModLineIsReadAsItsText();
     void markupInAPropertyNameIsReadAsItsText();
     void markupInAModNameIsReadAsItsText();
-    void bracketsThatAreNotMarkupAreKept();
+    // #420: the bare [word] form.
+    void bareBracketsAreReadAsTheirWord();
+    // #429: lines that fit no mod name of the game data.
+    void lineWithoutAModNameIsFiledUnderItsText();
+    void describingLinesAreNotFiled();
+    void aLineWithoutTextHasNoName();
+    void ownTextNamesAreKnownToTheItem();
+    void ownTextNamesJoinTheModList();
+    void refreshedItemsNamesJoinTheModList();
     // #419. Last: it loads the corpus's base items.
     void socketedSupportHasAModNameForEachSupportGem();
 };
@@ -636,24 +649,265 @@ void ItemTest::markupInAModNameIsReadAsItsText()
     }
 }
 
-// Brackets without the bar are sometimes the game's markup ("[Onslaught]",
-// sent in a flask's utility mods) and sometimes not (the "[DNT]" that 68 mod
-// names of game data 3.29.3.6 begin with), so they are left as they are.
-void ItemTest::bracketsThatAreNotMarkupAreKept()
+// #420: a bracket without the bar is the game's markup too ("[Onslaught]";
+// 159 mod names of game data 3.30.0.2.2 carry one, and replies send it in
+// mod lines). It is read as its word in a mod name and in a mod line alike,
+// so the two still agree. "[DNT]", which 68 mod names begin with, is not
+// markup and stays.
+void ItemTest::bareBracketsAreReadAsTheirWord()
 {
+    // The string is one #420 quotes from game data 3.30.0.2.2.
+    InitStatTranslations();
+    AddStatTranslations(R"json([
+        {"English":[{"format":["#"],"string":"You gain [Onslaught] for {0} seconds on Kill"}]}
+    ])json");
+    InitModList();
+
+    // The second line is a real reply's (a crucible node's stat, in
+    // tests/fixtures/payloads/stash-Standard-UniqueStash-1.json).
     const auto item = makeItem("brackets", R"json(,
-        "explicitMods": [{"description": "20% reduced Effect of [Onslaught] on you"}]
+        "explicitMods": [
+            {"description": "You gain [Onslaught] for 4 seconds on Kill"},
+            {"description": "20% reduced Effect of [Onslaught] on you"}
+        ]
     )json");
     QCOMPARE(item->text_mods().at("explicitMods"),
-             ItemMods{"20% reduced Effect of [Onslaught] on you"});
+             (ItemMods{"You gain Onslaught for 4 seconds on Kill",
+                       "20% reduced Effect of Onslaught on you"}));
+    const QString name = "You gain Onslaught for # seconds on Kill";
+    QVERIFY(item->mod_table().contains(name));
+    QCOMPARE(item->mod_table().at(name), 4.0);
+    QVERIFY(mod_list_model().stringList().contains(name));
+    for (const QString &offered : mod_list_model().stringList()) {
+        QVERIFY2(!offered.contains("[Onslaught]"), qPrintable(offered));
+    }
 
+    QCOMPARE(Util::WithoutMarkup("[DNT] You gain [Onslaught] for {0} seconds on Kill"),
+             QString("[DNT] You gain Onslaught for {0} seconds on Kill"));
     // No line seen so far has both kinds, so this one is put together from
-    // two that were: the bar's markup goes and the other brackets stay.
+    // two that were: the bar's markup goes and "[DNT]" stays.
     QCOMPARE(Util::WithoutMarkup("[DNT] Allocates [additional_spectre278|Death Attunement]"),
              QString("[DNT] Allocates Death Attunement"));
     // Two in one line, and one whose id has colons in it.
     QCOMPARE(Util::WithoutMarkup("[ThreadInfoBreach|Threads] of [FeastOfFlesh::15|Feast of Flesh]"),
              QString("Threads of Feast of Flesh"));
+}
+
+// A minimal wire item of one frame type, with extra JSON appended.
+static std::shared_ptr<Item> makeItemOfFrame(const QString &id,
+                                             poe::FrameType frame,
+                                             const QString &extraJson)
+{
+    const QByteArray json = QString(R"json({
+        "baseType": "Test Item",
+        "frameType": %2,
+        "h": 1,
+        "icon": "https://web.poecdn.com/image/test.png",
+        "id": "%1",
+        "identified": true,
+        "ilvl": 84,
+        "name": "",
+        "typeLine": "Test Item",
+        "verified": false,
+        "w": 1,
+        "x": 0,
+        "y": 0%3
+    })json")
+                                .arg(id)
+                                .arg(static_cast<unsigned>(frame))
+                                .arg(extraJson)
+                                .toUtf8();
+    return std::make_shared<Item>(makeTestItem(json.constData(), makeTestStashLocation()));
+}
+
+// #429: four lines the game sent that fit no mod name of game data
+// 3.30.0.4, each for another reason: a passive's name where the game data
+// has a placeholder, a mod's text inside another's, a wording the game had
+// before 3.30, and a string in a file the application does not load. Each
+// is in the mod table under its own text, its numbers written "#", and a
+// sign stays in the text. A line that does fit a mod name is filed under
+// that name only.
+void ItemTest::lineWithoutAModNameIsFiledUnderItsText()
+{
+    loadCorpusStatTranslations();
+
+    const auto item = makeItem("unnamed", R"json(,
+        "enchantMods": [
+            "Allocates [totem_ranged_notable2670|Watchtowers]",
+            "Added Small Passive Skills grant: 12% increased Totem Damage"
+        ],
+        "implicitMods": [{"description": "9% increased Rarity of Items found"}],
+        "explicitMods": [
+            {"description": "Players have -9% to all maximum Resistances"},
+            {"description": "+14% to [PlayerItemRarity|Item Rarity]"}
+        ]
+    )json");
+    const ModTable &table = item->mod_table();
+    const std::vector<std::pair<QString, double>> expected = {
+        {"Allocates Watchtowers", 0.0},
+        {"Added Small Passive Skills grant: #% increased Totem Damage", 12.0},
+        {"#% increased Rarity of Items found", 9.0},
+        {"Players have -#% to all maximum Resistances", 9.0},
+        {"+#% to Item Rarity", 14.0},
+    };
+    for (const auto &[name, value] : expected) {
+        QVERIFY2(table.contains(name), qPrintable(name));
+        QCOMPARE(table.at(name), value);
+    }
+    QCOMPARE(table.size(), expected.size());
+
+    // Two numbers: their mean, as for a line with a mod name. The line is
+    // a gem's in the corpus, so it is given to the function, not to an item.
+    ModTable two;
+    AddModToTable("Minions' Attacks deal 126 to 184 additional Physical Damage",
+                  two,
+                  UnnamedLine::FiledUnderItsText);
+    QCOMPARE(two.at("Minions' Attacks deal # to # additional Physical Damage"), 155.0);
+}
+
+// #429: on a gem, a currency item and a divination card the lines describe
+// the item. They are shown and are not in the mod table. One line the game
+// sent for each.
+void ItemTest::describingLinesAreNotFiled()
+{
+    loadCorpusStatTranslations();
+
+    const auto gem = makeItemOfFrame("gem", poe::FrameType::Gem, R"json(,
+        "explicitMods": [{"description": "Supported Skills deal 39% more Spell Damage"}]
+    )json");
+    QCOMPARE(gem->text_mods().at("explicitMods"),
+             ItemMods{"Supported Skills deal 39% more Spell Damage"});
+    QVERIFY(gem->mod_table().empty());
+
+    const auto currency = makeItemOfFrame("currency", poe::FrameType::Currency, R"json(,
+        "explicitMods": [{"description": "Creates a portal to town"}]
+    )json");
+    QVERIFY(currency->mod_table().empty());
+
+    const auto card = makeItemOfFrame("card", poe::FrameType::DivinationCard, R"json(,
+        "explicitMods": [{"description": "<currencyitem>{20x Orb of Fusing}"}]
+    )json");
+    QVERIFY(card->mod_table().empty());
+
+    // The same line on an item of another frame is filed.
+    const auto other = makeItemOfFrame("other", poe::FrameType::Normal, R"json(,
+        "explicitMods": [{"description": "Creates a portal to town"}]
+    )json");
+    QVERIFY(other->mod_table().contains("Creates a portal to town"));
+}
+
+// #429: two essences in the payload corpus carry a mod line with no text.
+// Such a line has no name to be filed under.
+void ItemTest::aLineWithoutTextHasNoName()
+{
+    loadCorpusStatTranslations();
+
+    ModTable table;
+    AddModToTable("", table, UnnamedLine::FiledUnderItsText);
+    AddModToTable(" ", table, UnnamedLine::FiledUnderItsText);
+    QVERIFY(table.empty());
+}
+
+// The item of lineWithoutAModNameIsFiledUnderItsText: four lines filed under
+// their own text and one under a mod name.
+static std::shared_ptr<Item> makeItemWithUnnamedLines(const QString &id)
+{
+    return makeItem(id, R"json(,
+        "enchantMods": [
+            "Allocates [totem_ranged_notable2670|Watchtowers]",
+            "Added Small Passive Skills grant: 12% increased Totem Damage"
+        ],
+        "implicitMods": [{"description": "9% increased Rarity of Items found"}],
+        "explicitMods": [
+            {"description": "Players have -9% to all maximum Resistances"},
+            {"description": "+14% to [PlayerItemRarity|Item Rarity]"}
+        ]
+    )json");
+}
+
+static const QStringList kOwnTextNames = {
+    "#% increased Rarity of Items found",
+    "Added Small Passive Skills grant: #% increased Totem Damage",
+    "Allocates Watchtowers",
+    "Players have -#% to all maximum Resistances",
+};
+
+// #429: the item says which names in its mod table are a line's own text.
+// A mod name of the game data is not one, and a gem has none.
+void ItemTest::ownTextNamesAreKnownToTheItem()
+{
+    loadCorpusStatTranslations();
+
+    const auto item = makeItemWithUnnamedLines("own-text");
+    QStringList names(item->own_text_mods().begin(), item->own_text_mods().end());
+    names.sort();
+    QCOMPARE(names, kOwnTextNames);
+
+    const auto gem = makeItemOfFrame("own-text-gem", poe::FrameType::Gem, R"json(,
+        "explicitMods": [{"description": "Supported Skills deal 39% more Spell Damage"}]
+    )json");
+    QVERIFY(gem->own_text_mods().empty());
+}
+
+// #429: the Mods filter's list of names takes the own-text names of the
+// items it is given: each once, in its place in the order, and as inserted
+// rows, since a reset clears what the mod rows hold. Loading the game data
+// again starts the list over.
+void ItemTest::ownTextNamesJoinTheModList()
+{
+    loadCorpusStatTranslations();
+    QStringListModel &list = mod_list_model();
+    const QStringList before = list.stringList();
+    QCOMPARE(before.count("+#% to Item Rarity"), 1);
+    for (const QString &name : kOwnTextNames) {
+        QVERIFY2(!before.contains(name), qPrintable(name));
+    }
+
+    const auto item = makeItemWithUnnamedLines("joins");
+    QSignalSpy resets(&list, &QAbstractItemModel::modelReset);
+    AddOwnTextModNames({item});
+
+    const QStringList after = list.stringList();
+    QCOMPARE(after.size(), before.size() + kOwnTextNames.size());
+    for (const QString &name : kOwnTextNames) {
+        QVERIFY2(after.count(name) == 1, qPrintable(name));
+    }
+    QCOMPARE(after.count("+#% to Item Rarity"), 1);
+    QVERIFY(std::is_sorted(after.begin(), after.end(), [](const QString &a, const QString &b) {
+        return a.compare(b, Qt::CaseInsensitive) < 0;
+    }));
+    QCOMPARE(resets.count(), 0);
+
+    // The same names again, from the same item and from another: nothing new.
+    AddOwnTextModNames({item, makeItemWithUnnamedLines("joins-again")});
+    QCOMPARE(list.stringList(), after);
+
+    loadCorpusStatTranslations();
+    QCOMPARE(list.stringList(), before);
+}
+
+// #429: the items manager gives the list the items of a whole refresh and
+// of one tab's.
+void ItemTest::refreshedItemsNamesJoinTheModList()
+{
+    loadCorpusStatTranslations();
+    BuyoutManagerFixture buyouts;
+    QSettings settings(buyouts.tempDir.filePath("settings.ini"), QSettings::IniFormat);
+    ItemsManager items(settings, *buyouts.manager);
+    const ItemLocation tab = makeTestStashLocation();
+
+    const auto whole = makeItem("whole", R"json(,
+        "enchantMods": ["Allocates [totem_ranged_notable2670|Watchtowers]"]
+    )json");
+    items.OnItemsRefreshed({whole}, {tab}, true);
+    QVERIFY(mod_list_model().stringList().contains("Allocates Watchtowers"));
+
+    const auto delta = makeItem("delta", R"json(,
+        "explicitMods": [{"description": "9% reduced Hiring Fee"}]
+    )json");
+    QVERIFY(!mod_list_model().stringList().contains("#% reduced Hiring Fee"));
+    items.OnTabRefreshed(tab, {delta});
+    QVERIFY(mod_list_model().stringList().contains("#% reduced Hiring Fee"));
 }
 
 // The game data has one string for every support a socket can grant,

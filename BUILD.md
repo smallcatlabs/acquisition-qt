@@ -198,8 +198,9 @@ by the application's own walk and writes out what they become: each item's
 fields, mod table, tooltip and Path of Building text, and the forum shop that
 lists the items. It compares that with the file of the same name in
 `tests/fixtures/payloads-golden`; `census.txt` there counts the items without
-a category, the mod lines that reach no mod name and the property values
-that are not one number, and lists them.
+a category, the mod lines that reach no mod name, the mod lines filed under
+their own text because the game data has no name for them, and the property
+values that are not one number, and lists them.
 
 A failure prints the lines that differ. If the change is intended, rewrite
 the files and review the difference like any other change:
@@ -553,8 +554,10 @@ Release artifacts are built by GitHub Actions:
 - `.github/workflows/build-macos.yml` builds the macOS DMG.
 - `.github/workflows/build-windows.yml` builds the Windows installer.
 
-The workflows run on `workflow_dispatch` and on tags matching `v*`. Tag builds
-create draft GitHub releases and attach the platform artifacts. Every
+A tag matching `v*` starts `.github/workflows/release.yml`, which calls the
+three and, when all have passed, creates one draft GitHub release with their
+packages. Each can also be run by hand; it then only builds. How a release is
+cut, and recovered when it fails, is in `RELEASE.md`. Every
 workflow, these three and the test, CodeQL and sanitizer workflows, installs
 the same Qt, 6.11.3, with the `qtnetworkauth` module. A Windows package built
 with 6.12.0 failed at start-up with "SSL support is missing" (#370). The
@@ -579,12 +582,13 @@ runs on `macos-latest` and names the uploaded artifact as an arm64 DMG.
 
 GitHub sometimes cannot allocate an arm64 Mac and cancels the job after 15
 minutes ("not acquired by Runner of type hosted"). The fallback is a run on the
-maintainer's Mac: cancel the stuck run, start `build-macos.yml` by hand on the
-same tag with `runner: laptop`, and start a one-job VM there. The job then
+maintainer's Mac: cancel the stuck run, start `release.yml` by hand on the
+same tag with `dry_run` off and `macos_runner: laptop` (`RELEASE.md`), and
+start a one-job VM there. The job then
 needs the label `smallcat-macos`. That VM is a throwaway copy of a macOS 26
 image with Xcode 26.6 and Qt 6.11.3 at `QT_ROOT_DIR`, matching GitHub's
 `macos-26-arm64` image, and runs the job as a user without admin rights. Tag
-pushes never go there; only a hand-started run with `runner: laptop` does.
+pushes never go there; only a hand-started run with `laptop` chosen does.
 
 Linux release packaging uses `linuxdeploy` and `linuxdeploy-plugin-qt` to produce
 an AppImage.

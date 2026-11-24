@@ -11,6 +11,7 @@ socket groups: r0 g0 b0 w0; r0 g4 b0 w0
 properties:
   Evasion Rating = 70 (number 70)
 mod table:
+  #% increased Rarity of Items found = 10
   +# to Evasion Rating = 47
   +#% to Chaos Resistance = 67
   +#% total Resistance = 67
