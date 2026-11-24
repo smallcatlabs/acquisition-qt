@@ -58,6 +58,14 @@ on your items beside the game data's own names. A name stays in the list
 until you restart Acquisition, even if the item that had it is gone. A plus or minus sign before a number stays part of
 the name, and two numbers give their average, as above.
 
+Some lines name something the game looks up by a number: a passive, a support
+gem, a timeless jewel's conqueror, a map's boss. Where the game data has a
+placeholder in that place, the line is filed under its own text:
+`Socketed Gems are Supported by Level 20 Spell Totem Support` is
+`Socketed Gems are Supported by Level # Spell Totem Support` with the value 20.
+The drop-down offers such names for the items you have loaded only; it does not
+list every support gem in the game.
+
 This does not apply to gems, currency items and divination cards. Their
 lines describe the item; they are shown in the tooltip and cannot be
 searched unless the drop-down has a name for them.
