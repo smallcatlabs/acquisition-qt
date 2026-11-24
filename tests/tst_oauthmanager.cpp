@@ -37,6 +37,8 @@ private slots:
     void cleanup();
     void transitions_data();
     void transitions();
+    void classify_data();
+    void classify();
 
 private:
     OAuthTestBrowser m_browser;
@@ -79,6 +81,8 @@ namespace {
 //                     which expires in S seconds (36000)
 //   refuse N          request N is answered 400 invalid_grant
 //   fail N            request N gets no answer (connection refused)
+//   answer N S [R]    request N is answered with HTTP status S, a body that
+//                     names an error, and Retry-After R if given
 // After each step, and before the first, the state is "login / browser",
 // with the account held, if any, after another " / ". At the end, `running`
 // lists the requests still on their way: a request whose state was left is
@@ -218,6 +222,16 @@ void OAuthManagerTest::transitions_data()
                        "Refused / Waiting / A", "Refused / Exchanging / A",
                        "Holding / NoBrowser / B"}
         << QStringList{"granted A", "granted B"} << 3 << QList<int>{} << 35700;
+    QTest::newRow("a refresh answered 500 is tried again") << true
+        << QStringList{"grant 0 A", "timer", "answer 1 500"}
+        << QStringList{"RefreshingStored / NoBrowser", "Holding / NoBrowser / A",
+                       "Holding+refresh / NoBrowser / A", "Holding+retry1 / NoBrowser / A"}
+        << QStringList{"granted A"} << 2 << QList<int>{} << 15;
+    QTest::newRow("a refresh answered 429 waits as long as it is asked") << true
+        << QStringList{"grant 0 A", "timer", "answer 1 429 90"}
+        << QStringList{"RefreshingStored / NoBrowser", "Holding / NoBrowser / A",
+                       "Holding+refresh / NoBrowser / A", "Holding+retry1 / NoBrowser / A"}
+        << QStringList{"granted A"} << 2 << QList<int>{} << 90;
     QTest::newRow("a short-lived token is refreshed at half its life") << false
         << QStringList{"authenticate", "redirect", "grant 0 A 300"}
         << QStringList{"NoLogin / NoBrowser", "NoLogin / Waiting", "NoLogin / Exchanging",
@@ -296,6 +310,18 @@ void OAuthManagerTest::transitions()
                               400,
                               QNetworkReply::ProtocolInvalidOperationError,
                               R"({"error":"invalid_grant"})");
+            } else if (verb == "answer") {
+                QList<QNetworkReply::RawHeaderPair> headers{{"Content-Type", "application/json"}};
+                if (step.size() > 3) {
+                    headers.append({"Retry-After", step[3].toLatin1()});
+                }
+                const int status = step.value(2).toInt();
+                reply->finish(headers,
+                              status,
+                              (status == 429) ? QNetworkReply::UnknownContentError
+                                              : QNetworkReply::InternalServerError,
+                              status == 429 ? R"({"error":"rate_limited"})"
+                                            : R"({"error":"server_error"})");
             } else {
                 QCOMPARE(verb, QString("fail"));
                 reply->finish({}, 0, QNetworkReply::ConnectionRefusedError);
@@ -319,6 +345,47 @@ void OAuthManagerTest::transitions()
     // A coarse timer may report a second either way.
     QVERIFY2(std::abs(seconds - due) <= 1,
              qPrintable(QString("refresh due in %1 s, expected %2").arg(seconds).arg(due)));
+}
+
+// What an answer of the token endpoint comes to (OAuthManager::classify):
+// only a 4xx other than 429 that names an error refuses the grant; any other
+// failure is passing, and is tried again no sooner than Retry-After asks.
+void OAuthManagerTest::classify_data()
+{
+    QTest::addColumn<int>("status");
+    QTest::addColumn<QByteArray>("body");
+    QTest::addColumn<int>("retry_after"); // -1 for none
+    QTest::addColumn<QString>("verdict");
+
+    const QByteArray granted = token("A", 36000);
+    // clang-format off
+    QTest::newRow("200 with a token") << 200 << granted << -1 << "granted";
+    QTest::newRow("200 malformed") << 200 << QByteArray("{\"access_token\":") << -1 << "retry";
+    QTest::newRow("200 without a token") << 200 << QByteArray("{}") << -1 << "retry";
+    QTest::newRow("400 invalid_grant") << 400 << QByteArray(R"({"error":"invalid_grant"})") << -1 << "refused";
+    QTest::newRow("400 another error") << 400 << QByteArray(R"({"error":"invalid_request"})") << -1 << "refused";
+    QTest::newRow("400 an error that is not a string") << 400 << QByteArray(R"({"error":{"code":1}})") << -1 << "retry";
+    QTest::newRow("401 invalid_client") << 401 << QByteArray(R"({"error":"invalid_client"})") << -1 << "refused";
+    QTest::newRow("429 with Retry-After") << 429 << QByteArray(R"({"error":"rate_limited"})") << 90 << "retry after 90";
+    QTest::newRow("429 without Retry-After") << 429 << QByteArray() << -1 << "retry";
+    QTest::newRow("500 naming an error") << 500 << QByteArray(R"({"error":"server_error"})") << -1 << "retry";
+    QTest::newRow("503 temporarily_unavailable") << 503 << QByteArray(R"({"error":"temporarily_unavailable"})") << 30 << "retry after 30";
+    QTest::newRow("503 from the CDN, in HTML") << 503 << QByteArray("<html>Service Unavailable</html>") << -1 << "retry";
+    QTest::newRow("no answer") << 0 << QByteArray() << -1 << "retry";
+    // clang-format on
+}
+
+void OAuthManagerTest::classify()
+{
+    QFETCH(int, status);
+    QFETCH(QByteArray, body);
+    QFETCH(int, retry_after);
+    QFETCH(QString, verdict);
+    QCOMPARE(OAuthTestAccess::classify(status,
+                                       body,
+                                       retry_after < 0 ? std::nullopt
+                                                       : std::optional<int>(retry_after)),
+             verdict);
 }
 
 ACQ_TEST_MAIN(OAuthManagerTest)

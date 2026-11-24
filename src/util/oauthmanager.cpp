@@ -20,6 +20,7 @@
 #include <utility>
 
 #include "datastore/datastore.h"
+#include "ratelimit/ratelimit.h"
 #include "replytimeout.h"
 #include "util/glaze_qt.h" // IWYU pragma: keep
 #include "util/networkmanager.h"
@@ -33,8 +34,8 @@
 //   RefreshingStored --failed--> NoLogin, storedLoginFailed
 //   Holding --the refresh timer--> Holding with a refresh on its way
 //       --granted--> Holding the new token
-//       --refused (the server names an error)--> Refused, kept until it expires
-//       --no answer, or no usable one--> Holding, tried again after a backoff
+//       --refused (a 4xx naming an error)--> Refused, kept until it expires
+//       --anything else (classify)--> Holding, tried again after a backoff
 //   any --a code exchange granted--> Holding (a refresh on its way is dropped)
 //
 // Browser, the login in the browser:
@@ -323,11 +324,13 @@ void OAuthManager::receiveAnswer(QNetworkReply *reply)
     const QJsonObject body = reply->isOpen()
                                  ? QJsonDocument::fromJson(reply->read(BODY_LIMIT)).object()
                                  : QJsonObject();
+    const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
     const Answer answer{
-        .fields = (reply->error() == QNetworkReply::NoError) ? body.toVariantMap() : QVariantMap(),
+        .verdict = classify(status, body, RateLimit::ParseRetryAfter(reply)),
+        .fields = body.toVariantMap(),
         .error = body.value("error").toString(),
         .description = body.value("error_description").toString(),
-        .http_status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt(),
+        .http_status = status,
         .network_error = reply->error(),
     };
     if (reply == awaited(m_browser)) {
@@ -337,9 +340,26 @@ void OAuthManager::receiveAnswer(QNetworkReply *reply)
     }
 }
 
+OAuthManager::Verdict OAuthManager::classify(int http_status,
+                                             const QJsonObject &body,
+                                             std::optional<int> retry_after)
+{
+    if ((http_status / 100 == 2) && !body.value("access_token").toString().isEmpty()) {
+        return {Verdict::Granted};
+    }
+    // Only a client error that names one refuses the grant (RFC 6749, 5.2).
+    // A server error, a 429, no answer at all, or a body of another shape (a
+    // CDN's page) passes, and is worth trying again.
+    if ((http_status / 100 == 4) && (http_status != 429)
+        && !body.value("error").toString().isEmpty()) {
+        return {Verdict::Refused};
+    }
+    return {Verdict::Transient, std::chrono::seconds(retry_after.value_or(0))};
+}
+
 void OAuthManager::exchangeAnswered(const Answer &answer)
 {
-    if (answer.fields.value("access_token").toString().isEmpty()) {
+    if (answer.verdict.kind != Verdict::Granted) {
         spdlog::error("OAuth: the code exchange failed (HTTP {}, network error {}): {}",
                       answer.http_status,
                       static_cast<int>(answer.network_error),
@@ -356,7 +376,7 @@ void OAuthManager::exchangeAnswered(const Answer &answer)
 void OAuthManager::refreshAnswered(const Answer &answer)
 {
     const auto *stored = std::get_if<RefreshingStored>(&m_login);
-    if (!answer.fields.value("access_token").toString().isEmpty()) {
+    if (answer.verdict.kind == Verdict::Granted) {
         OAuthToken token = OAuthToken::fromTokens(answer.fields);
         // An answer without a refresh token leaves the one sent valid
         // (RFC 6749, 6).
@@ -378,15 +398,19 @@ void OAuthManager::refreshAnswered(const Answer &answer)
                   static_cast<int>(answer.network_error),
                   answer.error);
     const Holding &held = std::get<Holding>(m_login);
-    if (!answer.error.isEmpty()) {
+    if (answer.verdict.kind == Verdict::Refused) {
         // Refused: trying again would be refused again (N46).
         m_refresh_timer.stop();
         enter(Refused{held.token});
     } else {
-        // No answer, or none that says why: the network, or a computer that
-        // has just woken. Tried again soon, while the token may still work.
+        // No answer, a server error, a 429, or a body of another shape: the
+        // network, the server, or a computer that has just woken. Tried
+        // again soon, while the token may still work, and no sooner than
+        // the answer's Retry-After.
         const int failures = held.failures + 1;
-        m_refresh_timer.start(std::min(RETRY_FIRST * (1 << std::min(failures - 1, 8)), RETRY_CAP));
+        m_refresh_timer.start(
+            std::max(answer.verdict.retry_after,
+                     std::min(RETRY_FIRST * (1 << std::min(failures - 1, 8)), RETRY_CAP)));
         enter(Holding{held.token, nullptr, failures});
     }
 }
