@@ -739,7 +739,8 @@ void ShopTest::guardianItemsAreNotInTheShop()
     fixture.shop->SubmitShopToForum();
     fixture.rateLimiter->resolve(0, kStashIndexJson);
     drainEvents();
-    const QString pages = fixture.shop->shop_data().join('\n');
+    QString pages;
+    completeForumSubmission(fixture, 0, &pages);
     QVERIFY2(pages.contains(" 3 chaos"), qPrintable(pages));
     QVERIFY2(!pages.contains(" 5 chaos"), qPrintable(pages));
     for (const poe::Item &item : *character->guardian) {
