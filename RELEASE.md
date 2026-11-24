@@ -25,8 +25,9 @@ other suffixes as `pre-release`, and no suffix as `production`.
 
 1. Merge the version pull request, after everything meant to ride in it.
 2. Tag a `master` commit whose `CMakeLists.txt` reads exactly that version
-   (normally the version pull request's merge commit), with a signed tag, and
-   push it:
+   (normally the version pull request's merge commit), and push the tag.
+   Signing it is recommended, not enforced: the 0.18.10 tags are signed,
+   0.18.11-beta.1 and 0.18.11 are annotated but unsigned, and nothing checks.
 
    ```sh
    git tag -s v0.18.12-beta.1 -m "Acquisition v0.18.12-beta.1"
@@ -39,18 +40,18 @@ other suffixes as `pre-release`, and no suffix as `production`.
      `-dev`. Then Linux, macOS and Windows build, test and package in
      parallel (`build-{linux,macos,windows}.yml`, each also uploading its
      debug symbols to Sentry). When all three have passed, the last job
-     checks they report the same version, creates the Sentry release, and
-     creates one **draft** release with generated notes and three files: the
-     AppImage, the DMG and `acquisition_setup_<version>.exe`. A version with
-     a suffix is marked as a pre-release.
+     checks the three packages are named for the version, creates the
+     Sentry release, and creates one **draft** release with generated notes
+     and three files: the AppImage, the DMG and
+     `acquisition_setup_<version>.exe`. A version with a suffix is marked as
+     a pre-release.
    - **CodeQL** (`codeql.yml`), which fails on any open alert.
    - **Sanitizers** (`sanitizers.yml`).
 
    The release job does not wait for CodeQL or the sanitizers.
 4. **A final release is always preceded by a beta.** Tag the final only
    after the beta's CodeQL and sanitizer runs came back clean (`BUILD.md`,
-   "Code Scanning") and the maintainer has tried the beta's packages. A
-   finding is fixed on `master` and gets a new beta. The final's pull request
+   "Code Scanning"). A finding is fixed on `master` and gets a new beta. The final's pull request
    clears the suffix and nothing else, so the final's tree is the beta's.
 5. **Publish by hand.** Read and edit the draft's notes, then publish. A
    published pre-release is offered to users by the update checker
@@ -83,12 +84,21 @@ workflow artifact for 30 days.
   hand (Actions, Release, Run workflow) on the tag, with `dry_run` off and
   `macos_runner: laptop`, and start the one-job VM on the maintainer's Mac
   (`BUILD.md`, "Platform Notes"). That run builds all three platforms again
-  and creates the draft. Only a run started by hand, which needs write
+  and creates the draft. If `dry_run` is left on, it builds everything and
+  creates nothing, saying so in the run summary; start it again with
+  `dry_run` off. Only a run started by hand, which needs write
   access to the repository, can send a job to that machine; a tag push never
   does.
 - **The release job fails before the draft exists**: re-run it. The error
-  names what it expected and found. The Sentry step accepts a Sentry release
-  that already exists.
+  names what it expected and found. Re-running repeats the Sentry step
+  safely: for a release that exists Sentry answers `208 Already Reported`,
+  which `sentry-cli releases new` takes as success.
+- **The Sentry step fails**: it cannot block the draft (it continues on
+  error) and shows as a failed step in a green job. Symbols were uploaded by
+  the builds; only release health and suspect commits are missing. Create it
+  by hand with `sentry-cli releases new acquisition@<version>`, then
+  `set-commits --auto` and `finalize`, or leave it: Sentry also creates the
+  release from the first event that names it.
 - **The release job fails after the draft exists**: attach what is missing
   with `gh release upload <tag> <files> --clobber`, or delete the draft
   (`gh release delete <tag>`, which keeps the tag) and re-run the job.

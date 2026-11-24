@@ -4,10 +4,6 @@ name: Build & Package (Windows)
 # builds, tests and packages; it never creates a release.
 on:
   workflow_call:
-    outputs:
-      version:
-        description: 'The version this build calls itself.'
-        value: ${{ jobs.build-windows-installer.outputs.version }}
   workflow_dispatch:
 
 permissions:
@@ -16,8 +12,6 @@ permissions:
 jobs:
   build-windows-installer:
     runs-on: windows-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
 
     steps:
     - name: Checkout code
