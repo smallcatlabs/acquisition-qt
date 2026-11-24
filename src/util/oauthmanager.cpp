@@ -32,7 +32,9 @@
 //   RefreshingStored --granted--> Holding
 //   RefreshingStored --failed--> NoLogin, storedLoginFailed
 //   Holding --the refresh timer--> Holding with a refresh on its way
-//       --granted--> Holding the new token; --failed--> Holding, logged only
+//       --granted--> Holding the new token
+//       --refused (the server names an error)--> Refused, kept until it expires
+//       --no answer, or no usable one--> Holding, tried again after a backoff
 //   any --a code exchange granted--> Holding (a refresh on its way is dropped)
 //
 // Browser, the login in the browser:
@@ -61,8 +63,12 @@ namespace {
     constexpr const char *CALLBACK_HOST = "127.0.0.1";
     constexpr const char *CALLBACK_PATH = "/auth/path-of-exile";
 
-    // How long before the access token expires it is refreshed.
+    // How long before the access token expires it is refreshed, and how soon
+    // a refresh that got no answer is tried again: doubling from the first
+    // delay up to the last, then at the last, expired or not.
     constexpr std::chrono::seconds REFRESH_LEAD_TIME = 300s;
+    constexpr std::chrono::seconds RETRY_FIRST = 15s;
+    constexpr std::chrono::seconds RETRY_CAP = 120s;
 
     // The error code with which the token endpoint refuses a token it was
     // sent (RFC 6749, 5.2; N46), and how much of a reply is read.
@@ -172,7 +178,8 @@ OAuthManager::OAuthManager(NetworkManager &network_manager, DataStore &datastore
         spdlog::info("OAuth: refreshing token for '{}'", token.username);
         enter(RefreshingStored{post(form({{"grant_type", "refresh_token"},
                                           {"refresh_token", token.refresh_token},
-                                          {"client_id", CLIENT_ID}}))});
+                                          {"client_id", CLIENT_ID}})),
+                               token.refresh_token});
     }
 }
 
@@ -234,8 +241,16 @@ void OAuthManager::endLogin()
     enter(NoBrowser{});
 }
 
-void OAuthManager::receiveRedirect(const QVariantMap &query)
+void OAuthManager::receiveRedirect(const QVariantMap &raw)
 {
+    // Qt's handler leaves some escapes in the values (%2B, %2F, %25) and a
+    // '+' for a space. Each value is decoded here, once, as the form encoding
+    // of a query (RFC 6749, 4.1.2) says.
+    QVariantMap query;
+    for (auto it = raw.cbegin(); it != raw.cend(); ++it) {
+        query[it.key()] = QUrl::fromPercentEncoding(
+            it.value().toString().replace('+', ' ').toUtf8());
+    }
     const auto *waiting = std::get_if<Waiting>(&m_browser);
     if (!waiting) {
         // A redirect sent again while its code is exchanged (a reload of the
@@ -281,14 +296,15 @@ void OAuthManager::refreshNow()
     enter(Holding{held->token,
                   post(form({{"grant_type", "refresh_token"},
                              {"refresh_token", held->token.refresh_token},
-                             {"client_id", CLIENT_ID}}))});
+                             {"client_id", CLIENT_ID}})),
+                  held->failures});
 }
 
 QNetworkReply *OAuthManager::post(const QByteArray &body)
 {
     QNetworkRequest request{QUrl{TOKEN_URL}};
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
-    request.setTransferTimeout(kPoeApiTimeout);
+    request.setTransferTimeout(kOAuthTokenTimeout);
     QNetworkReply *reply = m_network_manager.post(request, body);
     connect(reply, &QNetworkReply::finished, this, [this, reply] { receiveAnswer(reply); });
     return reply;
@@ -339,18 +355,39 @@ void OAuthManager::exchangeAnswered(const Answer &answer)
 
 void OAuthManager::refreshAnswered(const Answer &answer)
 {
+    const auto *stored = std::get_if<RefreshingStored>(&m_login);
     if (!answer.fields.value("access_token").toString().isEmpty()) {
-        hold(OAuthToken::fromTokens(answer.fields));
-    } else if (std::holds_alternative<RefreshingStored>(m_login)) {
+        OAuthToken token = OAuthToken::fromTokens(answer.fields);
+        // An answer without a refresh token leaves the one sent valid
+        // (RFC 6749, 6).
+        if (token.refresh_token.isEmpty()) {
+            token.refresh_token = stored ? stored->refresh_token
+                                         : std::get<Holding>(m_login).token.refresh_token;
+        }
+        hold(token);
+        return;
+    }
+    if (stored) {
         failStoredLogin(answer);
+        return;
+    }
+    // A failed refresh during the run is not the browser login's, if one
+    // waits (#405, #410), and is not said: the token held is still used.
+    spdlog::error("OAuth: the refresh failed (HTTP {}, network error {}): {}",
+                  answer.http_status,
+                  static_cast<int>(answer.network_error),
+                  answer.error);
+    const Holding &held = std::get<Holding>(m_login);
+    if (!answer.error.isEmpty()) {
+        // Refused: trying again would be refused again (N46).
+        m_refresh_timer.stop();
+        enter(Refused{held.token});
     } else {
-        // A token taken in this run stays held until it expires; the browser
-        // login, if one waits, is not what failed (#405, #410).
-        spdlog::error("OAuth: the refresh failed (HTTP {}, network error {}): {}",
-                      answer.http_status,
-                      static_cast<int>(answer.network_error),
-                      answer.error);
-        enter(Holding{std::get<Holding>(m_login).token});
+        // No answer, or none that says why: the network, or a computer that
+        // has just woken. Tried again soon, while the token may still work.
+        const int failures = held.failures + 1;
+        m_refresh_timer.start(std::min(RETRY_FIRST * (1 << std::min(failures - 1, 8)), RETRY_CAP));
+        enter(Holding{held.token, nullptr, failures});
     }
 }
 
@@ -411,9 +448,12 @@ void OAuthManager::hold(const OAuthToken &token)
         spdlog::error("OAuth: was not granted these requested scopes: {}", missing.join(", "));
     }
 
-    const std::chrono::seconds lifetime{token.expires_in};
+    // Refreshed the lead time before it expires, or at half its life when
+    // that is later: a token that lives no longer than the lead time would
+    // otherwise be refreshed at once, again and again.
+    const std::chrono::milliseconds lifetime = std::chrono::seconds(token.expires_in);
     if (lifetime > 0s) {
-        m_refresh_timer.start(std::max(lifetime - REFRESH_LEAD_TIME, std::chrono::seconds{1}));
+        m_refresh_timer.start(std::max(lifetime - REFRESH_LEAD_TIME, lifetime / 2));
     } else {
         m_refresh_timer.stop();
     }

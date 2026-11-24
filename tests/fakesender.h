@@ -60,7 +60,14 @@ public:
         emit finished();
     }
 
-    void abort() override {}
+    // As Qt's: a reply still running finishes at once, inside the call,
+    // with OperationCanceledError; a finished one is left alone.
+    void abort() override
+    {
+        if (!isFinished()) {
+            finish({}, 0, QNetworkReply::OperationCanceledError);
+        }
+    }
     bool isSequential() const override { return true; }
     qint64 bytesAvailable() const override
     {

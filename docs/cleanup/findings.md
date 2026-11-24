@@ -139,9 +139,13 @@ shape: add the `OAuth ` prefix.
 Related: issue #259 (refresh failures are not distinguished for the user).
 
 Found August 8, 2026, during the same investigation.
-`OAuthManager`'s failure signals land in slots that only write log
-lines (`onRequestFailure`, `onServerError`): no de-arming, no
-credential clearing, no UI event. Mid-session, an expired or revoked
+A refresh that fails mid-session only writes log lines: no de-arming, no
+credential clearing, no UI event. Since #466 `OAuthManager` tells the
+two failures apart: one the server refuses (it names an error, as
+`invalid_grant`) leaves the token held until it expires and is not
+tried again; one with no usable answer (the network, a computer that
+has just woken) is tried again after a short backoff, capped at two
+minutes. Neither reaches the user. Mid-session, an expired or revoked
 bearer surfaces as per-request 401 `FetchError`s — no OAuth-side
 401 classification exists anywhere (grep-verified; the only 401/403
 handling is the shop's POESESSID path). This is asymmetric with the
