@@ -3,49 +3,46 @@
 
 #pragma once
 
-#include <QAbstractOAuth>
+#include <QNetworkReply>
 #include <QObject>
+#include <QPointer>
 #include <QString>
 #include <QTimer>
-#include <QUrl>
 #include <QVariantMap>
 
-#include <optional>
+#include <variant>
 
 #include "util/oauthtoken.h"
 
-class QNetworkReply;
-class QOAuth2AuthorizationCodeFlow;
 class QOAuthHttpServerReplyHandler;
 
 class DataStore;
 class NetworkManager;
 
+// The OAuth login with Path of Exile: the authorization code grant with PKCE
+// and a loopback redirect, and the refresh of the token it gives. Qt's
+// handler only listens for the redirect; the two token requests are sent
+// here, through the application's NetworkManager. oauthmanager.cpp has the
+// state machine.
 class OAuthManager : public QObject
 {
     Q_OBJECT
 
 public:
     explicit OAuthManager(NetworkManager &manager, DataStore &datastore, QObject *parent = nullptr);
-    // Starts a browser login. An attempt still waiting on the browser is
-    // dropped first: its listener is closed and its state is replaced, so its
-    // redirect, should it still come, logs nobody in. Returns false, without
-    // opening the browser, when the callback listener cannot be opened on
-    // 127.0.0.1.
+    // Starts a browser login. An attempt still waiting on the browser, or
+    // whose code is being exchanged, is dropped first: its redirect, should
+    // it still come, and its exchange's answer log nobody in. Returns false,
+    // without opening the browser, when the callback listener cannot be
+    // opened on 127.0.0.1.
     bool initLogin();
-    // Ends the browser login in progress, if there is one: nothing listens
-    // for its redirect any more, so it can log nobody in. For whoever starts
-    // a session with the login already held (#408).
+    // Ends the browser login in progress, if there is one, its code exchange
+    // included: nothing it was waiting for can log anybody in any more. For
+    // whoever starts a session with the login already held (#408, #414).
     void endLogin();
 
-private slots:
-    void onRequestFailure(const QAbstractOAuth::Error error);
-    void onServerError(const QString &error, const QString &errorDescription, const QUrl &uri);
-    void receiveCallback(const QVariantMap &data);
-    void receiveToken(const QVariantMap &tokens);
-    void receiveGrant();
-
 signals:
+    // A token was taken: the answer of a code exchange, or of a refresh.
     void grantAccess(const OAuthToken &token);
     // The browser login initLogin() started has ended without access.
     // `reason` is a line for the user. It holds at most the error code and
@@ -58,32 +55,75 @@ signals:
     void storedLoginFailed(const QString &reason);
 
 private:
-    // What a reply of the token endpoint said, beyond what Qt reports.
-    struct TokenReply
+    friend class OAuthTestAccess;
+
+    // The state machine (oauthmanager.cpp has its diagram) has two regions,
+    // the login the session uses and the browser login, because a refresh
+    // and a browser login run side by side. A request in flight is held by
+    // the state that waits for its answer, and nowhere else.
+
+    // The login the session uses.
+    struct NoLogin
+    {};
+    struct RefreshingStored // the stored login, refreshed at start
     {
-        bool refresh;        // it answers a refresh, not a code exchange
+        QPointer<QNetworkReply> refresh;
+    };
+    struct Holding // a token taken in this run
+    {
+        OAuthToken token;
+        QPointer<QNetworkReply> refresh{}; // its refresh, while one is on its way
+    };
+    using Login = std::variant<NoLogin, RefreshingStored, Holding>;
+
+    // The browser login.
+    struct NoBrowser
+    {};
+    struct Waiting // for the redirect, with the listener open
+    {
+        QString state;
+        QString verifier;
+        QString redirect_uri;
+    };
+    struct Exchanging // the redirect's code; the listener stays open
+    {
+        QPointer<QNetworkReply> exchange;
+    };
+    using Browser = std::variant<NoBrowser, Waiting, Exchanging>;
+
+    // What the token endpoint answered.
+    struct Answer
+    {
+        QVariantMap fields;  // the reply's JSON object
         QString error;       // the error it names (RFC 6749, 5.2), or empty
         QString description; // and that error's description
         int http_status;     // 0 when no answer came
-        int network_error;   // QNetworkReply::NetworkError
+        QNetworkReply::NetworkError network_error;
     };
 
-    void noteTokenReply(QNetworkReply *reply);
-    void failStoredLogin(const TokenReply &reply);
+    // The transitions of each region: the state is replaced, and the request
+    // the state before was waiting for, unless the new one waits for it too,
+    // is abandoned.
+    void enter(Login next);
+    void enter(Browser next);
+
+    void receiveRedirect(const QVariantMap &query);
+    void receiveAnswer(QNetworkReply *reply);
+    void exchangeAnswered(const Answer &answer);
+    void refreshAnswered(const Answer &answer);
+    void hold(const OAuthToken &token);
     void failLogin(const QString &reason);
+    void failStoredLogin(const Answer &answer);
+    // What the refresh timer calls: refreshes the token held, unless a
+    // refresh of it is already on its way.
+    void refreshNow();
+    QNetworkReply *post(const QByteArray &form);
 
     NetworkManager &m_network_manager;
     DataStore &m_data;
+    QOAuthHttpServerReplyHandler *m_listener;
+    QTimer m_refresh_timer;
 
-    QOAuth2AuthorizationCodeFlow *m_oauth;
-    QOAuthHttpServerReplyHandler *m_handler;
-
-    OAuthToken m_token;
-
-    // A browser login has started and has neither been granted nor failed.
-    bool m_login_in_progress{false};
-    // The last redirect received carried another state than its login's.
-    bool m_state_mismatch{false};
-    // The token endpoint's reply that Qt is handling, while it handles it.
-    std::optional<TokenReply> m_token_reply;
+    Login m_login;
+    Browser m_browser;
 };
