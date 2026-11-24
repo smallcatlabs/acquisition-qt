@@ -182,6 +182,7 @@ private slots:
 
     // #295: a failed read of the shop's settings is not an empty store.
     void failedReadOfShopSettingsIsNotWrittenOver();
+    void failedReadOfShopSettingsCopiesNothing();
 };
 
 namespace {
@@ -2364,6 +2365,29 @@ void ShopTest::failedReadOfShopSettingsIsNotWrittenOver()
     // Nothing is posted, and the user is told why.
     shop->SubmitShopToForum(true);
     QCOMPARE(fixture.rateLimiter->futureCount(), size_t(0));
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY2(warnings.first().first().toString().contains("could not read"),
+             qPrintable(warnings.first().first().toString()));
+}
+
+// #295: a copy after a failed read of the shop's settings would render with
+// the default template instead of the user's, so nothing is copied and the
+// user is told why, as for a submission.
+void ShopTest::failedReadOfShopSettingsCopiesNothing()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    publishPricedItem(fixture, "settings-295", 1);
+    fixture.shop->SetShopTemplate("My shop: [items]");
+    auto shop = makeShopOverUnreadableSettings(fixture);
+    QVERIFY(shop);
+    QApplication::clipboard()->setText("before");
+    QSignalSpy warnings(shop.get(), &Shop::UserWarning);
+
+    shop->CopyToClipboard();
+    drainEvents();
+    QCOMPARE(fixture.rateLimiter->futureCount(), size_t(0));
+    QCOMPARE(QApplication::clipboard()->text(), QString("before"));
     QCOMPARE(warnings.count(), 1);
     QVERIFY2(warnings.first().first().toString().contains("could not read"),
              qPrintable(warnings.first().first().toString()));
