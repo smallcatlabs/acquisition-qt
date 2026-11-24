@@ -23,8 +23,6 @@ void InitModList();
 QStringListModel &mod_list_model();
 
 void InitStatTranslations();
-// Reads the support gems' names from the base items (itemcategories.h), so
-// the base items are loaded first, as RePoE::FinishUpdate does (#419).
 void AddStatTranslations(const QByteArray &statTranslations);
 
 // What becomes of a line that fits no mod name of the game data (#429).

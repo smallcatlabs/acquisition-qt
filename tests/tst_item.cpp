@@ -64,8 +64,9 @@ private slots:
     void ownTextNamesAreKnownToTheItem();
     void ownTextNamesJoinTheModList();
     void refreshedItemsNamesJoinTheModList();
-    // #419. Last: it loads the corpus's base items.
-    void socketedSupportHasAModNameForEachSupportGem();
+    // #430, ruling 7, in place of #419's list. Last: it loads the corpus's
+    // base items.
+    void placeholderForANameGivesNoModName();
 };
 
 // Real RePoE stat translations, cut from the game data (see
@@ -910,12 +911,65 @@ void ItemTest::refreshedItemsNamesJoinTheModList()
     QVERIFY(mod_list_model().stringList().contains("#% reduced Hiring Fee"));
 }
 
-// The game data has one string for every support a socket can grant,
-// "Socketed Gems are Supported by Level {0} {1}", and its second placeholder
-// stands for a support gem's name. Each support gem among the base items
-// gives a mod name, and the line the game sends reaches it (#419).
-void ItemTest::socketedSupportHasAModNameForEachSupportGem()
+// One rule in place of #419's list (#430, ruling 7): a stat translation
+// whose displayed placeholder has an index handler that stands for a name
+// (a passive, a support gem, ...) gives no mod name. The name would have a
+// number where the game prints a name, and no line could reach it. The
+// lines are filed under their own text instead (#429), and each of these
+// four, as a reply sent it, is found with the value it had under #419.
+void ItemTest::placeholderForANameGivesNoModName()
 {
+    // Strings and index handlers of game data 3.30.0.4, as #429 and #419
+    // quote them, beside one whose placeholder is a number.
+    InitStatTranslations();
+    AddStatTranslations(R"json([
+        {"English":[{"format":["#"],"index_handlers":[["passive_hash"]],
+                     "string":"Allocates {0}"}]},
+        {"English":[{"format":["#"],"index_handlers":[["passive_hash"]],
+                     "string":"Allocates {0} if you have the matching modifier on Forbidden Flesh"}]},
+        {"English":[{"format":["#","#"],"index_handlers":[[],["display_indexable_support"]],
+                     "string":"Socketed Gems are Supported by Level {0} {1}"}]},
+        {"English":[{"format":["+#"],"index_handlers":[[]],"string":"{0} to maximum Life"}]}
+    ])json");
+    InitModList();
+
+    const QStringList named = mod_list_model().stringList();
+    QVERIFY(named.contains("+# to maximum Life"));
+    for (const QString &name : {QString("Allocates #"),
+                                QString("Allocates # if you have the matching modifier on "
+                                        "Forbidden Flesh"),
+                                QString("Socketed Gems are Supported by Level # #")}) {
+        QVERIFY2(!named.contains(name), qPrintable(name));
+    }
+
+    const auto item = makeItem("names", R"json(,
+        "enchantMods": [
+            "Allocates [additional_spectre278|Death Attunement]",
+            "Allocates [totem_ranged_notable2670|Watchtowers]"
+        ],
+        "explicitMods": [
+            {"description": "Allocates [AscendancyAscendant38|Elementalist] if you have the matching modifier on Forbidden Flesh"},
+            {"description": "Socketed Gems are Supported by Level 20 [SupportSpellTotem::20|Spell Totem Support]"}
+        ]
+    )json");
+    const std::vector<std::pair<QString, double>> expected = {
+        {"Allocates Death Attunement", 0.0},
+        {"Allocates Watchtowers", 0.0},
+        {"Allocates Elementalist if you have the matching modifier on Forbidden Flesh", 0.0},
+        {"Socketed Gems are Supported by Level # Spell Totem Support", 20.0},
+    };
+    const ModTable &table = item->mod_table();
+    QCOMPARE(table.size(), expected.size());
+    AddOwnTextModNames({item});
+    const QStringList offered = mod_list_model().stringList();
+    for (const auto &[name, value] : expected) {
+        QVERIFY2(table.contains(name), qPrintable(name));
+        QCOMPARE(table.at(name), value);
+        QVERIFY2(offered.contains(name), qPrintable(name));
+    }
+
+    // The drop-down no longer offers a support gem that no loaded item has:
+    // the base items give no names.
     const auto read = [](const char *name) {
         const QString path = QFINDTESTDATA(QString("fixtures/payloads-repoe/%1").arg(name));
         QFile file(path);
@@ -927,19 +981,9 @@ void ItemTest::socketedSupportHasAModNameForEachSupportGem()
     InitItemClasses(read("item_classes.min.json"));
     InitItemBaseTypes(read("base_items.min.json"));
     loadCorpusStatTranslations();
-
-    const auto item = makeItem("supported", R"json(,
-        "explicitMods": [{"description":
-            "Socketed Gems are Supported by Level 20 [SupportSpellTotem::20|Spell Totem Support]"}]
-    )json");
-    const QString name = "Socketed Gems are Supported by Level # Spell Totem Support";
-    QVERIFY(item->mod_table().contains(name));
-    QCOMPARE(item->mod_table().at(name), 20.0);
-
-    const QStringList offered = mod_list_model().stringList();
-    QVERIFY(offered.contains(name));
-    // The string with a number where the gem's name goes is not a mod name.
-    QVERIFY(!offered.contains("Socketed Gems are Supported by Level # #"));
+    for (const QString &name : mod_list_model().stringList()) {
+        QVERIFY2(!name.startsWith("Socketed Gems are Supported by Level #"), qPrintable(name));
+    }
 }
 
 // RePoE writes some negative values as their own entry with a literal sign
