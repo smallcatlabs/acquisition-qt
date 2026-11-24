@@ -194,8 +194,9 @@ jobs:
           ${SMALLCAT_CMAKE_TOP_LEVEL_INCLUDES:+"-DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=$SMALLCAT_CMAKE_TOP_LEVEL_INCLUDES"}
 
       # The preset builds ONLY the test targets (acq_tests: every executable
-      # ctest runs). acquisition_core + sentry/crashpad compile under the
-      # sanitizers, but the `acquisition` app target must never be sanitized.
+      # ctest runs). acquisition_core, acquisition_gui and sentry/crashpad
+      # compile under the sanitizers, but the `acquisition` app target must
+      # never be sanitized.
       #
       # Cap at --parallel 2 (matching codeql.yml / build-linux.yml): ASan cc1plus
       # uses far more memory per translation unit than a plain build, so building

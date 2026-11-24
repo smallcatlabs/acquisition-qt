@@ -8,10 +8,13 @@
 #include <functional>
 
 #include "applybuyout.h"
+// The whole type, not a declaration: moc records committed()'s metatype
+// only for a type it sees complete (#299 split the moc unit that used to
+// see it).
+#include "buyout.h"
 
 class QComboBox;
 class QLineEdit;
-struct Buyout;
 
 // The price editor under the item list: the buyout type, currency and value
 // controls. The window shows it the rows a price is for (its targets); the
