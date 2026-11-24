@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <QJsonObject>
 #include <QNetworkReply>
 #include <QObject>
 #include <QPointer>
@@ -10,6 +11,8 @@
 #include <QTimer>
 #include <QVariantMap>
 
+#include <chrono>
+#include <optional>
 #include <variant>
 
 #include "util/oauthtoken.h"
@@ -97,9 +100,23 @@ private:
     };
     using Browser = std::variant<NoBrowser, Waiting, Exchanging>;
 
+    // What an answer of the token endpoint comes to.
+    struct Verdict
+    {
+        enum Kind { Granted, Refused, Transient } kind;
+        std::chrono::seconds retry_after{0}; // the least wait before trying again
+        bool operator==(const Verdict &) const = default;
+    };
+    // From the answer's HTTP status (0 when none came), its body, and its
+    // Retry-After header, if a valid one.
+    static Verdict classify(int http_status,
+                            const QJsonObject &body,
+                            std::optional<int> retry_after);
+
     // What the token endpoint answered.
     struct Answer
     {
+        Verdict verdict;
         QVariantMap fields;  // the reply's JSON object
         QString error;       // the error it names (RFC 6749, 5.2), or empty
         QString description; // and that error's description

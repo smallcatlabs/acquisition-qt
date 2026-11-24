@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QString>
 #include <QVariantMap>
 
@@ -33,6 +35,26 @@ public:
             return std::nullopt;
         }
         return m.m_refresh_timer.remainingTimeAsDuration();
+    }
+
+    // OAuthManager::classify, in words: "granted", "refused", "retry", or
+    // "retry after N" when the answer asks for at least N seconds.
+    static QString classify(int http_status, const QByteArray &body, std::optional<int> retry_after)
+    {
+        const auto verdict = OAuthManager::classify(http_status,
+                                                    QJsonDocument::fromJson(body).object(),
+                                                    retry_after);
+        switch (verdict.kind) {
+        case OAuthManager::Verdict::Granted:
+            return "granted";
+        case OAuthManager::Verdict::Refused:
+            return "refused";
+        case OAuthManager::Verdict::Transient:
+            break;
+        }
+        return verdict.retry_after.count()
+                   ? QString("retry after %1").arg(verdict.retry_after.count())
+                   : QString("retry");
     }
 
     // A redirect's query, as the listener reports it.
