@@ -45,16 +45,12 @@ public:
     void SetAutoUpdate(bool update);
     void SetShopTemplate(const QString &shop_template);
     void CopyToClipboard();
-    // An output-affecting LOCAL edit (buyout, template, threads): advances
-    // the input revision and drops any waiting automatic capture (M2
-    // D8/R6-4) — draining a pre-edit capture after the user's edit would
-    // post data older than their intent. The active job is deliberately
-    // unaffected: its capture is immutable and posts as captured.
-    void ExpireShopData();
-    // A published SNAPSHOT boundary (final ItemsRefreshed): advances the
-    // input revision only. A waiting clean capture survives — the gate's
-    // invariant is cleanliness, not recency (M2 D8/R5-6 keep-and-drain).
-    void OnPublishedSnapshot();
+    // An output-affecting LOCAL edit (buyout, template, threads): drops any
+    // waiting automatic capture (M2 D8/R6-4) — draining a pre-edit capture
+    // after the user's edit would post data older than their intent. The
+    // active job is deliberately unaffected: its capture is immutable and
+    // posts as captured.
+    void DropWaitingCapture();
     void SubmitShopToForum(bool force = false);
     // How long to wait before fetching the edit page again after the forum
     // said the security token had expired. Tests shorten it.
@@ -62,13 +58,7 @@ public:
     bool auto_update() const { return m_auto_update; }
 
     QStringList threads() const { return m_threads; }
-    QStringList shop_data() const { return m_shop_data; }
     QString shop_template() const { return m_shop_template; }
-    // True when the preview/clipboard cache was rendered from an input
-    // revision older than the current one (items-pipeline M2, D8). Deltas
-    // deliberately do not advance the input revision (R4-2), so this is
-    // snapshot-granular, not delta-granular.
-    bool shop_data_outdated() const { return m_cache_revision < m_input_revision; }
 
     // Why a submission stopped. `message` is shown to the user for an
     // Error; for a rejected session it says which reply rejected it.
@@ -130,10 +120,8 @@ private:
         ShopRenderInput input;
         QStringList threads;
         bool force{false};
-        quint64 input_revision{0};
         // Job-local transport state. Every submission renders its own
-        // capture (M2 D8): correctness never depends on preview-cache
-        // freshness.
+        // capture (M2 D8).
         RenderedShop rendered;
         qsizetype requests_completed{0};
         // POSTs made for the current thread.
@@ -143,8 +131,10 @@ private:
         bool automatic{false};
     };
 
+    // The postable items and every other render input but the stash index,
+    // captured by value from the published state.
+    ShopRenderInput CaptureInput() const;
     std::unique_ptr<ShopJob> CaptureJob(bool force) const;
-    void PublishPreviewCache(const ShopJob &job);
 
     // Automatic admission (M2 D8/R3-1): captures BEFORE applying the busy
     // policy — when a job is active, the capture becomes (or replaces) the
@@ -190,6 +180,17 @@ private:
         const std::expected<poe::WebStashListWrapper, RateLimit::FetchError> &result);
     void OnStashIndexUpdated();
 
+    // A rejected POESESSID, wherever it was rejected: logged with the
+    // reason (which reply rejected it), automatic updates off, the session
+    // cleared, and the user told.
+    void RejectPoeSession(const QString &reason);
+
+    // The copy's own path (#278): render once the stash index arrives, then
+    // copy every page, or say why nothing was copied.
+    void OnCopyIndexReceived(
+        const std::expected<poe::WebStashListWrapper, RateLimit::FetchError> &result,
+        ShopRenderInput input);
+
     // The forum conversation for the current thread: GET its edit page,
     // POST the page there, and either move to the next thread or, when the
     // forum asks for a retry, start this thread again from the GET (fresh
@@ -220,12 +221,4 @@ private:
     // making the forum observe every refresh generation.
     std::unique_ptr<ShopJob> m_active_job;
     std::unique_ptr<ShopJob> m_waiting_capture;
-
-    // Preview/clipboard cache, published only by rendered jobs that are not
-    // older than the cache already here. Monotonic revisions replace the old
-    // single outdated flag: ExpireShopData() advances the input revision;
-    // rendering job N can mark only N's revision clean — never a newer one.
-    QStringList m_shop_data;
-    quint64 m_input_revision{1};
-    quint64 m_cache_revision{0};
 };

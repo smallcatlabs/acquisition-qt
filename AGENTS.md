@@ -89,7 +89,8 @@ for the change in hand:
   state out of commits.
 - For release changes, compare `CMakeLists.txt`, `installer.iss`, and the
   relevant workflow so version and packaging assumptions stay aligned. The
-  version has one source: `project(VERSION ...)` in `CMakeLists.txt`.
+  version has one source: `project(VERSION ...)` plus `app_version_suffix` in
+  `CMakeLists.txt`. How a release is tagged and published is in `RELEASE.md`.
 
 ## Where To Look
 
