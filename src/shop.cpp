@@ -337,7 +337,7 @@ void Shop::SetThread(const QStringList &threads)
     spdlog::debug("Shop: setting {} thread(s) to {}", threads.size(), threads.join(";"));
     m_threads = threads;
     m_datastore.Set("shop", threads.join(";"));
-    ExpireShopData();
+    DropWaitingCapture();
     m_datastore.Set("shop_hash", "");
 }
 
@@ -364,7 +364,7 @@ void Shop::SetShopTemplate(const QString &shop_template)
     spdlog::debug("Shop: setting template to {}", shop_template);
     m_shop_template = shop_template;
     m_datastore.Set("shop_template", shop_template);
-    ExpireShopData();
+    DropWaitingCapture();
 }
 
 void Shop::OnRefreshFinished(const RefreshOutcome &outcome)
@@ -505,7 +505,6 @@ std::unique_ptr<Shop::ShopJob> Shop::CaptureJob(bool force) const
     job->input = CaptureInput();
     job->threads = m_threads;
     job->force = force;
-    job->input_revision = m_input_revision;
     return job;
 }
 
@@ -539,12 +538,8 @@ void Shop::OnStashIndexReceived(
     OnStashIndexUpdated();
 }
 
-void Shop::ExpireShopData()
+void Shop::DropWaitingCapture()
 {
-    // A monotonic revision, not a flag (M2 D8): completing an older job can
-    // only mark its own revision rendered, never this newer one.
-    spdlog::trace("Shop: expiring shop data");
-    ++m_input_revision;
     // An output-affecting local edit drops the waiting automatic capture
     // (R6-4): draining a pre-edit capture after the user's edit would post
     // data older than their intent while telling them the shop updated. The
@@ -553,16 +548,6 @@ void Shop::ExpireShopData()
         spdlog::debug("Shop: dropping the waiting automatic capture — the shop input changed");
         m_waiting_capture.reset();
     }
-}
-
-void Shop::OnPublishedSnapshot()
-{
-    // The snapshot boundary dirties the preview/clipboard cache like any
-    // other input change, but a waiting CLEAN capture survives it (R5-6):
-    // a completed-with-skips or failed refresh publishing its snapshot must
-    // not invalidate the newest clean state waiting to drain.
-    spdlog::trace("Shop: expiring shop data at the published snapshot");
-    ++m_input_revision;
 }
 
 void Shop::CompleteActiveJob()
@@ -632,16 +617,13 @@ void Shop::OnStashIndexUpdated()
     spdlog::debug("Shop: updating {} forum shop threads", job.threads.size());
     const QString previous_hash = m_datastore.Get("shop_hash");
 
-    // Every submission renders from its capture (M2 D8), independent of
-    // preview-cache freshness — a cached preview may predate streamed
-    // deltas that this job's capture already includes, or vice versa.
+    // Every submission renders from its capture (M2 D8).
     job.rendered = RenderShop(job.input);
     for (const auto &item : job.rendered.unlinked) {
         spdlog::error("Shop: cannot determine tab index for {} in {}",
                       item.pretty_name,
                       item.location.GetHeader());
     }
-    PublishPreviewCache(job);
 
     // More pages than threads (#253): the pages that fit are posted and the
     // rest are not. Checked before the unchanged-hash exit, so the user
@@ -672,19 +654,6 @@ void Shop::OnStashIndexUpdated()
     job.requests_completed = 0;
     job.attempts = 0;
     SubmitSingleShop();
-}
-
-void Shop::PublishPreviewCache(const ShopJob &job)
-{
-    // A rendered job publishes the preview cache only if it is not older
-    // than the cache already here (M2 D8), and it can mark only its own
-    // captured revision rendered — an older job finishing late can neither
-    // clobber a newer preview nor mark newer input clean.
-    if (job.input_revision < m_cache_revision) {
-        return;
-    }
-    m_shop_data = job.rendered.pages;
-    m_cache_revision = job.input_revision;
 }
 
 void Shop::SubmitSingleShop()
