@@ -104,7 +104,7 @@ for the change in hand:
 | Storage | `src/datastore/`, `src/legacy/` | F22, F64 and F66 in `findings.md` | Any change to a repo table's DDL bumps `SCHEMA_VERSION` in the same commit. Buyout tables are never dropped or rebuilt. |
 | Shell | `src/main.cpp`, `src/application.*`, `src/ui/logindialog.*`, `src/util/` | "Standing constraints" in `findings.md` | Logging teardown comes last (F29). Never touch `logger->sinks()` outside `logging::init` (F42). One user session per process. Credentials never reach the log. |
 | UI | `src/ui/` | `docs/user/` | — |
-| Build, CI, release | `CMakeLists.txt`, `CMakePresets.json`, `.github/workflows/`, `installer.iss` | `BUILD.md` | `_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR` stays a global definition ahead of `FetchContent` (F78). |
+| Build, CI, release | `CMakeLists.txt`, `CMakePresets.json`, `.github/workflows/`, `installer.iss` | `BUILD.md` | `_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR` stays a global definition ahead of `FetchContent` (F78). `acquisition_core` links no Qt Widgets; widgets and `Application` live in `acquisition_gui` (the `core_boundary` test). |
 
 `docs/README.md` maps every document. The frozen specs remain full authority
 for the areas they cover; cite their decision numbers, the F-numbers, and the
