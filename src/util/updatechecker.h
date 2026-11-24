@@ -7,13 +7,13 @@
 #include <QNetworkReply>
 #include <QObject>
 #include <QSslError>
+#include <QString>
 #include <QTimer>
 #include <QVersionNumber>
 
 #include <semver/semver.hpp>
 
 class QSettings;
-class QWidget;
 
 class NetworkManager;
 
@@ -22,6 +22,21 @@ class UpdateChecker : public QObject
     Q_OBJECT
 public:
     explicit UpdateChecker(QSettings &settings, NetworkManager &network_manager);
+
+    // What the user can answer when an update is offered (AskUserToUpdate,
+    // ui/updateprompt.h, asks).
+    enum class UpdateChoice {
+        Download,      // open the downloads page; ask again next time
+        AskAgainLater, // ask again next time
+        DontAskAgain,  // do not offer these versions again
+    };
+    // Whether a check has found a version the user has not declined.
+    bool UpdateOffered() const;
+    // What there is to offer, as a few lines for the user.
+    QString UpdateMessage() const;
+    // Records the user's answer to the offer, and acts on it.
+    void ApplyUpdateChoice(UpdateChoice choice);
+
 signals:
     // true when a check finds a version the user has not declined; false
     // once the user declines it with "don't ask again", so nothing is left
@@ -29,7 +44,6 @@ signals:
     void UpdateAvailable(bool available);
 public slots:
     void CheckForUpdates();
-    void AskUserToUpdate();
 private slots:
     void OnUpdateReplyReceived();
     void OnUpdateErrorOccurred(QNetworkReply::NetworkError code);
