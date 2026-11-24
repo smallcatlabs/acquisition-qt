@@ -139,8 +139,9 @@ ApplyBuyoutResult ApplyBuyout(BuyoutManager &buyouts,
         count(buyouts.SetTab(tab, buyout));
     }
     for (const Item *item : targets.items) {
-        if (buyouts.EffectiveTab(item->location()).IsGameSet()
-            || buyouts.Effective(*item).IsGameSet()) {
+        // Only the price in force decides: an item's own price wins over its
+        // tab's name (T12, #365), and a note wins over both (T29).
+        if (buyouts.Effective(*item).IsGameSet()) {
             spdlog::trace("ApplyBuyout: item {} is priced in the game", item->id());
             ++result.locked;
             continue;
