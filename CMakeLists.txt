@@ -301,8 +301,6 @@ endif()
 #------------------------------------------------------
 
 set(ACQ_CORE
-    src/application.cpp
-    src/application.h
     src/applybuyout.cpp
     src/applybuyout.h
     src/bucket.cpp
@@ -409,8 +407,6 @@ set(ACQ_RATELIMIT
     src/ratelimit/networkcapture.h
     src/ratelimit/ratelimit.cpp
     src/ratelimit/ratelimit.h
-    src/ratelimit/ratelimitdialog.cpp
-    src/ratelimit/ratelimitdialog.h
     src/ratelimit/ratelimitedrequest.cpp
     src/ratelimit/ratelimitedrequest.h
     src/ratelimit/ratelimiter.cpp
@@ -475,6 +471,19 @@ set(ACQ_POE
     src/poe/types/website/webstashtab.h
 )
 
+# The application shell and the files outside src/ui that need Qt Widgets:
+# they go into the GUI library with src/ui (#299). The rate-limit dialog and
+# the MSVC check keep their places in the tree; the boundary test goes by
+# library, not by folder.
+set(ACQ_SHELL
+    src/application.cpp
+    src/application.h
+    src/ratelimit/ratelimitdialog.cpp
+    src/ratelimit/ratelimitdialog.h
+    src/util/checkmsvc.cpp
+    src/util/checkmsvc.h
+)
+
 set(ACQ_UI
     src/ui/buyoutpanel.cpp
     src/ui/buyoutpanel.h
@@ -504,16 +513,18 @@ set(ACQ_UI
     src/ui/searchcombobox.h
     src/ui/searchform.cpp
     src/ui/searchform.h
+    src/ui/updateprompt.cpp
+    src/ui/updateprompt.h
     src/ui/verticalscrollarea.cpp
     src/ui/verticalscrollarea.h
+    src/ui/widgetutil.cpp
+    src/ui/widgetutil.h
     # Forms
     src/ui/logindialog.ui
     src/ui/mainwindow.ui
 )
 
 set(ACQ_UTIL
-    src/util/checkmsvc.cpp
-    src/util/checkmsvc.h
     src/util/crashreporting.cpp
     src/util/crashreporting.h
     src/util/databackup.cpp
@@ -708,6 +719,8 @@ target_link_libraries(acquisition_filters
         spdlog::spdlog_header_only
 )
 
+# The core library: everything but the widgets (#299). Its include and link
+# closure contains no Qt Widgets module; core_boundary holds that line.
 qt_add_library(acquisition_core STATIC
     ${ACQ_CORE}
     ${ACQ_DATASTORE}
@@ -715,7 +728,6 @@ qt_add_library(acquisition_core STATIC
     ${ACQ_RATELIMIT}
     ${ACQ_REPOE}
     ${ACQ_POE}
-    ${ACQ_UI}
     ${ACQ_UTIL}
     # Generated version header
     "${CMAKE_BINARY_DIR}/version_defines.h"
@@ -746,17 +758,27 @@ target_link_libraries(acquisition_core PUBLIC
     Qt6::Gui
     Qt6::Network
     Qt6::NetworkAuth
-    Qt6::Widgets
     Qt6::Sql
     # Extenal libraries
     glaze::glaze
     QCoro6::Core
     QCoro6::Network
-    qdarkstyle
     QXlsx::QXlsx
     sentry::sentry
     semver
     spdlog::spdlog_header_only
+)
+
+# The GUI library: the widgets and the application shell that builds them.
+qt_add_library(acquisition_gui STATIC
+    ${ACQ_SHELL}
+    ${ACQ_UI}
+)
+acq_first_party(acquisition_gui)
+target_link_libraries(acquisition_gui PUBLIC
+    acquisition_core
+    Qt6::Widgets
+    qdarkstyle
 )
 
 qt_add_executable(acquisition WIN32 MACOSX_BUNDLE
@@ -772,7 +794,7 @@ target_sources(acquisition PRIVATE
         src/version_defines.h.in
 )
 
-target_link_libraries(acquisition PRIVATE acquisition_core)
+target_link_libraries(acquisition PRIVATE acquisition_gui)
 
 #----------------------------------
 # Platform-specific section
@@ -787,10 +809,12 @@ if(WIN32)
     # job sets it (BUILD.md, "Where CI runs"); release builds keep /Zi.
     option(ACQ_MSVC_EMBEDDED_DEBUG_INFO
         "MSVC: /Z7 instead of /Zi, so a compiler cache can store the objects." OFF)
-    target_compile_options(acquisition_core PRIVATE
-        $<$<CXX_COMPILER_ID:MSVC>:/EHsc>
-        $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<NOT:$<CONFIG:Debug>>>:$<IF:$<BOOL:${ACQ_MSVC_EMBEDDED_DEBUG_INFO}>,/Z7,/Zi>>
-    )
+    foreach(library acquisition_core acquisition_gui)
+        target_compile_options(${library} PRIVATE
+            $<$<CXX_COMPILER_ID:MSVC>:/EHsc>
+            $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<NOT:$<CONFIG:Debug>>>:$<IF:$<BOOL:${ACQ_MSVC_EMBEDDED_DEBUG_INFO}>,/Z7,/Zi>>
+        )
+    endforeach()
     target_link_options(acquisition PRIVATE
         $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<NOT:$<CONFIG:Debug>>>:/DEBUG>
         $<$<AND:$<CXX_COMPILER_ID:MSVC>,$<NOT:$<CONFIG:Debug>>>:/OPT:REF>
@@ -863,6 +887,7 @@ elseif(UNIX)
 
     # Generate debug symbols.
     target_compile_options(acquisition_core PRIVATE $<$<NOT:$<CONFIG:Debug>>:-g>)
+    target_compile_options(acquisition_gui PRIVATE $<$<NOT:$<CONFIG:Debug>>:-g>)
     target_compile_options(acquisition PRIVATE $<$<NOT:$<CONFIG:Debug>>:-g>)
     if(CMAKE_OBJCOPY AND CMAKE_STRIP)
         add_custom_command(TARGET acquisition

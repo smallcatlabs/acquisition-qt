@@ -15,7 +15,6 @@
 
 #include "util/spdlog_qt.h"
 
-class QComboBox;
 class QNetworkReply;
 
 struct Buyout;
@@ -44,11 +43,6 @@ namespace Util {
 
     QString Md5(const QString &value);
     double AverageDamage(const QString &s);
-    void PopulateBuyoutTypeComboBox(QComboBox *combobox);
-    void PopulateBuyoutCurrencyComboBox(QComboBox *combobox);
-
-    int TextWidth(TextWidthId id);
-
     QString GetCsrfToken(const QByteArray &page, const QString &name);
     QString FindTextBetween(const QString &page, const QString &left, const QString &right);
 

@@ -4,7 +4,7 @@
 #include "column.h"
 
 #include <cmath>
-#include <QApplication>
+#include <QGuiApplication>
 #include <QIcon>
 #include <QPalette>
 #include <QRegularExpression>
@@ -22,7 +22,7 @@ const char *SORT_TWO_VALUES = "^(\\d+)([-/])(\\d+)$";
 
 QColor Column::color(const Item & /* item */) const
 {
-    return QApplication::palette().color(QPalette::WindowText);
+    return QGuiApplication::palette().color(QPalette::WindowText);
 }
 
 Column::MultivalueParts Column::parts(const Item *item, const QString &pretty) const
@@ -117,7 +117,7 @@ QColor NameColumn::color(const Item &item) const
     case FrameType::FRAME_TYPE_SUPPORTER_FOIL:
         return QColor(QRgb(0x82ad6a)); // TBD: is this right?
     default:
-        return QApplication::palette().color(QPalette::WindowText);
+        return QGuiApplication::palette().color(QPalette::WindowText);
     }
 }
 
@@ -369,7 +369,7 @@ QColor PriceColumn::color(const Item &item) const
 {
     return m_bo_manager.Effective(item).buyout.IsInherited()
                ? QColor(0xaa, 0xaa, 0xaa)
-               : QApplication::palette().color(QPalette::WindowText);
+               : QGuiApplication::palette().color(QPalette::WindowText);
 }
 
 ItemSortKey::PriceHead PriceColumn::head(const Item &item) const
