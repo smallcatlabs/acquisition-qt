@@ -1,22 +1,34 @@
 name: Build & Package (Windows)
 
+# Called by release.yml on a version tag (RELEASE.md), or run by hand. It
+# builds, tests and packages; it never creates a release.
 on:
-  push:
-    tags: ['v*']
+  workflow_call:
+    outputs:
+      version:
+        description: 'The version this build calls itself.'
+        value: ${{ jobs.build-windows-installer.outputs.version }}
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-windows-installer:
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
 
     steps:
     - name: Checkout code
       uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       with:
         fetch-depth: 0
+
+    - name: Get version
+      id: version
+      shell: bash
+      run: .github/scripts/version.sh
 
     # Every workflow installs the same Qt (BUILD.md). Not 6.12.0: a 6.12.0
     # Windows package failed at start-up with "SSL support is missing" on a
@@ -51,26 +63,6 @@ jobs:
 
     - name: Test
       run: ctest --test-dir build --output-on-failure
-
-    - name: Get version
-      id: version
-      run: |
-        $header = Get-Content "build\version_defines.h" -Raw
-        if ($header -notmatch '#define APP_VERSION_STRING\s+"([^"]+)"') {
-          throw "Could not read APP_VERSION_STRING from build\version_defines.h"
-        }
-        $version = $matches[1]
-
-        # The update checker parses APP_VERSION_STRING as the running version and
-        # compares it against github release tags (src/util/updatechecker.cpp),
-        # so a tag that disagrees with the build would tell every user to update
-        # to the version they are already running, on every check.
-        if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") {
-          Write-Host "::error::Tag $env:GITHUB_REF_NAME does not match APP_VERSION_STRING $version"
-          Write-Host "::error::Update app_version / app_version_suffix in CMakeLists.txt"
-          exit 1
-        }
-        echo "version=$version" >> $env:GITHUB_OUTPUT
 
     - name: Upload debug symbols to Sentry
       uses: ./.github/actions/sentry-symbols
@@ -237,12 +229,13 @@ jobs:
           throw "Setup removed a file that is not the application's"
         }
 
-    - name: Name the pdb for distribution
+    - name: Name the pdb for its version
       run: |
-        # Every release shipped its symbols as a plain 'acquisition.pdb', so two
-        # of them collide in a download folder and a stray copy cannot be traced
-        # back to a build. Copy rather than rename: the linker's own name is what
-        # the PE records, and local debuggers look the pdb up by that name.
+        # A plain 'acquisition.pdb' cannot be told from another build's once
+        # downloaded. Copy rather than rename: the linker's own name is what the
+        # PE records, and local debuggers look the pdb up by that name. The pdb
+        # stays a workflow artifact and in Sentry; releases do not carry it
+        # (RELEASE.md).
         Copy-Item "build\acquisition.pdb" `
           "build\acquisition-${{ steps.version.outputs.version }}.pdb"
 
@@ -254,16 +247,3 @@ jobs:
           Output/*.exe
           build/acquisition-${{ steps.version.outputs.version }}.pdb
         retention-days: 30
-
-    - name: Create draft release
-      if: startsWith(github.ref, 'refs/tags/v')
-      uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
-      with:
-        files: |
-          Output/Acquisition_setup_*.exe
-          build/acquisition-${{ steps.version.outputs.version }}.pdb
-        generate_release_notes: true
-        draft: true
-        prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
