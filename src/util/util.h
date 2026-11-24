@@ -15,7 +15,6 @@
 
 #include "util/spdlog_qt.h"
 
-class QComboBox;
 class QNetworkReply;
 
 struct Buyout;
@@ -44,11 +43,6 @@ namespace Util {
 
     QString Md5(const QString &value);
     double AverageDamage(const QString &s);
-    void PopulateBuyoutTypeComboBox(QComboBox *combobox);
-    void PopulateBuyoutCurrencyComboBox(QComboBox *combobox);
-
-    int TextWidth(TextWidthId id);
-
     QString GetCsrfToken(const QByteArray &page, const QString &name);
     QString FindTextBetween(const QString &page, const QString &left, const QString &right);
 
@@ -69,11 +63,12 @@ namespace Util {
 
     QString Decode(const QString &entity);
 
-    // A text of the game's with its "[id|text]" markup read as the text:
-    // "Allocates [additional_spectre278|Death Attunement]" is "Allocates
-    // Death Attunement". Mod lines, property names and the stat
-    // translations carry it (#391). Brackets without a bar are left alone:
-    // some are the same markup ("[Onslaught]") and some are not ("[DNT]").
+    // A text of the game's with its markup read as the text: "Allocates
+    // [additional_spectre278|Death Attunement]" is "Allocates Death
+    // Attunement" (#391), and "You gain [Onslaught] for {0} seconds on Kill"
+    // is "You gain Onslaught for {0} seconds on Kill" (#420). Mod lines,
+    // property names and the stat translations carry it. "[DNT]", which
+    // begins some names of the game data, is not markup and is kept.
     QString WithoutMarkup(const QString &text);
 
     // An application/x-www-form-urlencoded body: each key and value

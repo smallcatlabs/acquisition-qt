@@ -19,6 +19,7 @@ CMakeLists.txt text eol=lf
 *.ui text eol=lf
 *.desktop text eol=lf
 *.rc.in text eol=lf
+*.sh text eol=lf
 
 *.iss text eol=crlf
 

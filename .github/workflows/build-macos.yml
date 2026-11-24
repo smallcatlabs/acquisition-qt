@@ -1,8 +1,14 @@
 name: Build & Package (macOS)
 
+# Called by release.yml on a version tag (RELEASE.md), or run by hand. It
+# builds, tests and packages; it never creates a release.
 on:
-  push:
-    tags: ['v*']
+  workflow_call:
+    inputs:
+      runner:
+        description: 'github or laptop, as for workflow_dispatch below.'
+        type: string
+        default: github
   workflow_dispatch:
     inputs:
       runner:
@@ -12,15 +18,15 @@ on:
         default: github
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-macos-dmg:
     # A tag push always builds on a GitHub-hosted Mac. When GitHub cannot
-    # allocate one, the maintainer runs this workflow on the tag with
-    # runner=laptop and starts a throwaway macOS VM that takes this one job
-    # (BUILD.md, "Platform Notes"). That VM has Qt 6.11.3 installed and sets
-    # QT_ROOT_DIR, so Setup Qt is skipped there.
+    # allocate one, the maintainer starts Release (or this workflow) by hand
+    # on the tag with runner=laptop and starts a throwaway macOS VM that takes
+    # this one job (BUILD.md, "Platform Notes"). That VM has Qt 6.11.3
+    # installed and sets QT_ROOT_DIR, so Setup Qt is skipped there.
     runs-on: ${{ inputs.runner == 'laptop' && fromJSON('["self-hosted","macOS","ARM64","smallcat-macos"]') || 'macos-latest' }}
 
     steps:
@@ -28,6 +34,10 @@ jobs:
       uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       with:
         fetch-depth: 0
+
+    - name: Get version
+      id: version
+      run: .github/scripts/version.sh
 
     - name: Setup Qt
       if: inputs.runner != 'laptop'
@@ -53,24 +63,6 @@ jobs:
     - name: Test
       run: ctest --test-dir build --output-on-failure
 
-    - name: Get version
-      id: version
-      run: |
-        version=$(grep APP_VERSION_STRING build/version_defines.h | cut -d'"' -f2)
-        echo "version=$version"
-
-        # The update checker parses APP_VERSION_STRING as the running version and
-        # compares it against github release tags (src/util/updatechecker.cpp),
-        # so a tag that disagrees with the build would tell every user to update
-        # to the version they are already running, on every check.
-        if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "$GITHUB_REF_NAME" != "v$version" ]; then
-          echo "::error::Tag $GITHUB_REF_NAME does not match APP_VERSION_STRING $version"
-          echo "::error::Update app_version / app_version_suffix in CMakeLists.txt"
-          exit 1
-        fi
-
-        echo "version=$version" >> "$GITHUB_OUTPUT"
-
     # The dSYM is produced by dsymutil in a POST_BUILD step in CMakeLists.txt.
     # Uploading before macdeployqt is fine: install_name_tool rewrites load
     # commands but leaves LC_UUID, which is what Sentry matches on.
@@ -86,7 +78,7 @@ jobs:
 
     - name: Package DMG
       run: |
-        $QT_ROOT_DIR/bin/macdeployqt \
+        "$QT_ROOT_DIR/bin/macdeployqt" \
           build/acquisition.app \
           -verbose=2 \
           -always-overwrite \
@@ -111,14 +103,3 @@ jobs:
         name: Acquisition_${{ steps.version.outputs.version }}_arm64.dSYM
         path: build/acquisition*.dSYM
         retention-days: 30
-
-    - name: Create draft release
-      if: startsWith(github.ref, 'refs/tags/v')
-      uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
-      with:
-        files: build/Acquisition_*.dmg
-        generate_release_notes: true
-        draft: true
-        prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

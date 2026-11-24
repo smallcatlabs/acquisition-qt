@@ -60,6 +60,7 @@ struct ItemSocket
 
 typedef std::vector<QString> ItemMods;
 typedef std::unordered_map<QString, double> ModTable;
+enum class UnnamedLine; // modlist.h
 
 class Item
 {
@@ -111,6 +112,15 @@ public:
     int w() const { return m_w; }
     int h() const { return m_h; }
     int frameType() const { return m_frameType; }
+    // What becomes of a mod line that fits no mod name of the game data
+    // (#429). On a gem, a currency item and a divination card the lines
+    // are the game's description of the item, so they are dropped; on
+    // every other item such a line is filed under its own text.
+    UnnamedLine unnamed_lines() const;
+    // The names in the mod table that are a line's own text, not a mod name
+    // of the game data. The Mods filter's list of names takes them from
+    // the loaded items (AddOwnTextModNames).
+    const std::vector<QString> &own_text_mods() const { return m_own_text_mods; }
     const QString &icon() const { return m_icon; }
     // Property values as the game displays them ("8.00%", "35-120"), for
     // columns and other display; Quality and Level are stored stripped.
@@ -208,6 +218,7 @@ private:
     std::vector<ItemSocket> m_text_sockets;
     QString m_note;
     ModTable m_mod_table;
+    std::vector<QString> m_own_text_mods;
     QString m_uid;
     // Beside m_uid, which every price read touches: a member elsewhere in
     // the item costs every effective read a cache miss (#293 benchmark).

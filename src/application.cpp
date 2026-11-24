@@ -29,6 +29,7 @@
 #include "shop.h"
 #include "ui/logindialog.h"
 #include "ui/mainwindow_bridge.h"
+#include "ui/updateprompt.h"
 #include "util/databackup.h"
 #include "util/fatalerror.h"
 #include "util/networkmanager.h"
@@ -54,10 +55,9 @@ void Application::InitCoreServices(std::unique_ptr<NetworkManager> network_manag
     m_core = std::make_unique<Application::CoreServices>(m_data_dir, std::move(network_manager));
 
     // Connect to the update signal in case an update is detected before the main window is open.
-    connect(&update_checker(),
-            &UpdateChecker::UpdateAvailable,
-            &update_checker(),
-            &UpdateChecker::AskUserToUpdate);
+    connect(&update_checker(), &UpdateChecker::UpdateAvailable, &update_checker(), [this] {
+        AskUserToUpdate(update_checker());
+    });
 
     // Connect signals from the login dialog.
     connect(&login(), &LoginDialog::ChangeTheme, this, &Application::SetTheme);

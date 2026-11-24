@@ -4,14 +4,10 @@
 #include "util/updatechecker.h"
 
 #include <QDesktopServices>
-#include <QMessageBox>
 #include <QNetworkRequest>
-#include <QPushButton>
 #include <QRegularExpression>
 #include <QSettings>
-#include <QSizePolicy>
 #include <QUrl>
-#include <QWidget>
 
 #include <semver/semver.hpp>
 
@@ -201,17 +197,13 @@ bool UpdateChecker::has_newer_prerelease() const
            && (m_running_version < m_latest_prerelease);
 }
 
-void UpdateChecker::AskUserToUpdate()
+bool UpdateChecker::UpdateOffered() const
 {
-    if (!has_newer_release() && !has_newer_prerelease()) {
-        // Nothing to offer. This is reached when the "no longer available"
-        // signal below is connected back here (the login window's
-        // connection), and must not open a prompt.
-        spdlog::debug("UpdateChecker: no newer versions available");
-        return;
-    }
+    return has_newer_release() || has_newer_prerelease();
+}
 
-    // Setup the update message.
+QString UpdateChecker::UpdateMessage() const
+{
     QStringList lines;
     if (has_newer_release()) {
         lines.append("A newer release is available:");
@@ -224,32 +216,16 @@ void UpdateChecker::AskUserToUpdate()
         lines.append("A newer prerelease is available:");
         lines.append("   " + QString::fromStdString(m_latest_prerelease.str()));
     }
-    const QString message = lines.join("\n");
+    return lines.join("\n");
+}
 
-    // Create the dialog box.
-    QMessageBox msgbox(nullptr);
-    msgbox.setWindowTitle("Acquisition Update Checker");
-    msgbox.setText(message);
-    auto accept_button = msgbox.addButton("  Go to Github  ", QMessageBox::AcceptRole);
-    auto remind_button = msgbox.addButton("  Ignore  ", QMessageBox::RejectRole);
-    auto ignore_button = msgbox.addButton("  Ignore, and don't ask again  ",
-                                          QMessageBox::RejectRole);
-    msgbox.setDefaultButton(ignore_button);
-
-    // Resize the buttons so the text fits.
-    accept_button->setMinimumWidth(accept_button->sizeHint().width());
-    ignore_button->setMinimumWidth(ignore_button->sizeHint().width());
-    remind_button->setMinimumWidth(remind_button->sizeHint().width());
-
-    // Get the user's choice.
-    msgbox.exec();
-    const auto clicked = msgbox.clickedButton();
-
+void UpdateChecker::ApplyUpdateChoice(UpdateChoice choice)
+{
     // Save the latest releases into the settings file oinly if the
     // user asked to skip them in the future.
     // The in-memory copies are updated too, so the choice holds for the
     // periodic checks of this run and not only from the next start.
-    if (clicked == ignore_button) {
+    if (choice == UpdateChoice::DontAskAgain) {
         m_previous_release = m_latest_release;
         m_previous_prerelease = m_latest_prerelease;
         m_settings.setValue("skip_release", QString::fromStdString(m_latest_release.str()));
@@ -262,8 +238,8 @@ void UpdateChecker::AskUserToUpdate()
         m_settings.setValue("skip_prerelease", "");
     }
 
-    // Open a desktop web browser window if the user clicked that button.
-    if (clicked == accept_button) {
+    // Open a desktop web browser window if the user asked for it.
+    if (choice == UpdateChoice::Download) {
         QDesktopServices::openUrl(QUrl(GITHUB_DOWNLOADS_URL));
     }
 }
