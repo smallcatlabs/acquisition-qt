@@ -204,6 +204,7 @@ acq_add_test(tst_ratelimiter)
 acq_add_test(tst_search)
 acq_add_test(tst_searchform)
 acq_add_test(tst_securitylogging)
+acq_add_test(tst_oauthmanager)
 acq_add_test(tst_shell)
 acq_add_test(tst_shop)
 acq_add_test(tst_spikedataset)
@@ -241,7 +242,21 @@ acq_add_scenario_test(tst_applogin
     secondAuthenticateReplacesTheFirst
     redirectForAnAbandonedAttemptIsRefused
     loginEndsAWaitingBrowserLogin
-    refusedLoginLeavesTheBrowserLoginWaiting)
+    refusedLoginLeavesTheBrowserLoginWaiting
+    refreshWhileTheBrowserIsOutLeavesItWaiting
+    failedRefreshWhileTheBrowserIsOutLeavesItWaiting
+    loginDuringTheCodeExchangeKeepsTheSession
+    secondAuthenticateDuringTheCodeExchange
+    staleRefreshLeavesANewerLoginAlone
+    redirectDuringARefreshIsTaken
+    replayedRedirectIsNotExchangedAgain
+    tokensInARedirectAreNotTaken
+    heldLoginIsRefreshedOnTimeAfterAnAbandonedExchange
+    exchangeWithNoAnswerEndsTheAttempt
+    refreshWithNoAnswerAtStartIsSaid
+    codeWithEscapesIsExchangedAsSent
+    refreshWithoutARefreshTokenKeepsTheOneHeld
+    refreshThatFailsIsTriedAgain)
 
 # Which tabs are open once a filter has come and gone (#387), on the real
 # Application; one scenario per process, as tst_applogin.

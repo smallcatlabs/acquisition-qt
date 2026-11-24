@@ -24,9 +24,8 @@ constexpr const char *POE_COOKIE_PATH = "/";
 
 constexpr const char *POE_API_HOST = "api.pathofexile.com";
 
-// The OAuth token endpoint (TOKEN_URL in oauthmanager.cpp). Its requests are
-// issued internally by QOAuth2AuthorizationCodeFlow, so this is the only
-// place the client sees them.
+// The OAuth token endpoint (TOKEN_URL in oauthmanager.cpp), whose replies
+// are watched here for their rate limit.
 constexpr const char *POE_WWW_HOST = "www.pathofexile.com";
 constexpr const char *POE_OAUTH_TOKEN_PATH = "/oauth/token";
 
