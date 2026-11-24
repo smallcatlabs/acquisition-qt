@@ -40,6 +40,7 @@
 #include "testsuite.h"
 #include "ui/logindialog.h"
 #include "ui/mainwindow_bridge.h"
+#include "ui/updateprompt.h"
 #include "util/checkmsvc.h"
 #include "util/crashreporting.h"
 #include "util/databackup.h"
@@ -85,6 +86,7 @@ private slots:
     void loginListensOnLoopbackAfterClose();
     void everyLoginRedirectsToTheListenerItBinds();
     void startupRefreshClosesTheListener();
+    void updatePromptAnswersAreApplied();
     void msvcCheckPassesWithoutLibraries();
     void msvcCheckAnswer_data();
     void msvcCheckAnswer();
@@ -455,10 +457,9 @@ void ShellTest::declinedUpdateBeforeLoginOpensOnePrompt()
     QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
     FakeNetworkManager network;
     UpdateChecker checker(settings, network);
-    QObject::connect(&checker,
-                     &UpdateChecker::UpdateAvailable,
-                     &checker,
-                     &UpdateChecker::AskUserToUpdate);
+    QObject::connect(&checker, &UpdateChecker::UpdateAvailable, &checker, [&checker] {
+        AskUserToUpdate(checker);
+    });
 
     // Answer every modal that opens: the first with "don't ask again", any
     // later one by closing it.
@@ -515,10 +516,9 @@ void ShellTest::prereleaseOfADeclinedReleaseIsNotOffered()
     UpdateChecker checker(*fixture.settings, network);
     ConnectUpdateChecker(*fixture.window, checker);
     // The connection Application makes before login.
-    QObject::connect(&checker,
-                     &UpdateChecker::UpdateAvailable,
-                     &checker,
-                     &UpdateChecker::AskUserToUpdate);
+    QObject::connect(&checker, &UpdateChecker::UpdateAvailable, &checker, [&checker] {
+        AskUserToUpdate(checker);
+    });
     QSignalSpy available(&checker, &UpdateChecker::UpdateAvailable);
 
     int prompts = 0;
@@ -776,17 +776,19 @@ void ShellTest::loginListensOnLoopbackAfterClose()
     auto *handler = services.oauth.findChild<QOAuthHttpServerReplyHandler *>();
     QVERIFY(handler);
 
-    // As constructed, the handler listens on loopback.
-    QVERIFY(callbackAddress(services.oauth).isLoopback());
+    // As constructed, nothing listens: only a browser login that waits does.
+    QVERIFY(!handler->isListening());
 
-    // A grant closes it (OAuthManager::receiveGrant); the next login must
-    // listen on loopback again, not on every interface.
-    handler->close();
+    // A login listens on loopback, not on every interface; and again after
+    // the listener was closed.
+    QVERIFY(services.oauth.initLogin());
+    QVERIFY(callbackAddress(services.oauth).isLoopback());
+    services.oauth.endLogin();
     QVERIFY(!handler->isListening());
     QVERIFY(services.oauth.initLogin());
     const QHostAddress address = callbackAddress(services.oauth);
     QVERIFY2(address.isLoopback(), qPrintable(address.toString()));
-    QCOMPARE(browser.urls.size(), 1);
+    QCOMPARE(browser.urls.size(), 2);
 }
 
 void ShellTest::everyLoginRedirectsToTheListenerItBinds()
@@ -812,10 +814,10 @@ void ShellTest::everyLoginRedirectsToTheListenerItBinds()
 
 void ShellTest::startupRefreshClosesTheListener()
 {
-    // A stored token is refreshed when OAuthManager is constructed. A
-    // successful refresh emits granted(), which closes the callback server,
-    // so the login dialog's "Re-authenticate" goes through the re-listen
-    // path in initLogin().
+    // A stored token is refreshed when OAuthManager is constructed. Nothing
+    // listens for a redirect then, nor once the refresh is granted: the
+    // listener is open only while a browser login waits, and the login
+    // dialog's "Re-authenticate" opens it in initLogin().
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     FakeNetworkManager network;
@@ -823,7 +825,7 @@ void ShellTest::startupRefreshClosesTheListener()
     datastore.Set("oauth_token", R"({"username":"TestAccount","refresh_token":"old-refresh"})");
     OAuthManager oauth(network, datastore);
     QSignalSpy granted(&oauth, &OAuthManager::grantAccess);
-    QVERIFY(callbackAddress(oauth).isLoopback());
+    QVERIFY(callbackAddress(oauth).isNull());
 
     QTRY_COMPARE_WITH_TIMEOUT(network.count(), 1, 1000);
     QVERIFY(network.sent(0).request.url().path().endsWith("/oauth/token"));
@@ -838,6 +840,71 @@ void ShellTest::startupRefreshClosesTheListener()
 
     QTRY_COMPARE_WITH_TIMEOUT(granted.count(), 1, 1000);
     QVERIFY(callbackAddress(oauth).isNull());
+}
+
+// The update prompt as the user sees it, and what its other two answers do:
+// "Go to Github" opens the downloads page, and "Ignore", like it, forgets a
+// release declined for good earlier. Either way the button stays.
+void ShellTest::updatePromptAnswersAreApplied()
+{
+    MainWindowFixture fixture;
+    // An older release, declined for good earlier.
+    fixture.settings->setValue("skip_release", "98.0.0");
+    fixture.settings->setValue("skip_prerelease", "98.0.0");
+    FakeNetworkManager network;
+    UpdateChecker checker(*fixture.settings, network);
+    ConnectUpdateChecker(*fixture.window, checker);
+    UrlCatcher browser("https");
+
+    checker.CheckForUpdates();
+    answerUpdateCheck(network,
+                      R"json([{"tag_name":"v99.0.0","draft":false,"prerelease":false},
+                              {"tag_name":"v100.0.0-beta.1","draft":false,"prerelease":true}])json");
+    auto *button = findUpdateButton(*fixture.window);
+    QVERIFY(button);
+    QVERIFY(!button->isHidden());
+
+    QString text;
+    QString default_button;
+    QStringList options;
+    const bool prompted
+        = answerModal<QMessageBox>([&] { button->click(); },
+                                   [&](QMessageBox &prompt) {
+                                       text = prompt.text();
+                                       default_button = prompt.defaultButton()->text();
+                                       for (auto *option : prompt.buttons()) {
+                                           options << option->text();
+                                       }
+                                       for (auto *option : prompt.buttons()) {
+                                           if (option->text().trimmed() == "Go to Github") {
+                                               option->click();
+                                               return;
+                                           }
+                                       }
+                                       prompt.reject();
+                                   });
+    QVERIFY(prompted);
+    QCOMPARE(text,
+             QString("A newer release is available:\n   99.0.0\n\n"
+                     "A newer prerelease is available:\n   100.0.0-beta.1"));
+    options.sort();
+    QCOMPARE(options,
+             (QStringList{"  Go to Github  ", "  Ignore  ", "  Ignore, and don't ask again  "}));
+    QCOMPARE(default_button, QString("  Ignore, and don't ask again  "));
+    QCOMPARE(browser.urls,
+             QList<QUrl>{QUrl("https://github.com/smallcatlabs/acquisition-qt/releases")});
+    QCOMPARE(fixture.settings->value("skip_release").toString(), QString());
+    QCOMPARE(fixture.settings->value("skip_prerelease").toString(), QString());
+    QVERIFY(!button->isHidden());
+
+    // "Ignore" forgets a declined release too, and opens nothing.
+    fixture.settings->setValue("skip_release", "98.0.0");
+    fixture.settings->setValue("skip_prerelease", "98.0.0");
+    QVERIFY(!answerUpdatePrompt(*button, "Ignore").isNull());
+    QCOMPARE(fixture.settings->value("skip_release").toString(), QString());
+    QCOMPARE(fixture.settings->value("skip_prerelease").toString(), QString());
+    QCOMPARE(browser.urls.size(), 1);
+    QVERIFY(!button->isHidden());
 }
 
 void ShellTest::msvcCheckPassesWithoutLibraries()

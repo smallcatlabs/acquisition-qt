@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include <QSettings>
+#include <QSqlError>
 #include <QSqlQuery>
 #include <QtTest/QtTest>
 
@@ -21,6 +22,10 @@ private slots:
     void wordBeforeAHyphenStillReads();
     // A stored price in a currency tag this build does not know.
     void unknownStoredCurrencyIsShownButNotPosted();
+
+    // #295: a failed read of the refresh check state is not an empty one.
+    void failedReadOfRefreshChecksIsNotSavedOver();
+    void unparseableRefreshChecksAreReplaced();
     // #293 step 2: a tab's price is not copied onto its items.
     void tabPriceWritesOneRow();
     void inheritedRowIsIgnoredOnLoad();
@@ -74,7 +79,7 @@ private slots:
     // list, whether or not any of its items are loaded.
     void gamePricedEmptyTabIsLocked();
     void manuallyPricedEmptyTabIsLocked();
-    void removeOnlyPricedTabStaysUnlocked();
+    void removeOnlyPricedTabIsLocked();
     void priceNamedFolderStaysUnlocked();
 };
 
@@ -234,9 +239,10 @@ void BuyoutManagerTest::unknownStoredCurrencyIsShownButNotPosted()
                    ShopRenderItem{.pretty_name = "Chaos",
                                   .location = tab,
                                   .buyout = fixture.manager->Get(chaos)}};
-    input.tab_index[tab.id().left(10)] = 0;
+    // The index is keyed by the tab's id as the item's location carries it.
+    input.tab_index[tab.id()] = 0;
     const QString pages = RenderShop(input).pages.join('\n');
-    QVERIFY2(pages.contains(" 6 chaos\""), qPrintable(pages));
+    QVERIFY2(pages.contains(" 6 chaos\"]") && pages.contains("[linkItem"), qPrintable(pages));
     QVERIFY2(!pages.contains(" 5"), qPrintable(pages));
 }
 
@@ -1019,21 +1025,34 @@ void BuyoutManagerTest::manuallyPricedEmptyTabIsLocked()
     QVERIFY(fixture.buyouts.manager->GetRefreshChecked(tab));
 }
 
-// Remove-only tabs are skipped, with or without items, as before #148:
-// whether they should lock is a separate question.
-void BuyoutManagerTest::removeOnlyPricedTabStaysUnlocked()
+// #148: a remove-only tab's items can be posted, so a priced remove-only
+// tab is refresh-locked like any other: from the tab list, from its loaded
+// items, and from a refreshed tab's items before the final pass.
+void BuyoutManagerTest::removeOnlyPricedTabIsLocked()
 {
     PricingFixture fixture;
     const ItemLocation tab = makeTestStashLocation("stash-148c", "~price 20 chaos (Remove-only)", 0);
     QVERIFY(tab.removeonly());
     const auto item = makeNotedItem("item-148c", tab);
 
+    // Priced by its name, empty or not yet fetched.
     fixture.items.OnItemsRefreshed({}, {tab}, false);
-    QVERIFY(!fixture.buyouts.manager->GetRefreshLocked(tab));
+    QVERIFY(fixture.buyouts.manager->GetRefreshLocked(tab));
 
     fixture.items.OnItemsRefreshed({item}, {tab}, false);
     QVERIFY(fixture.buyouts.manager->Effective(*item).buyout.IsActive());
-    QVERIFY(!fixture.buyouts.manager->GetRefreshLocked(tab));
+    QVERIFY(fixture.buyouts.manager->GetRefreshLocked(tab));
+
+    // An item priced by its note in an unpriced remove-only tab.
+    const ItemLocation plain = makeTestStashLocation("stash-148e", "Dump (Remove-only)", 1);
+    QVERIFY(plain.removeonly());
+    const auto noted = makeNotedItem("item-148e", plain, "~b/o 3 chaos");
+    fixture.items.OnItemsRefreshed({}, {tab, plain}, false);
+    QVERIFY(!fixture.buyouts.manager->GetRefreshLocked(plain));
+    fixture.items.OnTabRefreshed(plain, {noted});
+    QVERIFY(fixture.buyouts.manager->GetRefreshLocked(plain));
+    fixture.items.OnItemsRefreshed({noted}, {tab, plain}, false);
+    QVERIFY(fixture.buyouts.manager->GetRefreshLocked(plain));
 }
 
 // A folder can be named with a price in game, which lists nothing at that
@@ -1052,6 +1071,60 @@ void BuyoutManagerTest::priceNamedFolderStaysUnlocked()
     fixture.items.OnItemsRefreshed({}, {folder}, false);
 
     QVERIFY(!fixture.buyouts.manager->GetRefreshLocked(folder));
+}
+
+// #295: when the stored refresh check state cannot be read, nothing is
+// saved over it: before, the next check-box change saved a map holding only
+// that session's changes, and every other unchecked tab was checked again.
+void BuyoutManagerTest::failedReadOfRefreshChecksIsNotSavedOver()
+{
+    BuyoutManagerFixture fixture;
+    const ItemLocation unchecked = makeTestStashLocation("stash-295a", "Unchecked", 0);
+    const ItemLocation other = makeTestStashLocation("stash-295b", "Other", 1);
+    QVERIFY(fixture.manager->SetRefreshChecked(unchecked, false));
+    fixture.manager->Save();
+    const QString stored = fixture.data->Get("refresh_checked_state");
+    QVERIFY(stored.contains("stash-295a"));
+
+    // A second connection hides the table while a manager loads.
+    const QString connection = "refresh-checks-295";
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connection);
+        db.setDatabaseName(fixture.tempDir.filePath("acquisition.sqlite"));
+        QVERIFY(db.open());
+    }
+    const auto rename = [&](const char *from, const char *to) {
+        QSqlQuery q(QSqlDatabase::database(connection));
+        QVERIFY2(q.exec(QString("ALTER TABLE %1 RENAME TO %2").arg(from, to)),
+                 qPrintable(q.lastError().text()));
+    };
+    rename("data", "data_hidden");
+    {
+        BuyoutManager manager(*fixture.data, *fixture.repo);
+        rename("data_hidden", "data");
+        // A change in this session, with the table back so a write would land.
+        QVERIFY(manager.SetRefreshChecked(other, false));
+        manager.Save();
+    }
+    QSqlDatabase::database(connection).close();
+    QSqlDatabase::removeDatabase(connection);
+
+    QCOMPARE(fixture.data->Get("refresh_checked_state"), stored);
+}
+
+// #295: unlike a failed read, a stored check state that is present but
+// cannot be parsed is replaced, as before #295.
+void BuyoutManagerTest::unparseableRefreshChecksAreReplaced()
+{
+    BuyoutManagerFixture fixture;
+    const QString stored = R"({"stash-295c": "no"})";
+    QVERIFY(fixture.data->Set("refresh_checked_state", stored));
+    {
+        BuyoutManager manager(*fixture.data, *fixture.repo);
+        QVERIFY(manager.SetRefreshChecked(makeTestStashLocation("stash-295d", "D", 0), false));
+        manager.Save();
+    }
+    QCOMPARE(fixture.data->Get("refresh_checked_state"), QString(R"({"stash-295d":false})"));
 }
 
 ACQ_TEST_GUILESS_MAIN(BuyoutManagerTest)

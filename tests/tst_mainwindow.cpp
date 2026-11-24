@@ -8,6 +8,7 @@
 #include <QAction>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QFile>
 #include <QHeaderView>
 #include <QInputDialog>
 #include <QItemSelectionModel>
@@ -47,6 +48,7 @@ private slots:
     void cleanupTestCase();
     void fixtureConstructsOffline();
     void legacyImportPropagationRefreshesPricingState();
+    void legacyImportDropsAWaitingShopCapture();
     // #257: nothing writes buyouts while they are not loaded.
     void legacyImportRefusedWhenBuyoutsNotLoaded();
     void startupWarnsWhenBuyoutsNotLoaded();
@@ -524,7 +526,57 @@ void MainWindowTest::legacyImportPropagationRefreshesPricingState()
     QCOMPARE(propagated.value, 12.0);
     QVERIFY(propagated.inherited);
     QVERIFY(fixture.buyoutFixture.manager->GetRefreshLocked(tab));
-    QVERIFY(fixture.shop->shop_data_outdated());
+}
+
+// The import changes what the shop would post, so it drops an automatic
+// capture waiting behind a running submission: drained, that capture would
+// post the prices from before the import.
+void MainWindowTest::legacyImportDropsAWaitingShopCapture()
+{
+    MainWindowFixture fixture(MainWindowFixture::Network::Fake);
+    auto &limiter = static_cast<FakeRateLimiter &>(*fixture.rateLimiter);
+    auto &network = static_cast<FakeNetworkManager &>(*fixture.networkManager);
+    const auto drain = [] {
+        for (int i = 0; i < 20; ++i) {
+            QCoreApplication::processEvents();
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        }
+    };
+    const auto forumPage = [](const char *name) {
+        QFile file(QFINDTESTDATA(QString("fixtures/forum/") + name));
+        return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+    };
+    fixture.settings->setValue("session_id", "fake-poesessid");
+    fixture.shop->SetThread({"3445874"});
+    fixture.shop->SetAutoUpdate(true);
+    const auto item = std::make_shared<Item>(makeTestItem("import-capture"));
+    fixture.itemsManager->OnItemsRefreshed({item}, {item->location()}, false);
+    QVERIFY(fixture.buyoutFixture.manager->Set(*item, makeChaosBuyout(1)));
+
+    // An automatic submission goes active, and a second clean refresh's
+    // capture waits behind it.
+    fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+    QCOMPARE(limiter.futureCount(), size_t(1));
+    QVERIFY(fixture.buyoutFixture.manager->Set(*item, makeChaosBuyout(2)));
+    fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+    QCOMPARE(limiter.futureCount(), size_t(1));
+
+    QVERIFY(QMetaObject::invokeMethod(fixture.window.get(),
+                                      "OnLegacyBuyoutsImported",
+                                      Qt::DirectConnection));
+
+    // The running submission completes; nothing was waiting behind it.
+    limiter.resolve(0, R"({"tabs":[{"n":"Test Tab","i":0,"id":"stash00001"}]})");
+    drain();
+    QCOMPARE(network.count(), 1);
+    network.sent(0).reply->finish({}, 200, QNetworkReply::NoError, forumPage("edit-thread.html"));
+    QTRY_COMPARE_WITH_TIMEOUT(network.count(), 2, 5000);
+    network.sent(1).reply->finish({},
+                                  200,
+                                  QNetworkReply::NoError,
+                                  forumPage("after-edit-thread.html"));
+    drain();
+    QCOMPARE(limiter.futureCount(), size_t(1));
 }
 
 // Leaves the fixture's manager in the state a failed item read leaves it

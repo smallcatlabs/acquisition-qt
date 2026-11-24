@@ -10,6 +10,7 @@
 #include "repoe/repoe.h"
 #include "shop.h"
 #include "ui/mainwindow.h"
+#include "ui/updateprompt.h"
 #include "util/updatechecker.h"
 
 void MainWindowDeleter::operator()(MainWindow *window) const
@@ -113,7 +114,7 @@ void ConnectUpdateChecker(MainWindow &main_window, UpdateChecker &update_checker
     QObject::connect(&main_window,
                      &MainWindow::UpdateCheckRequested,
                      &update_checker,
-                     &UpdateChecker::AskUserToUpdate);
+                     [&update_checker] { AskUserToUpdate(update_checker); });
     QObject::connect(&update_checker,
                      &UpdateChecker::UpdateAvailable,
                      &main_window,
