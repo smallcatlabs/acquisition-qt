@@ -74,7 +74,7 @@ private slots:
     // list, whether or not any of its items are loaded.
     void gamePricedEmptyTabIsLocked();
     void manuallyPricedEmptyTabIsLocked();
-    void removeOnlyPricedTabStaysUnlocked();
+    void removeOnlyPricedTabIsLocked();
     void priceNamedFolderStaysUnlocked();
 };
 
@@ -1020,21 +1020,34 @@ void BuyoutManagerTest::manuallyPricedEmptyTabIsLocked()
     QVERIFY(fixture.buyouts.manager->GetRefreshChecked(tab));
 }
 
-// Remove-only tabs are skipped, with or without items, as before #148:
-// whether they should lock is a separate question.
-void BuyoutManagerTest::removeOnlyPricedTabStaysUnlocked()
+// #148: a remove-only tab's items can be posted, so a priced remove-only
+// tab is refresh-locked like any other: from the tab list, from its loaded
+// items, and from a refreshed tab's items before the final pass.
+void BuyoutManagerTest::removeOnlyPricedTabIsLocked()
 {
     PricingFixture fixture;
     const ItemLocation tab = makeTestStashLocation("stash-148c", "~price 20 chaos (Remove-only)", 0);
     QVERIFY(tab.removeonly());
     const auto item = makeNotedItem("item-148c", tab);
 
+    // Priced by its name, empty or not yet fetched.
     fixture.items.OnItemsRefreshed({}, {tab}, false);
-    QVERIFY(!fixture.buyouts.manager->GetRefreshLocked(tab));
+    QVERIFY(fixture.buyouts.manager->GetRefreshLocked(tab));
 
     fixture.items.OnItemsRefreshed({item}, {tab}, false);
     QVERIFY(fixture.buyouts.manager->Effective(*item).buyout.IsActive());
-    QVERIFY(!fixture.buyouts.manager->GetRefreshLocked(tab));
+    QVERIFY(fixture.buyouts.manager->GetRefreshLocked(tab));
+
+    // An item priced by its note in an unpriced remove-only tab.
+    const ItemLocation plain = makeTestStashLocation("stash-148e", "Dump (Remove-only)", 1);
+    QVERIFY(plain.removeonly());
+    const auto noted = makeNotedItem("item-148e", plain, "~b/o 3 chaos");
+    fixture.items.OnItemsRefreshed({}, {tab, plain}, false);
+    QVERIFY(!fixture.buyouts.manager->GetRefreshLocked(plain));
+    fixture.items.OnTabRefreshed(plain, {noted});
+    QVERIFY(fixture.buyouts.manager->GetRefreshLocked(plain));
+    fixture.items.OnItemsRefreshed({noted}, {tab, plain}, false);
+    QVERIFY(fixture.buyouts.manager->GetRefreshLocked(plain));
 }
 
 // A folder can be named with a price in game, which lists nothing at that
