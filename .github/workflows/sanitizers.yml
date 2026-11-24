@@ -58,32 +58,103 @@ permissions:
   contents: read
 
 jobs:
+  # Picks where the sanitizer build runs (BUILD.md, "Where CI runs"): the
+  # project's own runner pool, or ubuntu-latest. The same rule as tests.yml's
+  # job of the same name; keep the two alike. The pool writes the time into
+  # the organization variable SMALLCAT_LINUX_POOL every minute while it is up,
+  # and `off` when it is stopped. A pull request from a fork or from
+  # Dependabot always builds on ubuntu-latest, and so does every run while that
+  # time is missing or more than five minutes old. Anything unexpected picks
+  # ubuntu-latest.
+  route:
+    name: Pick Linux runner
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      runs-on: ${{ steps.pick.outputs.runs-on }}
+    steps:
+      - name: Pick runner
+        id: pick
+        env:
+          HEARTBEAT: ${{ vars.SMALLCAT_LINUX_POOL }}
+          FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          hosted='"ubuntu-latest"'
+          pool='["self-hosted","smallcat-linux"]'
+          max_age=300
+          now=$(date +%s)
+          if [ "$FORK" = true ]; then
+            runs_on=$hosted why='a pull request from a fork'
+          elif [ "$PR_AUTHOR" = 'dependabot[bot]' ]; then
+            runs_on=$hosted why='a pull request from Dependabot'
+          elif ! [[ $HEARTBEAT =~ ^[1-9][0-9]{0,11}$ ]]; then
+            runs_on=$hosted why='the pool is off (SMALLCAT_LINUX_POOL is not a time)'
+          elif (( now - HEARTBEAT > max_age )); then
+            runs_on=$hosted why="the pool was last heard from $(( (now - HEARTBEAT) / 60 )) minutes ago"
+          else
+            runs_on=$pool why="the pool was heard from $(( now - HEARTBEAT )) seconds ago"
+          fi
+          echo "runs-on=$runs_on" >> "$GITHUB_OUTPUT"
+          where=$([ "$runs_on" = "$pool" ] && echo 'the smallcat runner pool' || echo 'ubuntu-latest')
+          echo "The sanitizer build runs on $where: $why." | tee -a "$GITHUB_STEP_SUMMARY"
+
   asan-lsan:
     name: ASan + UBSan (suite), LSan (integration runner)
-    runs-on: ubuntu-latest
+    needs: route
+    runs-on: ${{ fromJSON(needs.route.outputs.runs-on) }}
+    # A cold build takes about 45 minutes on ubuntu-latest; GitHub's default
+    # limit is six hours.
+    timeout-minutes: 90
+    env:
+      # The pool's runner image carries this Qt; "Check runner image" compares.
+      QT_VERSION: 6.11.3
+      # The sanitizer build has its own compiler cache, apart from tests.yml's,
+      # so neither evicts the other. Its objects carry -g and are larger.
+      CCACHE_MAXSIZE: 2G
 
     steps:
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
-        with:
-          fetch-depth: 0
+
+      # On the pool, Qt, the apt packages (llvm-symbolizer among them) and a
+      # warm sanitizer compiler cache are in the runner image, and the job has
+      # no sudo; the steps that install them run on GitHub-hosted runners only.
+      - name: Check runner image
+        if: runner.environment == 'self-hosted'
+        run: |
+          echo "Runner $RUNNER_NAME, image $(grep -m1 '^sealed_utc=' /etc/smallcat-runner-image | cut -d= -f2)" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+          qt=$("$QT_ROOT_DIR/bin/qmake" -query QT_VERSION 2>/dev/null || echo none)
+          if [ "$qt" != "$QT_VERSION" ]; then
+            echo "::error::The runner image has Qt $qt; this workflow wants $QT_VERSION."
+            echo "::error::Refresh the runner image, or stop the runner pool to build on ubuntu-latest."
+            exit 1
+          fi
+          if [ -z "$(ls -A ~/.cache/ccache-asan 2>/dev/null)" ]; then
+            echo "::warning::The runner image has no warm sanitizer compiler cache; this build starts cold."
+          fi
 
       - name: Setup Qt
+        if: runner.environment == 'github-hosted'
         # Normally 30 to 75 seconds. Without a limit, a runner that cannot
         # resolve the Ubuntu package hosts retries for about 47 minutes
         # (November 2026, PR 235: an upstream DNS failure for ubuntu.com).
         timeout-minutes: 5
         uses: jurplel/install-qt-action@b344308e4483fc892e0d27b3cd1b173ebdd95f06 # v4.5.0
         with:
-          version: '6.11.3'
+          version: ${{ env.QT_VERSION }}
           modules: 'qtnetworkauth'
           cache: true
-          cache-key-prefix: 'qt-6.11.3-linux-sanitizers'
+          cache-key-prefix: 'qt-${{ env.QT_VERSION }}-linux-sanitizers'
 
       - name: Install dependencies
+        if: runner.environment == 'github-hosted'
+        timeout-minutes: 10
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            ccache \
             openssl \
             libcurl4-openssl-dev \
             libgl-dev \
@@ -94,22 +165,50 @@ jobs:
             zlib1g-dev \
             llvm
 
-      - name: Configure CMake (ASan + UBSan)
-        run: cmake -B build-asan -S . -DACQ_SANITIZE=address,undefined -DCMAKE_BUILD_TYPE=RelWithDebInfo
+      - name: Use the sanitizer compiler cache
+        run: echo "CCACHE_DIR=$HOME/.cache/ccache-asan" >> "$GITHUB_ENV"
 
-      # Build ONLY the test targets (acq_tests: every executable ctest runs).
-      # acquisition_core + sentry/crashpad compile under the sanitizers (a
-      # heavy from-scratch build), but the `acquisition` app target must never
-      # be sanitized. Allow generous build time.
+      # On ubuntu-latest the cache is GitHub's, and a run can only restore one
+      # saved on its own branch or tag, or on master: it speeds up a pull
+      # request's second and later pushes. The pool's runner image carries a
+      # warm cache at the same path, built from master at each image refresh,
+      # so a pool run skips this.
+      - name: Restore compiler cache
+        if: runner.environment == 'github-hosted'
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ccache-asan
+          key: ccache-asan-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            ccache-asan-${{ runner.os }}-
+
+      # The `asan` preset (CMakePresets.json) is the same build a developer
+      # makes locally: RelWithDebInfo with ACQ_SANITIZE=address,undefined.
+      # SMALLCAT_CMAKE_TOP_LEVEL_INCLUDES is set only on the pool; see the
+      # Configure step in tests.yml.
+      - name: Configure
+        run: >
+          cmake --preset asan
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          ${SMALLCAT_CMAKE_TOP_LEVEL_INCLUDES:+"-DCMAKE_PROJECT_TOP_LEVEL_INCLUDES=$SMALLCAT_CMAKE_TOP_LEVEL_INCLUDES"}
+
+      # The preset builds ONLY the test targets (acq_tests: every executable
+      # ctest runs). acquisition_core + sentry/crashpad compile under the
+      # sanitizers, but the `acquisition` app target must never be sanitized.
       #
       # Cap at --parallel 2 (matching codeql.yml / build-linux.yml): ASan cc1plus
       # uses far more memory per translation unit than a plain build, so building
       # the heavy C++23/Qt TUs at full runner width (4 cores) exhausts RAM and
       # systemd-oomd kills the build cgroup with SIGTERM (exit 143). Two-wide
-      # keeps peak memory well under the runner's limit.
+      # keeps peak memory well under the runner's limit, on ubuntu-latest
+      # (16 GB) and on the pool (12 GB).
       - name: Build test targets
         id: build
-        run: cmake --build build-asan --target acq_tests --parallel 2
+        run: cmake --build --preset asan --parallel 2
+
+      - name: Compiler cache statistics
+        run: ccache --show-stats
 
       # The scenarios split into two leak regimes, and they are run as two
       # separate steps so the suppression file only ever applies where it is
@@ -136,7 +235,7 @@ jobs:
         env:
           ASAN_OPTIONS: abort_on_error=1:detect_leaks=1
         run: |
-          ctest --test-dir build-asan --no-tests=error -R tst_workerintegration -E 'i_shut_|i_leak_bound' -V
+          ctest --test-dir build/asan --no-tests=error -R tst_workerintegration -E 'i_shut_|i_leak_bound' -V
 
       # Shutdown scenarios (i_shut_*) and the bounded-leak proof (i_leak_bound)
       # intentionally leave detached QCoro frames at process exit (S1-1/S1-2), so
@@ -148,7 +247,7 @@ jobs:
           ASAN_OPTIONS: abort_on_error=1:detect_leaks=1
           LSAN_OPTIONS: suppressions=${{ github.workspace }}/tests/lsan.supp:print_suppressions=1
         run: |
-          ctest --test-dir build-asan --no-tests=error -R 'tst_workerintegration\.(i_shut_|i_leak_bound)' -V
+          ctest --test-dir build/asan --no-tests=error -R 'tst_workerintegration\.(i_shut_|i_leak_bound)' -V
 
       # Every other test, under ASan + UBSan with leak detection off: their
       # leaks have not been measured, and the suppression file must never be
@@ -160,4 +259,4 @@ jobs:
           ASAN_OPTIONS: abort_on_error=1:detect_leaks=0
           UBSAN_OPTIONS: print_stacktrace=1
         run: |
-          ctest --test-dir build-asan --no-tests=error -E '^tst_workerintegration\.' --output-on-failure
+          ctest --test-dir build/asan --no-tests=error -E '^tst_workerintegration\.' --output-on-failure
