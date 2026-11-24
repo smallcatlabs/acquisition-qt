@@ -38,14 +38,27 @@ CurrencyManager::CurrencyManager(QSettings &settings,
             m_wisdom.push_back(WisdomCount{.name = row.name, .wisdom = row.wisdom, .count = 0});
         }
     }
-    if (m_data.Get("currency_items", "").isEmpty()) {
+    // A read that fails is not an empty store (#295): set up and saved as
+    // one, the defaults would replace the user's ratios.
+    const DataStore::ReadResult items = m_data.Read("currency_items");
+    const bool first_run = items && items->value_or("").isEmpty();
+    // The list from before the JSON format, read only on a first run.
+    const DataStore::ReadResult base = first_run ? m_data.Read("currency_base")
+                                                 : DataStore::ReadResult(std::nullopt);
+    if (!items || !base) {
+        spdlog::error("CurrencyManager: the stored currency could not be read, so it will not be "
+                      "saved this session: {}",
+                      items ? base.error() : items.error());
+        m_loaded = false;
+        MakeCurrencyItems();
+    } else if (items->value_or("").isEmpty()) {
         FirstInitCurrency();
-        if (!m_data.Get("currency_base", "").isEmpty()) {
-            MigrateCurrency();
+        if (!base->value_or("").isEmpty()) {
+            MigrateCurrency(**base);
             spdlog::warn("Found old currency values, migrated them to the new system");
         }
     } else {
-        InitCurrency();
+        InitCurrency(**items);
     }
 }
 
@@ -123,10 +136,10 @@ void CurrencyManager::MakeCurrencyItems()
     }
 }
 
-void CurrencyManager::InitCurrency()
+void CurrencyManager::InitCurrency(const QString &currency_items)
 {
     MakeCurrencyItems();
-    Deserialize(m_data.Get("currency_items"), m_currencies);
+    Deserialize(currency_items, m_currencies);
 }
 
 void CurrencyManager::FirstInitCurrency()
@@ -143,11 +156,11 @@ void CurrencyManager::FirstInitCurrency()
     m_settings.setValue("show_exalt", true);
 }
 
-void CurrencyManager::MigrateCurrency()
+void CurrencyManager::MigrateCurrency(const QString &currency_base)
 {
     // The old list is positional over the old currency enum, whose first
     // entry was "no currency": entry i is table row i - 1.
-    const QStringList list = m_data.Get("currency_base").split(';');
+    const QStringList list = currency_base.split(';');
     for (qsizetype i = 1; (i < list.size()) && (static_cast<size_t>(i - 1) < m_currencies.size());
          ++i) {
         // We can't use the toDouble function from QT, because it encodes a double with a ","
@@ -212,11 +225,17 @@ void CurrencyManager::Deserialize(const QString &string_data,
 
 void CurrencyManager::SaveCurrencyItems()
 {
+    if (!m_loaded) {
+        return;
+    }
     m_data.Set("currency_items", Serialize(m_currencies));
 }
 
 void CurrencyManager::SaveCurrencyValue()
 {
+    if (!m_loaded) {
+        return;
+    }
     QString value = "";
     // Useless to save if every count is 0.
     bool empty = true;
@@ -227,8 +246,13 @@ void CurrencyManager::SaveCurrencyValue()
             empty = false;
         }
     }
-    QString old_value = m_data.Get("currency_last_value", "");
-    if (value != old_value && !empty) {
+    // A last value that cannot be read is not "none" (#295): taken for
+    // none, this update would be recorded again even when nothing changed.
+    const DataStore::ReadResult old_value = m_data.Read("currency_last_value");
+    if (!old_value) {
+        return;
+    }
+    if (value != old_value->value_or(QString()) && !empty) {
         CurrencyUpdate update = CurrencyUpdate();
         update.timestamp = QDateTime::currentSecsSinceEpoch();
         update.value = value;
