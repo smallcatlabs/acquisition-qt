@@ -440,6 +440,48 @@ as `Build + CTest (Windows, advisory)`. The ruleset does not require that job:
 it shows a broken Windows build on the pull request that breaks it, and blocks
 nothing.
 
+## Where CI runs
+
+`Build + CTest (Linux)` and the sanitizer job run either on the project's own
+runner pool or on GitHub's `ubuntu-latest`. A `Pick Linux runner` job in each
+workflow decides, by the same rule, and the first line of every run's summary
+says which and why. The pool is a set of
+throwaway virtual machines, each taking one job, running Ubuntu with Qt,
+the apt packages, the locale and clang-format already installed.
+
+- A pull request from a fork, or from Dependabot, always builds on
+  `ubuntu-latest`.
+- Everything else builds on the pool while the pool is up. The pool writes
+  the time into the organization variable `SMALLCAT_LINUX_POOL` every minute,
+  and `off` when it is stopped. A missing value, `off`, or a time more than
+  five minutes old sends the build to `ubuntu-latest`.
+- To build on `ubuntu-latest` on purpose, stop the pool's service on its
+  host; stopping it sets `SMALLCAT_LINUX_POOL` to `off`. (Editing the variable
+  by hand lasts only until the running pool's next beat.) Then use "Re-run
+  all jobs": "Re-run failed jobs" keeps the earlier choice.
+- On the pool, `Configure` builds the FetchContent dependencies from copies
+  in the runner image instead of cloning them, when the image holds the
+  exact repository and tag `CMakeLists.txt` asks for; a bumped or new
+  dependency downloads as usual.
+- On the pool, the steps that install Qt and packages are skipped, and
+  `Check runner image` fails at once if the image's Qt or clang-format does not
+  match the versions pinned in `tests.yml`. Refresh the image, or stop the
+  pool.
+- Both jobs build through ccache. On the pool the runner image carries warm
+  caches, built from `master` when the image was last refreshed (weekly):
+  `~/.cache/ccache` for the `release` preset and `~/.cache/ccache-asan` for
+  the `asan` preset. On `ubuntu-latest` the caches are GitHub's, saved after
+  each run; a sanitizer run there restores only one saved on its own branch or
+  tag, so a pull request's first sanitizer run there is a cold build.
+
+`Build + CTest (Windows, advisory)` always runs on GitHub's `windows-latest`.
+It builds through ccache too, with the cache saved by GitHub after each run,
+and configures with `-DACQ_MSVC_EMBEDDED_DEBUG_INFO=ON`: MSVC's `/Zi` writes
+all debug information into one shared file, which a compiler cache cannot
+store, so this job compiles with `/Z7` instead. Release builds keep `/Zi`.
+
+Every other workflow runs on GitHub-hosted runners.
+
 ## Linux
 
 Linux builds require OpenSSL 3.x support at build and runtime. On Ubuntu-like
@@ -519,6 +561,14 @@ with 6.12.0 failed at start-up with "SSL support is missing" (#370). The
 Windows workflow runs the packaged binary with `--check-tls` and fails when it
 finds no TLS backend that supports SSL.
 
+The Windows installer removes what older packages left in the install folder
+before it copies the new files (`[InstallDelete]` in `installer.iss`). A Qt
+plugin left behind by an older package can stop the application: v0.18.10
+reported "SSL support is missing" when installed over a folder that still held
+a Qt 6.5 `tls\qopensslbackend.dll` (#440). The workflow installs the finished
+installer over a folder seeded with such files, and fails if TLS does not work
+afterwards or if any of them remain.
+
 ## Platform Notes
 
 Windows release packaging uses MSVC 2022, `windeployqt`, the Visual C++
@@ -526,6 +576,15 @@ Redistributable, and Inno Setup via `installer.iss`.
 
 macOS release packaging uses `macdeployqt` to produce a DMG. The current workflow
 runs on `macos-latest` and names the uploaded artifact as an arm64 DMG.
+
+GitHub sometimes cannot allocate an arm64 Mac and cancels the job after 15
+minutes ("not acquired by Runner of type hosted"). The fallback is a run on the
+maintainer's Mac: cancel the stuck run, start `build-macos.yml` by hand on the
+same tag with `runner: laptop`, and start a one-job VM there. The job then
+needs the label `smallcat-macos`. That VM is a throwaway copy of a macOS 26
+image with Xcode 26.6 and Qt 6.11.3 at `QT_ROOT_DIR`, matching GitHub's
+`macos-26-arm64` image, and runs the job as a user without admin rights. Tag
+pushes never go there; only a hand-started run with `runner: laptop` does.
 
 Linux release packaging uses `linuxdeploy` and `linuxdeploy-plugin-qt` to produce
 an AppImage.
