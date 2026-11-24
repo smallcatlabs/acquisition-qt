@@ -67,8 +67,8 @@ private slots:
     void forgettingUserKeepsOtherSettings();
     void tokenWithoutAccountNameDoesNotLogIn();
     void backupSkippedWhenVersionCurrent();
-    void backupSkippedWithoutDataDirRecordsVersion();
-    void backupSkippedForEmptyDataDirRecordsVersion();
+    void backupSkippedWithoutDataDir();
+    void backupSkippedForEmptyDataDir();
     void backupTakenOnNewVersion();
     void updateButtonOpensUpdatePrompt();
     void skippedReleaseIsNotOfferedAgain();
@@ -91,6 +91,9 @@ private slots:
     void fatalErrorReportsWithLoggingOff();
     void freshDataDirTakesNoBackup();
     void legacyStoreVersionNamesTheBackup();
+    void fullBackupSeriesStillRecordsVersion();
+    void clearedSettingsTakeNoBackup();
+    void settingsVersionMovesIntoTheStore();
     void imageCacheSignalsFailedFetch();
     void imageCacheKeepsNoFileForUndecodableBody();
     void imageCacheKeysOnRequestedUrl();
@@ -282,39 +285,30 @@ void ShellTest::backupSkippedWhenVersionCurrent()
     const QDir app_dir(dir.path());
     QVERIFY(app_dir.mkpath("data"));
     writeFile(app_dir.filePath("data/userstore-TestAccount.db"), "rows");
-    QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
-    settings.setValue("version", "1.2.3");
 
-    QCOMPARE(BackupDataOnNewVersion(app_dir, settings, "UNKNOWN-VERSION", "1.2.3"), QString());
+    QCOMPARE(BackupDataOnNewVersion(app_dir, "1.2.3", "1.2.3"), QString());
     QCOMPARE(backupDirs(app_dir), QStringList());
-    QCOMPARE(settings.value("version").toString(), QString("1.2.3"));
 }
 
-void ShellTest::backupSkippedWithoutDataDirRecordsVersion()
+void ShellTest::backupSkippedWithoutDataDir()
 {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     const QDir app_dir(dir.path());
-    QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
-    settings.setValue("version", "1.2.2");
 
-    QCOMPARE(BackupDataOnNewVersion(app_dir, settings, "UNKNOWN-VERSION", "1.2.3"), QString());
+    QCOMPARE(BackupDataOnNewVersion(app_dir, "1.2.2", "1.2.3"), QString());
     QCOMPARE(backupDirs(app_dir), QStringList());
-    QCOMPARE(settings.value("version").toString(), QString("1.2.3"));
 }
 
-void ShellTest::backupSkippedForEmptyDataDirRecordsVersion()
+void ShellTest::backupSkippedForEmptyDataDir()
 {
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     const QDir app_dir(dir.path());
     QVERIFY(app_dir.mkpath("data"));
-    QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
-    settings.setValue("version", "1.2.2");
 
-    QCOMPARE(BackupDataOnNewVersion(app_dir, settings, "UNKNOWN-VERSION", "1.2.3"), QString());
+    QCOMPARE(BackupDataOnNewVersion(app_dir, "1.2.2", "1.2.3"), QString());
     QCOMPARE(backupDirs(app_dir), QStringList());
-    QCOMPARE(settings.value("version").toString(), QString("1.2.3"));
 }
 
 void ShellTest::backupTakenOnNewVersion()
@@ -324,15 +318,12 @@ void ShellTest::backupTakenOnNewVersion()
     const QDir app_dir(dir.path());
     QVERIFY(app_dir.mkpath("data"));
     writeFile(app_dir.filePath("data/userstore-TestAccount.db"), "rows");
-    QSettings settings(dir.filePath("settings.ini"), QSettings::IniFormat);
-    settings.setValue("version", "1.2.2");
 
-    const QString backup = BackupDataOnNewVersion(app_dir, settings, "UNKNOWN-VERSION", "1.2.3");
+    const QString backup = BackupDataOnNewVersion(app_dir, "1.2.2", "1.2.3");
     QCOMPARE(backup, app_dir.filePath("data-backup-1.2.2"));
     QCOMPARE(backupDirs(app_dir), QStringList{"data-backup-1.2.2"});
     QCOMPARE(QDir(backup).entryList(QDir::AllEntries | QDir::NoDotAndDotDot),
              QStringList{"userstore-TestAccount.db"});
-    QCOMPARE(settings.value("version").toString(), QString("1.2.3"));
 }
 
 namespace {
@@ -937,13 +928,12 @@ void ShellTest::freshDataDirTakesNoBackup()
     QVERIFY(store);
     const QStringList backups = data_dir.entryList({"data-backup-*"}, QDir::AllEntries);
     QVERIFY2(backups.isEmpty(), qPrintable(backups.join(", ")));
-    QCOMPARE(settings.value("version").toString(), QString(APP_VERSION_STRING));
+    QCOMPARE(store->Get("version", ""), QString(APP_VERSION_STRING));
 }
 
 void ShellTest::legacyStoreVersionNamesTheBackup()
 {
-    // An install from before the version moved to settings.ini recorded it
-    // in the global store; that version still names the backup.
+    // The version in the global store names the backup.
     QTemporaryDir dir;
     QVERIFY(dir.isValid());
     const QDir data_dir(dir.path());
@@ -954,7 +944,79 @@ void ShellTest::legacyStoreVersionNamesTheBackup()
     const auto store = OpenGlobalDataStore(data_dir, settings);
     QVERIFY(store);
     QVERIFY(data_dir.exists("data-backup-0.9.0"));
-    QCOMPARE(settings.value("version").toString(), QString(APP_VERSION_STRING));
+    QCOMPARE(store->Get("version", ""), QString(APP_VERSION_STRING));
+}
+
+void ShellTest::fullBackupSeriesStillRecordsVersion()
+{
+    // Every backup name for the stored version is taken (#446): no backup can
+    // be made, and the version must be recorded all the same, or every later
+    // start comes back here.
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir data_dir(dir.path());
+    QVERIFY(data_dir.mkpath("data"));
+    writeFile(data_dir.filePath("data/userstore-TestAccount.db"), "rows");
+    QVERIFY(data_dir.mkpath("data-backup-UNKNOWN-VERSION"));
+    for (int n = 1; n <= 20; ++n) {
+        QVERIFY(data_dir.mkpath(QString("data-backup-UNKNOWN-VERSION-%1").arg(n)));
+    }
+    QSettings settings(data_dir.filePath("settings.ini"), QSettings::IniFormat);
+
+    {
+        const auto store = OpenGlobalDataStore(data_dir, settings);
+        QVERIFY(store);
+        QCOMPARE(store->Get("version", ""), QString(APP_VERSION_STRING));
+    }
+    QCOMPARE(backupDirs(data_dir).size(), 21);
+
+    // With a name free again, a start that still saw an unknown version would
+    // fill it.
+    QVERIFY(QDir(data_dir.filePath("data-backup-UNKNOWN-VERSION-20")).removeRecursively());
+    const auto store = OpenGlobalDataStore(data_dir, settings);
+    QVERIFY(store);
+    QVERIFY(!data_dir.exists("data-backup-UNKNOWN-VERSION-20"));
+}
+
+void ShellTest::clearedSettingsTakeNoBackup()
+{
+    // The version is kept with the data it describes: losing settings.ini
+    // does not make the data look like it came from an unknown version (#446).
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir data_dir(dir.path());
+    QSettings settings(data_dir.filePath("settings.ini"), QSettings::IniFormat);
+
+    {
+        const auto store = OpenGlobalDataStore(data_dir, settings);
+        QVERIFY(store);
+    }
+    writeFile(data_dir.filePath("data/userstore-TestAccount.db"), "rows");
+    settings.clear();
+
+    const auto store = OpenGlobalDataStore(data_dir, settings);
+    QVERIFY(store);
+    QCOMPARE(backupDirs(data_dir), QStringList());
+}
+
+void ShellTest::settingsVersionMovesIntoTheStore()
+{
+    // v0.16 to v0.18 recorded the version in settings.ini. It still names the
+    // backup of an upgrade from one of them, and then moves into the store.
+    QTemporaryDir dir;
+    QVERIFY(dir.isValid());
+    const QDir data_dir(dir.path());
+    const QString global_file = data_dir.filePath("data/" + SqliteDataStore::MakeFilename("", ""));
+    // Left in the store by a version older still; the setting is the later word.
+    SqliteDataStore(global_file).Set("version", "0.9.0");
+    QSettings settings(data_dir.filePath("settings.ini"), QSettings::IniFormat);
+    settings.setValue("version", "0.0.1-old");
+
+    const auto store = OpenGlobalDataStore(data_dir, settings);
+    QVERIFY(store);
+    QCOMPARE(backupDirs(data_dir), QStringList{"data-backup-0.0.1-old"});
+    QVERIFY(!settings.contains("version"));
+    QCOMPARE(store->Get("version", ""), QString(APP_VERSION_STRING));
 }
 
 void ShellTest::imageCacheSignalsFailedFetch()
