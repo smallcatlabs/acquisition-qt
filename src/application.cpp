@@ -186,16 +186,34 @@ std::unique_ptr<DataStore> OpenGlobalDataStore(const QDir &dataDir, QSettings &s
 {
     const QDir user_dir(dataDir.filePath("data"));
     const QString global_data_file = user_dir.filePath(SqliteDataStore::MakeFilename("", ""));
-    // Back up before the store is opened: opening creates the database, and a
-    // first run would otherwise back up its own new file. Versions before the
-    // version moved to settings.ini recorded it in the store; read it only then.
-    QString legacy_version = "UNKNOWN-VERSION";
-    if (!settings.contains("version") && QFile::exists(global_data_file)) {
-        legacy_version = SqliteDataStore(global_data_file).Get("version", legacy_version);
+    // The version that last used the data is kept in the global store, with
+    // the data it describes, so that losing settings.ini cannot make the data
+    // look like it came from an unknown version (#446). v0.16 to v0.18 kept
+    // it in settings.ini instead: where that setting exists it is the later
+    // word (a store row beside it dates from before v0.16), and it is removed
+    // once read so the store is the only record from here on.
+    //
+    // Back up before the store is opened for use: opening creates the
+    // database, and a first run would otherwise back up its own new file.
+    QString previous_version = settings.value("version").toString();
+    if (previous_version.isEmpty() && QFile::exists(global_data_file)) {
+        previous_version = SqliteDataStore(global_data_file).Get("version", "");
     }
-    BackupDataOnNewVersion(dataDir, settings, legacy_version, APP_VERSION_STRING);
+    if (previous_version.isEmpty()) {
+        previous_version = "UNKNOWN-VERSION";
+    }
+    BackupDataOnNewVersion(dataDir, previous_version, APP_VERSION_STRING);
+
     spdlog::trace("Application: opening global data file: {}", global_data_file);
-    return std::make_unique<SqliteDataStore>(global_data_file);
+    auto store = std::make_unique<SqliteDataStore>(global_data_file);
+    // Recorded whether or not a backup was made; otherwise every later start
+    // would try again.
+    if (store->Get("version", "") != APP_VERSION_STRING) {
+        spdlog::debug("Application: recording version {} in the global store", APP_VERSION_STRING);
+        store->Set("version", APP_VERSION_STRING);
+    }
+    settings.remove("version");
+    return store;
 }
 
 Application::CoreServices::CoreServices(const QDir &appDataDir,

@@ -12,8 +12,10 @@ build from source, see [BUILD.md](../../BUILD.md).
 The login window has an **OAuth** tab with an **Authenticate** button.
 
 1. Click **Authenticate**. Your web browser opens the Path of Exile OAuth page.
-   Approve the request. The button changes to *Re-authenticate (as someone else)*
-   and the label shows *You are authenticated as "<account>"*.
+   Approve the request. The browser page then says *You can close this page and
+   return to Acquisition.*, whatever the outcome; the login window says whether
+   it worked. The button changes to *Re-authenticate (as someone else)* and the
+   label shows *You are authenticated as "<account>"*.
 2. Choose a **Realm** (PC, Xbox, or PlayStation) and a **League**. The league
    list is fetched live, so an error here usually means the Path of Exile API is
    unreachable. You can manually edit this field to specify a **Private League**.

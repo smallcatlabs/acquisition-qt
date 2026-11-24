@@ -19,13 +19,6 @@ namespace poe {
 
     struct PassiveNode
     {
-        struct Mastery
-        {
-            unsigned effect;                                  // uint; effect hash
-            std::vector<QString> stats;                       // array of string; stat descriptions
-            std::optional<std::vector<QString>> reminderText; // ?array of string
-        };
-
         struct VariantEffect
         {
             unsigned effect;                                  // uint; effect hash
@@ -57,45 +50,22 @@ namespace poe {
         };
 
         // NOTE: TODO: uint in docs, but string in result?
-        std::optional<QString> skill;        // ?uint; skill hash
-        std::optional<QString> name;         // ?string
-        std::optional<QString> icon;         // ?string
-        std::optional<bool> isKeystone;      // ?bool; always true if present
-        std::optional<bool> isNotable;       // ?bool; always true if present
-        std::optional<bool> isMastery;       // ?bool; always true if present
-        std::optional<QString> inactiveIcon; // ?string; inactive mastery image
-        std::optional<QString> activeIcon;   // ?string; active mastery image
+        std::optional<QString> skill;  // ?uint; skill hash
+        std::optional<QString> name;   // ?string
+        std::optional<QString> icon;   // ?string
+        std::optional<bool> isNotable; // ?bool; always true if present
+        std::optional<bool> isMastery; // ?bool; always true if present
         // ?string; active mastery or tattoo background image
         std::optional<QString> activeEffectImage;
-        std::optional<std::vector<poe::PassiveNode::Mastery>> masteryEffects; // ?array of object
-        std::optional<bool> isBlighted;    // ?bool; always true if present
         std::optional<bool> isTattoo;      // ?bool; always true if present
-        std::optional<bool> isProxy;       // ?bool; always true if present
         std::optional<bool> isJewelSocket; // ?bool; always true if present
         // ?object; cluster jewel information
         std::optional<poe::PassiveNode::ClusterJewel> expansionJewel;
-        // ?array of string; components required for Blight crafting this node. each string is one
-        // of ClearOil, SepiaOil, AmberOil, VerdantOil, TealOil, AzureOil, IndigoOil, VioletOil,
-        // CrimsonOil, BlackOil, OpalescentOil, SilverOil, GoldenOil, or PrismaticOil
-        std::optional<std::vector<QString>> recipe;
-        // ?uint; sum of stats on this node that grant strength
-        std::optional<unsigned> grantedStrength;
-        // ?uint; sum of stats on this node that grant dexterity
-        std::optional<unsigned> grantedDexterity;
-        // ?uint; sum of stats on this node that grant intelligence
-        std::optional<unsigned> grantedIntelligence;
-        std::optional<QString> ascendancyName;       // ?string
-        std::optional<bool> isAscendancyStart;       // ?bool; always true if present
         std::optional<bool> isMultipleChoiceVariant; // ?bool; always true if present
         // ?array of object
         std::optional<std::vector<poe::PassiveNode::VariantEffect>> variantEffects;
-        std::optional<bool> isMultipleChoice;             // ?bool; always true if present
-        std::optional<bool> isMultipleChoiceOption;       // ?bool; always true if present
-        std::optional<unsigned> grantedPassivePoints;     // ?uint
         std::optional<std::vector<QString>> stats;        // ?array of string; stat descriptions
         std::optional<std::vector<QString>> reminderText; // ?array of string
-        std::optional<std::vector<QString>> flavourText;  // ?array of string
-        std::optional<unsigned> classStartIndex;          // ?uint
         std::optional<QString> group;       // ?string; the key value to look up in the groups table
         std::optional<unsigned> orbit;      // ?uint; the orbit this node occupies within it's group
         std::optional<unsigned> orbitIndex; // ?uint; the index of this node in the group's orbit
@@ -123,4 +93,32 @@ struct glz::meta<poe::PassiveNode::Connection>
     };
     static constexpr auto write_to = [](const T &self) -> const QString & { return self.to; };
     static constexpr auto modify = glz::object("to", glz::custom<read_to, write_to>);
+};
+
+// Fields of the reference that nothing reads, skipped whatever their shape (#422;
+// see glz::meta<poe::Item> in poe/types/item.h). The comments are the reference's.
+template<>
+struct glz::meta<poe::PassiveNode>
+{
+    // clang-format off
+    static constexpr auto modify = glz::object(
+        "isKeystone", glz::skip{}, // ?bool; always true if present
+        "inactiveIcon", glz::skip{}, // ?string; inactive mastery image
+        "activeIcon", glz::skip{}, // ?string; active mastery image
+        "masteryEffects", glz::skip{}, // ?array of object
+        "isBlighted", glz::skip{}, // ?bool; always true if present
+        "isProxy", glz::skip{}, // ?bool; always true if present
+        "recipe", glz::skip{}, // ?array of string; components required for Blight crafting this node
+        "grantedStrength", glz::skip{}, // ?uint; sum of stats on this node that grant strength
+        "grantedDexterity", glz::skip{}, // ?uint; sum of stats on this node that grant dexterity
+        "grantedIntelligence", glz::skip{}, // ?uint; sum of stats on this node that grant intelligence
+        "ascendancyName", glz::skip{}, // ?string
+        "isAscendancyStart", glz::skip{}, // ?bool; always true if present
+        "isMultipleChoice", glz::skip{}, // ?bool; always true if present
+        "isMultipleChoiceOption", glz::skip{}, // ?bool; always true if present
+        "grantedPassivePoints", glz::skip{}, // ?uint
+        "flavourText", glz::skip{}, // ?array of string
+        "classStartIndex", glz::skip{} // ?uint
+    );
+    // clang-format on
 };
