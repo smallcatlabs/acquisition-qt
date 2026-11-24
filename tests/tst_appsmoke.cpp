@@ -684,10 +684,17 @@ void AppSmokeTest::manualShopUpdatePostsTheUsersPrices()
     const QString content = AppFixture::formField(form, "content");
     QCOMPARE(content, QString(kShopWithViperSuit));
 
-    // "Copy shop data to clipboard" gives the same text.
+    // "Copy shop data to clipboard" reads the list of tabs again and gives
+    // the same text, posting nothing (#278).
     QApplication::clipboard()->clear();
     fixture.menuAction("Copy shop data to clipboard").trigger();
+    QVERIFY2(QTest::qWaitFor([] { return !QApplication::clipboard()->text().isEmpty(); }, 15000),
+             qPrintable(fixture.statusText() + '\n' + fixture.websiteRequests().join('\n')));
     QCOMPARE(QApplication::clipboard()->text(), content);
+    QCOMPARE(fixture.websiteRequests().last(), QString("GET /character-window/get-stash-items"));
+    QCOMPARE(fixture.forumPosts().size(), 1);
+    QVERIFY2(fixture.statusText().contains("Shop copied to the clipboard: 1 page"),
+             qPrintable(fixture.statusText()));
 
     QCOMPARE(surprisesBeyond(fixture, 2), QString());
 }
