@@ -92,13 +92,17 @@ private:
         int count;
     };
     std::vector<WisdomCount> m_wisdom;
+    // False when the stored currency could not be read (#295): the defaults
+    // stand in for this session and nothing is written, so a failed read is
+    // never saved over what is stored.
+    bool m_loaded{true};
     // A new item per choosable currency, with the default ratios.
     void MakeCurrencyItems();
     // Used only the first time we launch the app
     void FirstInitCurrency();
     //Migrate from old storage (csv-like serializing) to new one (using json)
-    void MigrateCurrency();
-    void InitCurrency();
+    void MigrateCurrency(const QString &currency_base);
+    void InitCurrency(const QString &currency_items);
     QString Serialize(const std::vector<std::shared_ptr<CurrencyItem>> &currencies);
     void Deserialize(const QString &data, std::vector<std::shared_ptr<CurrencyItem>> &currencies);
     void Save();

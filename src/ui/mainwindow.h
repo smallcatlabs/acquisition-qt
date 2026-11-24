@@ -19,6 +19,10 @@
 
 #include <spdlog/spdlog.h>
 
+// The whole type, not a declaration: moc records OnBuyoutsChanged()'s
+// metatype only for a type it sees complete (#299 split the moc unit that
+// used to see it).
+#include "buyoutmanager.h"
 #include "fetchsourcekey.h"
 #include "filters/filterspec.h"
 #include "item.h"
@@ -53,7 +57,6 @@ class UpdateChecker;
 
 struct Buyout;
 struct PriceTargets;
-struct BuyoutChangeSet;
 
 namespace Ui {
     class MainWindow;

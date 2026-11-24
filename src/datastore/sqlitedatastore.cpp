@@ -103,27 +103,29 @@ void SqliteDataStore::CreateTable(const QString &name, const QString &fields)
     }
 }
 
-QString SqliteDataStore::Get(const QString &key, const QString &default_value)
+DataStore::ReadResult SqliteDataStore::Read(const QString &key)
 {
     QSqlDatabase db = getThreadLocalDatabase();
     QSqlQuery query(db);
     query.prepare("SELECT value FROM data WHERE key = ?");
     query.bindValue(0, key);
     if (query.exec() == false) {
-        spdlog::error("Error getting data for {}: {}", key, query.lastError().text());
-        return default_value;
+        const QString error = query.lastError().text();
+        spdlog::error("Error getting data for {}: {}", key, error);
+        return std::unexpected(error);
     }
     if (query.next() == false) {
         if (query.isActive() == false) {
-            spdlog::error("Error getting result for {}: {}", key, query.lastError().text());
+            const QString error = query.lastError().text();
+            spdlog::error("Error getting result for {}: {}", key, error);
+            return std::unexpected(error);
         }
-        return default_value;
+        return std::nullopt;
     }
-    QString result = query.value(0).toByteArray();
-    return result;
+    return QString(query.value(0).toByteArray());
 }
 
-void SqliteDataStore::Set(const QString &key, const QString &value)
+bool SqliteDataStore::Set(const QString &key, const QString &value)
 {
     QSqlDatabase db = getThreadLocalDatabase();
     QSqlQuery query(db);
@@ -131,8 +133,10 @@ void SqliteDataStore::Set(const QString &key, const QString &value)
     query.bindValue(0, key);
     query.bindValue(1, value);
     if (query.exec() == false) {
-        spdlog::error("Error setting value {}", key);
+        spdlog::error("Error setting value {}: {}", key, query.lastError().text());
+        return false;
     }
+    return true;
 }
 
 bool SqliteDataStore::InsertCurrencyUpdate(const CurrencyUpdate &update)
