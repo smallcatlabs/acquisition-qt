@@ -813,13 +813,25 @@ void Shop::CopyToClipboard()
     // shop_hash. A stash item's link carries its tab's number, which only
     // the legacy stash index gives, and that needs the POESESSID (N21). So
     // without one nothing is copied: a copy without its stash items would
-    // look like the whole shop.
+    // look like the whole shop. Nor is anything copied when the template
+    // could not be read (#295): the default would stand in for the user's.
     if (!m_buyout_manager.BuyoutsLoaded()) {
         spdlog::error("Shop: not copying the shop because the buyouts did not load.");
         emit StatusUpdate(ProgramState::Ready, "Shop not copied: your prices did not load");
         Warn(Notice::BuyoutsNotLoaded,
              false,
              "Acquisition could not load your prices, so your shop was not copied."
+             "\n\n"
+             "Check the log file for details.");
+        return;
+    }
+    if (!m_settings_loaded) {
+        emit StatusUpdate(ProgramState::Ready,
+                          "Shop not copied: your shop's template could not be read");
+        Warn(Notice::SettingsNotLoaded,
+             false,
+             "Acquisition could not read your shop's threads and template, so your shop was "
+             "not copied."
              "\n\n"
              "Check the log file for details.");
         return;
