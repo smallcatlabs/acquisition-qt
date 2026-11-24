@@ -10,8 +10,13 @@
 
 #include <QtTest/QtTest>
 
+#include <QFile>
+
+#include <algorithm>
 #include <optional>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 #include "item.h"
 #include "itemlocation.h"
@@ -23,6 +28,7 @@
 #include "poe/types/league.h"
 #include "poe/types/leagueaccount.h"
 #include "poe/types/passivenode.h"
+#include "poe/types/stashtab.h"
 #include "testfixtures.h"
 #include "testsuite.h"
 #include "util/glaze_qt.h" // IWYU pragma: keep
@@ -44,6 +50,10 @@ private slots:
     void passiveNodeConnectionsAreRead();
     void characterWithNumericConnectionTargetIsRead();
     void leagueAccountVariantsAreRead();
+    void unreadFieldsDoNotRefuseATab_data();
+    void unreadFieldsDoNotRefuseATab();
+    void unreadFieldsDoNotRefuseACharacter_data();
+    void unreadFieldsDoNotRefuseACharacter();
 
     // Earlier reference changes the headers had not caught up with.
     void characterSpecialisationsAreRead();
@@ -344,6 +354,95 @@ void WireTypesTest::leagueAccountVariantsAreRead()
     const auto &variants = account->atlas_passive_trees.front().variants;
     QCOMPARE(variants.size(), size_t(1));
     QCOMPARE(variants.at("12345"), 67890);
+}
+
+// #422: a field nothing reads is not modeled, and its key is skipped
+// whatever its shape. The reference gives flavourTextNote and prophecyText as
+// strings, and no reply in the corpus carries either, so the shape the game
+// sends is not known. A real stash reply with such keys added to its first
+// item is read with all its items: those two in either shape, and three
+// others in shapes their types refused when they were modeled.
+void WireTypesTest::unreadFieldsDoNotRefuseATab_data()
+{
+    QTest::addColumn<QByteArray>("field");
+    QTest::newRow("flavourTextNote as a string") << QByteArray(R"("flavourTextNote": "note",)");
+    QTest::newRow("flavourTextNote as an array") << QByteArray(R"("flavourTextNote": ["note"],)");
+    QTest::newRow("prophecyText as a string") << QByteArray(R"("prophecyText": "text",)");
+    QTest::newRow("prophecyText as an array") << QByteArray(R"("prophecyText": ["text"],)");
+    QTest::newRow("three others in other shapes")
+        << QByteArray(R"("notableProperties": "text", "extended": [], "foreseeing": "yes",)");
+}
+
+void WireTypesTest::unreadFieldsDoNotRefuseATab()
+{
+    QFETCH(QByteArray, field);
+    QFile file(QFINDTESTDATA("fixtures/payloads/stash-Standard-NormalStash-1.json"));
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    const QByteArray stash = file.readAll();
+    const auto plain = json::readStashPayload("{\"stash\": " + stash + "}");
+    QVERIFY(plain && plain->stash.items);
+
+    QByteArray edited = stash;
+    const qsizetype items = edited.indexOf("\"items\": [");
+    QVERIFY(items >= 0);
+    edited.insert(edited.indexOf('{', items) + 1, field);
+
+    const auto payload = json::readStashPayload("{\"stash\": " + edited + "}");
+    QVERIFY(payload);
+    QVERIFY(payload->stash.items);
+    QCOMPARE(payload->stash.items->size(), plain->stash.items->size());
+}
+
+// #422: the same on a real character reply, with a skipped key of each type
+// below Character, in a shape its type refused when it was modeled, put into
+// the first object after its anchor (for a dictionary, its first entry). The
+// item's flavourText, a member that shares its key with one skipped on
+// PassiveNode, is still read.
+void WireTypesTest::unreadFieldsDoNotRefuseACharacter_data()
+{
+    QTest::addColumn<QByteArray>("anchor");
+    QTest::addColumn<QByteArray>("field");
+    QTest::newRow("Character") << QByteArray()
+                               << QByteArray(R"("active_mercenary_index": "none",)");
+    QTest::newRow("Character::Passives")
+        << QByteArray(R"("passives":)") << QByteArray(R"("alternate_ascendancy": ["x"],)");
+    QTest::newRow("ItemJewelData")
+        << QByteArray(R"("jewel_data": {)") << QByteArray(R"("radiusMin": "small",)");
+    QTest::newRow("PassiveGroup") << QByteArray(R"("groups": {)")
+                                  << QByteArray(R"("isProxy": "yes",)");
+    QTest::newRow("PassiveNode") << QByteArray(R"("nodes": {)")
+                                 << QByteArray(R"("isKeystone": "yes",)");
+}
+
+void WireTypesTest::unreadFieldsDoNotRefuseACharacter()
+{
+    QFETCH(QByteArray, anchor);
+    QFETCH(QByteArray, field);
+    QFile file(QFINDTESTDATA("fixtures/payloads/character-1.json"));
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    const QByteArray character = file.readAll();
+    const auto plain = json::readCharacterPayload("{\"character\": " + character + "}");
+    QVERIFY(plain);
+
+    QByteArray edited = character;
+    const qsizetype at = edited.indexOf(anchor);
+    QVERIFY(at >= 0);
+    edited.insert(edited.indexOf('{', at + anchor.size()) + 1, field);
+
+    const auto payload = json::readCharacterPayload("{\"character\": " + edited + "}");
+    QVERIFY(payload);
+    const poe::Character &read = payload->character;
+    QVERIFY(read.equipment && read.jewels && read.passives);
+    QCOMPARE(read.equipment->size(), plain->character.equipment->size());
+    QCOMPARE(read.jewels->size(), plain->character.jewels->size());
+    QCOMPARE(read.passives->jewel_data.size(), plain->character.passives->jewel_data.size());
+
+    const auto cane = std::ranges::find(*read.equipment,
+                                        QString("The Black Cane"),
+                                        &poe::Item::name);
+    QVERIFY(cane != read.equipment->end());
+    QVERIFY(cane->flavourText);
+    QCOMPARE(cane->flavourText->front(), QString("Lead the army of the damned from the front."));
 }
 
 void WireTypesTest::characterSpecialisationsAreRead()

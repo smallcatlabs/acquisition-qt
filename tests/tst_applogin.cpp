@@ -118,7 +118,9 @@ namespace {
 
     constexpr const char *kTokenUrl = "https://www.pathofexile.com/oauth/token";
     constexpr const char *kAuthorizeUrl = "https://www.pathofexile.com/oauth/authorize";
-    constexpr const char *kAuthorizedText = "Acquisition has been authorized.";
+    // What the browser shows once the listener has taken a redirect: the same
+    // page whether the login then succeeds or not (#409).
+    constexpr const char *kCallbackText = "You can close this page and return to Acquisition.";
 
     // What the Authenticate button reads: before a login, and while the
     // browser is out.
@@ -541,7 +543,7 @@ void AppLoginTest::browserLoginStoresTheTokenAndLogsIn()
     QCOMPARE(tokenPosts(fixture), QList<QByteArray>());
 
     const QByteArray answered = deliverRedirect(authorize->redirect, kCode, authorize->state);
-    QVERIFY2(answered.contains(kAuthorizedText), answered.constData());
+    QVERIFY2(answered.contains(kCallbackText), answered.constData());
     QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
 
     // The code is exchanged once, with the verifier the challenge was made from.
@@ -761,7 +763,7 @@ void AppLoginTest::storedLoginRefusedWhileTheBrowserIsOut()
     QCOMPARE(authenticate.text(), QString(kAuthenticating));
     QVERIFY(!login.isEnabled());
 
-    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kAuthorizedText));
+    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kCallbackText));
     QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
     const QList<QByteArray> posts = tokenPosts(fixture);
     QCOMPARE(posts.size(), 2);
@@ -816,7 +818,7 @@ void AppLoginTest::refreshRejectedDuringARunIsLeftAlone()
     QCOMPARE(m_browser.opened.size(), 1);
     const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
     QVERIFY(authorize);
-    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kAuthorizedText));
+    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kCallbackText));
     QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
 
     // The refresh, and its rejection.
@@ -863,8 +865,8 @@ void AppLoginTest::failedReauthenticationKeepsTheLogin()
     QCOMPARE(m_browser.opened.size(), 1);
     const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
     QVERIFY(authorize);
-    QVERIFY(
-        !deliverRedirect(authorize->redirect, kForgedCode, authorize->state + "-forged").isEmpty());
+    QVERIFY(deliverRedirect(authorize->redirect, kForgedCode, authorize->state + "-forged")
+                .contains(kCallbackText));
     QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
     QCOMPARE(error.text(), QString(kWrongStateError));
     QCOMPARE(authenticate.text(), reauthenticate);
@@ -910,7 +912,7 @@ void AppLoginTest::redirectWithWrongStateEndsTheAttempt()
     QVERIFY(first);
 
     const QString forged_state = first->state + "-forged";
-    QVERIFY(!deliverRedirect(first->redirect, kForgedCode, forged_state).isEmpty());
+    QVERIFY(deliverRedirect(first->redirect, kForgedCode, forged_state).contains(kCallbackText));
     // The application has seen the redirect and refused it, and says so.
     QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
     QCOMPARE(error.text(), QString(kWrongStateError));
@@ -933,7 +935,7 @@ void AppLoginTest::redirectWithWrongStateEndsTheAttempt()
     const auto second = checkAuthorizeUrl(m_browser.opened.last());
     QVERIFY(second);
     const QByteArray answered = deliverRedirect(second->redirect, kSecondCode, second->state);
-    QVERIFY2(answered.contains(kAuthorizedText), answered.constData());
+    QVERIFY2(answered.contains(kCallbackText), answered.constData());
     QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
     const QList<QByteArray> posts = tokenPosts(fixture);
     QCOMPARE(posts.size(), 1);
@@ -974,7 +976,7 @@ void AppLoginTest::deniedInTheBrowserIsShown()
     denied.addQueryItem("error", "access_denied");
     denied.addQueryItem("error_description", "The user denied the request");
     denied.addQueryItem("state", authorize->state);
-    QVERIFY(!deliverRedirect(authorize->redirect, denied).isEmpty());
+    QVERIFY(deliverRedirect(authorize->redirect, denied).contains(kCallbackText));
     QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
     QCOMPARE(error.text(),
              QString("Authentication failed: access_denied (The user denied the request)"));
@@ -1001,7 +1003,7 @@ void AppLoginTest::deniedInTheBrowserIsShown()
     forged.addQueryItem("error", "access_denied");
     forged.addQueryItem("error_description", "Forged words");
     forged.addQueryItem("state", second->state + "-forged");
-    QVERIFY(!deliverRedirect(second->redirect, forged).isEmpty());
+    QVERIFY(deliverRedirect(second->redirect, forged).contains(kCallbackText));
     QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
     QCOMPARE(error.text(), QString(kWrongStateError));
     QCOMPARE(tokenPosts(fixture), QList<QByteArray>());
@@ -1035,7 +1037,7 @@ void AppLoginTest::refusedCodeExchangeIsShown()
     QVERIFY(first);
 
     // The listener takes the redirect: only the exchange can refuse the code.
-    QVERIFY(deliverRedirect(first->redirect, kCode, first->state).contains(kAuthorizedText));
+    QVERIFY(deliverRedirect(first->redirect, kCode, first->state).contains(kCallbackText));
     QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
     QCOMPARE(error.text(), QString(kRefusedCodeError));
     QCOMPARE(authenticate.text(), QString(kAuthenticate));
@@ -1057,7 +1059,7 @@ void AppLoginTest::refusedCodeExchangeIsShown()
     QVERIFY(codeless);
     QUrlQuery no_code;
     no_code.addQueryItem("state", codeless->state);
-    QVERIFY(!deliverRedirect(codeless->redirect, no_code).isEmpty());
+    QVERIFY(deliverRedirect(codeless->redirect, no_code).contains(kCallbackText));
     QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
     QCOMPARE(error.text(), QString(kNoTokenError));
     QCOMPARE(authenticate.text(), QString(kAuthenticate));
@@ -1070,7 +1072,7 @@ void AppLoginTest::refusedCodeExchangeIsShown()
     QVERIFY(error.isHidden());
     const auto second = checkAuthorizeUrl(m_browser.opened.last());
     QVERIFY(second);
-    QVERIFY(deliverRedirect(second->redirect, kSecondCode, second->state).contains(kAuthorizedText));
+    QVERIFY(deliverRedirect(second->redirect, kSecondCode, second->state).contains(kCallbackText));
     QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
     const QList<QByteArray> posts = tokenPosts(fixture);
     QCOMPARE(posts.size(), 2);
@@ -1114,7 +1116,7 @@ void AppLoginTest::failedCodeExchangeIsShown()
     QCOMPARE(m_browser.opened.size(), 1);
     const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
     QVERIFY(authorize);
-    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kAuthorizedText));
+    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kCallbackText));
     QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
     QCOMPARE(error.text(), QString(kNoTokenError));
     QCOMPARE(authenticate.text(), QString(kAuthenticate));
@@ -1166,7 +1168,7 @@ void AppLoginTest::refusedReauthenticationKeepsTheLogin()
     QCOMPARE(m_browser.opened.size(), 1);
     const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
     QVERIFY(authorize);
-    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kAuthorizedText));
+    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kCallbackText));
     QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
     QCOMPARE(error.text(), QString(kRefusedCodeError));
     QCOMPARE(authenticate.text(), reauthenticate);
@@ -1244,7 +1246,7 @@ void AppLoginTest::secondAuthenticateReplacesTheFirst()
     QVERIFY(!login.isEnabled());
 
     const QByteArray answered = deliverRedirect(second->redirect, kCode, second->state);
-    QVERIFY2(answered.contains(kAuthorizedText), answered.constData());
+    QVERIFY2(answered.contains(kCallbackText), answered.constData());
     QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
     const QList<QByteArray> posts = tokenPosts(fixture);
     QCOMPARE(posts.size(), 1);
@@ -1290,7 +1292,7 @@ void AppLoginTest::redirectForAnAbandonedAttemptIsRefused()
     const auto second = checkAuthorizeUrl(m_browser.opened.last());
     QVERIFY(second);
 
-    QVERIFY(!deliverRedirect(second->redirect, kAbandonedCode, first->state).isEmpty());
+    QVERIFY(deliverRedirect(second->redirect, kAbandonedCode, first->state).contains(kCallbackText));
     QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
     QCOMPARE(error.text(), QString(kWrongStateError));
     QCOMPARE(tokenPosts(fixture), QList<QByteArray>());
@@ -1416,7 +1418,7 @@ void AppLoginTest::refusedLoginLeavesTheBrowserLoginWaiting()
     QCOMPARE(authenticate.text(), QString(kAuthenticating));
 
     // The browser login is still waiting: its redirect is taken.
-    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kAuthorizedText));
+    QVERIFY(deliverRedirect(authorize->redirect, kCode, authorize->state).contains(kCallbackText));
     QVERIFY(QTest::qWaitFor([&] { return tokenPosts(fixture).size() == 2; }, 10000));
     QVERIFY(QTest::qWaitFor(
         [&] {
