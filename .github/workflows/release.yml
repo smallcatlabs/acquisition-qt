@@ -90,8 +90,9 @@ jobs:
   release:
     name: Create draft release
     needs: [version, linux, macos, windows]
-    # Linux and Windows are skipped, not failed, on the macOS fallback.
-    if: ${{ !cancelled() && !failure() && github.ref_type == 'tag' && !inputs.dry_run }}
+    # Linux and Windows are skipped, not failed, on the macOS fallback. A
+    # macOS job GitHub found no Mac for ends cancelled, not failed.
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && github.ref_type == 'tag' && !inputs.dry_run }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -119,7 +120,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml \
-            --event push --commit "$GITHUB_SHA" --limit 1 --json databaseId -q '.[0].databaseId')
+            --event push --branch "$GITHUB_REF_NAME" --commit "$GITHUB_SHA" --limit 1 --json databaseId -q '.[0].databaseId')
           if [ -z "$run" ]; then
             echo "::error::No Release run from the push of $GITHUB_REF_NAME to take the Linux and Windows packages from"
             exit 1
@@ -135,6 +136,10 @@ jobs:
           merge-multiple: true
           run-id: ${{ steps.tag-run.outputs.run }}
           github-token: ${{ github.token }}
+          # The Linux and Windows artifacts (acquisition-<v>-x86_64.AppImage,
+          # acquisition-installer-<v>), never a DMG (Acquisition_<v>_arm64.dmg)
+          # the tag's run may have uploaded.
+          pattern: acquisition-*
 
       - name: Collect release files
         run: .github/scripts/collect-release-files.sh dist "$VERSION" > release-files.txt && cat release-files.txt
@@ -192,8 +197,8 @@ jobs:
   # re-run, so say so where it will be seen.
   dry-run:
     name: No release (dry run)
-    needs: [linux, macos, windows]
-    if: ${{ !cancelled() && !failure() && github.event_name == 'workflow_dispatch' && (inputs.dry_run || github.ref_type != 'tag') }}
+    needs: [version, linux, macos, windows]
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && github.event_name == 'workflow_dispatch' && (inputs.dry_run || github.ref_type != 'tag') }}
     runs-on: ubuntu-latest
     steps:
       - name: Say no draft was created

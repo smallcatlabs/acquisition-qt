@@ -67,9 +67,8 @@ other suffixes as `pre-release`, and no suffix as `production`.
 nothing else. Each build uploads its symbols with
 `.github/actions/sentry-symbols`: the `.pdb` with `acquisition.exe` on
 Windows, `acquisition.debug` with the stripped `acquisition` on Linux, and
-the dSYM with the executable on macOS. The Windows `.pdb` is not kept
-anywhere else; the Linux `.debug` and the macOS dSYM are also kept as
-workflow artifacts for 30 days.
+the dSYM with the executable on macOS. None of them is kept anywhere else,
+not even as a workflow artifact.
 
 ## When something fails
 
@@ -84,8 +83,9 @@ workflow artifacts for 30 days.
   tagged.
 - **GitHub cannot allocate a Mac** (the macOS job is cancelled after 15
   minutes, "not acquired by Runner of type hosted"): try **Re-run failed
-  jobs** once. If it is still stuck, let the tag's run finish (or cancel
-  it), then start Release by hand (Actions, Release, Run workflow) on the
+  jobs** once. If it is still stuck, let the tag's run finish, or cancel it
+  only after its Linux and Windows builds have passed: the fallback takes
+  their packages from that run, and a cancelled build leaves none. Then start Release by hand (Actions, Release, Run workflow) on the
   tag, with `dry_run` off and `macos_runner: laptop`, and start the one-job
   VM on the maintainer's Mac (`BUILD.md`, "Platform Notes"). That run builds
   only macOS; its release job takes the Linux and Windows packages from the

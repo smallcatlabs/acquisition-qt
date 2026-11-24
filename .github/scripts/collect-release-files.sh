@@ -5,8 +5,8 @@
 # Finds the files a release carries in the downloaded build artifacts: exactly
 # one AppImage, one DMG and one installer (.exe), each named for the version.
 # The names themselves are set by the build workflows (and installer.iss);
-# this only checks there is one of each. Everything else in the artifacts (the
-# AppImage's .debug, the dSYM, the .pdb) stays a workflow artifact.
+# this only checks there is one of each. Debug symbols are not artifacts; the
+# builds upload them to Sentry.
 #
 # Prints the paths, one per line.
 #
