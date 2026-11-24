@@ -8,12 +8,11 @@
 class QDir;
 class QSettings;
 
-// Back up the 'data' folder inside app_data_dir when the version recorded in
-// the settings differs from current_version, and record current_version.
-// legacy_version stands in for the recorded version when the settings have
-// none (the 'version' setting was introduced in v0.16). Returns the path of
-// the backup, or an empty string when none was made.
+// Back up the 'data' folder inside app_data_dir when previous_version, the
+// version that last used that data, differs from current_version. Returns the
+// path of the backup, or an empty string when none was made. Recording
+// current_version afterwards is the caller's job (OpenGlobalDataStore), so
+// that no outcome here can leave it unrecorded (#446).
 QString BackupDataOnNewVersion(const QDir &app_data_dir,
-                               QSettings &settings,
-                               const QString &legacy_version,
+                               const QString &previous_version,
                                const QString &current_version);
