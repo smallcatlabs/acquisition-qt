@@ -39,8 +39,8 @@ public:
     void redirect(const QVariantMap &query) const { m.receiveRedirect(query); }
 
     // The state of each region, as "login / browser", in the names of
-    // oauthmanager.h; "+refresh" when a refresh of the token held is on its
-    // way.
+    // oauthmanager.h; "+retryN" after N refreshes that got no answer, and
+    // "+refresh" when a refresh of the token held is on its way.
     QString state() const
     {
         const QString login = std::visit(
@@ -50,8 +50,12 @@ public:
                     return "NoLogin";
                 } else if constexpr (std::is_same_v<S, OAuthManager::RefreshingStored>) {
                     return "RefreshingStored";
+                } else if constexpr (std::is_same_v<S, OAuthManager::Refused>) {
+                    return "Refused";
                 } else {
-                    return s.refresh ? "Holding+refresh" : "Holding";
+                    return QString("Holding")
+                           + (s.failures ? QString("+retry%1").arg(s.failures) : QString())
+                           + (s.refresh ? "+refresh" : "");
                 }
             },
             m.m_login);
@@ -73,8 +77,11 @@ public:
     // The username of the token held, or empty.
     QString heldAccount() const
     {
-        const auto *held = std::get_if<OAuthManager::Holding>(&m.m_login);
-        return held ? held->token.username : QString();
+        if (const auto *held = std::get_if<OAuthManager::Holding>(&m.m_login)) {
+            return held->token.username;
+        }
+        const auto *refused = std::get_if<OAuthManager::Refused>(&m.m_login);
+        return refused ? refused->token.username : QString();
     }
 
     // The state the waiting browser login expects its redirect to carry.

@@ -103,6 +103,9 @@ private slots:
     void heldLoginIsRefreshedOnTimeAfterAnAbandonedExchange();
     void exchangeWithNoAnswerEndsTheAttempt();
     void refreshWithNoAnswerAtStartIsSaid();
+    void codeWithEscapesIsExchangedAsSent();
+    void refreshWithoutARefreshTokenKeepsTheOneHeld();
+    void refreshThatFailsIsTriedAgain();
 
 private:
     std::shared_ptr<spdlog::logger> m_previous_logger;
@@ -321,11 +324,9 @@ namespace {
     // redirect to the application's loopback listener, with what the server
     // put in the query. Returns what the listener answered, empty if nothing
     // listened.
-    QByteArray deliverRedirect(const QUrl &redirect, const QUrlQuery &query)
+    // `query` is sent as written, already percent-encoded.
+    QByteArray deliverRedirect(const QUrl &redirect, const QByteArray &query)
     {
-        QUrl target = redirect;
-        target.setQuery(query);
-
         QTcpSocket socket;
         socket.connectToHost(QHostAddress::LocalHost, quint16(redirect.port()));
         // A refused connection ends the wait too: then nothing listens.
@@ -338,7 +339,7 @@ namespace {
         if (socket.state() != QAbstractSocket::ConnectedState) {
             return {};
         }
-        socket.write("GET " + target.toEncoded(QUrl::RemoveScheme | QUrl::RemoveAuthority)
+        socket.write("GET " + redirect.path(QUrl::FullyEncoded).toLatin1() + '?' + query
                      + " HTTP/1.1\r\nHost: 127.0.0.1:" + QByteArray::number(redirect.port())
                      + "\r\nConnection: close\r\n\r\n");
         QByteArray answer;
@@ -350,6 +351,11 @@ namespace {
             },
             5000);
         return answer + socket.readAll();
+    }
+
+    QByteArray deliverRedirect(const QUrl &redirect, const QUrlQuery &query)
+    {
+        return deliverRedirect(redirect, query.toString(QUrl::FullyEncoded).toLatin1());
     }
 
     // The redirect after the user has approved: the code and the state.
@@ -815,9 +821,9 @@ void AppLoginTest::refreshRejectedDuringARunIsLeftAlone()
         // Every token request but the first is the refresh, and is refused.
         f.network->answer(kTokenUrl, tokenAnswer(400, kInvalidGrant));
         // The first is the code exchange (the rule added last is asked
-        // first). The token it grants expires one second past the lead time
-        // at which the application refreshes, so the refresh follows the
-        // grant by a second.
+        // first). The token it grants expires in two seconds, shorter than
+        // the lead time, so the refresh comes at half its life: a second
+        // after the grant.
         f.network->answer(
             [granted = false](QNetworkAccessManager::Operation,
                               const QUrl &url) mutable -> std::optional<ScriptedNetwork::Answer> {
@@ -825,7 +831,7 @@ void AppLoginTest::refreshRejectedDuringARunIsLeftAlone()
                     return std::nullopt;
                 }
                 granted = true;
-                return tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh, 301));
+                return tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh, 2));
             });
     });
     LoginDialog &dialog = fixture.access().login();
@@ -847,6 +853,8 @@ void AppLoginTest::refreshRejectedDuringARunIsLeftAlone()
     QCOMPARE(AppFixture::formField(tokenPosts(fixture)[1], "grant_type"), QString("refresh_token"));
     QVERIFY(QTest::qWaitFor([] { return loggedText().contains(kRefreshFailedLog); }, 10000));
     QVERIFY(error.isHidden());
+    // A refusal is final (N46): the refresh is not tried again.
+    QCOMPARE(OAuthTestAccess(fixture.access().oauth()).refreshDue().has_value(), false);
     const auto stored = storedToken(fixture);
     QVERIFY(stored);
     QCOMPARE(stored->refresh_token, kFreshRefresh);
@@ -2161,10 +2169,11 @@ void AppLoginTest::heldLoginIsRefreshedOnTimeAfterAnAbandonedExchange()
     QCOMPARE(tokenPosts(fixture).size(), 2);
 
     // The timer is armed for the held token: 36000 seconds less the lead
-    // time of 300, counted from the refresh at start a moment ago.
+    // time of 300, counted from the refresh at start a moment ago (a coarse
+    // timer may report a little more).
     const auto due = oauth.refreshDue();
     QVERIFY(due);
-    QVERIFY2((*due > std::chrono::seconds(35700 - 60)) && (*due <= std::chrono::seconds(35700)),
+    QVERIFY2((*due > std::chrono::seconds(35700 - 60)) && (*due < std::chrono::seconds(35700 + 60)),
              qPrintable(QString::number(due->count())));
 
     // When it fires, the login held is refreshed.
@@ -2203,16 +2212,15 @@ void AppLoginTest::heldLoginIsRefreshedOnTimeAfterAnAbandonedExchange()
 namespace {
 
     // How long the scenarios below wait for a token request nobody answers,
-    // in place of the request's own transfer timeout (kPoeApiTimeout).
+    // in place of the request's own transfer timeout (kOAuthTokenTimeout).
     constexpr std::chrono::milliseconds kSilentWait{500};
 
-    // Every request to the token endpoint carried the transfer timeout
-    // every API request carries.
+    // Every request to the token endpoint carried its transfer timeout.
     void checkTokenRequestsCarryTheTimeout(const AppFixture &fixture)
     {
         for (const ScriptedNetwork::Request &request : fixture.network->requests()) {
             if (request.url.toString() == kTokenUrl) {
-                QCOMPARE(request.transfer_timeout, kPoeApiTimeout);
+                QCOMPARE(request.transfer_timeout, kOAuthTokenTimeout);
             }
         }
     }
@@ -2288,6 +2296,121 @@ void AppLoginTest::refreshWithNoAnswerAtStartIsSaid()
     // The abandoned reply is not read for a body: Qt has closed it.
     QVERIFY(!loggedText().contains("device not open"));
     checkNoSecretLogged({kStoredAccess, kStoredRefresh});
+}
+
+// The code the server puts in the redirect may hold characters that the
+// query escapes ('+', '/', '%', '=', '&'; a '+' itself stands for a space).
+// The token endpoint receives the code itself, decoded once and encoded once.
+void AppLoginTest::codeWithEscapesIsExchangedAsSent()
+{
+    AppFixture fixture([](AppFixture &f) {
+        f.network->answer(kTokenUrl, tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh)));
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+
+    QVERIFY(QTest::qWaitFor([&] { return league.count() == 2; }, 10000));
+    authenticate.click();
+    QCOMPARE(m_browser.opened.size(), 1);
+    const auto authorize = checkAuthorizeUrl(m_browser.opened.first());
+    QVERIFY(authorize);
+    const QByteArray query = "code=a%2Bb%2Fc%3Dd%26e%25f%7Eg+h&state="
+                             + QUrl::toPercentEncoding(authorize->state);
+    QVERIFY(deliverRedirect(authorize->redirect, query).contains(kCallbackText));
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
+    const QList<QByteArray> posts = tokenPosts(fixture);
+    QCOMPARE(posts.size(), 1);
+    QCOMPARE(AppFixture::formField(posts[0], "code"), QString("a+b/c=d&e%f~g h"));
+
+    QCOMPARE(surprises(fixture), QString());
+}
+
+// A refresh answer may leave out the refresh token (RFC 6749, 6): the one
+// held stays, in memory and in the store, and the next refresh sends it.
+void AppLoginTest::refreshWithoutARefreshTokenKeepsTheOneHeld()
+{
+    AppFixture fixture([](AppFixture &f) {
+        storeToken(f, kStoredAccess, kStoredRefresh);
+        QJsonObject without = QJsonDocument::fromJson(grantedToken(kFreshAccess, QString())).object();
+        without.remove("refresh_token");
+        answerTokenRequestsInTurn(f,
+                                  {tokenAnswer(200,
+                                               QJsonDocument(without).toJson(
+                                                   QJsonDocument::Compact)),
+                                   tokenAnswer(200,
+                                               grantedToken(kRefreshedAccess, kRefreshedRefresh))});
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &login = child<QPushButton>(dialog, "loginButton");
+
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
+    auto stored = storedToken(fixture);
+    QVERIFY(stored);
+    QCOMPARE(stored->access_token, kFreshAccess);
+    QCOMPARE(stored->refresh_token, kStoredRefresh);
+
+    refreshNow(fixture);
+    QVERIFY(QTest::qWaitFor([&] { return tokenPosts(fixture).size() == 2; }, 10000));
+    QCOMPARE(AppFixture::formField(tokenPosts(fixture)[1], "refresh_token"), kStoredRefresh);
+    QVERIFY(QTest::qWaitFor(
+        [&] {
+            stored = storedToken(fixture);
+            return stored && (stored->refresh_token == kRefreshedRefresh);
+        },
+        10000));
+
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged(
+        {kStoredAccess, kStoredRefresh, kFreshAccess, kRefreshedAccess, kRefreshedRefresh});
+}
+
+// A refresh during the run that gets no answer (the network is down, or the
+// computer has just woken) is tried again soon, and the next one succeeds.
+void AppLoginTest::refreshThatFailsIsTriedAgain()
+{
+    AppFixture fixture([](AppFixture &f) {
+        storeToken(f, kStoredAccess, kStoredRefresh);
+        answerTokenRequestsInTurn(
+            f,
+            {tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh)),
+             ScriptedNetwork::Answer{.status = 0, .error = QNetworkReply::ConnectionRefusedError},
+             tokenAnswer(200, grantedToken(kRefreshedAccess, kRefreshedRefresh))});
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    const OAuthTestAccess oauth(fixture.access().oauth());
+
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
+    refreshNow(fixture);
+    QVERIFY(QTest::qWaitFor([] { return loggedText().contains(kRefreshFailedLog); }, 10000));
+    QVERIFY(error.isHidden());
+    // Tried again within the minute, not at the token's expiry.
+    const auto due = oauth.refreshDue();
+    QVERIFY(due);
+    QVERIFY2(*due <= std::chrono::seconds(60), qPrintable(QString::number(due->count())));
+
+    refreshNow(fixture);
+    QVERIFY(QTest::qWaitFor([&] { return tokenPosts(fixture).size() == 3; }, 10000));
+    QCOMPARE(AppFixture::formField(tokenPosts(fixture)[2], "refresh_token"), kFreshRefresh);
+    std::optional<OAuthToken> stored;
+    QVERIFY(QTest::qWaitFor(
+        [&] {
+            stored = storedToken(fixture);
+            return stored && (stored->refresh_token == kRefreshedRefresh);
+        },
+        10000));
+    QVERIFY(oauth.refreshDue() > std::chrono::seconds(35000));
+
+    QCOMPARE(surprises(fixture), QString());
+    checkNoSecretLogged({kStoredAccess,
+                         kStoredRefresh,
+                         kFreshAccess,
+                         kFreshRefresh,
+                         kRefreshedAccess,
+                         kRefreshedRefresh});
 }
 
 ACQ_TEST_GUI_SCENARIO_MAIN(AppLoginTest)

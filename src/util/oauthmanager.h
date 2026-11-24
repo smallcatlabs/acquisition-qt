@@ -68,13 +68,19 @@ private:
     struct RefreshingStored // the stored login, refreshed at start
     {
         QPointer<QNetworkReply> refresh;
+        QString refresh_token;
     };
     struct Holding // a token taken in this run
     {
         OAuthToken token;
         QPointer<QNetworkReply> refresh{}; // its refresh, while one is on its way
+        int failures = 0;                  // refreshes since the last that worked
     };
-    using Login = std::variant<NoLogin, RefreshingStored, Holding>;
+    struct Refused // the server refused the refresh: kept until it expires
+    {
+        OAuthToken token;
+    };
+    using Login = std::variant<NoLogin, RefreshingStored, Holding, Refused>;
 
     // The browser login.
     struct NoBrowser
