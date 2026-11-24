@@ -1,7 +1,7 @@
 items, with those socketed in others: 202
 items without a category: 0
 mod lines read into mod tables: 777
-mod lines that reach no mod name: 249, 215 of them different
+mod lines that reach no mod name: 232, 198 of them different
   
   +0.2 metres to radius
   +0.3 metres to radius
@@ -14,9 +14,7 @@ mod lines that reach no mod name: 249, 215 of them different
   +1.9 metres to radius
   10% increased Effect of Curse
   10% increased Effect of Offering
-  10% increased Rarity of Items found
   100% more Damage with Hits at Maximum Charge Distance
-  14% increased Rogue's Marker value of primary Heist Target
   15% more Damage with Hits and Ailments for each remaining Chain
   19% increased Cooldown Recovery Rate for each Normal or Magic Enemy in Area\n98% increased Cooldown Recovery Rate for each Rare or Unique Enemy in Area
   2% increased Volley frequency per 100 maximum Mana
@@ -40,25 +38,14 @@ mod lines that reach no mod name: 249, 215 of them different
   75% of Damage from Hits is taken from Buff before your Life or Energy Shield\nBuff can take Damage equal to Mana Spent by this Skill's effect
   79% chance to Summon a Phantasm when Supported Skills, or Non-Phantasm Minions\nfrom Supported Skills, deal a Killing Blow
   8 to 12 Added Physical Damage per 15 Armour or Evasion Rating on Shield
-  8% increased Job Experience gain
-  9% increased Rarity of Items found
-  9% reduced Hiring Fee
   <currencyitem>{20x Orb of Fusing}
   <currencyitem>{5x Currency}
   <gemitem>{Portal}\r\n<default>{Quality:} <augmented>{+1-20%}
   A Volley of blades falls every 0.7 seconds
   A stack of unknown divination cards
-  Added Small Passive Skills grant: 10% increased Projectile Damage
-  Added Small Passive Skills grant: 12% increased Lightning Damage
-  Added Small Passive Skills grant: 12% increased Totem Damage
-  Added Small Passive Skills grant: 15% increased Armour
-  Added Small Passive Skills grant: Minions have 12% increased maximum Life
   Additional 1.00 seconds Base Duration per extra corpse Consumed
   Adds an incubated Map item to an equippable item\r\nItem drops after killing 3050 monsters
   Adds quality that enhances Elemental Damage modifiers on a ring, amulet or belt\r\nReplaces other quality types
-  Allocates Death Attunement
-  Allocates Elementalist if you have the matching modifier on Forbidden Flesh
-  Allocates Watchtowers
   Amulet: (30-34)% increased Global Critical Strike Chance
   Animated Lingering Blades become Bows
   Animated Lingering Blades deal 17 to 80 Added Attack Physical Damage
@@ -107,7 +94,6 @@ mod lines that reach no mod name: 249, 215 of them different
   Enemies Chilled by Supported Skills increase Cold Damage taken by Chill Effect
   Enemies in Chilling Areas from Supported Skills increase Cold Damage taken by Chill Effect
   Gain 1 Momentum when you Use a Supported Skill\nGain 1 Momentum every 0.51 seconds while Channelling a Supported Skill\nLose all Momentum if you Move
-  Gain 18 Resolve when you kill a Boss
   Gloves: (18-20)% increased Global Critical Strike Chance
   Gloves: (61-75) to maximum Life
   Golems grant 15% of Melee Damage is taken from your Stone Golems' Life before you
@@ -146,7 +132,6 @@ mod lines that reach no mod name: 249, 215 of them different
   Other Armour: (5-6)% increased Mana Reservation Efficiency of Skills
   Other Jewellery: Regenerate (24.1-32) Life per second
   Phantasms last 15 seconds
-  Players have -9% to all maximum Resistances
   Projectiles Split towards 4 targets
   Projectiles can Split from hitting terrain
   Projectiles from Supported Skills Pierce 4 additional Targets
@@ -203,8 +188,6 @@ mod lines that reach no mod name: 249, 215 of them different
   Swiftness grants 15% increased Movement Speed per Momentum lost
   This Skill's Cooldown does not recover during its effect
   This Spell and Minions Convert 50% of Physical Damage to Lightning Damage
-  Threads Breaches into an Area
-  Threads an Expedition Encounter into an Area
   Upgrades a normal item to a rare item
   Upgrades a normal item to rare or reforges a rare item, guaranteeing one property
   Uses Leap Slam\r\nUses Sweep\r\nUses Enduring Cry\r\nUses Immortal call\r\nCasts Vitality
@@ -217,6 +200,24 @@ mod lines that reach no mod name: 249, 215 of them different
   You and nearby allies deal 20% more Spell Lightning Damage
   You and nearby allies gain +39% to all Elemental Resistances
   Your Non-Blessing Skills which Reserve Mana are Disabled while you have an Aura from a Supported Skill on you
+mod lines filed under their own text: 17, 17 of them different
+  10% increased Rarity of Items found
+  14% increased Rogue's Marker value of primary Heist Target
+  8% increased Job Experience gain
+  9% increased Rarity of Items found
+  9% reduced Hiring Fee
+  Added Small Passive Skills grant: 10% increased Projectile Damage
+  Added Small Passive Skills grant: 12% increased Lightning Damage
+  Added Small Passive Skills grant: 12% increased Totem Damage
+  Added Small Passive Skills grant: 15% increased Armour
+  Added Small Passive Skills grant: Minions have 12% increased maximum Life
+  Allocates Death Attunement
+  Allocates Elementalist if you have the matching modifier on Forbidden Flesh
+  Allocates Watchtowers
+  Gain 18 Resolve when you kill a Boss
+  Players have -9% to all maximum Resistances
+  Threads Breaches into an Area
+  Threads an Expedition Encounter into an Area
 properties with a value: 477
 properties whose value is not one number: 134
   

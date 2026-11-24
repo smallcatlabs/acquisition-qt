@@ -370,8 +370,26 @@ void Item::LoadModifiers(const poe::Item &item)
             continue;
         }
         for (const auto &mod : mods) {
-            AddModToTable(mod, m_mod_table);
+            AddModToTable(mod, m_mod_table, unnamed_lines());
         }
+    }
+
+    for (const auto &[name, value] : m_mod_table) {
+        if (!IsModName(name)) {
+            m_own_text_mods.push_back(name);
+        }
+    }
+}
+
+UnnamedLine Item::unnamed_lines() const
+{
+    switch (static_cast<poe::FrameType>(m_frameType)) {
+    case poe::FrameType::Gem:
+    case poe::FrameType::Currency:
+    case poe::FrameType::DivinationCard:
+        return UnnamedLine::Dropped;
+    default:
+        return UnnamedLine::FiledUnderItsText;
     }
 }
 
