@@ -882,7 +882,7 @@ void MainWindow::OnBuyoutCommitted(const PriceTargets &targets, const Buyout &bo
     // long, and the next edit that every row takes clears it.
     ApplyBuyoutResult result;
     if (!resolved.targets.tabs.empty() || !resolved.targets.items.empty()) {
-        m_shop.ExpireShopData();
+        m_shop.DropWaitingCapture();
         result = ApplyBuyout(m_buyout_manager, m_items_manager, resolved.targets, bo);
         ScheduleResizeTreeColumns();
     }
@@ -1226,7 +1226,7 @@ void MainWindow::OnLegacyBuyoutsImported()
     const BuyoutBatch batch(m_buyout_manager);
     m_buyout_manager.ReloadBuyouts();
     m_items_manager.PropagateTabBuyouts();
-    m_shop.ExpireShopData();
+    m_shop.DropWaitingCapture();
     ScheduleResizeTreeColumns();
 }
 

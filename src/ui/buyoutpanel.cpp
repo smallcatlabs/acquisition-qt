@@ -15,6 +15,7 @@
 #include "currency.h"
 #include "ui/fieldvalidity.h"
 #include "ui/mainwindowhelpers.h"
+#include "ui/widgetutil.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "util/util.h"
 

@@ -29,8 +29,16 @@ your stash directly. Acquisition writes and updates those threads for you.
   refresh, but only if something changed since the last post. If no thread or
   no POESESSID is set, a warning says so once per session rather than after
   every refresh; updating by hand tells you each time.
-- **Shop → Copy shop data to clipboard** gives you the generated forum markup
-  without posting, for pasting by hand.
+- **Shop → Copy shop data to clipboard** builds the forum markup from the
+  current prices and copies it without posting, for pasting by hand. It needs
+  no thread, but it does need the POESESSID: a stash item's link carries its
+  tab's number, which pathofexile.com gives only to a POESESSID. Without one
+  nothing is copied and you are told why. Every page is copied, separated by a
+  `-------- next page --------` line, and the status bar says how many pages
+  were copied. An item whose tab is not in pathofexile.com's list of your tabs
+  cannot be linked: it is left out of the copy, as it is of a post, and the
+  status bar says how many items were left out. Copying never changes what was last posted, so the next update
+  still posts if the shop changed.
 
 Items priced *[Ignore]* are omitted; *No price* items appear without a tag.
 Which tag each buyout type produces is listed in [Pricing](pricing.md).
@@ -45,6 +53,9 @@ These situations stop or limit a post, and Acquisition tells you about each:
   database at startup, it posts nothing and leaves your threads as they are,
   so a problem on your computer cannot blank your shop. Check the log, fix
   the cause, and restart.
+- **Your shop's threads or template could not be read.** The same: nothing is
+  posted or copied, and a thread or template you set that session lasts
+  until you close Acquisition but is not saved, so the saved ones are kept.
 - **The site or the forum does not take the update.** The status bar says
   "Forum shop not updated" and why: the site did not answer, a thread could
   not be opened for editing, the forum could not find one of your items

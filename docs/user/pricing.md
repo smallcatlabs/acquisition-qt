@@ -201,8 +201,8 @@ set in Acquisition is kept underneath: when the note or the priced tab name is
 removed in the game, your price shows again. A tab with a price of its own, set in
 the game or in Acquisition, is always refreshed regardless of its check box, so
 its prices stay current; this holds even while the tab is empty or not yet
-fetched. Remove-only tabs are the exception: they are refreshed only when
-checked.
+fetched, and for remove-only tabs, whose items the forum shop lists. A tab is
+also always refreshed while it holds an item with a price of its own.
 
 ## Recovering prices from old versions
 
