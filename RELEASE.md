@@ -25,9 +25,12 @@ other suffixes as `pre-release`, and no suffix as `production`.
 
 1. Merge the version pull request, after everything meant to ride in it.
 2. Tag a `master` commit whose `CMakeLists.txt` reads exactly that version
-   (normally the version pull request's merge commit), and push the tag.
-   Signing it is recommended, not enforced: the 0.18.10 tags are signed,
-   0.18.11-beta.1 and 0.18.11 are annotated but unsigned, and nothing checks.
+   (normally the version pull request's merge commit), with a signed tag,
+   and push it. The Release workflow refuses to create a draft from a tag
+   whose signature GitHub does not verify: a lightweight tag, an unsigned
+   annotated tag (as 0.18.11-beta.1 and 0.18.11 were), or one signed by a key
+   that is not a signing key on the tagger's GitHub account. The 0.18.10 tags
+   pass.
 
    ```sh
    git tag -s v0.18.12-beta.1 -m "Acquisition v0.18.12-beta.1"
@@ -36,8 +39,8 @@ other suffixes as `pre-release`, and no suffix as `production`.
 
 3. The tag starts three workflows:
    - **Release** (`release.yml`). Its first job reads the version and fails
-     within a minute if the tag is not `v<version>` or the version ends in
-     `-dev`. Then Linux, macOS and Windows build, test and package in
+     within a minute if the tag is not `v<version>`, the version ends in
+     `-dev`, or the tag is not signed. Then Linux, macOS and Windows build, test and package in
      parallel (`build-{linux,macos,windows}.yml`, each also uploading its
      debug symbols to Sentry). When all three have passed, the last job
      checks the three packages are named for the version, creates the
@@ -60,12 +63,12 @@ other suffixes as `pre-release`, and no suffix as `production`.
    release.
 6. The next train starts by setting the next version with `-dev`.
 
-**The `.pdb`.** Releases carry the three packages and nothing else: 0.18.9,
-0.18.10, 0.18.11-beta.1 and 0.18.11 were published without
-`acquisition-<version>.pdb` (it was deleted from each draft by hand; 0.18.7
-was the last to ship it). The release job therefore does not attach it. The
-Windows symbols are in Sentry, and the `.pdb` is in the Windows build's
-workflow artifact for 30 days.
+**Debug symbols go to Sentry only.** Releases carry the three packages and
+nothing else. Each build uploads its symbols with
+`.github/actions/sentry-symbols`: the `.pdb` with `acquisition.exe` on
+Windows, `acquisition.debug` with the stripped `acquisition` on Linux, and
+the dSYM with the executable on macOS. None of them is kept anywhere else,
+not even as a workflow artifact.
 
 ## When something fails
 
@@ -80,15 +83,19 @@ workflow artifact for 30 days.
   tagged.
 - **GitHub cannot allocate a Mac** (the macOS job is cancelled after 15
   minutes, "not acquired by Runner of type hosted"): try **Re-run failed
-  jobs** once. If it is still stuck, cancel the run, then start Release by
-  hand (Actions, Release, Run workflow) on the tag, with `dry_run` off and
-  `macos_runner: laptop`, and start the one-job VM on the maintainer's Mac
-  (`BUILD.md`, "Platform Notes"). That run builds all three platforms again
-  and creates the draft. If `dry_run` is left on, it builds everything and
-  creates nothing, saying so in the run summary; start it again with
-  `dry_run` off. Only a run started by hand, which needs write
-  access to the repository, can send a job to that machine; a tag push never
-  does.
+  jobs** once. If it is still stuck, let the tag's run finish, or cancel it
+  only after its Linux and Windows builds have passed: the fallback takes
+  their packages from that run, and a cancelled build leaves none. Then start Release by hand (Actions, Release, Run workflow) on the
+  tag, with `dry_run` off and `macos_runner: laptop`, and start the one-job
+  VM on the maintainer's Mac (`BUILD.md`, "Platform Notes"). That run builds
+  only macOS; its release job takes the Linux and Windows packages from the
+  run the tag push started (the newest such run for the tag's commit) and
+  creates the draft. If `dry_run` is left on, it creates nothing and says
+  so in the run summary; start it again with `dry_run` off. Only a run
+  started by hand, which needs write access to the repository, can send a
+  job to that machine; a tag push never does.
+- **The tag is not signed**: the version job fails and nothing is built.
+  Delete the tag, make it again with `git tag -s`, and push it.
 - **The release job fails before the draft exists**: re-run it. The error
   names what it expected and found. Re-running repeats the Sentry step
   safely: for a release that exists Sentry answers `208 Already Reported`,
@@ -115,6 +122,7 @@ as workflow artifacts; it never creates or changes a release.
 
 Starting Release by hand on a branch, with `dry_run` on (the default), runs
 the version job (which only reads the version, because the ref is not a tag)
-and all three builds, and skips the release job. Note that the builds upload
-symbols to Sentry. Only a tag exercises the tag check, the release job and
-the draft.
+and all three builds (only macOS with `macos_runner: laptop`), and skips the
+release job. Note that the builds upload
+symbols to Sentry. Only a tag exercises the tag and signature checks, the
+release job and the draft; a dry run on a tag skips the signature check.

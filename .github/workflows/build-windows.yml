@@ -223,21 +223,9 @@ jobs:
           throw "Setup removed a file that is not the application's"
         }
 
-    - name: Name the pdb for its version
-      run: |
-        # A plain 'acquisition.pdb' cannot be told from another build's once
-        # downloaded. Copy rather than rename: the linker's own name is what the
-        # PE records, and local debuggers look the pdb up by that name. The pdb
-        # stays a workflow artifact and in Sentry; releases do not carry it
-        # (RELEASE.md).
-        Copy-Item "build\acquisition.pdb" `
-          "build\acquisition-${{ steps.version.outputs.version }}.pdb"
-
     - name: Upload artifacts
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: acquisition-installer-${{ steps.version.outputs.version }}
-        path: |
-          Output/*.exe
-          build/acquisition-${{ steps.version.outputs.version }}.pdb
+        path: Output/*.exe
         retention-days: 30

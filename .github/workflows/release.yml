@@ -7,8 +7,10 @@ name: Release
 # three packages attached. The maintainer publishes the draft by hand.
 #
 # Started by hand it is a dry run by default: it checks the version, builds,
-# and stops before the release job. With dry_run off on a tag it is the whole
-# release, which is how the macOS build is sent to the maintainer's Mac.
+# and stops before the release job. With macos_runner=laptop it builds only
+# macOS, on the maintainer's Mac; with dry_run off on a tag it then creates
+# the draft, taking the Linux and Windows packages from the tag's own run.
+# That is the fallback when GitHub cannot allocate a Mac.
 #
 # CodeQL (codeql.yml) and the sanitizers (sanitizers.yml) run on the same tags
 # from their own workflows; nothing here waits for them.
@@ -23,7 +25,7 @@ on:
         type: boolean
         default: true
       macos_runner:
-        description: 'github: a GitHub-hosted Mac. laptop: the maintainer''s one-job VM (label smallcat-macos), started by hand.'
+        description: 'github: a GitHub-hosted Mac. laptop: build only macOS, on the maintainer''s one-job VM (label smallcat-macos), started by hand; Linux and Windows come from the tag''s run.'
         type: choice
         options: [github, laptop]
         default: github
@@ -55,9 +57,17 @@ jobs:
         id: version
         run: .github/scripts/version.sh
 
+      # Only a signed tag is released (RELEASE.md). A dry run may use any tag.
+      - name: Check the tag is signed
+        if: github.ref_type == 'tag' && !inputs.dry_run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .github/scripts/check-tag-signed.sh "$GITHUB_REPOSITORY" "$GITHUB_REF_NAME"
+
   linux:
     name: Linux
     needs: version
+    if: inputs.macos_runner != 'laptop'
     uses: ./.github/workflows/build-linux.yml
     secrets: inherit
 
@@ -73,16 +83,20 @@ jobs:
   windows:
     name: Windows
     needs: version
+    if: inputs.macos_runner != 'laptop'
     uses: ./.github/workflows/build-windows.yml
     secrets: inherit
 
   release:
     name: Create draft release
     needs: [version, linux, macos, windows]
-    if: github.ref_type == 'tag' && !inputs.dry_run
+    # Linux and Windows are skipped, not failed, on the macOS fallback. A
+    # macOS job GitHub found no Mac for ends cancelled, not failed.
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && github.ref_type == 'tag' && !inputs.dry_run }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: read
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
@@ -96,6 +110,36 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+
+      # The macOS fallback built only macOS; the Linux and Windows packages
+      # are those of the run the tag push started.
+      - name: Find the tag's run
+        id: tag-run
+        if: inputs.macos_runner == 'laptop'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml \
+            --event push --branch "$GITHUB_REF_NAME" --commit "$GITHUB_SHA" --limit 1 --json databaseId -q '.[0].databaseId')
+          if [ -z "$run" ]; then
+            echo "::error::No Release run from the push of $GITHUB_REF_NAME to take the Linux and Windows packages from"
+            exit 1
+          fi
+          echo "Taking the Linux and Windows packages from run $run"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
+      - name: Download the tag run's artifacts
+        if: inputs.macos_runner == 'laptop'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: dist
+          merge-multiple: true
+          run-id: ${{ steps.tag-run.outputs.run }}
+          github-token: ${{ github.token }}
+          # The Linux and Windows artifacts (acquisition-<v>-x86_64.AppImage,
+          # acquisition-installer-<v>), never a DMG (Acquisition_<v>_arm64.dmg)
+          # the tag's run may have uploaded.
+          pattern: acquisition-*
 
       - name: Collect release files
         run: .github/scripts/collect-release-files.sh dist "$VERSION" > release-files.txt && cat release-files.txt
@@ -153,8 +197,8 @@ jobs:
   # re-run, so say so where it will be seen.
   dry-run:
     name: No release (dry run)
-    needs: [linux, macos, windows]
-    if: github.event_name == 'workflow_dispatch' && (inputs.dry_run || github.ref_type != 'tag')
+    needs: [version, linux, macos, windows]
+    if: ${{ !cancelled() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') && github.event_name == 'workflow_dispatch' && (inputs.dry_run || github.ref_type != 'tag') }}
     runs-on: ubuntu-latest
     steps:
       - name: Say no draft was created

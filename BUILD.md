@@ -584,7 +584,8 @@ GitHub sometimes cannot allocate an arm64 Mac and cancels the job after 15
 minutes ("not acquired by Runner of type hosted"). The fallback is a run on the
 maintainer's Mac: cancel the stuck run, start `release.yml` by hand on the
 same tag with `dry_run` off and `macos_runner: laptop` (`RELEASE.md`), and
-start a one-job VM there. The job then
+start a one-job VM there. That run rebuilds only macOS and takes the Linux and
+Windows packages from the tag's own run. The job then
 needs the label `smallcat-macos`. That VM is a throwaway copy of a macOS 26
 image with Xcode 26.6 and Qt 6.11.3 at `QT_ROOT_DIR`, matching GitHub's
 `macos-26-arm64` image, and runs the job as a user without admin rights. Tag
