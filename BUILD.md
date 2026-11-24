@@ -577,5 +577,14 @@ Redistributable, and Inno Setup via `installer.iss`.
 macOS release packaging uses `macdeployqt` to produce a DMG. The current workflow
 runs on `macos-latest` and names the uploaded artifact as an arm64 DMG.
 
+GitHub sometimes cannot allocate an arm64 Mac and cancels the job after 15
+minutes ("not acquired by Runner of type hosted"). The fallback is a run on the
+maintainer's Mac: cancel the stuck run, start `build-macos.yml` by hand on the
+same tag with `runner: laptop`, and start a one-job VM there. The job then
+needs the label `smallcat-macos`. That VM is a throwaway copy of a macOS 26
+image with Xcode 26.6 and Qt 6.11.3 at `QT_ROOT_DIR`, matching GitHub's
+`macos-26-arm64` image, and runs the job as a user without admin rights. Tag
+pushes never go there; only a hand-started run with `runner: laptop` does.
+
 Linux release packaging uses `linuxdeploy` and `linuxdeploy-plugin-qt` to produce
 an AppImage.
