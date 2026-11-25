@@ -61,10 +61,15 @@ public:
     bool Loaded() const { return !m_error; }
     // Why the first read that failed did, empty when every read succeeded.
     QString error() const { return m_error.value_or(QString()); }
-    // The stored value, empty when the key holds none or was not read.
-    QString value(const QString &key) const { return m_values.value(key); }
-    // Writes nothing and returns false when not loaded or the key is not one
-    // of these; otherwise the store's result.
+    // The value as it was read at construction, empty when the key held
+    // none or was not read.
+    QString value(const QString &key) const
+    {
+        Q_ASSERT(m_values.contains(key));
+        return m_values.value(key);
+    }
+    // Writes nothing and returns false when not loaded; otherwise the
+    // store's result. A key that is not one of these is a programming error.
     bool Set(const QString &key, const QString &value);
 
 private:

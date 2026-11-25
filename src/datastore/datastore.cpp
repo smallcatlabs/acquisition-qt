@@ -25,9 +25,6 @@ StoredSettings::StoredSettings(DataStore &store, std::initializer_list<QString> 
 
 bool StoredSettings::Set(const QString &key, const QString &value)
 {
-    if (!Loaded() || !m_values.contains(key) || !m_store.Set(key, value)) {
-        return false;
-    }
-    m_values.insert(key, value);
-    return true;
+    Q_ASSERT(m_values.contains(key));
+    return Loaded() && m_values.contains(key) && m_store.Set(key, value);
 }

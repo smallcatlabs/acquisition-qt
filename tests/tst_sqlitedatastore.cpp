@@ -146,6 +146,7 @@ void SqliteDataStoreTest::readTellsAFailureFromAnAbsentKey()
     StoredSettings after(store, {"present"});
     QVERIFY(!after.Loaded());
     QVERIFY(!after.error().isEmpty());
+    QVERIFY(!after.Set("present", "other"));
     QCOMPARE(store.Get("present", "default"), QString("default"));
     QVERIFY(!store.Set("present", "other"));
     QVERIFY(!before.Set("present", "other"));
