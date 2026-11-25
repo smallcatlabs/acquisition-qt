@@ -40,6 +40,10 @@ class UpdateChecker;
 // folder when the version recorded in the settings is not this version.
 std::unique_ptr<DataStore> OpenGlobalDataStore(const QDir &dataDir, QSettings &settings);
 
+// Gives the application its name and version, whatever the executable is
+// called. Called by main() before anything asks for a standard path.
+void SetApplicationIdentity();
+
 struct MainWindowDeleter
 {
     void operator()(MainWindow *window) const;

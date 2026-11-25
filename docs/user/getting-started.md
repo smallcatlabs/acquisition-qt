@@ -91,6 +91,12 @@ Everything Acquisition writes goes into one data directory:
 | macOS | `~/Library/Application Support/acquisition` |
 | Linux | `~/.local/share/acquisition` |
 
+Before 0.18.12 the Linux AppImage named its data directory after the AppImage
+file, for example `~/.local/share/acquisition-0.18.11-x86_64.AppImage`, so each
+release started empty. To keep your data from such a version, close
+Acquisition and copy that directory's contents into
+`~/.local/share/acquisition`.
+
 Inside it you will find `settings.ini`, `log.txt`, a `data/` folder with one
 SQLite database per account (`userstore-<account>.db`) plus the legacy
 per-league databases, and a `cache/` folder for item images.

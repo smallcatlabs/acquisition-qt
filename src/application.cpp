@@ -179,6 +179,19 @@ Application::UserSession &Application::session() const
     FatalError("Application: user session not initialized");
 }
 
+void SetApplicationIdentity()
+{
+    // Otherwise Qt names the application after the executable, and the
+    // default data directory (AppLocalDataLocation) is named after the
+    // application: a release AppImage's file name carries its version, so
+    // each release opened a new, empty directory (#468).
+    QCoreApplication::setApplicationName(APP_NAME);
+    // Without this Qt takes the version from the executable's numeric version
+    // resource on Windows, which has no pre-release suffix: a beta reported
+    // itself as "0.18.11.0" in --version and at the head of the log.
+    QCoreApplication::setApplicationVersion(APP_VERSION_STRING);
+}
+
 std::unique_ptr<DataStore> OpenGlobalDataStore(const QDir &dataDir, QSettings &settings)
 {
     const QDir user_dir(dataDir.filePath("data"));

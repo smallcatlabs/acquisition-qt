@@ -60,6 +60,7 @@ class ShellTest : public QObject
 private slots:
     void initTestCase();
     void cleanupTestCase();
+    void defaultDataDirIgnoresExecutableName();
     void crashReportingDefaultsOn();
     void crashReportingFollowsSetting_data();
     void crashReportingFollowsSetting();
@@ -123,6 +124,25 @@ void ShellTest::cleanupTestCase()
 {
     spdlog::drop("main");
     m_main_logger.reset();
+}
+
+void ShellTest::defaultDataDirIgnoresExecutableName()
+{
+    // Until the application named itself, Qt took the name from the
+    // executable, and a release AppImage's file name carries its version: each
+    // release opened a new, empty data directory (#468).
+    const QString suite_name = QCoreApplication::applicationName();
+    const auto restore = qScopeGuard([&] { QCoreApplication::setApplicationName(suite_name); });
+    const auto default_data_dir = [](const QString &executable_name) {
+        QCoreApplication::setApplicationName(executable_name);
+        SetApplicationIdentity();
+        return QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+    };
+    const QString data_dir = default_data_dir("acquisition");
+    QCOMPARE(QFileInfo(data_dir).fileName(), "acquisition");
+    QCOMPARE(default_data_dir("Acquisition-0.18.11-x86_64.AppImage"), data_dir);
+    QCOMPARE(default_data_dir("Acquisition"), data_dir);
+    QCOMPARE(QCoreApplication::applicationVersion(), APP_VERSION_STRING);
 }
 
 void ShellTest::crashReportingDefaultsOn()
