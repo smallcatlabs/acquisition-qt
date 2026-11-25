@@ -17,10 +17,12 @@ public:
     SqliteDataStore(const QString &m_filename);
     ~SqliteDataStore();
     bool Set(const QString &key, const QString &value) override;
-    ReadResult Read(const QString &key) override;
     bool InsertCurrencyUpdate(const CurrencyUpdate &update) override;
     std::vector<CurrencyUpdate> GetAllCurrency() override;
     static QString MakeFilename(const QString &name, const QString &league);
+
+protected:
+    ReadResult Read(const QString &key) override;
 
 private:
     void CreateTable(const QString &username, const QString &fields);

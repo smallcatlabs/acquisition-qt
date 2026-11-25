@@ -32,6 +32,7 @@ CurrencyManager::CurrencyManager(QSettings &settings,
     , m_settings(settings)
     , m_data(datastore)
     , m_items_manager(items_manager)
+    , m_stored(datastore, {"currency_items", "currency_base"})
 {
     for (const CurrencyInfo &row : CurrencyTable::Default().rows()) {
         if (row.wisdom > 0) {
@@ -40,25 +41,20 @@ CurrencyManager::CurrencyManager(QSettings &settings,
     }
     // A read that fails is not an empty store (#295): set up and saved as
     // one, the defaults would replace the user's ratios.
-    const DataStore::ReadResult items = m_data.Read("currency_items");
-    const bool first_run = items && items->value_or("").isEmpty();
-    // The list from before the JSON format, read only on a first run.
-    const DataStore::ReadResult base = first_run ? m_data.Read("currency_base")
-                                                 : DataStore::ReadResult(std::nullopt);
-    if (!items || !base) {
+    if (!m_stored.Loaded()) {
         spdlog::error("CurrencyManager: the stored currency could not be read, so it will not be "
                       "saved this session: {}",
-                      items ? base.error() : items.error());
-        m_loaded = false;
+                      m_stored.error());
         MakeCurrencyItems();
-    } else if (items->value_or("").isEmpty()) {
+    } else if (m_stored.value("currency_items").isEmpty()) {
         FirstInitCurrency();
-        if (!base->value_or("").isEmpty()) {
-            MigrateCurrency(**base);
+        const QString base = m_stored.value("currency_base");
+        if (!base.isEmpty()) {
+            MigrateCurrency(base);
             spdlog::warn("Found old currency values, migrated them to the new system");
         }
     } else {
-        InitCurrency(**items);
+        InitCurrency(m_stored.value("currency_items"));
     }
 }
 
@@ -150,7 +146,7 @@ void CurrencyManager::FirstInitCurrency()
     for (size_t row = 0; row < m_currencies.size(); ++row) {
         value += ";0";
     }
-    m_data.Set("currency_items", Serialize(m_currencies));
+    m_stored.Set("currency_items", Serialize(m_currencies));
     m_data.Set("currency_last_value", value);
     m_settings.setValue("show_chaos", true);
     m_settings.setValue("show_exalt", true);
@@ -168,7 +164,7 @@ void CurrencyManager::MigrateCurrency(const QString &currency_base)
         m_currencies[static_cast<size_t>(i - 1)]->exalt.value1 = list[i].toDouble();
     }
     //Set to empty so we won't trigger it next time !
-    m_data.Set("currency_base", "");
+    m_stored.Set("currency_base", "");
 }
 
 QString CurrencyManager::Serialize(const std::vector<std::shared_ptr<CurrencyItem>> &currencies)
@@ -225,15 +221,12 @@ void CurrencyManager::Deserialize(const QString &string_data,
 
 void CurrencyManager::SaveCurrencyItems()
 {
-    if (!m_loaded) {
-        return;
-    }
-    m_data.Set("currency_items", Serialize(m_currencies));
+    m_stored.Set("currency_items", Serialize(m_currencies));
 }
 
 void CurrencyManager::SaveCurrencyValue()
 {
-    if (!m_loaded) {
+    if (!m_stored.Loaded()) {
         return;
     }
     QString value = "";
@@ -248,18 +241,18 @@ void CurrencyManager::SaveCurrencyValue()
     }
     // A last value that cannot be read is not "none" (#295): taken for
     // none, this update would be recorded again even when nothing changed.
-    const DataStore::ReadResult old_value = m_data.Read("currency_last_value");
-    if (!old_value) {
+    StoredSettings last(m_data, {"currency_last_value"});
+    if (!last.Loaded()) {
         return;
     }
-    if (value != old_value->value_or(QString()) && !empty) {
+    if (value != last.value("currency_last_value") && !empty) {
         CurrencyUpdate update = CurrencyUpdate();
         update.timestamp = QDateTime::currentSecsSinceEpoch();
         update.value = value;
         // The last value advances only with its history row (#285), so an
         // update that was not written is tried again next time.
         if (m_data.InsertCurrencyUpdate(update)) {
-            m_data.Set("currency_last_value", value);
+            last.Set("currency_last_value", value);
         }
     }
 }

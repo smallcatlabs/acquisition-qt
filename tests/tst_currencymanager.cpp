@@ -78,7 +78,11 @@ namespace {
             if (key == m_key) {
                 return std::unexpected(QString("test: the read of %1 fails").arg(key));
             }
-            return m_store.Read(key);
+            const StoredSettings read(m_store, {key});
+            if (!read.Loaded()) {
+                return std::unexpected(read.error());
+            }
+            return read.value(key);
         }
         bool InsertCurrencyUpdate(const CurrencyUpdate &update) override
         {
@@ -438,7 +442,7 @@ void CurrencyManagerTest::failedReadOfTheOldListWritesNothing()
     {
         CurrencyManager currency(fixture.settings, store, fixture.items);
     }
-    QCOMPARE(real.Read("currency_items"), DataStore::ReadResult(std::nullopt));
+    QCOMPARE(real.Get("currency_items", "absent"), QString("absent"));
     QCOMPARE(real.Get("currency_base"), QString("0;5;7"));
 }
 

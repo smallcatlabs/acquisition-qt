@@ -9,12 +9,25 @@ QString DataStore::Get(const QString &key, const QString &default_value)
     return (value && value->has_value()) ? **value : default_value;
 }
 
-void DataStore::SetInt(const QString &key, int value)
+StoredSettings::StoredSettings(DataStore &store, std::initializer_list<QString> keys)
+    : m_store(store)
 {
-    Set(key, QString::number(value));
+    // Every key is read even after a failure, so the caller can still show
+    // what did read this session.
+    for (const QString &key : keys) {
+        const DataStore::ReadResult value = m_store.Read(key);
+        if (!value && !m_error) {
+            m_error = value.error();
+        }
+        m_values.insert(key, value ? value->value_or(QString()) : QString());
+    }
 }
 
-int DataStore::GetInt(const QString &key, int default_value)
+bool StoredSettings::Set(const QString &key, const QString &value)
 {
-    return Get(key, QString::number(default_value)).toInt();
+    if (!Loaded() || !m_values.contains(key) || !m_store.Set(key, value)) {
+        return false;
+    }
+    m_values.insert(key, value);
+    return true;
 }

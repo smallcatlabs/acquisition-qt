@@ -26,6 +26,8 @@ private slots:
     // #295: a failed read of the refresh check state is not an empty one.
     void failedReadOfRefreshChecksIsNotSavedOver();
     void unparseableRefreshChecksAreReplaced();
+    // #458: a save of the refresh check state that was not written is tried again.
+    void failedSaveOfRefreshChecksIsRetried();
     // #293 step 2: a tab's price is not copied onto its items.
     void tabPriceWritesOneRow();
     void inheritedRowIsIgnoredOnLoad();
@@ -1125,6 +1127,37 @@ void BuyoutManagerTest::unparseableRefreshChecksAreReplaced()
         manager.Save();
     }
     QCOMPARE(fixture.data->Get("refresh_checked_state"), QString(R"({"stash-295d":false})"));
+}
+
+// #458: a save whose write failed was taken for done, so the check-box
+// change was not saved by a later Save() either, and was lost at exit.
+void BuyoutManagerTest::failedSaveOfRefreshChecksIsRetried()
+{
+    BuyoutManagerFixture fixture;
+    const ItemLocation unchecked = makeTestStashLocation("stash-458a", "Unchecked", 0);
+    QVERIFY(fixture.manager->SetRefreshChecked(unchecked, false));
+
+    // A second connection blocks writes to the table for one save.
+    const QString connection = "refresh-checks-458";
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connection);
+        db.setDatabaseName(fixture.tempDir.filePath("acquisition.sqlite"));
+        QVERIFY(db.open());
+    }
+    const auto exec = [&](const char *sql) {
+        QSqlQuery q(QSqlDatabase::database(connection));
+        QVERIFY2(q.exec(sql), qPrintable(q.lastError().text()));
+    };
+    exec("CREATE TRIGGER block_data BEFORE INSERT ON data "
+         "BEGIN SELECT RAISE(FAIL, 'test: write blocked'); END");
+    fixture.manager->Save();
+    QCOMPARE(fixture.data->Get("refresh_checked_state"), QString());
+    exec("DROP TRIGGER block_data");
+    QSqlDatabase::database(connection).close();
+    QSqlDatabase::removeDatabase(connection);
+
+    fixture.manager->Save();
+    QVERIFY(fixture.data->Get("refresh_checked_state").contains("stash-458a"));
 }
 
 ACQ_TEST_GUILESS_MAIN(BuyoutManagerTest)
