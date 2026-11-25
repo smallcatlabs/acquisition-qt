@@ -131,7 +131,7 @@ ApplyBuyoutResult ApplyBuyout(BuyoutManager &buyouts,
     // this one and emits nothing (M3 R3-3).
     const BuyoutBatch batch(buyouts);
     for (const ItemLocation &tab : targets.tabs) {
-        if (buyouts.EffectiveTab(tab).IsGameSet()) {
+        if (!buyouts.EffectiveTab(tab).Editable()) {
             spdlog::trace("ApplyBuyout: tab {} is priced in the game", tab.id());
             ++result.locked;
             continue;
@@ -140,16 +140,16 @@ ApplyBuyoutResult ApplyBuyout(BuyoutManager &buyouts,
     }
     for (const Item *item : targets.items) {
         const EffectivePrice effective = buyouts.Effective(*item);
-        if (effective.CannotBeListed()) {
-            spdlog::trace("ApplyBuyout: item {} cannot be listed", item->id());
-            ++result.unlistable;
-            continue;
-        }
         // Only the price in force decides: an item's own price wins over its
         // tab's name (T12, #365), and a note wins over both (T29).
-        if (effective.IsGameSet()) {
-            spdlog::trace("ApplyBuyout: item {} is priced in the game", item->id());
-            ++result.locked;
+        if (!effective.Editable()) {
+            // Why, for the message: it cannot be listed where it is (#418),
+            // or the game priced it.
+            const bool unlistable = effective.CannotBeListed();
+            spdlog::trace("ApplyBuyout: item {} {}",
+                          item->id(),
+                          unlistable ? "cannot be listed" : "is priced in the game");
+            ++(unlistable ? result.unlistable : result.locked);
             continue;
         }
         count(buyouts.Set(*item, buyout));

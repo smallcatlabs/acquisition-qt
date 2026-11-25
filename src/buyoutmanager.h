@@ -60,6 +60,9 @@ struct EffectivePrice
     // The item sits where it cannot be listed for sale: no price is in
     // force, an edit is refused, nothing is posted.
     bool CannotBeListed() const { return source == PriceSource::Unlistable; }
+    // A price may be set in Acquisition. The one edit rule: the price
+    // editor and ApplyBuyout both ask this and nothing else.
+    bool Editable() const { return !IsGameSet() && !CannotBeListed(); }
     // The forum may carry it: set in Acquisition, and a price in a currency
     // the post can name, or "no price" (Buyout::IsPostable).
     bool IsPostable() const { return !IsGameSet() && buyout.IsPostable(); }

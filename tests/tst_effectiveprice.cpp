@@ -200,6 +200,9 @@ namespace {
                                                      targets,
                                                      makeChaosBuyout(9.0));
         QCOMPARE(result.locked == 1, e.locked);
+        // The edit rule is one predicate: the edit is made exactly when the
+        // price in force says it may be (#459).
+        QCOMPARE(result.applied == 1, effective.Editable());
     }
 
 } // namespace
@@ -548,6 +551,7 @@ void EffectivePriceTest::itemThatCannotBeListedHasNoPrice()
     const EffectivePrice price = manager.Effective(*in_guardian);
     QCOMPARE(price.source, PriceSource::Unlistable);
     QVERIFY(price.CannotBeListed());
+    QVERIFY(!price.Editable());
     QVERIFY(price.buyout.IsNull());
     QVERIFY(!price.IsGameSet());
     QVERIFY(!price.IsPostable());
