@@ -28,7 +28,7 @@ cmake --preset dev && cmake --build --preset dev && ctest --preset dev
   configuring prints the size (`First-party sources compile N at a time`).
   Check that line against the memory you really have: if you share the
   machine with other builds or agents, or run under a limit CMake cannot see,
-  configure with `-DACQ_COMPILE_JOBS=<n>`, about one job for every 3 GB that
+  configure with `-DACQ_COMPILE_JOBS=<n>`, about one job for every 2 GB that
   is yours to use (`BUILD.md`, "Memory and parallel jobs").
 - Never read or write a real Acquisition data directory (the platform's
   application-data location), in the app, in tests, or in investigation
