@@ -7,7 +7,7 @@
 #include "poe/types/league.h"
 #include "poe/types/stashtab.h"
 #include "poe/types/website/webstashtab.h"
-#include "util/glaze_qt.h" // IWYU pragma: keep
+#include "util/json_glaze.h"
 #include "util/oauthtoken.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <QtTest/QtTest>
+#include <QTest>
 
 #include "testfixtures.h"
 #include "testsuite.h"

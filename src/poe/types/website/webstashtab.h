@@ -8,7 +8,7 @@
 #include <optional>
 #include <vector>
 
-#include <glaze/glaze.hpp>
+#include "poe/types/rawjson.h"
 
 #include "poe/types/item.h"
 
@@ -36,18 +36,18 @@ namespace poe {
 
     struct WebStashListWrapper
     {
-        std::optional<glz::raw_json> blightLayout;
-        std::optional<glz::raw_json> currencyLayout;
-        std::optional<glz::raw_json> deliriumLayout;
-        std::optional<glz::raw_json> delveLayout;
-        std::optional<glz::raw_json> divinationLayout;
-        std::optional<glz::raw_json> essenceLayout;
-        std::optional<glz::raw_json> flaskLayout;
-        std::optional<glz::raw_json> fragmentLayout;
-        std::optional<glz::raw_json> gemLayout;
-        std::optional<glz::raw_json> mapLayout;
-        std::optional<glz::raw_json> ultimatumLayout;
-        std::optional<glz::raw_json> uniqueLayout;
+        std::optional<poe::RawJson> blightLayout;
+        std::optional<poe::RawJson> currencyLayout;
+        std::optional<poe::RawJson> deliriumLayout;
+        std::optional<poe::RawJson> delveLayout;
+        std::optional<poe::RawJson> divinationLayout;
+        std::optional<poe::RawJson> essenceLayout;
+        std::optional<poe::RawJson> flaskLayout;
+        std::optional<poe::RawJson> fragmentLayout;
+        std::optional<poe::RawJson> gemLayout;
+        std::optional<poe::RawJson> mapLayout;
+        std::optional<poe::RawJson> ultimatumLayout;
+        std::optional<poe::RawJson> uniqueLayout;
 
         std::vector<poe::Item> items;
         unsigned numTabs;

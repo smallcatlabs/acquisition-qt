@@ -11,7 +11,7 @@
 
 #include <semver/semver.hpp>
 
-#include "util/glaze_qt.h" // IWYU pragma: keep
+#include "util/json_glaze.h"
 #include "util/networkmanager.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "version_defines.h"

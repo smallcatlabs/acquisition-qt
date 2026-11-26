@@ -4,7 +4,7 @@
 #include <QSettings>
 #include <QSignalSpy>
 #include <QSqlQuery>
-#include <QtTest/QtTest>
+#include <QTest>
 
 #include "applybuyout.h"
 #include "itemsmanager.h"

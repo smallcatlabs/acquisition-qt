@@ -16,7 +16,7 @@
 // as the whole game data. A change to how mod lines are matched can make an
 // item use an entry the excerpt lacks; see that directory's README.
 
-#include <QtTest/QtTest>
+#include <QTest>
 
 #include <QDir>
 #include <QFile>
@@ -25,7 +25,7 @@
 
 #include "corpusdump.h"
 #include "testsuite.h"
-#include "viewtranscript.h"
+#include "transcriptchanges.h"
 
 namespace {
 

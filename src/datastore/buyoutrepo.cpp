@@ -11,6 +11,7 @@
 #include "datastore/datastore_utils.h"
 #include "item.h"
 #include "itemlocation.h"
+#include "util/spdlog_qt.h"
 
 constexpr const char *CREATE_ITEM_BUYOUT_TABLE{R"(
 CREATE TABLE IF NOT EXISTS item_buyouts (

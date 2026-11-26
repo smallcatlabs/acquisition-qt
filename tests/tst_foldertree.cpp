@@ -10,7 +10,8 @@
 // fresh refilter of the same published state builds (the convergence
 // criterion), with no model reset on the refresh path.
 
-#include <QtTest/QtTest>
+#include <QSignalSpy>
+#include <QTest>
 
 #include <QAbstractItemModelTester>
 #include <QComboBox>

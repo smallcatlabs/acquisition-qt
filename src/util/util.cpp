@@ -18,6 +18,7 @@
 #include <cmath>
 
 #include "poe/types/stashtab.h"
+#include "util/spdlog_qt.h"
 
 QString Util::Md5(const QString &value)
 {

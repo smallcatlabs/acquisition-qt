@@ -76,6 +76,34 @@ to the build tree. Run it with a temporary data directory while testing:
 ./build/dev/acquisition --data-dir /tmp/acq-data --log-level debug                                  # Linux
 ```
 
+### Memory and parallel jobs
+
+A translation unit of this project can need more than a gigabyte to compile
+(a test suite needed one to two when this was measured, #476), and a
+library's units all become ready at once. With Ninja the first-party sources
+compile in a job pool whose size follows memory instead of hardware threads:
+one job for every 3 GB of the machine's memory or, on Linux, of the memory
+limit of the control group the configure step runs in, whichever is smaller.
+Configuring prints the size:
+
+```
+-- First-party sources compile 10 at a time (31433 MB of memory); -DACQ_COMPILE_JOBS=<n> changes it.
+```
+
+Set the size yourself when that guess does not fit where the build runs:
+several builds at once on one machine, a memory limit CMake cannot see (a
+virtual machine's balloon, a job scheduler), or memory to spare.
+
+```sh
+cmake --preset dev -DACQ_COMPILE_JOBS=4
+```
+
+The value stays in the build tree's cache; `-UACQ_COMPILE_JOBS` goes back to
+the computed size. `--parallel <n>` on the build still caps every job, these
+included. The pool is in `cmake/compile_pool.cmake`; the fetched dependencies
+and the links run outside it, and the other generators have no job pools and
+ignore it.
+
 The presets are a convenience, not a requirement: `cmake -S . -B <dir>` with
 the same cache variables builds the same thing, and the release workflows
 still configure that way.
@@ -108,9 +136,27 @@ includes `testsuite.h` and ends with one registration line where a Qt Test
 program has `QTEST_MAIN`, before its `#include "tst_<name>.moc"`:
 `ACQ_TEST_MAIN(Class)` when it needs a `QApplication` (widgets), otherwise
 `ACQ_TEST_GUILESS_MAIN(Class)`. Then add `acq_add_test(tst_<name>)` to
-`tests/CMakeLists.txt`. A suite that must run one test function per process
-registers with `ACQ_TEST_SCENARIO_MAIN` and `acq_add_scenario_test`, as
-`tst_workerintegration` does.
+`tests/CMakeLists.txt`, or `acq_add_test(tst_<name> GUILESS)` for a suite
+without a `QApplication`: it is compiled against the core library alone, with
+no Qt Widgets header in reach. A suite that must run one test function per
+process registers with `ACQ_TEST_SCENARIO_MAIN` and `acq_add_scenario_test`,
+as `tst_workerintegration` does.
+
+What a suite includes is most of what it costs to compile (#476), so:
+
+- Include `<QTest>` and the Qt classes the file names (`<QSignalSpy>`), not
+  the module header `<QtTest>`.
+- A fixture more than one suite uses is declared in a header and defined in a
+  `.cpp` file of a test support library (`tests/CMakeLists.txt`):
+  `acq_testsupport_core` for what needs only the core library,
+  `acq_testsupport` for what builds a window. A suite then compiles the
+  fixture's declaration, not its body.
+- glaze is expensive, and it enters a file only through
+  `util/json_glaze.h`, from a `.cpp` file (the `glaze_boundary` test). A
+  suite that only needs a value parsed or written uses a helper from
+  `testfixtures.h` (`makeTestWireItem`, `serializeTestToken`) or
+  `util/json_readers.h`, and leaves glaze to the suites that test the JSON
+  itself.
 
 All suites share one link. Keep a file's helper classes and functions in an
 anonymous namespace or `static`, and give the test class a name no other suite
@@ -119,6 +165,12 @@ link without an error, and the program uses one of them for both. A file that
 still ends with `QTEST_MAIN` fails the link with a second `main`. A
 `tst_*.cpp` that `tests/CMakeLists.txt` does not name is neither built nor
 run.
+
+A struct that glaze reads or writes by reflection cannot be in an anonymous
+namespace: Clang and MSVC refuse it, and GCC does not, so the Linux check
+passes.
+Use a standard container or a wire type; if a struct of the suite's own is
+needed, put it in a namespace named after the suite.
 
 `.github/workflows/tests.yml` builds the `release` preset on Linux and runs the
 whole suite on every pull request and every push to `master`. Run the suite

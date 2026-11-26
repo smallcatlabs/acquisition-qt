@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Tom Holz
 
+#include <QTest>
+
 #include <QFile>
 #include <QLabel>
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
-#include <QtTest/QtTest>
 
 #include <memory>
 

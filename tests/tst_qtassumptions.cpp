@@ -13,7 +13,7 @@
 //     an item that is user-checkable but not user-tristate delivers
 //     Qt::Checked to setData.
 
-#include <QtTest/QtTest>
+#include <QTest>
 
 #include <QAbstractItemModel>
 #include <QAbstractItemModelTester>
