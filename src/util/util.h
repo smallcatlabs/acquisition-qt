@@ -13,8 +13,6 @@
 #include <utility>
 #include <vector>
 
-#include "util/spdlog_qt.h"
-
 class QNetworkReply;
 
 struct Buyout;
@@ -87,16 +85,5 @@ namespace Util {
 } // namespace Util
 
 using TextWidthId = Util::TextWidthId;
-template<>
-struct fmt::formatter<TextWidthId, char> : QtEnumFormatter<TextWidthId>
-{};
-
 using RefreshReason = Util::RefreshReason;
-template<>
-struct fmt::formatter<RefreshReason, char> : QtEnumFormatter<RefreshReason>
-{};
-
 using TabSelection = Util::TabSelection;
-template<>
-struct fmt::formatter<TabSelection, char> : QtEnumFormatter<TabSelection>
-{};

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2014 Ilya Zhuravlev
 
 #include "buyout.h"
+#include "util/spdlog_qt.h"
 
 #include <QRegularExpression>
 

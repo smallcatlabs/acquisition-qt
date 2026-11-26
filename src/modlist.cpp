@@ -20,7 +20,7 @@
 #include "item.h"
 #include "pseudomods.h"
 #include "repoe/stattranslation.h"
-#include "util/glaze_qt.h"
+#include "util/json_glaze.h"
 #include "util/spdlog_qt.h"
 #include "util/util.h"
 

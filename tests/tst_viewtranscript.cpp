@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Tom Holz
 
+#include <QHeaderView>
+#include <QItemSelectionModel>
 #include <QStandardItemModel>
 #include <QTemporaryDir>
-#include <QtTest/QtTest>
+#include <QTest>
+#include <QTreeView>
 
 #include "testsuite.h"
 #include "viewtranscript.h"

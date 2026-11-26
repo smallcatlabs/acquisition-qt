@@ -11,6 +11,8 @@
 
 #include <spdlog/spdlog.h>
 
+#include <type_traits>
+
 // Define an inline helper function to convert levels into QStrings.
 
 inline QString to_qstring(spdlog::level::level_enum level)
@@ -89,21 +91,23 @@ struct fmt::formatter<QVariant>
     }
 };
 
-// Use a base class for Qt Enum formatters to subclass.
+// Every enum Qt has a QMetaEnum for (Q_ENUM, Q_ENUM_NS, and Qt's own, such
+// as QNetworkReply::NetworkError and Qt::CheckState) is formatted as its key,
+// or as Name(value) for a value without one. An enum's header declares
+// nothing for this: the file that logs the enum includes this header.
 
 template<typename T>
-struct QtEnumFormatter
-{
-    static_assert(std::is_enum<T>::value, "T must be an enum type");
+concept QtMetaEnum = std::is_enum_v<T> && requires(T value) { qt_getEnumMetaObject(value); };
 
-    template<typename ParseContext>
-    constexpr auto parse(ParseContext &ctx) -> decltype(ctx.begin())
+template<QtMetaEnum T>
+struct fmt::formatter<T, char>
+{
+    constexpr auto parse(fmt::format_parse_context &ctx) -> decltype(ctx.begin())
     {
         return ctx.begin();
     }
 
-    template<typename FormatContext>
-    auto format(const T &value, FormatContext &ctx) const -> decltype(ctx.out())
+    auto format(const T &value, fmt::format_context &ctx) const -> decltype(ctx.out())
     {
         const QMetaEnum metaEnum = QMetaEnum::fromType<T>();
         const char *key = metaEnum.valueToKey(static_cast<int>(value));
@@ -114,16 +118,3 @@ struct QtEnumFormatter
         }
     }
 };
-
-// Create a formatter for QnetworkReply::NetworkError.
-
-template<>
-struct fmt::formatter<QNetworkReply::NetworkError, char>
-    : QtEnumFormatter<QNetworkReply::NetworkError>
-{};
-
-// Create a formatter for Qt::CheckState.
-
-template<>
-struct fmt::formatter<Qt::CheckState, char> : QtEnumFormatter<Qt::CheckState>
-{};

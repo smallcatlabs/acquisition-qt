@@ -7,8 +7,6 @@
 
 #include <QString>
 
-#include <glaze/glaze.hpp>
-
 #include "poe/types/item.h"
 
 namespace poe {
@@ -34,10 +32,3 @@ namespace poe {
     };
 
 } // namespace poe
-
-template<>
-struct glz::meta<poe::WebCharacter>
-{
-    using T = poe::WebCharacter;
-    static constexpr auto modify = glz::object("class", &T::class_);
-};

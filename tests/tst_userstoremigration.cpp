@@ -5,8 +5,8 @@
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QTemporaryDir>
+#include <QTest>
 #include <QUuid>
-#include <QtTest/QtTest>
 
 #include "datastore/buyoutrepo.h"
 #include "datastore/characterrepo.h"
