@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Tom Holz
 
-#include <QtTest>
+#include <QTest>
 
 #include <QApplication>
 #include <QBuffer>
@@ -67,6 +67,7 @@ private slots:
     void logLevelParsing_data();
     void logLevelParsing();
     void forgettingUserKeepsOtherSettings();
+    void loginDialogListsTheLogLevels();
     void tokenWithoutAccountNameDoesNotLogIn();
     void backupSkippedWhenVersionCurrent();
     void backupSkippedWithoutDataDir();
@@ -246,6 +247,22 @@ void ShellTest::forgettingUserKeepsOtherSettings()
     QCOMPARE(settings.value("remember_user").toBool(), false);
     QCOMPARE(settings.value("league").toString(), QString("Standard"));
     QCOMPARE(settings.value("realm").toString(), QString("pc"));
+}
+
+// The dialog offers every log level, by spdlog's own names and in its order
+// (#476: the names come from to_string_view, level by level).
+void ShellTest::loginDialogListsTheLogLevels()
+{
+    LoginDialogServices services;
+    QVERIFY(services.dir.isValid());
+    auto dialog = services.makeDialog();
+    const auto *levels = dialog->findChild<QComboBox *>("loggingLevelComboBox");
+    QVERIFY(levels);
+    QStringList names;
+    for (int i = 0; i < levels->count(); ++i) {
+        names << levels->itemText(i);
+    }
+    QCOMPARE(names, QStringList({"trace", "debug", "info", "warning", "error", "critical", "off"}));
 }
 
 // #299: an OAuth token whose user name is empty cannot become a session's

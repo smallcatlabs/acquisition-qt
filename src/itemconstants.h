@@ -8,8 +8,6 @@
 
 #include <map>
 
-#include "util/spdlog_qt.h"
-
 namespace ItemEnums {
     Q_NAMESPACE
 
@@ -41,15 +39,7 @@ namespace ItemEnums {
 } // namespace ItemEnums
 
 using FrameType = ItemEnums::FrameType;
-template<>
-struct fmt::formatter<FrameType, char> : QtEnumFormatter<FrameType>
-{};
-
 using ElementalDamageType = ItemEnums::ElementalDamageType;
-template<>
-struct fmt::formatter<ElementalDamageType, char> : QtEnumFormatter<ElementalDamageType>
-{};
-
 constexpr int PIXELS_PER_SLOT = 47;
 constexpr int INVENTORY_SLOTS = 12;
 constexpr int PIXELS_PER_MINIMAP_SLOT = 10;

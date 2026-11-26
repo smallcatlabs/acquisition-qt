@@ -10,7 +10,6 @@
 #include <map>
 
 #include "currency.h"
-#include "util/spdlog_qt.h"
 
 struct Buyout
 {
@@ -93,11 +92,4 @@ private:
 Buyout ParseGamePrice(const QString &text);
 
 using BuyoutType = Buyout::BuyoutType;
-template<>
-struct fmt::formatter<BuyoutType, char> : QtEnumFormatter<BuyoutType>
-{};
-
 using BuyoutSource = Buyout::BuyoutSource;
-template<>
-struct fmt::formatter<BuyoutSource, char> : QtEnumFormatter<BuyoutSource>
-{};

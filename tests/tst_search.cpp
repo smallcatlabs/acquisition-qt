@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <QtTest/QtTest>
+#include <QSignalSpy>
+#include <QTest>
 
 #include <QFile>
 #include <QTreeView>

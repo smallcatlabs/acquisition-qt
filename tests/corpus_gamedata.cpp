@@ -38,11 +38,9 @@
 #include <string_view>
 #include <vector>
 
-#include <glaze/glaze.hpp>
-
 #include "corpusdump.h"
 #include "repoe/baseitem.h"
-#include "util/glaze_qt.h" // IWYU pragma: keep
+#include "util/json_glaze.h"
 
 namespace {
 

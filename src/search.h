@@ -505,7 +505,3 @@ private:
     ViewMode m_current_mode;
     RefreshReason m_refresh_reason;
 };
-
-template<>
-struct fmt::formatter<Search::ViewMode, char> : QtEnumFormatter<Search::ViewMode>
-{};

@@ -9,7 +9,7 @@
 #include <QByteArray>
 #include <QString>
 
-#include <glaze/glaze.hpp>
+#include "poe/types/rawjson.h"
 
 #include "poe/types/item.h"
 
@@ -27,9 +27,9 @@ namespace poe {
             // needs to be zero-padded)
             std::optional<QString> colour; // ?string; 6 digit hex colour
             // NOTE: TODO: layout and items are not in GGG's reference.
-            std::optional<glz::raw_json> layout;
+            std::optional<poe::RawJson> layout;
             std::optional<unsigned> items;
-            std::optional<glz::raw_json> map; // ?object; various game specific properties
+            std::optional<poe::RawJson> map; // ?object; various game specific properties
         };
 
         QString id;                       // string; a 10 digit hexadecimal string
@@ -72,10 +72,3 @@ namespace poe {
     };
 
 }; // namespace poe
-
-template<>
-struct glz::meta<poe::StashTab::Metadata>
-{
-    using T = poe::StashTab::Metadata;
-    static constexpr auto modify = glz::object("public", &T::public_);
-};

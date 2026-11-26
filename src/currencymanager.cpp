@@ -14,7 +14,7 @@
 #include "datastore/datastore.h"
 #include "item.h"
 #include "itemsmanager.h"
-#include "util/glaze_qt.h"  // IWYU pragma: keep
+#include "util/json_glaze.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 
 struct SerializedCurrency

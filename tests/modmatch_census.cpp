@@ -28,7 +28,7 @@
 #include "modlist.h"
 #include "pseudomods.h"
 #include "repoe/stattranslation.h"
-#include "util/glaze_qt.h" // IWYU pragma: keep
+#include "util/json_glaze.h"
 
 namespace {
 
