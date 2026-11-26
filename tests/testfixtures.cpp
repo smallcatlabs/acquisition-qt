@@ -7,9 +7,7 @@
 #include <QSqlError>
 #include <QUuid>
 
-#include <glaze/glaze.hpp>
-
-#include "util/glaze_qt.h" // IWYU pragma: keep
+#include "util/json_glaze.h"
 #include "util/json_writers.h"
 #include "util/oauthtoken.h"
 

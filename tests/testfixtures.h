@@ -24,7 +24,7 @@ struct OAuthToken;
 
 // The fixtures every suite shares. They are compiled once, into the test
 // support library (testfixtures.cpp, acq_testsupport); this header declares
-// them, and a suite that uses them does not compile them again (#476).
+// them and includes no JSON library (#476).
 
 // A session identity for a test; every field must be non-empty.
 SessionIdentity makeTestIdentity(const QString &account,

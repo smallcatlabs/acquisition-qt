@@ -13,7 +13,9 @@
 #include <QFile>
 
 #include <algorithm>
+#include <map>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -32,7 +34,7 @@
 #include "poe/types/stashtab.h"
 #include "testfixtures.h"
 #include "testsuite.h"
-#include "util/glaze_qt.h" // IWYU pragma: keep
+#include "util/json_glaze.h"
 #include "util/json_readers.h"
 #include "util/json_writers.h"
 
@@ -64,6 +66,7 @@ private slots:
     void leagueGoalIsRead();
     void leagueAccountMercenaryIndexIsRead();
     void ladderEntryProgressIsRead();
+    void rawJsonIsWrittenAsItWasRead();
 };
 
 namespace {
@@ -594,6 +597,28 @@ void WireTypesTest::ladderEntryProgressIsRead()
     QVERIFY(entry->character.progress);
     QCOMPARE(QString::fromStdString(entry->character.progress->str),
              QString(R"json({"objective": 3})json"));
+}
+
+void WireTypesTest::rawJsonIsWrittenAsItWasRead()
+{
+    // poe::RawJson stands in for glaze's raw_json in the wire types' headers
+    // (poe/types/glaze_meta.h): a value is its text, read and written as it
+    // is, and never an object with a "str" member. A map holds the values
+    // here, since a struct of this file's own could not be reflected from an
+    // anonymous namespace (BUILD.md, "Adding a test").
+    const std::string_view input = R"json({"layout": {"sections": [1, 2]}, "map": 7})json";
+    std::map<std::string, poe::RawJson> values;
+    const auto error = glz::read_json(values, input);
+    QVERIFY2(!error, glz::format_error(error, input).c_str());
+    QCOMPARE(values.size(), size_t(2));
+    QCOMPARE(QString::fromStdString(values["layout"].str),
+             QString(R"json({"sections": [1, 2]})json"));
+    QCOMPARE(QString::fromStdString(values["map"].str), QString("7"));
+
+    const auto written = glz::write_json(values);
+    QVERIFY(written);
+    QCOMPARE(QString::fromStdString(*written),
+             QString(R"json({"layout":{"sections": [1, 2]},"map":7})json"));
 }
 
 ACQ_TEST_GUILESS_MAIN(WireTypesTest)

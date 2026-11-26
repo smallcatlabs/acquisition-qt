@@ -123,6 +123,12 @@ What a suite includes is most of what it costs to compile (#476), so:
   `acq_testsupport_core` for what needs only the core library,
   `acq_testsupport` for what builds a window. A suite then compiles the
   fixture's declaration, not its body.
+- glaze is expensive, and it enters a file only through
+  `util/json_glaze.h`, from a `.cpp` file (the `glaze_boundary` test). A
+  suite that only needs a value parsed or written uses a helper from
+  `testfixtures.h` (`makeTestWireItem`, `serializeTestToken`) or
+  `util/json_readers.h`, and leaves glaze to the suites that test the JSON
+  itself.
 
 All suites share one link. Keep a file's helper classes and functions in an
 anonymous namespace or `static`, and give the test class a name no other suite

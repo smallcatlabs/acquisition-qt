@@ -7,8 +7,6 @@
 
 #include <optional>
 
-#include "util/glaze_qt.h" // IWYU pragma: keep
-
 struct LegacyCharacter
 {
     QString id;
@@ -19,11 +17,4 @@ struct LegacyCharacter
     unsigned int level;
     unsigned long experience;
     std::optional<bool> current;
-};
-
-template<>
-struct glz::meta<LegacyCharacter>
-{
-    using T = LegacyCharacter;
-    static constexpr auto modify = glz::object("class", &T::class_);
 };

@@ -16,12 +16,10 @@
 #include <string>
 #include <string_view>
 
-#include <glaze/glaze.hpp>
-
 #include "poe/types/character.h"
 #include "poe/types/stashtab.h"
 #include "testsuite.h"
-#include "util/glaze_qt.h" // IWYU pragma: keep
+#include "util/json_glaze.h"
 #include "util/json_readers.h"
 
 namespace {

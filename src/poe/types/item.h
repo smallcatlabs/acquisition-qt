@@ -10,8 +10,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <glaze/glaze.hpp>
-
 #include "poe/types/cruciblenode.h"
 #include "poe/types/frametype.h"
 #include "poe/types/itemmod.h"
@@ -185,44 +183,3 @@ namespace poe {
     };
 
 } // namespace poe
-
-// The fields of the reference that nothing reads are not modeled (#422): a
-// known key in another shape than its member's would refuse the whole reply.
-// Their keys are named here, so that a reply carrying one is read whatever
-// the value's shape, and the strict read of the payload corpus
-// (tst_payloads) still knows them. The comments are the reference's.
-template<>
-struct glz::meta<poe::Item>
-{
-    // clang-format off
-    static constexpr auto modify = glz::object(
-        "iconTierText", glz::skip{}, // ?string; usually roman numerals
-        "gemSockets", glz::skip{}, // ?array of string; PoE2 only; string is always W
-        "forum_note", glz::skip{}, // ?string; user-generated text
-        "lockedToCharacter", glz::skip{}, // ?bool; always true if present
-        "lockedToAccount", glz::skip{}, // ?bool; always true if present
-        "sanctified", glz::skip{}, // ?bool; PoE2 only; always true if present
-        "cisRaceReward", glz::skip{}, // ?bool; always true if present
-        "seaRaceReward", glz::skip{}, // ?bool; always true if present
-        "thRaceReward", glz::skip{}, // ?bool; always true if present
-        "notableProperties", glz::skip{}, // ?array of ItemProperty
-        "weaponRequirements", glz::skip{}, // ?array of ItemProperty; PoE2 only
-        "supportGemRequirements", glz::skip{}, // ?array of ItemProperty; PoE2 only
-        "tamedBeastProperties", glz::skip{}, // ?array of ItemProperty; PoE2 only
-        "grantedSkills", glz::skip{}, // ?array of ItemProperty; PoE2 only
-        "logbookMods", glz::skip{}, // ?array of object
-        "runeMods", glz::skip{}, // ?array of string; PoE2 only
-        "bondedMods", glz::skip{}, // ?array of string; PoE2 only
-        "cosmeticMods", glz::skip{}, // ?array of string
-        "gemTabs", glz::skip{}, // ?array of GemTab; PoE2 only
-        "gemBackground", glz::skip{}, // ?string; PoE2 only
-        "gemSkill", glz::skip{}, // ?string; PoE2 only
-        "foreseeing", glz::skip{}, // ?bool; always true if present
-        "ruthless", glz::skip{}, // ?bool; always true if present
-        "extended", glz::skip{}, // ?object; only present in the Public Stash API
-        "socketedIcon", glz::skip{}, // ?string; PoE2 only; an image URL to use when this item is in the socket of another item
-        "flavourTextNote", glz::skip{}, // ?string; user-generated text
-        "prophecyText", glz::skip{} // ?string
-    );
-    // clang-format on
-};

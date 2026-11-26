@@ -196,6 +196,13 @@ add_test(NAME core_boundary
     WORKING_DIRECTORY "${acquisition_SOURCE_DIR}")
 add_dependencies(acq_tests acquisition_core)
 
+# glaze is reached only through util/json_glaze.h, and only from .cpp files
+# (#476): a file that went around it would compile and use other JSON keys.
+add_test(NAME glaze_boundary
+    COMMAND ${CMAKE_COMMAND}
+        -D "SOURCE_DIR=${acquisition_SOURCE_DIR}"
+        -P "${acquisition_SOURCE_DIR}/cmake/glaze_boundary.cmake")
+
 # The application finds a TLS backend that supports SSL (#370): a Qt whose
 # TLS plugins load but cannot make an encrypted connection fails here, not at
 # a user's start-up. The packaging workflows run the same check against the
