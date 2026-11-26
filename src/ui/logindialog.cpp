@@ -114,6 +114,7 @@ LoginDialog::LoginDialog(QSettings &settings,
             this,
             &LoginDialog::OnLoggingLevelChanged);
     connect(ui->themeComboBox, &QComboBox::currentTextChanged, this, &LoginDialog::OnThemeChanged);
+    connect(ui->realmComboBox, &QComboBox::currentTextChanged, this, &LoginDialog::OnRealmChanged);
 
     // Listen for access from the OAuth manager, and for a login that fails.
     connect(&m_oauth_manager, &OAuthManager::grantAccess, this, &LoginDialog::OnOAuthAccessGranted);
@@ -186,14 +187,33 @@ void LoginDialog::LoadSettings()
 
 void LoginDialog::RequestLeagues()
 {
+    // A request still on its way is for a realm no longer chosen (#287): it
+    // is dropped, and says nothing.
+    if (m_leagues_reply) {
+        QNetworkReply *previous = m_leagues_reply;
+        m_leagues_reply = nullptr;
+        disconnect(previous, nullptr, this, nullptr);
+        previous->abort();
+        previous->deleteLater();
+    }
+
+    // The league box waits for the realm's list.
+    ui->leagueComboBox->setEnabled(false);
+
     // Make a non-API request to get the list of leagues. This currently uses
-    // a legacy endpoint that is not rate limited and does not require authentication.
-    QNetworkRequest request = QNetworkRequest(QUrl(QString(POE_LEAGUE_LIST_URL)));
+    // a legacy endpoint that is not rate limited and does not require
+    // authentication. It lists the leagues of one realm: pc, unless asked.
+    QUrl url{QString(POE_LEAGUE_LIST_URL)};
+    QUrlQuery query(url);
+    query.addQueryItem("realm", ui->realmComboBox->currentText());
+    url.setQuery(query);
+    QNetworkRequest request = QNetworkRequest(url);
     request.setTransferTimeout(kPoeApiTimeout);
 
     // Send the request and handle errors.
     spdlog::trace("LoginDialog::RequestLeagues() sending request: {}", request.url().toString());
     QNetworkReply *reply = m_network_manager.get(request);
+    m_leagues_reply = reply;
     connect(reply, &QNetworkReply::finished, this, &LoginDialog::OnLeaguesReceived);
     connect(reply, &QNetworkReply::errorOccurred, this, [=, this](QNetworkReply::NetworkError code) {
         Q_UNUSED(code);
@@ -215,6 +235,12 @@ void LoginDialog::OnLeaguesReceived()
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(QObject::sender());
     const QByteArray bytes = reply->readAll();
     reply->deleteLater();
+    if (reply != m_leagues_reply) {
+        // The reply for a realm no longer chosen.
+        spdlog::trace("LoginDialog::OnLeaguesReceived() ignoring a reply for an earlier realm");
+        return;
+    }
+    m_leagues_reply = nullptr;
 
     // Check for network errors.
     if (reply->error()) {
@@ -235,6 +261,9 @@ void LoginDialog::OnLeaguesReceived()
 
     bool use_saved_league = false;
 
+    // Refilling the box for another realm must not reach OnLeagueChanged:
+    // clearing it would save an empty league.
+    const QSignalBlocker blocker(ui->leagueComboBox);
     ui->leagueComboBox->clear();
     for (auto &league : *leagues) {
         // Add the league to the combo box.
@@ -263,8 +292,13 @@ void LoginDialog::OnLeaguesReceived()
         m_settings.setValue("league", league);
     }
 
-    // Now that leagues have been received, start listening for changes.
-    connect(ui->leagueComboBox, &QComboBox::currentTextChanged, this, &LoginDialog::OnLeagueChanged);
+    // Now that leagues have been received, start listening for changes. A
+    // later list, for another realm, finds the connection made.
+    connect(ui->leagueComboBox,
+            &QComboBox::currentTextChanged,
+            this,
+            &LoginDialog::OnLeagueChanged,
+            Qt::UniqueConnection);
 
     // Now we can let the user login.
     //ui->loginButton->setEnabled(true);
@@ -396,6 +430,13 @@ void LoginDialog::OnLoginTabChanged(int index)
     ui->loginButton->setEnabled(m_current_token.has_value());
     m_settings.setValue("login_tab", tab->objectName());
 };
+
+// Another realm has its own leagues (#287): its list is asked for.
+void LoginDialog::OnRealmChanged(const QString &realm)
+{
+    spdlog::trace("LoginDialog::OnRealmChanged() requesting leagues for realm {}", realm);
+    RequestLeagues();
+}
 
 void LoginDialog::OnLeagueChanged(const QString &league)
 {

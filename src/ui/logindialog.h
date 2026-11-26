@@ -4,6 +4,7 @@
 #pragma once
 
 #include <QDialog>
+#include <QPointer>
 
 #include "sessionidentity.h"
 #include "util/oauthtoken.h"
@@ -40,6 +41,7 @@ private slots:
     void OnAuthenticateButtonClicked();
     void OnLoginTabChanged(int index);
     void OnLoginButtonClicked();
+    void OnRealmChanged(const QString &realm);
     void OnLeagueChanged(const QString &league);
     void OnAdvancedCheckBoxChanged(Qt::CheckState state);
     void OnProxyCheckBoxChanged(Qt::CheckState state);
@@ -68,6 +70,10 @@ private:
     DataStore &m_datastore;
 
     std::optional<OAuthToken> m_current_token;
+
+    // The league list request for the realm now chosen; any earlier one is
+    // aborted when the realm changes, so its reply never fills the list.
+    QPointer<QNetworkReply> m_leagues_reply;
 
     Ui::LoginDialog *ui;
 };

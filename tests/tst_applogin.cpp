@@ -106,6 +106,7 @@ private slots:
     void codeWithEscapesIsExchangedAsSent();
     void refreshWithoutARefreshTokenKeepsTheOneHeld();
     void refreshThatFailsIsTriedAgain();
+    void leagueListFollowsTheRealm();
 
 private:
     std::shared_ptr<spdlog::logger> m_previous_logger;
@@ -2411,6 +2412,91 @@ void AppLoginTest::refreshThatFailsIsTriedAgain()
                          kFreshRefresh,
                          kRefreshedAccess,
                          kRefreshedRefresh});
+}
+
+// The league list is the selected realm's (#287): the first request carries
+// the saved realm, and choosing another realm asks again and shows that
+// realm's list. A reply for a realm no longer chosen does not replace it.
+//
+// No captured reply of the league list exists in the repository. These are
+// in the shape json::readLeagueList reads (`compact=1`: an id and a realm per
+// league); the console lists are invented, and differ only so that one can be
+// told from the other.
+void AppLoginTest::leagueListFollowsTheRealm()
+{
+    static const QByteArray pc = R"([{"id":"Standard","realm":"pc"},{"id":"Hardcore","realm":"pc"}])";
+    static const QByteArray xbox
+        = R"([{"id":"Standard","realm":"xbox"},{"id":"Xbox Stale","realm":"xbox"}])";
+    static const QByteArray sony = R"([{"id":"Standard","realm":"sony"},)"
+                                   R"({"id":"Hardcore","realm":"sony"},)"
+                                   R"({"id":"Solo Self-Found","realm":"sony"}])";
+    AppFixture fixture([](AppFixture &f) {
+        f.network->answer([](QNetworkAccessManager::Operation,
+                             const QUrl &url) -> std::optional<ScriptedNetwork::Answer> {
+            if ((url.host() != "api.pathofexile.com") || (url.path() != "/leagues")) {
+                return std::nullopt;
+            }
+            const QString realm = QUrlQuery(url).queryItemValue("realm");
+            if (realm == "pc") {
+                return ScriptedNetwork::Answer{.body = pc};
+            }
+            if (realm == "xbox") {
+                // Kept back until the user has moved on to another realm.
+                return ScriptedNetwork::Answer{.body = xbox, .hold = true};
+            }
+            if (realm == "sony") {
+                return ScriptedNetwork::Answer{.body = sony};
+            }
+            return std::nullopt;
+        });
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &realm = child<QComboBox>(dialog, "realmComboBox");
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    const auto items = [&league] {
+        QStringList found;
+        for (int i = 0; i < league.count(); ++i) {
+            found << league.itemText(i);
+        }
+        return found;
+    };
+    const auto leagueRequests = [&fixture] {
+        return fixture.network->requested(QNetworkAccessManager::GetOperation,
+                                          "https://api.pathofexile.com/leagues");
+    };
+    const QString base = "https://api.pathofexile.com/leagues?type=main&compact=1&realm=";
+
+    // The saved realm's list, with the saved league chosen.
+    QCOMPARE(realm.currentText(), QString(AppFixture::kRealm));
+    QVERIFY(QTest::qWaitFor([&] { return league.isEnabled(); }, 10000));
+    QCOMPARE(leagueRequests(), QStringList{base + "pc"});
+    QCOMPARE(items(), (QStringList{"Standard", "Hardcore"}));
+    QCOMPARE(league.currentText(), QString(AppFixture::kLeague));
+
+    // Another realm: its list is asked for, and the league box waits for it.
+    realm.setCurrentText("xbox");
+    QCOMPARE(leagueRequests(), (QStringList{base + "pc", base + "xbox"}));
+    QVERIFY(!league.isEnabled());
+
+    // And another, before the first has answered: this one's list is shown,
+    // with the saved league still chosen, since it is in this list too.
+    realm.setCurrentText("sony");
+    QCOMPARE(leagueRequests(), (QStringList{base + "pc", base + "xbox", base + "sony"}));
+    QVERIFY(QTest::qWaitFor([&] { return league.isEnabled(); }, 10000));
+    const QStringList sony_leagues{"Standard", "Hardcore", "Solo Self-Found"};
+    QCOMPARE(items(), sony_leagues);
+    QCOMPARE(league.currentText(), QString(AppFixture::kLeague));
+
+    // The answer for the realm left behind arrives late, and changes nothing.
+    QCOMPARE(fixture.network->release(), qsizetype(1));
+    QTest::qWait(100);
+    QCOMPARE(items(), sony_leagues);
+    QCOMPARE(league.currentText(), QString(AppFixture::kLeague));
+    QVERIFY(league.isEnabled());
+    QCOMPARE(error.text(), QString());
+
+    QCOMPARE(surprises(fixture), QString());
 }
 
 ACQ_TEST_GUI_SCENARIO_MAIN(AppLoginTest)
