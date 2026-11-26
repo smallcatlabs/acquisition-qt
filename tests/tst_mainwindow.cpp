@@ -827,7 +827,7 @@ void MainWindowTest::missingItemImageShowsNoImage()
 
 void MainWindowTest::relativeIconShowsFetchedImage()
 {
-    // UpdateCurrentItem requests a relative icon under the CDN prefix; the
+    // The details panel requests a relative icon under the CDN prefix; the
     // fetched-image handler must recognise that url as the current item's.
     // Whether the game still sends relative icons is not known; the code
     // handles them, so the test covers that branch.

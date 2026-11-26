@@ -9,7 +9,7 @@
 #include <map>
 #include <vector>
 
-#include "ui_mainwindow.h"
+#include "ui_itemdetailspanel.h"
 
 #include "influence.h"
 #include "item.h"
@@ -178,7 +178,7 @@ QString InfluenceBackgroundFor(const Item &item)
     return QString(":/backgrounds/%1Background_%2x%3.png").arg(art).arg(width).arg(height);
 }
 
-static void UpdateMinimap(const Item &item, Ui::MainWindow *ui)
+static void UpdateMinimap(const Item &item, Ui::ItemDetailsPanel *ui)
 {
     QPixmap pixmap(MINIMAP_SIZE, MINIMAP_SIZE);
     pixmap.fill(QColor("transparent"));
@@ -225,7 +225,7 @@ void GenerateItemHeaderSide(QLabel *itemHeader,
     itemHeader->setPixmap(header_pixmap);
 }
 
-void UpdateItemTooltip(const Item &item, Ui::MainWindow *ui)
+void UpdateItemTooltip(const Item &item, Ui::ItemDetailsPanel *ui)
 {
     const bool singleline = item.name().isEmpty();
     const ItemFrameStyle style = ItemFrameStyleFor(item.frameType(), singleline);
