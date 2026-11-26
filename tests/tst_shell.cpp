@@ -7,6 +7,7 @@
 #include <QBuffer>
 #include <QComboBox>
 #include <QDesktopServices>
+#include <QDirIterator>
 #include <QFileInfo>
 #include <QLabel>
 #include <QMessageBox>
@@ -221,6 +222,24 @@ void ShellTest::logFileOpensUnderNonAnsiDirectory()
     spdlog::info("written under a non-ANSI directory");
     spdlog::default_logger()->flush();
 
+    // TEMPORARY (#288): Qt Test's output does not reach the Windows job's
+    // log, so say where the log went on stderr.
+    if (!QFileInfo::exists(log_path)) {
+        QDirIterator it(root.path(),
+                        QDir::AllEntries | QDir::NoDotAndDotDot,
+                        QDirIterator::Subdirectories);
+        std::fprintf(stderr, "#288 diagnostic: no %s\n", log_path.toUtf8().constData());
+        while (it.hasNext()) {
+            const QString entry = it.next();
+            std::fprintf(stderr,
+                         "#288 diagnostic: found %s (UTF-16: %s)\n",
+                         entry.toUtf8().constData(),
+                         QByteArray(reinterpret_cast<const char *>(entry.utf16()), entry.size() * 2)
+                             .toHex(' ')
+                             .constData());
+        }
+        std::fflush(stderr);
+    }
     QVERIFY2(QFileInfo::exists(log_path), qPrintable(log_path));
     QFile file(log_path);
     QVERIFY(file.open(QIODevice::ReadOnly));
