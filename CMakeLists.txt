@@ -276,6 +276,14 @@ if(NOT TARGET QCoro6::Core)
 endif()
 
 if(NOT TARGET spdlog)
+    # On Windows spdlog opens files by a narrow path, which the C runtime
+    # reads in the ANSI code page, so a data directory under a profile named
+    # outside it got no log (#288). spdlog's own option puts the definition on
+    # both of its targets, so every translation unit agrees on filename_t;
+    # src/util/logging.cpp refuses to build on Windows without it.
+    if(WIN32)
+        set(SPDLOG_WCHAR_FILENAMES ON)
+    endif()
     FetchContent_Declare(
         spdlog
         GIT_REPOSITORY https://github.com/gabime/spdlog.git
