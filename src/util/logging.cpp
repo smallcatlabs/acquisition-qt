@@ -8,6 +8,10 @@
 #include <spdlog/sinks/dist_sink.h>
 #include <spdlog/sinks/rotating_file_sink.h>
 
+#if defined(_WIN32) && !defined(SPDLOG_WCHAR_FILENAMES)
+#error "spdlog must be built with SPDLOG_WCHAR_FILENAMES on Windows (#288)"
+#endif
+
 #ifdef _WIN32
 #include <spdlog/sinks/msvc_sink.h>
 #else
@@ -34,8 +38,14 @@ void logging::init(const QString &filename)
     auto debug_sink = std::make_shared<DEBUG_SINK>();
     debug_sink->set_level(spdlog::level::trace);
 
-    // Create a file sink for the log file.
-    const auto path = filename.toStdString();
+    // Create a file sink for the log file. On Windows spdlog opens it, and
+    // renames it on rotation, by a wide path; a narrow one would be read in
+    // the ANSI code page, not as UTF-8 (#288).
+#ifdef Q_OS_WIN
+    const spdlog::filename_t path = filename.toStdWString();
+#else
+    const spdlog::filename_t path = filename.toStdString();
+#endif
     auto file_sink = std::make_shared<spdlog::sinks::rotating_file_sink_mt>(path,
                                                                             MAX_LOG_SIZE,
                                                                             MAX_FILES);

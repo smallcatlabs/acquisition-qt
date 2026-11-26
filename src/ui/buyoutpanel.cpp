@@ -101,7 +101,7 @@ void BuyoutPanel::showStoredPrice()
     // Not editable when the game set the price, nor for an item that cannot
     // be listed for sale where it is (#418), which has no price at all.
     const EffectivePrice shown = m_lookup(m_targets.rows.front());
-    redraw(shown.buyout, !shown.buyout.IsGameSet() && !shown.CannotBeListed());
+    redraw(shown.buyout, shown.Editable());
 }
 
 void BuyoutPanel::finishEditing()
