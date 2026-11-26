@@ -412,8 +412,9 @@ void BuyoutManager::Deserialize(const QString &data, std::unordered_map<QString,
 
 void BuyoutManager::Save()
 {
-    // A write that failed is tried again by the next save (#458).
-    if (m_save_needed
+    // A write that failed is tried again by the next save (#458). After a
+    // failed read every write is refused, so nothing is serialized.
+    if (m_save_needed && m_stored_checks.Loaded()
         && m_stored_checks.Set("refresh_checked_state", Serialize(m_refresh_checked))) {
         m_save_needed = false;
     }

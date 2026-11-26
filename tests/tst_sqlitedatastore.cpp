@@ -143,10 +143,23 @@ void SqliteDataStoreTest::readTellsAFailureFromAnAbsentKey()
     StoredSettings after(store, {"present"});
     QVERIFY(!after.Loaded());
     QVERIFY(!after.error().isEmpty());
-    QVERIFY(!after.Set("present", "other"));
     QCOMPARE(store.Get("present", "default"), QString("default"));
     QVERIFY(!store.Set("present", "other"));
     QVERIFY(!before.Set("present", "other"));
+
+    // With the table back the store can write again; settings whose read
+    // failed still refuse to, and the stored value survives.
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connection);
+        db.setDatabaseName(filename);
+        QVERIFY(db.open());
+        QSqlQuery q(db);
+        QVERIFY(q.exec("ALTER TABLE data_hidden RENAME TO data"));
+        db.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+    QVERIFY(!after.Set("present", "other"));
+    QCOMPARE(store.Get("present"), QString("value"));
 }
 
 ACQ_TEST_GUILESS_MAIN(SqliteDataStoreTest)
