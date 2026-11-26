@@ -5,7 +5,7 @@
 
 #include <optional>
 
-#include <glaze/glaze.hpp>
+#include "poe/types/rawjson.h"
 
 #include "poe/types/account.h"
 
@@ -32,7 +32,7 @@ namespace poe {
             std::optional<unsigned> score; // ?uint; count of league objective completions
             // NOTE: kept as the raw object; the reference gives it no shape.
             // ?object; the values of this depend on the league objective
-            std::optional<glz::raw_json> progress;
+            std::optional<poe::RawJson> progress;
             std::optional<unsigned> experience; // ?uint
             // ?object; deepest Delve depth completed
             std::optional<poe::LadderEntry::DelveInfo> depth;
@@ -48,24 +48,3 @@ namespace poe {
     };
 
 } // namespace poe
-
-template<>
-struct glz::meta<poe::LadderEntry::DelveInfo>
-{
-    using T = poe::LadderEntry::DelveInfo;
-    static constexpr auto modify = glz::object("default", &T::default_);
-};
-
-template<>
-struct glz::meta<poe::LadderEntry::Character>
-{
-    using T = poe::LadderEntry::Character;
-    static constexpr auto modify = glz::object("class", &T::class_);
-};
-
-template<>
-struct glz::meta<poe::LadderEntry>
-{
-    using T = poe::LadderEntry;
-    static constexpr auto modify = glz::object("public", &T::public_);
-};

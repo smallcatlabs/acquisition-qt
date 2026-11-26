@@ -7,7 +7,7 @@
 // The scene's item levels, which the ilvl filter here goes by: tab #16 holds
 // 69 and 72, tab #22 holds 70, 78 and 80, tab #24 holds 46.
 
-#include <QtTest/QtTest>
+#include <QTest>
 
 #include <QComboBox>
 

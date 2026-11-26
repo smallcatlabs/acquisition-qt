@@ -22,7 +22,7 @@
 #include "datastore/datastore.h"
 #include "ratelimit/ratelimit.h"
 #include "replytimeout.h"
-#include "util/glaze_qt.h" // IWYU pragma: keep
+#include "util/json_glaze.h"
 #include "util/networkmanager.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 

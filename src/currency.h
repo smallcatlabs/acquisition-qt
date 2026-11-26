@@ -11,8 +11,6 @@
 #include <optional>
 #include <vector>
 
-#include "util/spdlog_qt.h"
-
 // One currency, in one place.
 struct CurrencyInfo
 {
@@ -138,6 +136,3 @@ public:
 };
 
 using CurrencyType = Currency::CurrencyType;
-template<>
-struct fmt::formatter<CurrencyType, char> : QtEnumFormatter<CurrencyType>
-{};

@@ -44,6 +44,8 @@ for the change in hand:
 
 - **A suite.** `tests/tst_<name>.cpp`. All suites link into one executable:
   `acq_tests <suite> [function]` runs one, `ctest --preset dev` runs all.
+  `BUILD.md`, "Adding a test", says what to include and where a shared
+  fixture goes, so that a suite stays cheap to compile.
 - **What the window shows.** `tests/viewtranscript.h` prints the item tree as
   text, with its selection, current row and collapsed tabs. A test compares
   the print before and after and names the lines allowed to change.
@@ -110,7 +112,7 @@ for the change in hand:
 | Refresh pipeline | `src/itemsmanagerworker.*`, `src/itemsmanager.*` | `docs/design/items-pipeline.md`; D1–D8 and D10 in `docs/design/items-pipeline-m2.md` | An update's identity is its `std::stop_token`, checked after every await. A reply replaces its source atomically. Nothing the worker discards is persisted. |
 | Rate limiting and network | `src/ratelimit/`, `src/poe/poeapiclient.*`, `src/util/networkmanager.*` | `docs/design/network-redesign.md` (frozen); `docs/design/network-ground-truth.md` (N-claims) | One HEAD in flight at a time (F5). The hub lives on the main thread. Every API request carries the transfer timeout. Owners are destroyed only after the event loop stops. |
 | Search and model | `src/search.*`, `src/bucket.*`, `src/items_model.*`, `src/column.*`, `src/filters/` | `docs/design/items-pipeline-m3.md`; `docs/design/folder-tree.md` | Refresh deltas reach the model as row operations, never a reset. `src/filters/` stays free of widgets (the `filters_boundary` test). |
-| Items | `src/item.*`, `src/modlist.*`, `src/pseudomods.*`, `src/repoe/`, `src/poe/types/` | Issues labelled `area:items` | Game data (RePoE) is loaded before any `Item` is built. |
+| Items | `src/item.*`, `src/modlist.*`, `src/pseudomods.*`, `src/repoe/`, `src/poe/types/` | Issues labelled `area:items` | Game data (RePoE) is loaded before any `Item` is built. glaze is included only through `util/json_glaze.h`, from `.cpp` files; what glaze must know about a type (a renamed or skipped key, a custom reader) is declared in a `glaze_meta.h`, never beside the struct (the `glaze_boundary` test). |
 | Pricing and shop | `src/buyout*`, `src/shop.*`, `src/currency*` | `docs/user/pricing.md`, `docs/user/forum-shop.md`; `docs/design/trade-ground-truth.md` (T-claims) | Prices set in the game are never posted to the forum. Automatic shop submission happens only after a clean completed refresh. User-authored prices are never dropped. |
 | Storage | `src/datastore/`, `src/legacy/` | F22, F64 and F66 in `findings.md` | Any change to a repo table's DDL bumps `SCHEMA_VERSION` in the same commit. Buyout tables are never dropped or rebuilt. |
 | Shell | `src/main.cpp`, `src/application.*`, `src/ui/logindialog.*`, `src/util/` | "Standing constraints" in `findings.md` | Logging teardown comes last (F29). Never touch `logger->sinks()` outside `logging::init` (F42). One user session per process. Credentials never reach the log. |

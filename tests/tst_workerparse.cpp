@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include <QtTest/QtTest>
+#include <QTest>
 
 #include <QDir>
 #include <QSqlDatabase>
@@ -9,8 +9,6 @@
 
 #include <stop_token>
 
-#include <glaze/glaze.hpp>
-
 #include "cacheload.h"
 #include "datastore/characterrepo.h"
 #include "datastore/stashrepo.h"
@@ -18,7 +16,6 @@
 #include "poe/types/item.h"
 #include "testfixtures.h"
 #include "testsuite.h"
-#include "util/glaze_qt.h" // IWYU pragma: keep
 
 class WorkerParseTest : public QObject
 {
@@ -32,33 +29,6 @@ private slots:
     void loadStoppedBeforeItStartsSaysSo();
     void loadStoppedPartWaySaysSo();
 };
-
-static poe::Item makePoeItem(const char *id)
-{
-    const QByteArray json = QString(R"({
-        "verified": true,
-        "w": 1,
-        "h": 1,
-        "icon": "https://web.poecdn.com/image/test.png",
-        "id": "%1",
-        "name": "",
-        "typeLine": "Test Item",
-        "baseType": "Test Item",
-        "identified": true,
-        "ilvl": 1,
-        "x": 0,
-        "y": 0
-    })")
-                                .arg(id)
-                                .toUtf8();
-    const std::string_view input(json.constData(), json.size());
-    auto item = glz::read_json<poe::Item>(input);
-    if (!item) {
-        qFatal("makeItem: could not parse the test item json: %s",
-               glz::format_error(item.error(), input).c_str());
-    }
-    return *item;
-}
 
 void WorkerParseTest::parsesCachedStashItems()
 {
@@ -74,7 +44,7 @@ void WorkerParseTest::parsesCachedStashItems()
     stash.name = "Parse Test";
     stash.type = "PremiumStash";
     stash.index = 0;
-    stash.items = std::vector<poe::Item>{makePoeItem("worker-parse-item")};
+    stash.items = std::vector<poe::Item>{makeTestWireItemWithId("worker-parse-item")};
 
     {
         UserStore store(QDir(dataDir), account);
@@ -122,7 +92,7 @@ void WorkerParseTest::specialChildItemsKeyedByChildFetchId()
     child.name = "Tier 1";
     child.type = "MapStash";
     child.parent = parent.id;
-    child.items = std::vector<poe::Item>{makePoeItem("child-item")};
+    child.items = std::vector<poe::Item>{makeTestWireItemWithId("child-item")};
 
     {
         UserStore store(QDir(dataDir), account);
@@ -169,7 +139,7 @@ void WorkerParseTest::characterAlongsideSpecialChildLoads()
     child.name = "Rings";
     child.type = "UniqueStash";
     child.parent = parent.id;
-    child.items = std::vector<poe::Item>{makePoeItem("child-item")};
+    child.items = std::vector<poe::Item>{makeTestWireItemWithId("child-item")};
 
     poe::Character character;
     character.id = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
@@ -179,7 +149,7 @@ void WorkerParseTest::characterAlongsideSpecialChildLoads()
     character.league = league;
     character.level = 90;
     character.experience = 0;
-    character.inventory = std::vector<poe::Item>{makePoeItem("character-item")};
+    character.inventory = std::vector<poe::Item>{makeTestWireItemWithId("character-item")};
 
     {
         UserStore store(QDir(dataDir), account);
@@ -265,12 +235,12 @@ namespace {
         first.name = "First";
         first.type = "PremiumStash";
         first.index = 0;
-        first.items = std::vector<poe::Item>{makePoeItem("first-item")};
+        first.items = std::vector<poe::Item>{makeTestWireItemWithId("first-item")};
         poe::StashTab second = first;
         second.id = "stash00002";
         second.name = "Second";
         second.index = 1;
-        second.items = std::vector<poe::Item>{makePoeItem("second-item")};
+        second.items = std::vector<poe::Item>{makeTestWireItemWithId("second-item")};
 
         UserStore store(QDir(dataDir), identity.account());
         if (!store.stashes().saveStashList({first, second}, identity.realm(), identity.league())

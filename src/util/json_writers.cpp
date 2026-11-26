@@ -5,7 +5,7 @@
 
 #include "poe/types/character.h"
 #include "poe/types/stashtab.h"
-#include "util/glaze_qt.h"  // IWYU pragma: keep
+#include "util/json_glaze.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 
 namespace {

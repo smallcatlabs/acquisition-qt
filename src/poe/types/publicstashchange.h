@@ -8,8 +8,6 @@
 
 #include <QString>
 
-#include <glaze/glaze.hpp>
-
 #include "poe/types/item.h"
 
 namespace poe {
@@ -28,10 +26,3 @@ namespace poe {
     };
 
 } // namespace poe
-
-template<>
-struct glz::meta<poe::PublicStashChange>
-{
-    using T = poe::PublicStashChange;
-    static constexpr auto modify = glz::object("public", &T::public_);
-};

@@ -4,7 +4,7 @@
 // The release smoke list as scenario tests (#377; the "first sitting" steps
 // on #320), on the real Application (appfixture.h). One scenario per process.
 
-#include <QtTest/QtTest>
+#include <QTest>
 
 #include <QAction>
 #include <QClipboard>

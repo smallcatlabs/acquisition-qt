@@ -11,8 +11,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <glaze/glaze.hpp>
-
 #include "poe/types/item.h"
 #include "poe/types/itemjeweldata.h"
 #include "poe/types/passivenode.h"
@@ -95,27 +93,3 @@ namespace poe {
     };
 
 } // namespace poe
-
-// Fields of the reference that nothing reads, skipped whatever their shape (#422;
-// see glz::meta<poe::Item> in poe/types/item.h). The comments are the reference's.
-template<>
-struct glz::meta<poe::Character>
-{
-    using T = poe::Character;
-    // clang-format off
-    static constexpr auto modify = glz::object(
-        "class", &T::class_,
-        "active_mercenary_index", glz::skip{} // ?int; PoE1 only
-    );
-    // clang-format on
-};
-
-template<>
-struct glz::meta<poe::Character::Passives>
-{
-    // clang-format off
-    static constexpr auto modify = glz::object(
-        "alternate_ascendancy", glz::skip{} // ?string; PoE1 only; Bloodline class name
-    );
-    // clang-format on
-};

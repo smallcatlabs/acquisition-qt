@@ -276,6 +276,11 @@ if(NOT TARGET QCoro6::Core)
 endif()
 
 if(NOT TARGET spdlog)
+    # spdlog is linked as a compiled library (spdlog::spdlog), not header-only:
+    # header-only, every translation unit that logs compiled spdlog and its
+    # bundled fmt again, about 0.3 GB and 2.5 s each (#476). The archive goes
+    # into position-independent executables, so it is built that way too.
+    set(SPDLOG_BUILD_PIC ON CACHE BOOL "" FORCE)
     FetchContent_Declare(
         spdlog
         GIT_REPOSITORY https://github.com/gabime/spdlog.git
@@ -388,6 +393,7 @@ set(ACQ_DATASTORE
 )
 
 set(ACQ_LEGACY
+    src/legacy/glaze_meta.h
     src/legacy/legacybuyout.h
     src/legacy/legacybuyoutimporter.cpp
     src/legacy/legacybuyoutimporter.h
@@ -448,6 +454,7 @@ set(ACQ_POE
     src/poe/types/frametype.h
     src/poe/types/gempage.h
     src/poe/types/gemtab.h
+    src/poe/types/glaze_meta.h
     src/poe/types/guild.h
     src/poe/types/item.h
     src/poe/types/itemfilter.h
@@ -466,6 +473,7 @@ set(ACQ_POE
     src/poe/types/pvpladderteamentry.h
     src/poe/types/pvpladderteammember.h
     src/poe/types/pvpmatch.h
+    src/poe/types/rawjson.h
     src/poe/types/stashtab.h
     src/poe/types/website/webcharacter.h
     src/poe/types/website/webstashtab.h
@@ -534,6 +542,7 @@ set(ACQ_UTIL
     src/util/fatalerror.cpp
     src/util/fatalerror.h
     src/util/glaze_qt.h
+    src/util/json_glaze.h
     src/util/json_readers.cpp
     src/util/json_readers.h
     src/util/json_writers.cpp
@@ -721,7 +730,7 @@ target_link_libraries(acquisition_filters
     PRIVATE
         Qt6::Network
         glaze::glaze
-        spdlog::spdlog_header_only
+        spdlog::spdlog
 )
 
 # The core library: everything but the widgets (#299). Its include and link
@@ -771,7 +780,7 @@ target_link_libraries(acquisition_core PUBLIC
     QXlsx::QXlsx
     sentry::sentry
     semver
-    spdlog::spdlog_header_only
+    spdlog::spdlog
 )
 
 # The GUI library: the widgets and the application shell that builds them.

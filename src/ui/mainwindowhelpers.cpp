@@ -6,7 +6,7 @@
 #include <string_view>
 
 #include "filters/fieldnumber.h"
-#include "util/glaze_qt.h" // IWYU pragma: keep
+#include "util/json_glaze.h"
 
 // Not in an anonymous namespace: glaze's reflection needs a type with linkage.
 namespace mainwindowhelpers_detail {

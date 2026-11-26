@@ -4,14 +4,9 @@
 
 #include <memory>
 #include <optional>
-#include <string_view>
 
 #include <QSqlDatabase>
-#include <QSqlError>
 #include <QTemporaryDir>
-#include <QUuid>
-
-#include <glaze/glaze.hpp>
 
 #include "buyoutmanager.h"
 #include "datastore/buyoutrepo.h"
@@ -23,52 +18,24 @@
 #include "poe/types/item.h"
 #include "poe/types/stashtab.h"
 #include "sessionidentity.h"
-#include "util/glaze_qt.h" // IWYU pragma: keep
 #include "util/json_writers.h"
 
+struct OAuthToken;
+
+// The fixtures every suite shares. They are compiled once, into the test
+// support library (testfixtures.cpp, acq_testsupport); this header declares
+// them and includes no JSON library (#476).
+
 // A session identity for a test; every field must be non-empty.
-inline SessionIdentity makeTestIdentity(const QString &account,
-                                        const QString &realm,
-                                        const QString &league)
-{
-    auto identity = SessionIdentity::Make(account, realm, league);
-    if (!identity) {
-        qFatal("makeTestIdentity: every field of a session identity must be set");
-    }
-    return *identity;
-}
+SessionIdentity makeTestIdentity(const QString &account,
+                                 const QString &realm,
+                                 const QString &league);
 
 class BuyoutManagerFixture
 {
 public:
-    BuyoutManagerFixture()
-        : connectionName("buyout-test-" + QUuid::createUuid().toString(QUuid::WithoutBraces))
-    {
-        data = std::make_unique<SqliteDataStore>(tempDir.filePath("acquisition.sqlite"));
-
-        db.emplace(QSqlDatabase::addDatabase("QSQLITE", connectionName));
-        db->setDatabaseName(":memory:");
-        if (!db->open()) {
-            qFatal("Failed to open test QSQLITE database: %s", qPrintable(db->lastError().text()));
-        }
-
-        repo = std::make_unique<BuyoutRepo>(*db);
-        if (!repo->ensureSchema()) {
-            qFatal("Failed to create test buyout schema");
-        }
-
-        manager = std::make_unique<BuyoutManager>(*data, *repo);
-    }
-
-    ~BuyoutManagerFixture()
-    {
-        manager.reset();
-        repo.reset();
-        db->close();
-        db.reset();
-        QSqlDatabase::removeDatabase(connectionName);
-        data.reset();
-    }
+    BuyoutManagerFixture();
+    ~BuyoutManagerFixture();
 
     QTemporaryDir tempDir;
     QString connectionName;
@@ -82,68 +49,31 @@ public:
 // them from typed fixtures instead, serializing the fixture where a real
 // reply's bytes would flow — re-serialization is harmless in tests; it is
 // the production cache that must be faithful.
-inline bool saveStashFixture(StashRepo &repo,
-                             const poe::StashTab &stash,
-                             const QString &realm,
-                             const QString &league)
-{
-    return repo.saveStash(stash, json::writeStash(stash), realm, league);
-}
+bool saveStashFixture(StashRepo &repo,
+                      const poe::StashTab &stash,
+                      const QString &realm,
+                      const QString &league);
 
-inline bool saveCharacterFixture(CharacterRepo &repo, const poe::Character &character)
-{
-    return repo.saveCharacter(character, json::writeCharacter(character));
-}
+bool saveCharacterFixture(CharacterRepo &repo, const poe::Character &character);
 
-inline ItemLocation makeTestStashLocation(const QString &id = "stash00001",
-                                          const QString &name = "Test Tab",
-                                          unsigned index = 0)
-{
-    poe::StashTab stash;
-    stash.id = id;
-    stash.name = name;
-    stash.type = "PremiumStash";
-    stash.index = index;
-    return ItemLocation(stash);
-}
+ItemLocation makeTestStashLocation(const QString &id = "stash00001",
+                                   const QString &name = "Test Tab",
+                                   unsigned index = 0);
 
-inline Item makeTestItem(const char *json, const ItemLocation &loc)
-{
-    const std::string_view input(json);
-    auto item = glz::read_json<poe::Item>(input);
-    if (!item) {
-        qFatal("makeTestItem: could not parse the test item json: %s",
-               glz::format_error(item.error(), input).c_str());
-    }
-    return Item(*item, loc);
-}
+// The wire item read from the JSON of one item, as the API sends it; a JSON
+// the reader refuses ends the test run.
+poe::Item makeTestWireItem(const char *json);
 
-inline Item makeTestItem(const char *id)
-{
-    const ItemLocation loc = makeTestStashLocation();
-    const QByteArray json = QString(R"({
-        "verified": true,
-        "w": 1,
-        "h": 1,
-        "icon": "https://web.poecdn.com/image/test.png",
-        "id": "%1",
-        "name": "",
-        "typeLine": "Test Item",
-        "baseType": "Test Item",
-        "identified": true,
-        "ilvl": 1,
-        "x": 0,
-        "y": 0
-    })")
-                                .arg(id)
-                                .toUtf8();
-    return makeTestItem(json.constData(), loc);
-}
+// A one-cell wire item with this id.
+poe::Item makeTestWireItemWithId(const char *id);
 
-inline Buyout makeChaosBuyout(double value)
-{
-    return Buyout(value,
-                  Buyout::BUYOUT_TYPE_BUYOUT,
-                  Currency::CURRENCY_CHAOS_ORB,
-                  QDateTime::fromSecsSinceEpoch(1));
-}
+// An item built from the JSON of one item, as the API sends it.
+Item makeTestItem(const char *json, const ItemLocation &loc);
+
+// A one-cell item with this id, in makeTestStashLocation().
+Item makeTestItem(const char *id);
+
+// A token as the global store holds it under "oauth_token".
+QString serializeTestToken(const OAuthToken &token);
+
+Buyout makeChaosBuyout(double value);

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Tom Holz
 
 #include <QComboBox>
-#include <QtTest/QtTest>
+#include <QTest>
 
 #include "currency.h"
 #include "testsuite.h"

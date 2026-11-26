@@ -11,8 +11,6 @@
 
 #include <QString>
 
-#include <glaze/glaze.hpp>
-
 namespace poe {
 
     // https://www.pathofexile.com/developer/docs/reference#type-PassiveNode
@@ -30,7 +28,7 @@ namespace poe {
         {
             // NOTE: documented as uint; modeled as a string like skill below and
             // the out/in node identifiers (Tom's ruling, 2026-11-12). Read from
-            // either a JSON string or a JSON number (see the glz::meta below),
+            // either a JSON string or a JSON number (see poe/types/glaze_meta.h),
             // so neither shape fails a character fetch. Unverified until a 3.30
             // reply has been seen.
             QString to;     // uint; skill hash
@@ -76,49 +74,3 @@ namespace poe {
     };
 
 } // namespace poe
-
-// connections[].to is documented as a number and modeled as a string; accept
-// both, so a reply in the documented shape does not fail the whole character
-// read. Written back as a string.
-template<>
-struct glz::meta<poe::PassiveNode::Connection>
-{
-    using T = poe::PassiveNode::Connection;
-    static constexpr auto read_to = [](T &self, const std::variant<std::uint64_t, std::string> &to) {
-        if (const auto *number = std::get_if<std::uint64_t>(&to)) {
-            self.to = QString::number(*number);
-        } else {
-            self.to = QString::fromStdString(std::get<std::string>(to));
-        }
-    };
-    static constexpr auto write_to = [](const T &self) -> const QString & { return self.to; };
-    static constexpr auto modify = glz::object("to", glz::custom<read_to, write_to>);
-};
-
-// Fields of the reference that nothing reads, skipped whatever their shape (#422;
-// see glz::meta<poe::Item> in poe/types/item.h). The comments are the reference's.
-template<>
-struct glz::meta<poe::PassiveNode>
-{
-    // clang-format off
-    static constexpr auto modify = glz::object(
-        "isKeystone", glz::skip{}, // ?bool; always true if present
-        "inactiveIcon", glz::skip{}, // ?string; inactive mastery image
-        "activeIcon", glz::skip{}, // ?string; active mastery image
-        "masteryEffects", glz::skip{}, // ?array of object
-        "isBlighted", glz::skip{}, // ?bool; always true if present
-        "isProxy", glz::skip{}, // ?bool; always true if present
-        "recipe", glz::skip{}, // ?array of string; components required for Blight crafting this node
-        "grantedStrength", glz::skip{}, // ?uint; sum of stats on this node that grant strength
-        "grantedDexterity", glz::skip{}, // ?uint; sum of stats on this node that grant dexterity
-        "grantedIntelligence", glz::skip{}, // ?uint; sum of stats on this node that grant intelligence
-        "ascendancyName", glz::skip{}, // ?string
-        "isAscendancyStart", glz::skip{}, // ?bool; always true if present
-        "isMultipleChoice", glz::skip{}, // ?bool; always true if present
-        "isMultipleChoiceOption", glz::skip{}, // ?bool; always true if present
-        "grantedPassivePoints", glz::skip{}, // ?uint
-        "flavourText", glz::skip{}, // ?array of string
-        "classStartIndex", glz::skip{} // ?uint
-    );
-    // clang-format on
-};
