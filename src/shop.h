@@ -14,6 +14,7 @@
 #include <set>
 #include <utility>
 
+#include "datastore/datastore.h"
 #include "poe/types/website/webstashtab.h"
 #include "ratelimit/fetcherror.h"
 #include "refreshoutcome.h"
@@ -25,7 +26,6 @@ class QSettings;
 
 class Application;
 class BuyoutManager;
-class DataStore;
 class ItemsManager;
 class NetworkManager;
 class PoeApiClient;
@@ -210,12 +210,13 @@ private:
     DataStore &m_datastore;
     ItemsManager &m_items_manager;
     BuyoutManager &m_buyout_manager;
+    // The threads and template as stored. When either could not be read
+    // (#295), edits are kept for this session but not saved, and nothing is
+    // posted or copied.
+    StoredSettings m_stored;
 
     QStringList m_threads;
     QString m_shop_template;
-    // False when the stored threads or template could not be read (#295):
-    // edits are kept for this session but not saved, and nothing is posted.
-    bool m_settings_loaded{true};
     bool m_auto_update;
     std::set<std::pair<Notice, int>> m_warned;
     std::chrono::milliseconds m_retry_delay{5000};

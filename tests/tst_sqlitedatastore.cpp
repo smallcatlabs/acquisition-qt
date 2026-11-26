@@ -112,8 +112,9 @@ void SqliteDataStoreTest::clearedTokenLeavesNoBytesInTheFile()
     QVERIFY(!bytes.contains(token.refresh_token.toLatin1()));
 }
 
-// #295: Read tells a key that holds nothing from a read that failed, which
-// Get cannot; Set says when it did not write.
+// #295, #458: StoredSettings tells a key that holds nothing from a read that
+// failed, which Get cannot, and writes nothing after one; Set says when it did
+// not write.
 void SqliteDataStoreTest::readTellsAFailureFromAnAbsentKey()
 {
     QTemporaryDir dir;
@@ -122,8 +123,10 @@ void SqliteDataStoreTest::readTellsAFailureFromAnAbsentKey()
     SqliteDataStore store(filename);
     QVERIFY(store.Set("present", "value"));
 
-    QCOMPARE(store.Read("present"), DataStore::ReadResult(QString("value")));
-    QCOMPARE(store.Read("absent"), DataStore::ReadResult(std::nullopt));
+    StoredSettings before(store, {"present", "absent"});
+    QVERIFY(before.Loaded());
+    QCOMPARE(before.value("present"), QString("value"));
+    QCOMPARE(before.value("absent"), QString());
 
     // A second connection takes the table away.
     const QString connection = "hide-" + QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -137,9 +140,26 @@ void SqliteDataStoreTest::readTellsAFailureFromAnAbsentKey()
     }
     QSqlDatabase::removeDatabase(connection);
 
-    QVERIFY(!store.Read("present").has_value());
+    StoredSettings after(store, {"present"});
+    QVERIFY(!after.Loaded());
+    QVERIFY(!after.error().isEmpty());
     QCOMPARE(store.Get("present", "default"), QString("default"));
     QVERIFY(!store.Set("present", "other"));
+    QVERIFY(!before.Set("present", "other"));
+
+    // With the table back the store can write again; settings whose read
+    // failed still refuse to, and the stored value survives.
+    {
+        QSqlDatabase db = QSqlDatabase::addDatabase("QSQLITE", connection);
+        db.setDatabaseName(filename);
+        QVERIFY(db.open());
+        QSqlQuery q(db);
+        QVERIFY(q.exec("ALTER TABLE data_hidden RENAME TO data"));
+        db.close();
+    }
+    QSqlDatabase::removeDatabase(connection);
+    QVERIFY(!after.Set("present", "other"));
+    QCOMPARE(store.Get("present"), QString("value"));
 }
 
 ACQ_TEST_GUILESS_MAIN(SqliteDataStoreTest)

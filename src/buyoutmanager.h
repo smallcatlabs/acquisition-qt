@@ -14,10 +14,10 @@
 #include <unordered_map>
 
 #include "buyout.h"
+#include "datastore/datastore.h"
 
 class Item;
 class ItemLocation;
-class DataStore;
 class BuyoutRepo;
 
 // The affected scope of one outer buyout batch (items-pipeline-m3.md D1
@@ -170,11 +170,11 @@ private:
     // in Save()/Load(); this split is intentional (see F22).
     std::unordered_map<QString, bool> m_refresh_checked;
     std::set<QString> m_refresh_locked;
+    // The refresh check state as stored. When it could not be read (#295),
+    // the changes of this session are kept but never saved over it.
+    StoredSettings m_stored_checks;
     bool m_save_needed;
     bool m_loaded{false};
-    // False when the stored refresh check state could not be read (#295):
-    // the changes of this session are kept but never saved over it.
-    bool m_checks_loaded{true};
     std::vector<ItemLocation> m_tabs;
 
     int m_batch_depth{0};
