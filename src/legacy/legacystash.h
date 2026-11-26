@@ -7,8 +7,6 @@
 
 #include <optional>
 
-#include "util/glaze_qt.h" // IWYU pragma: keep
-
 struct LegacyStash
 {
     struct MapData
@@ -41,11 +39,4 @@ struct LegacyStash
     std::optional<int> i;
     std::optional<QString> n;
     std::optional<LegacyStash::Colour> colour;
-};
-
-template<>
-struct glz::meta<LegacyStash::Metadata>
-{
-    using T = LegacyStash::Metadata;
-    static constexpr auto modify = glz::object("public", &T::public_);
 };

@@ -12,7 +12,7 @@
 #include "datastore/datastore.h"
 #include "item.h"
 #include "itemlocation.h"
-#include "util/glaze_qt.h"  // IWYU pragma: keep
+#include "util/json_glaze.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 
 BuyoutManager::BuyoutManager(DataStore &data, BuyoutRepo &repo)

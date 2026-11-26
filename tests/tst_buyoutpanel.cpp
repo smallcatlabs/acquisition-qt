@@ -4,7 +4,7 @@
 #include <QComboBox>
 #include <QLineEdit>
 #include <QSignalSpy>
-#include <QtTest/QtTest>
+#include <QTest>
 
 #include <map>
 #include <set>

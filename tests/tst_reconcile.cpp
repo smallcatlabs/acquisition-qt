@@ -3,8 +3,8 @@
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QTest>
 #include <QUuid>
-#include <QtTest/QtTest>
 
 #include <memory>
 #include <optional>
