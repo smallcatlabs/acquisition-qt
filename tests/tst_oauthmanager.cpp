@@ -7,7 +7,7 @@
 // row completes by hand, in any order. tst_applogin runs the same cases
 // through the whole application.
 
-#include <QtTest>
+#include <QTest>
 
 #include <QDesktopServices>
 #include <QJsonDocument>

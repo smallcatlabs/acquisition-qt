@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Tom Holz
 
-#include <QtTest/QtTest>
+#include <QTest>
 
 #include "column.h"
 #include "influence.h"

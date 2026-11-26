@@ -63,8 +63,8 @@ LoginDialog::LoginDialog(QSettings &settings,
     ui->themeComboBox->addItems({"default", "light", "dark"});
 
     // Setup logging levels.
-    for (const auto &level_name : spdlog::level::level_string_views) {
-        ui->loggingLevelComboBox->addItem(QString::fromUtf8(level_name));
+    for (int level = spdlog::level::trace; level < spdlog::level::n_levels; ++level) {
+        ui->loggingLevelComboBox->addItem(to_qstring(static_cast<spdlog::level::level_enum>(level)));
     }
 
     // Hide the error message by default

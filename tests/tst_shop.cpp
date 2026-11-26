@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Tom Holz
 
-#include <QtTest/QtTest>
+#include <QSignalSpy>
+#include <QTest>
 
 #include <QApplication>
 #include <QBuffer>
@@ -12,6 +13,7 @@
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QStandardPaths>
+#include <QUrlQuery>
 
 #include <memory>
 #include <sstream>

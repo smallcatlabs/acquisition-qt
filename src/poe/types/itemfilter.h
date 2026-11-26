@@ -7,8 +7,6 @@
 
 #include <QString>
 
-#include <glaze/glaze.hpp>
-
 namespace poe {
 
     // https://www.pathofexile.com/developer/docs/reference#type-ItemFilter
@@ -35,10 +33,3 @@ namespace poe {
     };
 
 } // namespace poe
-
-template<>
-struct glz::meta<poe::ItemFilter>
-{
-    using T = poe::ItemFilter;
-    static constexpr auto modify = glz::object("public", &T::public_);
-};

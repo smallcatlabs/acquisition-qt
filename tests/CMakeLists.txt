@@ -1,5 +1,33 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+# The test support libraries: the fixtures the suites, the benchmarks and the
+# hand-run tools share, compiled once (#476). A fixture's header declares it
+# and its .cpp file here defines it, so that a suite that uses a fixture does
+# not compile the fixture's body, or the JSON library under it, again.
+#
+# There are two, as there are two libraries under test: acq_testsupport_core
+# reaches no further than acquisition_core, and the suites that need no widget
+# are compiled against it alone (acq_add_test(... GUILESS) below);
+# acq_testsupport adds the fixtures that build windows.
+qt_add_library(acq_testsupport_core STATIC
+    testfixtures.cpp
+    testfixtures.h
+    transcriptchanges.cpp
+    transcriptchanges.h
+)
+target_link_libraries(acq_testsupport_core PUBLIC acquisition_core Qt6::Test)
+
+qt_add_library(acq_testsupport STATIC
+    viewtranscript.cpp
+    viewtranscript.h
+)
+target_link_libraries(acq_testsupport PUBLIC acq_testsupport_core acquisition_gui)
+
+foreach(library acq_testsupport_core acq_testsupport)
+    acq_first_party(${library})
+    target_include_directories(${library} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+endforeach()
+
 # Every suite (tst_*.cpp) is compiled into this one executable, which runs the
 # suite its first argument names: `acq_tests tst_search [Qt Test arguments]`
 # (testsuite.h). It is every executable ctest runs, so the sanitizer job
@@ -7,8 +35,17 @@
 # app, which must never be built sanitized, is not built at all.
 qt_add_executable(acq_tests testrunner.cpp)
 acq_first_party(acq_tests)
-target_include_directories(acq_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(acq_tests PRIVATE acquisition_gui Qt6::Test)
+target_link_libraries(acq_tests PRIVATE acq_testsupport)
+
+# The suites that need no widget (GUILESS below) are compiled here, against
+# the core library alone, and their objects go into acq_tests. Qt Widgets is
+# not among what this target links, so its headers are not on these suites'
+# include path and <QTest> leaves its widget support out: such a suite is
+# cheaper to compile, and cannot come to need a window unnoticed.
+qt_add_library(acq_tests_guiless OBJECT)
+acq_first_party(acq_tests_guiless)
+target_link_libraries(acq_tests_guiless PRIVATE acq_testsupport_core)
+target_sources(acq_tests PRIVATE $<TARGET_OBJECTS:acq_tests_guiless>)
 
 function(_acq_test_environment out_var)
     set(test_environment "QT_QPA_PLATFORM=offscreen")
@@ -39,10 +76,26 @@ function(_acq_add_ctest test_name)
     _acq_test_dll_path(${test_name})
 endfunction()
 
+# Adds a suite's source: to acq_tests_guiless when the suite was added with
+# GUILESS, to acq_tests otherwise. Sets ${out_args} to the arguments left.
+function(_acq_add_suite_source name out_args)
+    set(arguments ${ARGN})
+    if("GUILESS" IN_LIST arguments)
+        list(REMOVE_ITEM arguments GUILESS)
+        target_sources(acq_tests_guiless PRIVATE ${name}.cpp)
+    else()
+        target_sources(acq_tests PRIVATE ${name}.cpp)
+    endif()
+    set(${out_args} "${arguments}" PARENT_SCOPE)
+endfunction()
+
 # Adds the suite ${name}.cpp to acq_tests and registers it with CTest as
-# ${name}; the file ends with its registration line (testsuite.h).
+# ${name}; the file ends with its registration line (testsuite.h). GUILESS
+# after the name is for a suite that registers with ACQ_TEST_GUILESS_MAIN or
+# ACQ_TEST_SCENARIO_MAIN and includes no widget: it is compiled without Qt
+# Widgets (acq_tests_guiless above).
 function(acq_add_test name)
-    target_sources(acq_tests PRIVATE ${name}.cpp)
+    _acq_add_suite_source(${name} unused ${ARGN})
     _acq_add_ctest(${name} ${name})
 endfunction()
 
@@ -52,10 +105,11 @@ endfunction()
 # after owner destruction, so exactly one destructive scenario may run per
 # process. The suite registers with ACQ_TEST_SCENARIO_MAIN, so the runner
 # passes the single slot-name argument to QTest::qExec (and rejects any other
-# count), and `acq_tests ${name} <scenario>` runs only that slot.
+# count), and `acq_tests ${name} <scenario>` runs only that slot. GUILESS is
+# as for acq_add_test.
 function(acq_add_scenario_test name)
-    target_sources(acq_tests PRIVATE ${name}.cpp)
-    foreach(scenario ${ARGN})
+    _acq_add_suite_source(${name} scenarios ${ARGN})
+    foreach(scenario ${scenarios})
         _acq_add_ctest(${name}.${scenario} ${name} ${scenario})
     endforeach()
 endfunction()
@@ -77,7 +131,7 @@ foreach(benchmark m2m2_benchmark m3_holdpoint_benchmark m1m2_benchmark)
     qt_add_executable(${benchmark} ${benchmark}.cpp)
     acq_first_party(${benchmark})
     target_include_directories(${benchmark} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-    target_link_libraries(${benchmark} PRIVATE acquisition_gui)
+    target_link_libraries(${benchmark} PRIVATE acq_testsupport)
     if(WIN32)
         set_target_properties(${benchmark} PROPERTIES EXCLUDE_FROM_ALL TRUE)
     endif()
@@ -91,7 +145,7 @@ endforeach()
 qt_add_executable(live_capture live_capture.cpp)
 acq_first_party(live_capture)
 target_include_directories(live_capture PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-target_link_libraries(live_capture PRIVATE acquisition_gui Qt6::Test)
+target_link_libraries(live_capture PRIVATE acq_testsupport)
 # It looks at this source tree's branch before it runs (tests/liveguards.h).
 target_compile_definitions(live_capture PRIVATE ACQ_SOURCE_DIR="${acquisition_SOURCE_DIR}")
 
@@ -112,7 +166,7 @@ acq_first_party(corpus_gamedata)
 target_include_directories(corpus_gamedata PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 # The GUI library for the tooltip text (ui/itemtooltiptext), which is free
 # of widgets but kept with the rest of src/ui.
-target_link_libraries(corpus_gamedata PRIVATE acquisition_gui)
+target_link_libraries(corpus_gamedata PRIVATE acq_testsupport)
 
 # The filter core must stay free of the UI (Phase 5, D5). A STATIC archive has
 # no link step, so this cannot be left to target_link_libraries.
@@ -141,6 +195,13 @@ add_test(NAME core_boundary
         -P "${acquisition_SOURCE_DIR}/cmake/boundary_check.cmake"
     WORKING_DIRECTORY "${acquisition_SOURCE_DIR}")
 add_dependencies(acq_tests acquisition_core)
+
+# glaze is reached only through util/json_glaze.h, and only from .cpp files
+# (#476): a file that went around it would compile and use other JSON keys.
+add_test(NAME glaze_boundary
+    COMMAND ${CMAKE_COMMAND}
+        -D "SOURCE_DIR=${acquisition_SOURCE_DIR}"
+        -P "${acquisition_SOURCE_DIR}/cmake/glaze_boundary.cmake")
 
 # The application finds a TLS backend that supports SSL (#370): a Qt whose
 # TLS plugins load but cannot make an encrypted connection fails here, not at
@@ -173,54 +234,54 @@ if(NOT ACQ_SANITIZE)
     _acq_test_dll_path(app_version)
 endif()
 
-acq_add_test(tst_buyout)
-acq_add_test(tst_buyoutmanager)
-acq_add_test(tst_applybuyout)
+acq_add_test(tst_buyout GUILESS)
+acq_add_test(tst_buyoutmanager GUILESS)
+acq_add_test(tst_applybuyout GUILESS)
 acq_add_test(tst_effectiveprice)
 acq_add_test(tst_buyoutpanel)
 acq_add_test(tst_currencymanager)
 acq_add_test(tst_currency)
-acq_add_test(tst_itemlocation)
-acq_add_test(tst_item)
-acq_add_test(tst_legacydatastore)
-acq_add_test(tst_liveguards)
-acq_add_test(tst_sqlitedatastore)
-acq_add_test(tst_legacybuyoutimporter)
+acq_add_test(tst_itemlocation GUILESS)
+acq_add_test(tst_item GUILESS)
+acq_add_test(tst_legacydatastore GUILESS)
+acq_add_test(tst_liveguards GUILESS)
+acq_add_test(tst_sqlitedatastore GUILESS)
+acq_add_test(tst_legacybuyoutimporter GUILESS)
 acq_add_test(tst_qtassumptions)
-acq_add_test(tst_qxlsx)
-acq_add_test(tst_itemtooltiptext)
+acq_add_test(tst_qxlsx GUILESS)
+acq_add_test(tst_itemtooltiptext GUILESS)
 acq_add_test(tst_uismall)
 acq_add_test(tst_itemsmodel)
 acq_add_test(tst_mainwindow)
 acq_add_test(tst_viewtranscript)
-acq_add_test(tst_networkcapture)
-acq_add_test(tst_oauthratelimitlogging)
-acq_add_test(tst_payloads)
-acq_add_test(tst_poeapiclient)
+acq_add_test(tst_networkcapture GUILESS)
+acq_add_test(tst_oauthratelimitlogging GUILESS)
+acq_add_test(tst_payloads GUILESS)
+acq_add_test(tst_poeapiclient GUILESS)
 acq_add_test(tst_ratelimitdialog)
-acq_add_test(tst_ratelimitmanager)
-acq_add_test(tst_ratelimitpolicy)
-acq_add_test(tst_ratelimiter)
+acq_add_test(tst_ratelimitmanager GUILESS)
+acq_add_test(tst_ratelimitpolicy GUILESS)
+acq_add_test(tst_ratelimiter GUILESS)
 acq_add_test(tst_search)
 acq_add_test(tst_searchform)
-acq_add_test(tst_securitylogging)
+acq_add_test(tst_securitylogging GUILESS)
 acq_add_test(tst_oauthmanager)
 acq_add_test(tst_shell)
 acq_add_test(tst_shop)
-acq_add_test(tst_spikedataset)
-acq_add_test(tst_stopsleep)
-acq_add_test(tst_timerscheduler)
-acq_add_test(tst_gate)
-acq_add_test(tst_golden)
-acq_add_test(tst_filters)
+acq_add_test(tst_spikedataset GUILESS)
+acq_add_test(tst_stopsleep GUILESS)
+acq_add_test(tst_timerscheduler GUILESS)
+acq_add_test(tst_gate GUILESS)
+acq_add_test(tst_golden GUILESS)
+acq_add_test(tst_filters GUILESS)
 acq_add_test(tst_foldertree)
-acq_add_test(tst_reconcile)
-acq_add_test(tst_refreshchecked)
-acq_add_test(tst_repoe)
+acq_add_test(tst_reconcile GUILESS)
+acq_add_test(tst_refreshchecked GUILESS)
+acq_add_test(tst_repoe GUILESS)
 acq_add_test(tst_userstoremigration)
-acq_add_test(tst_workerparse)
-acq_add_test(tst_workerupdate)
-acq_add_test(tst_wiretypes)
+acq_add_test(tst_workerparse GUILESS)
+acq_add_test(tst_workerupdate GUILESS)
+acq_add_test(tst_wiretypes GUILESS)
 
 # Logging in on the real Application and a scripted network (#380), one
 # scenario per process (appfixture.h says why).
@@ -267,7 +328,7 @@ acq_add_scenario_test(tst_appexpansion
     changesUnderAFilterStayWithTheFilter
     openedTabsReturnAfterByItem)
 
-acq_add_scenario_test(tst_workerintegration
+acq_add_scenario_test(tst_workerintegration GUILESS
     fullChainStashListSucceeds
     i_cancel_pacing
     i_cancel_gate

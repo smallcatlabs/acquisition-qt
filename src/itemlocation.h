@@ -8,8 +8,6 @@
 #include <QRectF>
 #include <QString>
 
-#include "util/spdlog_qt.h"
-
 namespace poe {
     struct Character;
     struct Item;
@@ -129,9 +127,5 @@ private:
 };
 
 using ItemLocationType = ItemLocation::ItemLocationType;
-
-template<>
-struct fmt::formatter<ItemLocationType, char> : QtEnumFormatter<ItemLocationType>
-{};
 
 typedef std::vector<ItemLocation> Locations;

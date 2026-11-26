@@ -27,7 +27,7 @@
 // `invalid_grant` in the same error body; both descriptions are invented,
 // and so is the 503 with a page for a body.
 
-#include <QtTest/QtTest>
+#include <QTest>
 
 #include <QCryptographicHash>
 #include <QDesktopServices>
@@ -40,7 +40,6 @@
 #include <string>
 #include <thread>
 
-#include <glaze/glaze.hpp>
 #include <spdlog/sinks/callback_sink.h>
 #include <spdlog/sinks/dist_sink.h>
 #include <spdlog/spdlog.h>
@@ -50,8 +49,8 @@
 #include "oauthtestaccess.h"
 #include "replytimeout.h"
 #include "testsuite.h"
-#include "util/glaze_qt.h" // IWYU pragma: keep
 #include "util/oauthtoken.h"
+#include "util/spdlog_qt.h"
 
 // Stands in for the user's browser: QDesktopServices hands it every http and
 // https address the application asks to open, and it opens nothing.
@@ -263,12 +262,8 @@ namespace {
     {
         const QVariantMap fields
             = QJsonDocument::fromJson(grantedToken(access, refresh)).object().toVariantMap();
-        std::string serialized;
-        if (glz::write_json(OAuthToken::fromTokens(fields), serialized)) {
-            qFatal("tst_applogin: cannot serialize a token");
-        }
         SqliteDataStore(globalStorePath(fixture))
-            .Set("oauth_token", QString::fromStdString(serialized));
+            .Set("oauth_token", serializeTestToken(OAuthToken::fromTokens(fields)));
     }
 
     // The token in the global store on disk, if there is one. Read from a
