@@ -8,7 +8,7 @@
 // dropped; here every payload is read strictly, and such a key fails the
 // test and is named.
 
-#include <QtTest/QtTest>
+#include <QTest>
 
 #include <QDir>
 #include <QFile>

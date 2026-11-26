@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Tom Holz
 
 #include <QCoroFuture>
-#include <QtTest>
+#include <QTest>
 
 #include <QDateTime>
 #include <QJsonDocument>

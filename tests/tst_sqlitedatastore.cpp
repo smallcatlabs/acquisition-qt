@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Tom Holz
 
-#include <QtTest/QtTest>
+#include <QTest>
 
 #include <QByteArray>
 #include <QFile>
@@ -13,11 +13,9 @@
 
 #include <string>
 
-#include <glaze/glaze.hpp>
-
 #include "datastore/sqlitedatastore.h"
+#include "testfixtures.h"
 #include "testsuite.h"
-#include "util/glaze_qt.h" // IWYU pragma: keep
 #include "util/oauthtoken.h"
 
 class SqliteDataStoreTest : public QObject
@@ -99,12 +97,11 @@ void SqliteDataStoreTest::clearedTokenLeavesNoBytesInTheFile()
     token.username = "Tester#1234";
     token.sub = "8c2f1d9e-3b4a-4c5d-9e6f-7a8b9c0d1e2f";
     token.token_type = "bearer";
-    std::string serialized;
-    QVERIFY(!glz::write_json(token, serialized));
+    const QString serialized = serializeTestToken(token);
 
     {
         SqliteDataStore store(filename);
-        store.Set("oauth_token", QString::fromStdString(serialized));
+        store.Set("oauth_token", serialized);
         store.Set("oauth_token", QString());
     }
 

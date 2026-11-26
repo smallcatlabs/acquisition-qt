@@ -4,8 +4,9 @@
 #include <QApplication>
 #include <QFile>
 #include <QSettings>
+#include <QSqlError>
 #include <QSqlQuery>
-#include <QtTest/QtTest>
+#include <QTest>
 
 #include <algorithm>
 #include <set>

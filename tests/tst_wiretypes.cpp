@@ -8,7 +8,7 @@
 // 3.30.0). Where Acquisition deliberately models a field differently from the
 // documented value type, the fixture uses the modeled shape and says so.
 
-#include <QtTest/QtTest>
+#include <QTest>
 
 #include <QFile>
 

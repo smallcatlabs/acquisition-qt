@@ -37,6 +37,8 @@ for the change in hand:
 
 - **A suite.** `tests/tst_<name>.cpp`. All suites link into one executable:
   `acq_tests <suite> [function]` runs one, `ctest --preset dev` runs all.
+  `BUILD.md`, "Adding a test", says what to include and where a shared
+  fixture goes, so that a suite stays cheap to compile.
 - **What the window shows.** `tests/viewtranscript.h` prints the item tree as
   text, with its selection, current row and collapsed tabs. A test compares
   the print before and after and names the lines allowed to change.

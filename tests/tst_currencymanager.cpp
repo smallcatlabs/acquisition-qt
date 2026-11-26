@@ -10,7 +10,7 @@
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
-#include <QtTest/QtTest>
+#include <QTest>
 
 #include "currencymanager.h"
 #include "datastore/sqlitedatastore.h"

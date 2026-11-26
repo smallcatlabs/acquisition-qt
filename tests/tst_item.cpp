@@ -6,7 +6,7 @@
 #include <QSettings>
 #include <QSignalSpy>
 #include <QStringListModel>
-#include <QtTest/QtTest>
+#include <QTest>
 
 #include <algorithm>
 #include <clocale>
