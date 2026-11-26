@@ -76,6 +76,34 @@ to the build tree. Run it with a temporary data directory while testing:
 ./build/dev/acquisition --data-dir /tmp/acq-data --log-level debug                                  # Linux
 ```
 
+### Memory and parallel jobs
+
+A translation unit of this project can need more than a gigabyte to compile
+(a test suite needed one to two when this was measured, #476), and a
+library's units all become ready at once. With Ninja the first-party sources
+compile in a job pool whose size follows memory instead of hardware threads:
+one job for every 3 GB of the machine's memory or, on Linux, of the memory
+limit of the control group the configure step runs in, whichever is smaller.
+Configuring prints the size:
+
+```
+-- First-party sources compile 10 at a time (31433 MB of memory); -DACQ_COMPILE_JOBS=<n> changes it.
+```
+
+Set the size yourself when that guess does not fit where the build runs:
+several builds at once on one machine, a memory limit CMake cannot see (a
+virtual machine's balloon, a job scheduler), or memory to spare.
+
+```sh
+cmake --preset dev -DACQ_COMPILE_JOBS=4
+```
+
+The value stays in the build tree's cache; `-UACQ_COMPILE_JOBS` goes back to
+the computed size. `--parallel <n>` on the build still caps every job, these
+included. The pool is in `cmake/compile_pool.cmake`; the fetched dependencies
+and the links run outside it, and the other generators have no job pools and
+ignore it.
+
 The presets are a convenience, not a requirement: `cmake -S . -B <dir>` with
 the same cache variables builds the same thing, and the release workflows
 still configure that way.

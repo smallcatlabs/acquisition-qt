@@ -23,6 +23,13 @@ cmake --preset dev && cmake --build --preset dev && ctest --preset dev
   distribution's Qt usually ships neither, and configuring fails in
   `_deps/qxlsx-src` with `Failed to find required Qt component "GuiPrivate"`.
   Point `CMAKE_PREFIX_PATH` at an official Qt kit. Linux also requires OpenSSL.
+- A source file here can need more than a gigabyte to compile. With Ninja the
+  first-party sources compile in a job pool sized from memory, and
+  configuring prints the size (`First-party sources compile N at a time`).
+  Check that line against the memory you really have: if you share the
+  machine with other builds or agents, or run under a limit CMake cannot see,
+  configure with `-DACQ_COMPILE_JOBS=<n>`, about one job for every 3 GB that
+  is yours to use (`BUILD.md`, "Memory and parallel jobs").
 - Never read or write a real Acquisition data directory (the platform's
   application-data location), in the app, in tests, or in investigation
   scripts. It holds the user's tokens, prices and account data.
@@ -77,8 +84,12 @@ for the change in hand:
   it is red. CodeQL and the sanitizer run happen on release tags (the
   sanitizer job also runs, without gating, on a pull request that touches the
   refresh or network code); a finding on a beta tag is fixed before the final
-  release. Keep one topic per pull request. The maintainer merges and decides
-  which release a change rides in; do not bump the version unless asked.
+  release. Split work into separate pull requests only where each can merge
+  and be reverted without the others. Work that cannot be separated that way
+  goes in one pull request, one commit per step, each commit building and
+  passing its tests. Unrelated changes never share a pull request. The
+  maintainer merges and decides which release a change rides in; do not bump
+  the version unless asked.
 - When UI behaviour changes, update `docs/user/`.
 - The C++ tree is checked against `.clang-format` in CI with a pinned
   clang-format version (`BUILD.md`, "Formatting"); format with that
