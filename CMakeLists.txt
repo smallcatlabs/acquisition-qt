@@ -688,15 +688,20 @@ target_compile_options(acq_warnings INTERFACE
     $<$<AND:$<BOOL:${ACQ_WERROR}>,$<CXX_COMPILER_ID:MSVC>>:/WX>
 )
 
+# The job pool the first-party sources compile in, sized from memory (#476).
+include(cmake/compile_pool.cmake)
+
 # Call this on every first-party target (the libraries, the app, the tests
 # and the benchmarks) right after creating it: it sets the language level and
 # links the warning flags first, so a dependency's own flags (glaze's
-# -Wno-missing-braces) come after them on every target alike.
+# -Wno-missing-braces) come after them on every target alike. It also puts
+# the target's compiles in the memory-sized job pool.
 function(acq_first_party target)
     set_target_properties(${target} PROPERTIES
         CXX_STANDARD 23
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS NO
+        JOB_POOL_COMPILE acq_compile
     )
     target_link_libraries(${target} PRIVATE acq_warnings)
 endfunction()
