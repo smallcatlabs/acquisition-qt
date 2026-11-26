@@ -6,8 +6,6 @@
 
 #include <QActionGroup>
 #include <QApplication>
-#include <QBuffer>
-#include <QClipboard>
 #include <QDesktopServices>
 #include <QDir>
 #include <QEvent>
@@ -21,8 +19,6 @@
 #include <QLayout>
 #include <QMessageBox>
 #include <QMouseEvent>
-#include <QNetworkReply>
-#include <QNetworkRequest>
 #include <QPainter>
 #include <QPushButton>
 #include <QSaveFile>
@@ -58,12 +54,11 @@
 #include "ratelimit/ratelimit.h"
 #include "ratelimit/ratelimitdialog.h"
 #include "ratelimit/ratelimiter.h"
-#include "replytimeout.h"
 #include "search.h"
 #include "shop.h"
 #include "ui/buyoutpanel.h"
 #include "ui/currencydialog.h"
-#include "ui/itemtooltip.h"
+#include "ui/itemdetailspanel.h"
 #include "ui/logpanel.h"
 #include "ui/mainwindowhelpers.h"
 #include "ui/searchform.h"
@@ -74,10 +69,6 @@
 #include "util/util.h"
 #include "version_defines.h"
 
-constexpr const char *POE_WEBCDN
-    = "http://webcdn.pathofexile.com"; // Should be updated to https://web.poecdn.com ?
-
-constexpr int CURRENT_ITEM_UPDATE_DELAY_MS = 100;
 constexpr int SEARCH_UPDATE_DELAY_MS = 350;
 // The delta-path column-resize debounce (S7 review round 1): each
 // ResizeTreeColumns pass costs ~10 ms regardless of scale, so a
@@ -215,10 +206,6 @@ MainWindow::MainWindow(QSettings &settings,
     setWindowTitle(title);
     setWindowIcon(QIcon(":/icons/icon.svg"));
 
-    m_delayed_update_current_item.setInterval(CURRENT_ITEM_UPDATE_DELAY_MS);
-    m_delayed_update_current_item.setSingleShot(true);
-    connect(&m_delayed_update_current_item, &QTimer::timeout, this, &MainWindow::UpdateCurrentItem);
-
     m_delayed_search_form_change.setInterval(SEARCH_UPDATE_DELAY_MS);
     m_delayed_search_form_change.setSingleShot(true);
     connect(&m_delayed_search_form_change, &QTimer::timeout, this, &MainWindow::OnSearchFormChange);
@@ -311,11 +298,6 @@ void MainWindow::InitializeUi()
 
     m_status_bar_label = new QLabel("Ready");
     statusBar()->addWidget(m_status_bar_label);
-    ui->itemLayout->setAlignment(Qt::AlignTop);
-    ui->itemLayout->setAlignment(ui->minimapLabel, Qt::AlignHCenter);
-    ui->itemLayout->setAlignment(ui->nameLabel, Qt::AlignHCenter);
-    ui->itemLayout->setAlignment(ui->imageLabel, Qt::AlignHCenter);
-    ui->itemLayout->setAlignment(ui->locationLabel, Qt::AlignHCenter);
 
     m_tab_bar = new QTabBar;
     m_tab_bar->installEventFilter(this);
@@ -436,36 +418,15 @@ void MainWindow::InitializeUi()
     connect(ui->treeView, &QTreeView::collapsed, this, &MainWindow::ScheduleResizeTreeColumns);
     connect(ui->treeView, &QTreeView::expanded, this, &MainWindow::ScheduleResizeTreeColumns);
 
-    ui->propertiesLabel->setStyleSheet(
-        "QLabel { background-color: black; color: #7f7f7f; padding: 10px; font-size: 17px; }");
-    ui->propertiesLabel->setFont(QFont("Fontin SmallCaps"));
-    ui->itemNameFirstLine->setFont(QFont("Fontin SmallCaps"));
-    ui->itemNameSecondLine->setFont(QFont("Fontin SmallCaps"));
-    ui->itemNameFirstLine->setAlignment(Qt::AlignCenter);
-    ui->itemNameSecondLine->setAlignment(Qt::AlignCenter);
-
-    ui->itemTextTooltip->setStyleSheet(
-        "QLabel { background-color: black; color: #7f7f7f; padding: 3px; }");
-
-    ui->itemTooltipWidget->hide();
-    ui->itemButtonsWidget->hide();
-
     // Make sure the right logging level menu item is checked.
     OnSetLogging(spdlog::get_level());
 
-    connect(ui->itemInfoTypeTabs, &QTabWidget::currentChanged, this, [=, this](int idx) {
-        auto tabs = ui->itemInfoTypeTabs;
-        for (int i = 0; i < tabs->count(); i++) {
-            if (i != idx) {
-                tabs->widget(i)->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Ignored);
-            }
-        }
-        auto widget = tabs->widget(idx);
-        widget->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-        widget->resize(tabs->widget(idx)->minimumSizeHint());
-        widget->adjustSize();
-        m_settings.setValue("tooltip_tab", idx);
-    });
+    // The details panel draws what the window tells it is current.
+    ui->itemDetailsPanel->initialize(m_settings,
+                                     m_network_manager,
+                                     m_image_cache,
+                                     m_items_manager.locationInventory());
+    connect(ui->itemDetailsPanel, &ItemDetailsPanel::imageRequested, this, &MainWindow::GetImage);
 
     // Connect the Tabs menu.
     connect(ui->actionFetchTabsList, &QAction::triggered, this, &MainWindow::OnFetchTabsList);
@@ -556,10 +517,6 @@ void MainWindow::InitializeUi()
         QDesktopServices::openUrl(QUrl("https://github.com/smallcatlabs/acquisition-qt/issues"));
     });
 
-    // Connect the Tooltip tab buttons
-    connect(ui->uploadTooltipButton, &QPushButton::clicked, this, &MainWindow::OnUploadToImgur);
-    connect(ui->pobTooltipButton, &QPushButton::clicked, this, &MainWindow::OnCopyForPOB);
-
     // Connect the currency actions.
     connect(ui->actionListCurrency, &QAction::triggered, this, &MainWindow::OnListCurrency);
     connect(ui->actionExportCurrency, &QAction::triggered, this, &MainWindow::OnExportCurrency);
@@ -587,7 +544,7 @@ void MainWindow::LoadSettings()
     ui->actionSetAutomaticTabRefresh->setChecked(m_settings.value("autoupdate").toBool());
     UpdateShopMenu();
 
-    ui->itemInfoTypeTabs->setCurrentIndex(m_settings.value("tooltip_tab").toInt());
+    ui->itemDetailsPanel->loadSettings();
 }
 
 void MainWindow::OnTreeExpansionChanged(const QModelIndex &index, bool expanded)
@@ -1536,8 +1493,7 @@ void MainWindow::ReconcileSelectionIntent(const SelectionCapture *capture)
             // the selected item's tab without replacing the item, and
             // the reset-reselect cycle that used to refresh the pane is
             // gone from the delta path.
-            ui->locationLabel->setText(m_current_item->location().GetItemHeader(
-                m_items_manager.locationInventory().Canonical(m_current_item->location())));
+            ui->itemDetailsPanel->updateLocation(*m_current_item);
         } else {
             // The selected row left mid-refresh: the intent stays alive,
             // the visual selection lapses (R1-3). The view may have moved
@@ -1550,7 +1506,7 @@ void MainWindow::ReconcileSelectionIntent(const SelectionCapture *capture)
             ui->treeView->selectionModel()->setCurrentIndex(QModelIndex(),
                                                             QItemSelectionModel::NoUpdate);
             m_applying_delta = false;
-            ClearCurrentItem();
+            ui->itemDetailsPanel->clear();
             ResetBuyoutWidgets();
         }
     }
@@ -1567,7 +1523,7 @@ void MainWindow::ReconcileSelectionIntent(const SelectionCapture *capture)
             const bool rendered_changed = !fresh.RendersSameAs(*m_current_bucket_location);
             if (rendered_changed) {
                 m_current_bucket_location = fresh;
-                UpdateCurrentBucket();
+                ui->itemDetailsPanel->showBucket(*m_current_bucket_location);
                 UpdateCurrentBuyout();
             }
         } else {
@@ -1576,7 +1532,7 @@ void MainWindow::ReconcileSelectionIntent(const SelectionCapture *capture)
             ui->treeView->selectionModel()->setCurrentIndex(QModelIndex(),
                                                             QItemSelectionModel::NoUpdate);
             m_applying_delta = false;
-            ClearCurrentItem();
+            ui->itemDetailsPanel->clear();
             ResetBuyoutWidgets();
         }
     }
@@ -1915,27 +1871,27 @@ void MainWindow::OnCurrentItemChanged(const QModelIndex &current, const QModelIn
                 // A selection wins at any time (R1-3): the intent follows
                 // the selected item's stable id.
                 m_selection_intent_id = m_current_item->id();
-                m_delayed_update_current_item.start();
+                ui->itemDetailsPanel->showItemLater(m_current_item);
             } else {
                 spdlog::warn("OnCurrentItemChanged(): parent bucket {} does not have {} rows",
                              bucket_row,
                              item_row);
                 m_current_item = nullptr;
                 m_current_bucket_location.reset();
-                ClearCurrentItem();
+                ui->itemDetailsPanel->clear();
             }
         } else {
             spdlog::warn("OnCurrentItemChanged(): parent bucket {} does not exist", bucket_row);
             m_current_item = nullptr;
             m_current_bucket_location.reset();
-            ClearCurrentItem();
+            ui->itemDetailsPanel->clear();
         }
     } else {
         // Clicked on a bucket
         m_current_item = nullptr;
         m_selection_intent_id.clear();
         m_current_bucket_location = m_current_search->bucket(ref.bucket_row).location();
-        UpdateCurrentBucket();
+        ui->itemDetailsPanel->showBucket(*m_current_bucket_location);
     }
     if (m_current_item || m_current_bucket_location) {
         UpdateCurrentBuyout();
@@ -1970,7 +1926,7 @@ void MainWindow::ReselectCurrentItem()
             m_current_item = adopted;
             // Re-render the details panel from the replacement object, the
             // same deferred path a user selection takes.
-            m_delayed_update_current_item.start();
+            ui->itemDetailsPanel->showItemLater(m_current_item);
         }
     }
 
@@ -1982,7 +1938,7 @@ void MainWindow::ReselectCurrentItem()
         spdlog::trace("MainWindow::ReselectCurrentItem() the previously selected item is gone");
         m_current_item = nullptr;
         m_current_bucket_location.reset();
-        ClearCurrentItem();
+        ui->itemDetailsPanel->clear();
     } else {
         // Reselect the item in the updated layout.
         spdlog::trace("MainWindow::ReselectCurrentItem() reselecting the previous item");
@@ -2010,7 +1966,7 @@ void MainWindow::ReselectCurrentBucket()
     // The previously selected bucket is no longer in the search results.
     spdlog::trace("MainWindow::ReselectCurrentBucket() the previously selected bucket is gone");
     m_current_bucket_location.reset();
-    ClearCurrentItem();
+    ui->itemDetailsPanel->clear();
 }
 
 void MainWindow::OnDelayedSearchFormChange()
@@ -2063,9 +2019,9 @@ void MainWindow::OnTabChange(int index)
         m_current_search->SetRefreshReason(RefreshReason::TabChanged);
         m_search_form->loadFrom(*m_current_search);
         ModelViewRefresh();
-        UpdateCurrentItem();
+        ui->itemDetailsPanel->showItem(m_current_item);
         if (m_current_bucket_location) {
-            UpdateCurrentBucket();
+            ui->itemDetailsPanel->showBucket(*m_current_bucket_location);
         }
         if (m_current_item || m_current_bucket_location) {
             UpdateCurrentBuyout();
@@ -2116,101 +2072,13 @@ void MainWindow::NewSearch()
 
     spdlog::trace("MainWindow::NewSearch() triggering model view refresh");
     ModelViewRefresh();
-    UpdateCurrentItem();
+    ui->itemDetailsPanel->showItem(m_current_item);
     ResetBuyoutWidgets();
-}
-
-void MainWindow::ClearCurrentItem()
-{
-    spdlog::trace("MainWindow::ClearCurrentItem() entered");
-    // A pending details update belongs to an item that is no longer shown.
-    m_delayed_update_current_item.stop();
-    ui->imageLabel->hide();
-    ui->minimapLabel->hide();
-    ui->locationLabel->hide();
-    ui->itemTooltipWidget->hide();
-    ui->itemButtonsWidget->hide();
-
-    ui->nameLabel->setText("Select an item");
-    ui->nameLabel->show();
-
-    ui->pobTooltipButton->setEnabled(false);
-}
-
-void MainWindow::UpdateCurrentBucket()
-{
-    spdlog::trace("MainWindow::UpdateCurrentBucket() entered");
-    // A pending item details update would overwrite the bucket's.
-    m_delayed_update_current_item.stop();
-    ui->imageLabel->hide();
-    ui->minimapLabel->hide();
-    ui->locationLabel->hide();
-    ui->itemTooltipWidget->hide();
-    ui->itemButtonsWidget->hide();
-
-    ui->nameLabel->setText(m_current_bucket_location->GetHeader());
-    ui->nameLabel->show();
-
-    ui->pobTooltipButton->setEnabled(false);
-}
-
-// The url an item's image is fetched from: a relative icon is served by the CDN.
-static QString itemImageUrl(const Item &item)
-{
-    const QString icon = item.icon();
-    if (icon.startsWith('/')) {
-        return POE_WEBCDN + icon;
-    }
-    return icon;
-}
-
-void MainWindow::UpdateCurrentItem()
-{
-    spdlog::trace("MainWindow::UpdateCurrentItem() entered");
-    if (m_current_item == nullptr) {
-        ClearCurrentItem();
-        return;
-    }
-
-    ui->imageLabel->show();
-    ui->minimapLabel->show();
-    ui->locationLabel->show();
-    ui->itemTooltipWidget->show();
-    ui->itemButtonsWidget->show();
-    ui->nameLabel->hide();
-
-    ui->imageLabel->setText("Loading...");
-    ui->imageLabel->setStyleSheet("QLabel { background-color : rgb(12, 12, 43); color: white }");
-    ui->imageLabel->setFixedSize(QSize(m_current_item->w(), m_current_item->h()) * PIXELS_PER_SLOT);
-
-    // Everything except item image now lives in itemtooltip.cpp
-    // in future should move everything tooltip-related there
-    UpdateItemTooltip(*m_current_item, ui);
-
-    // The location line renders through the canonical inventory (S4
-    // review round 1): a metadata delta renames a tab without replacing
-    // the items fetched from it, so the embedded location can be stale.
-    // An item on a guardian or the Wickerman says so (#418).
-    ui->locationLabel->setText(m_current_item->location().GetItemHeader(
-        m_items_manager.locationInventory().Canonical(m_current_item->location())));
-    ui->pobTooltipButton->setEnabled(m_current_item->Wearable());
-
-    emit GetImage(itemImageUrl(*m_current_item));
 }
 
 void MainWindow::OnImageFetched(const QString &url)
 {
-    if (m_current_item) {
-        if (url == itemImageUrl(*m_current_item)) {
-            const QImage image = m_image_cache.load(url);
-            if (image.isNull()) {
-                ui->imageLabel->setText("No image");
-            } else {
-                const QPixmap pixmap = GenerateItemIcon(*m_current_item, image);
-                ui->imageLabel->setPixmap(pixmap);
-            }
-        }
-    }
+    ui->itemDetailsPanel->onImageFetched(url);
 }
 
 void MainWindow::UpdateCurrentBuyout()
@@ -2500,69 +2368,4 @@ void MainWindow::closeEvent(QCloseEvent *event)
     } else {
         event->ignore();
     }
-}
-
-void MainWindow::OnUploadToImgur()
-{
-    ui->uploadTooltipButton->setDisabled(true);
-    ui->uploadTooltipButton->setText("Uploading...");
-
-    QPixmap pixmap(ui->itemTooltipWidget->size());
-    ui->itemTooltipWidget->render(&pixmap);
-
-    QByteArray bytes;
-    QBuffer buffer(&bytes);
-    buffer.open(QIODevice::WriteOnly);
-    pixmap.save(&buffer, "PNG"); // writes pixmap into bytes in PNG format
-
-    QNetworkRequest request(QUrl("https://api.imgur.com/3/upload/"));
-    request.setRawHeader("Authorization", "Client-ID d6d2d8a0437a90f");
-    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
-    request.setTransferTimeout(kImgurUploadTimeout);
-    QByteArray image_data = "image=" + QUrl::toPercentEncoding(bytes.toBase64());
-    QNetworkReply *reply = m_network_manager.post(request, image_data);
-    connect(reply, &QNetworkReply::finished, this, &MainWindow::OnUploadFinished);
-}
-
-void MainWindow::OnCopyForPOB()
-{
-    if (m_current_item == nullptr) {
-        return;
-    }
-    // if category isn't wearable, including flasks, don't do anything
-    if (!m_current_item->Wearable()) {
-        spdlog::warn("{}, category: {}, should not have been exportable.",
-                     m_current_item->PrettyName(),
-                     m_current_item->category());
-        return;
-    }
-
-    QApplication::clipboard()->setText(m_current_item->POBformat());
-    spdlog::info("{} was copied to your clipboard in Path of Building's \"Create custom\" format.",
-                 m_current_item->PrettyName());
-}
-
-void MainWindow::OnUploadFinished()
-{
-    ui->uploadTooltipButton->setDisabled(false);
-    ui->uploadTooltipButton->setText("Upload to imgur");
-
-    QNetworkReply *reply = qobject_cast<QNetworkReply *>(QObject::sender());
-    const QByteArray bytes = reply->readAll();
-    reply->deleteLater();
-
-    if (reply->error() != QNetworkReply::NoError) {
-        spdlog::error("Imgur upload failed: {}", reply->errorString());
-        return;
-    }
-
-    const auto result = ParseImgurUploadReply(bytes);
-    if (!result) {
-        spdlog::error("Imgur upload failed: {}", result.error());
-        return;
-    }
-
-    const QString url = *result;
-    QApplication::clipboard()->setText(url);
-    spdlog::info("Image uploaded to '{}' and the URL has been copied to your clipboard.", url);
 }

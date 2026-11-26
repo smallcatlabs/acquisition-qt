@@ -32,7 +32,6 @@
 #include "sessionidentity.h"
 #include "util/programstate.h"
 
-class QNetworkReply;
 class QSettings;
 class QVBoxLayout;
 
@@ -86,6 +85,7 @@ signals:
     void UpdateCheckRequested();
     void SetSessionId(const QString &poesessid);
     void SetTheme(const QString &theme);
+    // The item details panel wants an image from the image cache.
     void GetImage(const QString &url);
 public slots:
     // The game data has arrived after the window was built: the search
@@ -108,6 +108,7 @@ public slots:
     void OnSearchFormChange();
     void OnDelayedSearchFormChange();
     void OnTabChange(int index);
+    // Passes a fetched image on to the item details panel.
     void OnImageFetched(const QString &url);
     // The final snapshot (M2 D8 signal, M3 S6 semantics): background
     // searches are flagged items-dirty and refilter on their own next
@@ -143,7 +144,6 @@ public slots:
     void OnDeleteTabClicked(int index);
     void OnRefreshSelected();
     void OnUpdateAvailable(bool available);
-    void OnUploadFinished();
 
 private slots:
     // Tabs menu actions
@@ -177,10 +177,6 @@ private slots:
 
     // Logging submenu actions
     void OnSetLogging(spdlog::level::level_enum level);
-
-    // Tooltip buttons
-    void OnCopyForPOB();
-    void OnUploadToImgur();
 
 private:
     // S4 delta-application tail: dirty-flag adjudication (R1-7), view-side
@@ -259,9 +255,6 @@ private:
     // the anchored row no longer exists after the reset.
     void SaveViewScroll(Search &search);
     void RestoreViewScroll(Search &search);
-    void ClearCurrentItem();
-    void UpdateCurrentBucket();
-    void UpdateCurrentItem();
     void UpdateCurrentBuyout();
     void OnSelectionChanged();
     // The selected rows that can take a price.
@@ -330,7 +323,6 @@ private:
     QVBoxLayout *m_search_form_layout;
     QMenu m_context_menu;
     QPushButton m_update_button;
-    QTimer m_delayed_update_current_item;
     QTimer m_delayed_search_form_change;
     QTimer m_delayed_resize_columns;
     QTimer m_delta_resize_debounce;

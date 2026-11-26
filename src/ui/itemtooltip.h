@@ -8,12 +8,12 @@
 #include <QString>
 
 namespace Ui {
-    class MainWindow;
+    class ItemDetailsPanel;
 }
 
 class Item;
 
-void UpdateItemTooltip(const Item &item, Ui::MainWindow *ui);
+void UpdateItemTooltip(const Item &item, Ui::ItemDetailsPanel *ui);
 QPixmap GenerateItemIcon(const Item &item, const QImage &image);
 
 // How an item's frame type is drawn in the item panel: the resource prefix of

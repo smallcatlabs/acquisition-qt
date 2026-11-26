@@ -315,6 +315,7 @@ Shop::Shop(QSettings &settings,
     , m_datastore(datastore)
     , m_items_manager(items_manager)
     , m_buyout_manager(buyout_manager)
+    , m_stored(datastore, {"shop", "shop_template"})
 {
     spdlog::debug("Shop: initializing");
     // SkipEmptyParts: an empty or missing "shop" key must load as no
@@ -324,17 +325,13 @@ Shop::Shop(QSettings &settings,
     // A read that fails is not an empty store (#295): the defaults stand in
     // for this session, and nothing is written over what could not be read,
     // in the store or on the forum.
-    const DataStore::ReadResult threads = m_datastore.Read("shop");
-    const DataStore::ReadResult shop_template = m_datastore.Read("shop_template");
-    m_settings_loaded = threads && shop_template;
-    if (!m_settings_loaded) {
+    if (!m_stored.Loaded()) {
         spdlog::error("Shop: the shop's threads or template could not be read, so they will not "
                       "be saved and the shop will not be posted this session");
     }
-    m_threads = threads ? threads->value_or(QString()).split(";", Qt::SkipEmptyParts)
-                        : QStringList();
+    m_threads = m_stored.value("shop").split(";", Qt::SkipEmptyParts);
     m_auto_update = m_settings.value("shop_autoupdate").toBool();
-    m_shop_template = shop_template ? shop_template->value_or(QString()) : QString();
+    m_shop_template = m_stored.value("shop_template");
     if (m_shop_template.isEmpty()) {
         m_shop_template = kShopTemplateItems;
     }
@@ -349,8 +346,8 @@ void Shop::SetThread(const QStringList &threads)
     spdlog::debug("Shop: setting {} thread(s) to {}", threads.size(), threads.join(";"));
     m_threads = threads;
     DropWaitingCapture();
-    if (m_settings_loaded) {
-        m_datastore.Set("shop", threads.join(";"));
+    if (m_stored.Loaded()) {
+        m_stored.Set("shop", threads.join(";"));
         m_datastore.Set("shop_hash", "");
     }
 }
@@ -377,9 +374,7 @@ void Shop::SetShopTemplate(const QString &shop_template)
 {
     spdlog::debug("Shop: setting template to {}", shop_template);
     m_shop_template = shop_template;
-    if (m_settings_loaded) {
-        m_datastore.Set("shop_template", shop_template);
-    }
+    m_stored.Set("shop_template", shop_template);
     DropWaitingCapture();
 }
 
@@ -432,7 +427,7 @@ bool Shop::ReadyToPost(bool automatic)
              "Check the log file for details.");
         return false;
     }
-    if (!m_settings_loaded) {
+    if (!m_stored.Loaded()) {
         Warn(Notice::SettingsNotLoaded,
              automatic,
              "Acquisition could not read your shop's threads and template, so your forum shop "
@@ -825,7 +820,7 @@ void Shop::CopyToClipboard()
              "Check the log file for details.");
         return;
     }
-    if (!m_settings_loaded) {
+    if (!m_stored.Loaded()) {
         emit StatusUpdate(ProgramState::Ready,
                           "Shop not copied: your shop's template could not be read");
         Warn(Notice::SettingsNotLoaded,

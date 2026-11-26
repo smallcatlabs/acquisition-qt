@@ -10,10 +10,10 @@
 #include <vector>
 
 #include "currency.h"
+#include "datastore/datastore.h"
 
 class QSettings;
 
-class DataStore;
 class Item;
 class ItemsManager;
 
@@ -92,10 +92,10 @@ private:
         int count;
     };
     std::vector<WisdomCount> m_wisdom;
-    // False when the stored currency could not be read (#295): the defaults
-    // stand in for this session and nothing is written, so a failed read is
-    // never saved over what is stored.
-    bool m_loaded{true};
+    // The ratios, and the list from before the JSON format that a first run
+    // migrates. When either could not be read (#295), the defaults stand in
+    // for this session and neither is written.
+    StoredSettings m_stored;
     // A new item per choosable currency, with the default ratios.
     void MakeCurrencyItems();
     // Used only the first time we launch the app
