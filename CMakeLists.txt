@@ -276,6 +276,11 @@ if(NOT TARGET QCoro6::Core)
 endif()
 
 if(NOT TARGET spdlog)
+    # spdlog is linked as a compiled library (spdlog::spdlog), not header-only:
+    # header-only, every translation unit that logs compiled spdlog and its
+    # bundled fmt again, about 0.3 GB and 2.5 s each (#476). The archive goes
+    # into position-independent executables, so it is built that way too.
+    set(SPDLOG_BUILD_PIC ON CACHE BOOL "" FORCE)
     FetchContent_Declare(
         spdlog
         GIT_REPOSITORY https://github.com/gabime/spdlog.git
@@ -716,7 +721,7 @@ target_link_libraries(acquisition_filters
     PRIVATE
         Qt6::Network
         glaze::glaze
-        spdlog::spdlog_header_only
+        spdlog::spdlog
 )
 
 # The core library: everything but the widgets (#299). Its include and link
@@ -766,7 +771,7 @@ target_link_libraries(acquisition_core PUBLIC
     QXlsx::QXlsx
     sentry::sentry
     semver
-    spdlog::spdlog_header_only
+    spdlog::spdlog
 )
 
 # The GUI library: the widgets and the application shell that builds them.
