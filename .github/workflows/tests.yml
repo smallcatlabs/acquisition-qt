@@ -239,6 +239,13 @@ jobs:
     env:
       # Bound the saved cache; past this ccache evicts least-recently-used objects.
       CCACHE_MAXSIZE: 1G
+      # By default ccache tells one compiler from another by cl.exe's size
+      # and modification time. GitHub rebuilds the runner image weekly, and
+      # while image 20261123 rolled out every run on it had no cache hits,
+      # with the same MSVC version as the image before. Compare the
+      # compiler's contents instead, so that only a new compiler empties the
+      # cache.
+      CCACHE_COMPILERCHECK: content
 
     steps:
       - name: Checkout code
@@ -266,17 +273,29 @@ jobs:
       # The compiler cache is what makes this job cheap after its first run,
       # as in the Linux job: without it every run compiles all of the
       # application, the tests and the fetched dependencies from nothing.
-      # Chocolatey puts a launcher stub on the PATH; the compiler launcher is
-      # the real ccache.exe behind it, so each compile starts one process
-      # fewer.
+      # ccache comes from its own release page at a pinned version, checked
+      # against a pinned hash. A different version shares none of the saved
+      # cache: when this step installed from Chocolatey and its feed was
+      # down, the job carried on with an older ccache already on the runner
+      # and compiled everything again. A failed download fails the step.
       - name: Install ccache
-        timeout-minutes: 10
+        timeout-minutes: 5
+        env:
+          CCACHE_VERSION: 4.14.3
+          CCACHE_SHA256: c845c3d65be81954c75659145a522a793a27586bf940c5dcfe18af33fa1a67dd
         run: |
-          choco install ccache --yes --no-progress
-          $exe = Get-ChildItem "$env:ChocolateyInstall\lib\ccache" -Recurse -Filter ccache.exe -ErrorAction SilentlyContinue |
-            Select-Object -First 1 -ExpandProperty FullName
-          if (-not $exe) { $exe = (Get-Command ccache.exe).Source }
+          $ErrorActionPreference = 'Stop'
+          $name = "ccache-$env:CCACHE_VERSION-windows-x86_64"
+          $zip = "$env:RUNNER_TEMP\$name.zip"
+          curl.exe --fail --silent --show-error --location --retry 5 --retry-all-errors `
+            --output $zip "https://github.com/ccache/ccache/releases/download/v$env:CCACHE_VERSION/$name.zip"
+          if ($LASTEXITCODE -ne 0) { throw "ccache download failed" }
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
+          if ($hash -ne $env:CCACHE_SHA256) { throw "ccache download has SHA-256 $hash, expected $env:CCACHE_SHA256" }
+          Expand-Archive $zip -DestinationPath "$env:RUNNER_TEMP\ccache-bin"
+          $exe = "$env:RUNNER_TEMP\ccache-bin\$name\ccache.exe"
           & $exe --version
+          if ($LASTEXITCODE -ne 0) { throw "ccache does not run" }
           "CCACHE_EXE=$($exe -replace '\\', '/')" >> $env:GITHUB_ENV
           "CCACHE_DIR=$env:RUNNER_TEMP\ccache" >> $env:GITHUB_ENV
 

@@ -281,6 +281,14 @@ if(NOT TARGET spdlog)
     # bundled fmt again, about 0.3 GB and 2.5 s each (#476). The archive goes
     # into position-independent executables, so it is built that way too.
     set(SPDLOG_BUILD_PIC ON CACHE BOOL "" FORCE)
+    # On Windows spdlog opens files by a narrow path, which the C runtime
+    # reads in the ANSI code page, so a data directory under a profile named
+    # outside it got no log (#288). spdlog's own option puts the definition on
+    # both of its targets, so every translation unit agrees on filename_t;
+    # src/util/logging.cpp refuses to build on Windows without it.
+    if(WIN32)
+        set(SPDLOG_WCHAR_FILENAMES ON)
+    endif()
     FetchContent_Declare(
         spdlog
         GIT_REPOSITORY https://github.com/gabime/spdlog.git
