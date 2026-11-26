@@ -30,9 +30,12 @@ inline void InitializeMainWindowTestCategories()
     // construction. The category tables are process-global, so initialize
     // them exactly once for this test binary.
     static const bool loaded = [] {
-        InitItemClasses(R"json({"TestClass":{"name":"Weapons"}})json");
+        // Belts are gear, so the real Stygian Vise (character-2.json) can be
+        // copied for Path of Building.
+        InitItemClasses(
+            R"json({"TestClass":{"name":"Weapons"},"Belt":{"name":"Belts","influence_tags":["belt_shaper","belt_elder"]}})json");
         InitItemBaseTypes(
-            R"json({"Metadata/Items/TestSword":{"item_class":"TestClass","name":"Test Sword","release_state":"released"}})json");
+            R"json({"Metadata/Items/TestSword":{"item_class":"TestClass","name":"Test Sword","release_state":"released"},"Metadata/Items/Belts/Belt7":{"item_class":"Belt","name":"Stygian Vise","release_state":"released"}})json");
         return true;
     }();
     Q_UNUSED(loaded);

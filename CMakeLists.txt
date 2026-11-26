@@ -509,6 +509,8 @@ set(ACQ_UI
     src/ui/fieldvalidity.h
     src/ui/flowlayout.cpp
     src/ui/flowlayout.h
+    src/ui/itemdetailspanel.cpp
+    src/ui/itemdetailspanel.h
     src/ui/itemtooltip.cpp
     src/ui/itemtooltip.h
     src/ui/itemtooltiptext.cpp
@@ -536,6 +538,7 @@ set(ACQ_UI
     src/ui/widgetutil.cpp
     src/ui/widgetutil.h
     # Forms
+    src/ui/itemdetailspanel.ui
     src/ui/logindialog.ui
     src/ui/mainwindow.ui
 )

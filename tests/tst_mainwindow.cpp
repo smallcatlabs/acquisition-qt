@@ -8,6 +8,7 @@
 #include <QAbstractItemModelTester>
 #include <QAction>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QComboBox>
 #include <QFile>
 #include <QHeaderView>
@@ -16,11 +17,13 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QScrollBar>
 #include <QSqlQuery>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QTabBar>
+#include <QTabWidget>
 #include <QTimer>
 #include <QTreeView>
 
@@ -33,10 +36,14 @@
 
 #include "buyout.h"
 #include "currency.h"
+#include "itemconstants.h"
 #include "itemsfromwire.h"
 #include "mainwindowfixture.h"
 #include "modelprobes.h"
+#include "replytimeout.h"
 #include "testsuite.h"
+#include "ui/itemtooltip.h"
+#include "ui/itemtooltiptext.h"
 #include "util/json_readers.h"
 #include "viewtranscript.h"
 
@@ -59,6 +66,9 @@ private slots:
     void searchTabSwitchReleasesOldSelectionModel();
     void missingItemImageShowsNoImage();
     void relativeIconShowsFetchedImage();
+    void itemDetailsFollowTheCurrentRow();
+    void itemDetailsTabIsASetting();
+    void itemDetailsUploadToImgur();
     // Renegotiated in M3 S6 from `itemsRefreshRefiltersBackgroundSearches`
     // (the F33-era eager background refilter rode the final-snapshot reset
     // seam): the snapshot now flags background searches items-dirty and
@@ -818,7 +828,7 @@ void MainWindowTest::missingItemImageShowsNoImage()
 
 void MainWindowTest::relativeIconShowsFetchedImage()
 {
-    // UpdateCurrentItem requests a relative icon under the CDN prefix; the
+    // The details panel requests a relative icon under the CDN prefix; the
     // fetched-image handler must recognise that url as the current item's.
     // Whether the game still sends relative icons is not known; the code
     // handles them, so the test covers that branch.
@@ -866,6 +876,212 @@ void MainWindowTest::relativeIconShowsFetchedImage()
     QVERIFY(fixture.imageCache->contains(url));
     fixture.window->OnImageFetched(url);
     QVERIFY(!label->pixmap().isNull());
+}
+
+// The real reply of character-2.json, published as one bucket: the items
+// the details panel tests select from.
+static Items publishCharacterTwo(MainWindowFixture &fixture, ItemLocation &location)
+{
+    QFile reply(QFINDTESTDATA("fixtures/payloads/character-2.json"));
+    if (!reply.open(QIODevice::ReadOnly)) {
+        qFatal("publishCharacterTwo: cannot read character-2.json");
+    }
+    const auto character = json::readCharacter(reply.readAll());
+    if (!character) {
+        qFatal("publishCharacterTwo: cannot parse character-2.json");
+    }
+    location = ItemLocation(*character);
+    Items items;
+    AppendWireItems(*character, location, items);
+    fixture.itemsManager->OnItemsRefreshed(items, {location}, false);
+    return items;
+}
+
+static std::shared_ptr<Item> findPublishedItem(const Items &items, const QString &pretty_name)
+{
+    for (const auto &item : items) {
+        if (item->PrettyName() == pretty_name) {
+            return item;
+        }
+    }
+    qFatal("findPublishedItem: no %s", qPrintable(pretty_name));
+}
+
+// #298 step 3 pins the item details panel before it leaves the window: what
+// it shows for the current item, for a bucket header and for nothing, and
+// what its Path of Building button copies.
+void MainWindowTest::itemDetailsFollowTheCurrentRow()
+{
+    MainWindowFixture fixture;
+    auto &window = *fixture.window;
+    auto *tree = window.findChild<QTreeView *>("treeView");
+    auto *nameLabel = window.findChild<QLabel *>("nameLabel");
+    auto *imageLabel = window.findChild<QLabel *>("imageLabel");
+    auto *locationLabel = window.findChild<QLabel *>("locationLabel");
+    auto *minimapLabel = window.findChild<QLabel *>("minimapLabel");
+    auto *tooltip = window.findChild<QWidget *>("itemTooltipWidget");
+    auto *buttons = window.findChild<QWidget *>("itemButtonsWidget");
+    auto *firstLine = window.findChild<QLabel *>("itemNameFirstLine");
+    auto *secondLine = window.findChild<QLabel *>("itemNameSecondLine");
+    auto *properties = window.findChild<QLabel *>("propertiesLabel");
+    auto *text = window.findChild<QLabel *>("itemTextTooltip");
+    auto *pob = window.findChild<QPushButton *>("pobTooltipButton");
+    QVERIFY(tree && nameLabel && imageLabel && locationLabel && minimapLabel);
+    QVERIFY(tooltip && buttons && firstLine && secondLine && properties && text && pob);
+
+    // Whether the panel shows an item's details, or only its name line.
+    const auto showsItem = [&] {
+        return nameLabel->isHidden() && !imageLabel->isHidden() && !minimapLabel->isHidden()
+               && !locationLabel->isHidden() && !tooltip->isHidden() && !buttons->isHidden();
+    };
+    const auto showsNameOnly = [&] {
+        return !nameLabel->isHidden() && imageLabel->isHidden() && minimapLabel->isHidden()
+               && locationLabel->isHidden() && tooltip->isHidden() && buttons->isHidden()
+               && !pob->isEnabled();
+    };
+    const auto infoFor = [](const Item &item, bool fancy) {
+        const QString key = ItemFrameStyleFor(item.frameType(), item.name().isEmpty()).separator_key;
+        return GenerateItemInfo(item, key, fancy);
+    };
+
+    QCOMPARE(nameLabel->text(), QString("Select an item"));
+    QVERIFY(showsNameOnly());
+
+    ItemLocation location;
+    const Items items = publishCharacterTwo(fixture, location);
+    const QModelIndex bucket = findBucket(*tree->model(), location.GetHeader());
+    QVERIFY(bucket.isValid());
+    tree->expand(bucket);
+    const auto select = [&](const QModelIndex &index) {
+        tree->selectionModel()->setCurrentIndex(index,
+                                                QItemSelectionModel::ClearAndSelect
+                                                    | QItemSelectionModel::Rows);
+    };
+
+    // A unique belt, which Path of Building takes: its details follow it
+    // after the selection settles.
+    const auto belt = findPublishedItem(items, "Darkness Enthroned Stygian Vise");
+    QVERIFY(belt->Wearable());
+    select(findItemRow(*tree->model(), bucket, belt->PrettyName()));
+    QVERIFY(!showsItem()); // deferred: a run of selections renders once
+    QTRY_VERIFY_WITH_TIMEOUT(showsItem(), 1000);
+    QVERIFY(!firstLine->isHidden());
+    QCOMPARE(firstLine->text(), belt->name());
+    QCOMPARE(secondLine->text(), belt->typeLine());
+    QCOMPARE(properties->text(), infoFor(*belt, true));
+    QCOMPARE(text->text(), infoFor(*belt, false));
+    QCOMPARE(locationLabel->text(), location.GetHeader());
+    QCOMPARE(imageLabel->text(), QString("Loading..."));
+    QCOMPARE(imageLabel->size(), QSize(belt->w(), belt->h()) * PIXELS_PER_SLOT);
+    QVERIFY(!minimapLabel->pixmap().isNull());
+    QVERIFY(pob->isEnabled());
+
+    QApplication::clipboard()->clear();
+    pob->click();
+    QCOMPARE(QApplication::clipboard()->text(), belt->POBformat());
+
+    // A magic map: one name line, and nothing for Path of Building.
+    const auto map = findPublishedItem(items, "Map of Venom (Tier 16)");
+    QVERIFY(!map->Wearable());
+    select(findItemRow(*tree->model(), bucket, map->PrettyName()));
+    QTRY_COMPARE_WITH_TIMEOUT(secondLine->text(), map->typeLine(), 1000);
+    QVERIFY(showsItem());
+    QVERIFY(firstLine->isHidden());
+    QCOMPARE(properties->text(), infoFor(*map, true));
+    QCOMPARE(imageLabel->size(), QSize(map->w(), map->h()) * PIXELS_PER_SLOT);
+    QVERIFY(!pob->isEnabled());
+
+    // The bucket header: its name only.
+    select(bucket);
+    QCOMPARE(nameLabel->text(), location.GetHeader());
+    QVERIFY(showsNameOnly());
+
+    // An item selected and then a header before the item's details were
+    // drawn: the header stays.
+    select(findItemRow(*tree->model(), bucket, belt->PrettyName()));
+    select(bucket);
+    QTest::qWait(300);
+    QCOMPARE(nameLabel->text(), location.GetHeader());
+    QVERIFY(showsNameOnly());
+
+    // The selected item leaves the results: nothing is selected.
+    select(findItemRow(*tree->model(), bucket, belt->PrettyName()));
+    QTRY_VERIFY_WITH_TIMEOUT(showsItem(), 1000);
+    auto *name = findNameFilter(window);
+    QVERIFY(name);
+    name->setFocus();
+    QTest::keyClicks(name, "Map of Venom");
+    window.OnSearchFormChange();
+    QCOMPARE(nameLabel->text(), QString("Select an item"));
+    QVERIFY(showsNameOnly());
+    QTest::qWait(300);
+    QVERIFY(showsNameOnly());
+}
+
+// The tab the details open on (Tooltip, Text or Hide) is remembered.
+void MainWindowTest::itemDetailsTabIsASetting()
+{
+    MainWindowFixture fixture;
+    auto *tabs = fixture.window->findChild<QTabWidget *>("itemInfoTypeTabs");
+    QVERIFY(tabs);
+    QCOMPARE(tabs->count(), 3);
+    QCOMPARE(tabs->currentIndex(), 0);
+
+    tabs->setCurrentIndex(1);
+    QCOMPARE(fixture.settings->value("tooltip_tab").toInt(), 1);
+    tabs->setCurrentIndex(2);
+    QCOMPARE(fixture.settings->value("tooltip_tab").toInt(), 2);
+
+    fixture.settings->setValue("tooltip_tab", 1);
+    fixture.window->LoadSettings();
+    QCOMPARE(tabs->currentIndex(), 1);
+}
+
+// The Upload to imgur button posts the drawn tooltip and copies the link the
+// reply names; the button says so while the upload runs.
+void MainWindowTest::itemDetailsUploadToImgur()
+{
+    MainWindowFixture fixture(MainWindowFixture::Network::Fake);
+    auto &network = static_cast<FakeNetworkManager &>(*fixture.networkManager);
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    auto *tooltip = fixture.window->findChild<QWidget *>("itemTooltipWidget");
+    auto *upload = fixture.window->findChild<QPushButton *>("uploadTooltipButton");
+    QVERIFY(tree && tooltip && upload);
+    QCOMPARE(upload->text(), QString("Upload to imgur"));
+
+    ItemLocation location;
+    const Items items = publishCharacterTwo(fixture, location);
+    const QModelIndex bucket = findBucket(*tree->model(), location.GetHeader());
+    tree->expand(bucket);
+    const QModelIndex row = findItemRow(*tree->model(), bucket, "Darkness Enthroned Stygian Vise");
+    QVERIFY(row.isValid());
+    tree->selectionModel()->setCurrentIndex(row,
+                                            QItemSelectionModel::ClearAndSelect
+                                                | QItemSelectionModel::Rows);
+    QTRY_VERIFY_WITH_TIMEOUT(!tooltip->isHidden(), 1000);
+
+    const int sent = network.count();
+    upload->click();
+    QCOMPARE(upload->text(), QString("Uploading..."));
+    QVERIFY(!upload->isEnabled());
+    QCOMPARE(network.count(), sent + 1);
+    const auto &post = network.sent(size_t(sent));
+    QCOMPARE(post.op, QNetworkAccessManager::PostOperation);
+    QCOMPARE(post.request.url(), QUrl("https://api.imgur.com/3/upload/"));
+    QCOMPARE(post.request.rawHeader("Authorization"), QByteArray("Client-ID d6d2d8a0437a90f"));
+    QCOMPARE(post.request.transferTimeout(), kImgurUploadTimeout);
+    QVERIFY(post.reply);
+
+    // The shape of the example upload reply in Imgur's v3 API documentation.
+    QApplication::clipboard()->clear();
+    post.reply->finish(
+        {},
+        200,
+        QNetworkReply::NoError,
+        R"json({"data":{"id":"orunSTu","title":null,"description":null,"datetime":1495556889,"type":"image/png","animated":false,"width":1,"height":1,"size":42,"views":0,"bandwidth":0,"vote":null,"favorite":false,"nsfw":null,"section":null,"account_url":null,"account_id":0,"is_ad":false,"in_most_viral":false,"tags":[],"ad_type":0,"ad_url":"","in_gallery":false,"deletehash":"x70po4w7BVvSUzZ","name":"","link":"https://i.imgur.com/orunSTu.png"},"success":true,"status":200})json");
+    QCOMPARE(upload->text(), QString("Upload to imgur"));
+    QVERIFY(upload->isEnabled());
+    QCOMPARE(QApplication::clipboard()->text(), QString("https://i.imgur.com/orunSTu.png"));
 }
 
 void MainWindowTest::itemsRefreshDefersBackgroundSearchesToActivation()
