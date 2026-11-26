@@ -4,6 +4,7 @@
 #pragma once
 
 #include <QDialog>
+#include <QPointer>
 
 #include "sessionidentity.h"
 #include "util/oauthtoken.h"
@@ -40,6 +41,8 @@ private slots:
     void OnAuthenticateButtonClicked();
     void OnLoginTabChanged(int index);
     void OnLoginButtonClicked();
+    void OnRealmChanged(const QString &realm);
+    void OnRealmActivated(int index);
     void OnLeagueChanged(const QString &league);
     void OnAdvancedCheckBoxChanged(Qt::CheckState state);
     void OnProxyCheckBoxChanged(Qt::CheckState state);
@@ -61,6 +64,8 @@ private:
     void LeaguesRequestError(const QString &error, const QByteArray &reply);
     void DisplayError(const QString &error);
     void DisplayAuthenticationError(const QString &error);
+    void ClearError();
+    void UpdateLoginButton();
 
     QSettings &m_settings;
     NetworkManager &m_network_manager;
@@ -68,6 +73,13 @@ private:
     DataStore &m_datastore;
 
     std::optional<OAuthToken> m_current_token;
+
+    // The league list request for the realm now chosen, while it is on its
+    // way; any earlier one is aborted when the realm changes, so its reply
+    // never fills the list.
+    QPointer<QNetworkReply> m_leagues_reply;
+    // Why the last league list could not be had; empty once one is in.
+    QString m_leagues_error;
 
     Ui::LoginDialog *ui;
 };

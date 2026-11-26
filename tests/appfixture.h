@@ -643,7 +643,7 @@ private:
         network->answer(repoe + "stat_translations/necropolis.min.json", {.body = "[]"});
         network->answer("https://api.github.com/repos/smallcatlabs/acquisition-qt/releases",
                         {.body = "[]"});
-        network->answer("https://api.pathofexile.com/leagues?type=main&compact=1",
+        network->answer("https://api.pathofexile.com/leagues?type=main&compact=1&realm=pc",
                         {.body
                          = R"([{"id":"Standard","realm":"pc"},{"id":"Hardcore","realm":"pc"}])"});
         // Every item icon is the same small picture.

@@ -75,9 +75,6 @@ LoginDialog::LoginDialog(QSettings &settings,
     // is shown as written, never rendered as rich text.
     ui->errorLabel->setTextFormat(Qt::PlainText);
 
-    // Disable the login button until we are ready to login.
-    ui->loginButton->setEnabled(false);
-
     // Load saved settings.
     LoadSettings();
 
@@ -114,6 +111,8 @@ LoginDialog::LoginDialog(QSettings &settings,
             this,
             &LoginDialog::OnLoggingLevelChanged);
     connect(ui->themeComboBox, &QComboBox::currentTextChanged, this, &LoginDialog::OnThemeChanged);
+    connect(ui->realmComboBox, &QComboBox::currentTextChanged, this, &LoginDialog::OnRealmChanged);
+    connect(ui->realmComboBox, &QComboBox::activated, this, &LoginDialog::OnRealmActivated);
 
     // Listen for access from the OAuth manager, and for a login that fails.
     connect(&m_oauth_manager, &OAuthManager::grantAccess, this, &LoginDialog::OnOAuthAccessGranted);
@@ -186,27 +185,41 @@ void LoginDialog::LoadSettings()
 
 void LoginDialog::RequestLeagues()
 {
+    // A request still on its way is for a realm no longer chosen (#287): it
+    // is dropped, and says nothing.
+    if (m_leagues_reply) {
+        QNetworkReply *previous = m_leagues_reply;
+        m_leagues_reply = nullptr;
+        disconnect(previous, nullptr, this, nullptr);
+        previous->abort();
+        previous->deleteLater();
+    }
+
+    // The league box waits for the realm's list.
+    ui->leagueComboBox->setEnabled(false);
+
     // Make a non-API request to get the list of leagues. This currently uses
-    // a legacy endpoint that is not rate limited and does not require authentication.
-    QNetworkRequest request = QNetworkRequest(QUrl(QString(POE_LEAGUE_LIST_URL)));
+    // a legacy endpoint that is not rate limited and does not require
+    // authentication. It lists the leagues of one realm: pc, unless asked.
+    QUrl url{QString(POE_LEAGUE_LIST_URL)};
+    QUrlQuery query(url);
+    query.addQueryItem("realm", ui->realmComboBox->currentText());
+    url.setQuery(query);
+    QNetworkRequest request = QNetworkRequest(url);
     request.setTransferTimeout(kPoeApiTimeout);
 
     // Send the request and handle errors.
     spdlog::trace("LoginDialog::RequestLeagues() sending request: {}", request.url().toString());
     QNetworkReply *reply = m_network_manager.get(request);
+    m_leagues_reply = reply;
+    // A failed request is said when it finishes (OnLeaguesReceived).
     connect(reply, &QNetworkReply::finished, this, &LoginDialog::OnLeaguesReceived);
-    connect(reply, &QNetworkReply::errorOccurred, this, [=, this](QNetworkReply::NetworkError code) {
-        Q_UNUSED(code);
-        DisplayError("Error requesting leagues: " + reply->errorString());
-        ui->loginButton->setEnabled(false);
-    });
-    connect(reply, &QNetworkReply::sslErrors, this, [=, this](const QList<QSslError> &errors) {
+    connect(reply, &QNetworkReply::sslErrors, this, [](const QList<QSslError> &errors) {
         for (const auto &error : errors) {
             spdlog::error("SSL Error requesting leagues: {}", error.errorString());
         }
-        DisplayError("SSL error fetching leagues");
-        ui->loginButton->setEnabled(false);
     });
+    UpdateLoginButton();
 }
 
 void LoginDialog::OnLeaguesReceived()
@@ -215,6 +228,9 @@ void LoginDialog::OnLeaguesReceived()
     QNetworkReply *reply = qobject_cast<QNetworkReply *>(QObject::sender());
     const QByteArray bytes = reply->readAll();
     reply->deleteLater();
+    // Only the request of the realm now chosen is connected: RequestLeagues
+    // disconnects and aborts any earlier one.
+    m_leagues_reply = nullptr;
 
     // Check for network errors.
     if (reply->error()) {
@@ -226,6 +242,11 @@ void LoginDialog::OnLeaguesReceived()
     // Parse the leagues.
     const auto leagues = json::readLeagueList(bytes);
     if (!leagues) {
+        LeaguesRequestError("the reply could not be read", bytes);
+        return;
+    }
+    if (leagues->empty()) {
+        LeaguesRequestError("the list held no leagues", bytes);
         return;
     }
 
@@ -235,6 +256,9 @@ void LoginDialog::OnLeaguesReceived()
 
     bool use_saved_league = false;
 
+    // Refilling the box for another realm must not reach OnLeagueChanged:
+    // clearing it would save an empty league.
+    const QSignalBlocker blocker(ui->leagueComboBox);
     ui->leagueComboBox->clear();
     for (auto &league : *leagues) {
         // Add the league to the combo box.
@@ -263,25 +287,36 @@ void LoginDialog::OnLeaguesReceived()
         m_settings.setValue("league", league);
     }
 
-    // Now that leagues have been received, start listening for changes.
-    connect(ui->leagueComboBox, &QComboBox::currentTextChanged, this, &LoginDialog::OnLeagueChanged);
+    // Now that leagues have been received, start listening for changes. A
+    // later list, for another realm, finds the connection made.
+    connect(ui->leagueComboBox,
+            &QComboBox::currentTextChanged,
+            this,
+            &LoginDialog::OnLeagueChanged,
+            Qt::UniqueConnection);
 
-    // Now we can let the user login.
-    //ui->loginButton->setEnabled(true);
+    // The list is in: an error left by an earlier request is over, and is
+    // no longer shown unless another error has taken its place.
+    const bool error_shown = !m_leagues_error.isEmpty()
+                             && (ui->errorLabel->text() == m_leagues_error);
+    m_leagues_error.clear();
+    if (error_shown) {
+        ClearError();
+    }
+    UpdateLoginButton();
 }
 
 void LoginDialog::LeaguesRequestError(const QString &error, const QByteArray &reply)
 {
     spdlog::error("League reply was: {}", reply);
-    DisplayError("Error requesting leagues: " + error);
-    ui->loginButton->setEnabled(false);
+    m_leagues_error = "Error requesting leagues: " + error;
+    DisplayError(m_leagues_error);
 }
 
 void LoginDialog::OnAuthenticateButtonClicked()
 {
     spdlog::trace("LoginDialog::OnAuthenticateButtonClicked() entered");
-    ui->errorLabel->hide();
-    ui->errorLabel->setText("");
+    ClearError();
     // The button stays usable while the browser is out (#401): the browser
     // may never come back, and pressing the button again drops this attempt
     // and starts another.
@@ -295,8 +330,8 @@ void LoginDialog::OnAuthenticateButtonClicked()
 void LoginDialog::OnLoginButtonClicked()
 {
     spdlog::trace("LoginDialog::OnLoginButtonClicked() entered");
-    ui->errorLabel->hide();
-    ui->errorLabel->setText("");
+    ClearError();
+    // Until the login is decided; DisplayError gives the button back.
     ui->loginButton->setEnabled(false);
     ui->loginButton->setText("Logging in...");
 
@@ -356,10 +391,8 @@ void LoginDialog::OnOAuthAccessGranted(const OAuthToken &token)
     ui->authenticateLabel->setText("You are authenticated as \"" + token.username + "\"");
     ui->authenticateButton->setText("Re-authenticate (as someone else).");
     ui->authenticateButton->setEnabled(true);
-    if (ui->loginTabs->currentWidget() == ui->oauthTab) {
-        ui->loginButton->setEnabled(true);
-    }
     m_current_token = token;
+    UpdateLoginButton();
 }
 
 void LoginDialog::OnOAuthLoginFailed(const QString &reason)
@@ -374,8 +407,6 @@ void LoginDialog::OnOAuthStoredLoginFailed(const QString &reason)
     // The Authenticate button is left alone: a browser login the user has
     // started meanwhile is still waiting, and the button says so.
     DisplayError(reason);
-    // DisplayError re-enables Login; it stays as it was without a token.
-    ui->loginButton->setEnabled(m_current_token.has_value());
 }
 
 void LoginDialog::OnLoginTabChanged(int index)
@@ -393,9 +424,26 @@ void LoginDialog::OnLoginTabChanged(int index)
     ui->advancedOptionsFrame->setHidden(hide_options || hide_advanced);
     ui->errorLabel->setHidden(hide_options || hide_error);
     ui->loginButton->setHidden(hide_options);
-    ui->loginButton->setEnabled(m_current_token.has_value());
+    UpdateLoginButton();
     m_settings.setValue("login_tab", tab->objectName());
 };
+
+// Another realm has its own leagues (#287): its list is asked for.
+void LoginDialog::OnRealmChanged(const QString &realm)
+{
+    spdlog::trace("LoginDialog::OnRealmChanged() requesting leagues for realm {}", realm);
+    RequestLeagues();
+}
+
+// The realm chosen again, after its list could not be had, asks again.
+void LoginDialog::OnRealmActivated(int index)
+{
+    Q_UNUSED(index);
+    if (!m_leagues_error.isEmpty() && !m_leagues_reply) {
+        spdlog::trace("LoginDialog::OnRealmActivated() requesting leagues again");
+        RequestLeagues();
+    }
+}
 
 void LoginDialog::OnLeagueChanged(const QString &league)
 {
@@ -495,12 +543,26 @@ void LoginDialog::DisplayError(const QString &error)
     ui->errorLabel->setText(error);
     ui->errorLabel->show();
 
-    // OnLoginButtonClicked() disables the button while a login is in flight.
-    // Restoring the label without re-enabling it left the dialog looking ready
-    // but inert after any failed attempt. Callers that want it to stay
-    // disabled (the league request errors) disable it again after this call.
+    // OnLoginButtonClicked() disables the button while a login is in flight;
+    // an error ends the attempt.
     ui->loginButton->setText("Login");
-    ui->loginButton->setEnabled(true);
+    UpdateLoginButton();
+}
+
+// The error label shows nothing, or the league list's error while it stands:
+// Login stays unavailable for that reason, and the label says so.
+void LoginDialog::ClearError()
+{
+    ui->errorLabel->setText(m_leagues_error);
+    ui->errorLabel->setHidden(m_leagues_error.isEmpty());
+}
+
+// Login is offered exactly when there is a token and the realm's league list
+// is in: not while it is on its way, not after it could not be had.
+void LoginDialog::UpdateLoginButton()
+{
+    ui->loginButton->setEnabled(m_current_token.has_value() && m_leagues_error.isEmpty()
+                                && !m_leagues_reply);
 }
 
 // An authentication attempt is over without access: says why, and offers the
@@ -510,8 +572,6 @@ void LoginDialog::DisplayAuthenticationError(const QString &error)
     DisplayError(error);
     ui->authenticateButton->setText(m_current_token ? "Re-authenticate (as someone else)."
                                                     : "Authenticate");
-    // DisplayError re-enables Login; it stays as it was without a token.
-    ui->loginButton->setEnabled(m_current_token.has_value());
 }
 
 bool LoginDialog::event(QEvent *e)

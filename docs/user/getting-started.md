@@ -17,10 +17,15 @@ The login window has an **OAuth** tab with an **Authenticate** button.
    it worked. The button changes to *Re-authenticate (as someone else)* and the
    label shows *You are authenticated as "<account>"*.
 2. Choose a **Realm** (PC, Xbox, or PlayStation) and a **League**. The league
-   list is fetched live, so an error here usually means the Path of Exile API is
-   unreachable. You can manually edit this field to specify a **Private League**.
-3. Click **Login**. The button is disabled until you are authenticated and a
-   league is selected.
+   list is fetched live for the chosen realm, so an error here usually means the
+   Path of Exile API is unreachable. Changing the realm reloads the league list;
+   the league box is unavailable until it arrives, and your saved league stays
+   selected if the new list has it. A saved league that is not in the new list
+   stays in the box as you typed it, so a **Private League** is kept: you can
+   edit this field by hand to name one. If the list cannot be loaded, choose
+   the realm again to retry.
+3. Click **Login**. The button is disabled until you are authenticated, the
+   league list has loaded, and a league is selected.
 
 While Acquisition waits for the browser, the button reads *Authenticating...*
 and stays usable. If the browser page was closed or never answered, click the
