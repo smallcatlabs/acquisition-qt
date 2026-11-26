@@ -21,6 +21,7 @@
 #include "modlist.h"
 #include "poe/types/displaymode.h"
 #include "poe/types/item.h"
+#include "util/spdlog_qt.h"
 #include "util/util.h"
 
 static QString item_unique_properties(const std::optional<std::vector<poe::ItemProperty>> &props)

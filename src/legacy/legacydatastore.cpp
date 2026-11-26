@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2025 Tom Holz
 
 #include "legacy/legacydatastore.h"
+#include "util/spdlog_qt.h"
 
 #include <QDir>
 #include <QFile>

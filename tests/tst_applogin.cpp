@@ -52,6 +52,7 @@
 #include "testsuite.h"
 #include "util/glaze_qt.h" // IWYU pragma: keep
 #include "util/oauthtoken.h"
+#include "util/spdlog_qt.h"
 
 // Stands in for the user's browser: QDesktopServices hands it every http and
 // https address the application asks to open, and it opens nothing.

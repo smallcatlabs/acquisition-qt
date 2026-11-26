@@ -29,6 +29,7 @@
 #include "ratelimit/ratelimitmanager.h"
 #include "ratelimit/ratelimitpolicy.h"
 #include "testsuite.h"
+#include "util/spdlog_qt.h"
 
 // Phase-3 harness for the network redesign (docs/design/network-redesign.md,
 // "Testing plan" item 2): the coroutine pump against the same fake sender as
