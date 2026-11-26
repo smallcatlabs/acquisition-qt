@@ -66,6 +66,7 @@ private slots:
     void crashReportingFollowsSetting();
     void logLevelParsing_data();
     void logLevelParsing();
+    void logFileOpensUnderNonAnsiDirectory();
     void forgettingUserKeepsOtherSettings();
     void tokenWithoutAccountNameDoesNotLogIn();
     void backupSkippedWhenVersionCurrent();
@@ -195,6 +196,35 @@ void ShellTest::logLevelParsing()
     QFETCH(QString, name);
     QFETCH(int, expected);
     QCOMPARE(int(logging::parseLevel(name, spdlog::level::warn)), expected);
+}
+
+void ShellTest::logFileOpensUnderNonAnsiDirectory()
+{
+    // A Windows profile whose name is outside the ANSI code page puts the
+    // data directory there too, and the log must still open in it (#288).
+    QTemporaryDir root;
+    QVERIFY(root.isValid());
+    const QString dir_path = QDir(root.path()).filePath(QStringLiteral("日本-журнал"));
+    QVERIFY(QDir().mkpath(dir_path));
+    const QString log_path = QDir(dir_path).filePath(QStringLiteral("log.txt"));
+
+    // logging::init replaces the default logger and the registry's 'main'
+    // entry; put back the suite's own before the directory goes, so that the
+    // file sink is closed first.
+    const auto previous = spdlog::default_logger();
+    const auto restore = qScopeGuard([&] {
+        spdlog::drop("main");
+        spdlog::set_default_logger(previous);
+        spdlog::register_logger(m_main_logger);
+    });
+    logging::init(log_path);
+    spdlog::info("written under a non-ANSI directory");
+    spdlog::default_logger()->flush();
+
+    QVERIFY2(QFileInfo::exists(log_path), qPrintable(log_path));
+    QFile file(log_path);
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    QVERIFY(file.readAll().contains("written under a non-ANSI directory"));
 }
 
 // The services a LoginDialog needs, all offline and in a temporary directory.
