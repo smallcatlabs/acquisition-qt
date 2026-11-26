@@ -97,6 +97,12 @@ release started empty. To keep your data from such a version, close
 Acquisition and copy that directory's contents into
 `~/.local/share/acquisition`.
 
+On macOS the directory was `~/Library/Application Support/Acquisition` before
+0.18.12. On a standard (case-insensitive) volume that is the same folder and
+nothing changes. On a case-sensitive volume it is a different one: close
+Acquisition and copy its contents into
+`~/Library/Application Support/acquisition`.
+
 Inside it you will find `settings.ini`, `log.txt`, a `data/` folder with one
 SQLite database per account (`userstore-<account>.db`) plus the legacy
 per-league databases, and a `cache/` folder for item images.
