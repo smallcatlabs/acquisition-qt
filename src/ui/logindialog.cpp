@@ -245,6 +245,10 @@ void LoginDialog::OnLeaguesReceived()
         LeaguesRequestError("the reply could not be read", bytes);
         return;
     }
+    if (leagues->empty()) {
+        LeaguesRequestError("the list held no leagues", bytes);
+        return;
+    }
 
     // Get the league from settings.ini
     const QString saved_league = m_settings.value("league").toString();

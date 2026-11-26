@@ -108,6 +108,7 @@ private slots:
     void realmChangeAbandonsTheEarlierLeagueRequest();
     void leagueListFailureIsClearedByTheNextRealm();
     void unreadableLeagueListIsAnError();
+    void emptyLeagueListIsAnError();
     void loginWaitsForTheLeagueList();
 
 private:
@@ -2602,6 +2603,51 @@ void AppLoginTest::unreadableLeagueListIsAnError()
     QCOMPARE(*xbox_requests, 2);
     QVERIFY(error.isHidden());
     QVERIFY(login.isEnabled());
+
+    QCOMPARE(surprises(fixture), QString());
+}
+
+// A league list with no league in it is an error, as an unreadable one is,
+// even with no league saved to fall back on; choosing the realm again asks
+// again.
+void AppLoginTest::emptyLeagueListIsAnError()
+{
+    auto pc_requests = std::make_shared<int>(0);
+    AppFixture fixture([pc_requests](AppFixture &f) {
+        QSettings settings(f.dir.filePath("settings.ini"), QSettings::IniFormat);
+        settings.remove("league");
+        storeToken(f, kStoredAccess, kStoredRefresh);
+        f.network->answer(kTokenUrl, tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh)));
+        f.network->answer([pc_requests](QNetworkAccessManager::Operation,
+                                        const QUrl &url) -> std::optional<ScriptedNetwork::Answer> {
+            const auto realm = leagueRealm(url);
+            if (!realm) {
+                return std::nullopt;
+            }
+            if (++*pc_requests == 1) {
+                return ScriptedNetwork::Answer{.body = "[]"};
+            }
+            return ScriptedNetwork::Answer{.body = leagueList(*realm)};
+        });
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &realm = child<QComboBox>(dialog, "realmComboBox");
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
+    QCOMPARE(error.text(), QString("Error requesting leagues: the list held no leagues"));
+    QTest::qWait(100);
+    QVERIFY(!login.isEnabled());
+    QVERIFY(!league.isEnabled());
+
+    // The user chooses the same realm again.
+    emit realm.activated(realm.currentIndex());
+    QVERIFY(QTest::qWaitFor([&] { return league.isEnabled(); }, 10000));
+    QCOMPARE(*pc_requests, 2);
+    QVERIFY(error.isHidden());
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled(); }, 10000));
 
     QCOMPARE(surprises(fixture), QString());
 }

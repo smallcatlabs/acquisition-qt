@@ -321,6 +321,7 @@ acq_add_scenario_test(tst_applogin
     realmChangeAbandonsTheEarlierLeagueRequest
     leagueListFailureIsClearedByTheNextRealm
     unreadableLeagueListIsAnError
+    emptyLeagueListIsAnError
     loginWaitsForTheLeagueList)
 
 # Which tabs are open once a filter has come and gone (#387), on the real
