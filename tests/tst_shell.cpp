@@ -288,16 +288,25 @@ void ShellTest::tokenWithoutAccountNameDoesNotLogIn()
     QVERIFY(league);
     QVERIFY(login);
     QVERIFY(error);
-    league->setEditable(true);
-    league->setCurrentText("Standard");
-    QVERIFY(login->isEnabled());
+
+    // Login waits for the realm's league list (#287).
+    QVERIFY(!login->isEnabled());
+    QCOMPARE(services.network.count(), 1);
+    auto leagues = services.network.sent(0).reply;
+    QVERIFY(leagues);
+    QCOMPARE(leagues->url().path(), QString("/leagues"));
+    leagues->finish({}, 200, QNetworkReply::NoError, R"([{"id":"Standard","realm":"pc"}])");
+    QVERIFY(QTest::qWaitFor([&] { return login->isEnabled(); }, 1000));
+    QCOMPARE(league->currentText(), QString("Standard"));
+    // The list chose the league; the refused login must not change it.
+    const QVariant listed_league = services.settings.value("league");
     login->click();
 
     QCOMPARE(completions, 0);
     QVERIFY(!error->text().isEmpty());
     // A refused login saves no part of the identity it refused.
     QVERIFY(!services.settings.contains("realm"));
-    QVERIFY(!services.settings.contains("league"));
+    QCOMPARE(services.settings.value("league"), listed_league);
     QVERIFY(!services.settings.contains("account"));
 }
 

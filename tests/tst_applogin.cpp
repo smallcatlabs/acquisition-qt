@@ -105,7 +105,10 @@ private slots:
     void codeWithEscapesIsExchangedAsSent();
     void refreshWithoutARefreshTokenKeepsTheOneHeld();
     void refreshThatFailsIsTriedAgain();
-    void leagueListFollowsTheRealm();
+    void realmChangeAbandonsTheEarlierLeagueRequest();
+    void leagueListFailureIsClearedByTheNextRealm();
+    void unreadableLeagueListIsAnError();
+    void loginWaitsForTheLeagueList();
 
 private:
     std::shared_ptr<spdlog::logger> m_previous_logger;
@@ -2410,14 +2413,15 @@ void AppLoginTest::refreshThatFailsIsTriedAgain()
 }
 
 // The league list is the selected realm's (#287): the first request carries
-// the saved realm, and choosing another realm asks again and shows that
-// realm's list. A reply for a realm no longer chosen does not replace it.
+// the saved realm, and choosing another realm asks again. A realm change
+// abandons the request still on its way, so only the list of the realm now
+// chosen is shown, even when the abandoned one is answered after it.
 //
 // No captured reply of the league list exists in the repository. These are
 // in the shape json::readLeagueList reads (`compact=1`: an id and a realm per
 // league); the console lists are invented, and differ only so that one can be
 // told from the other.
-void AppLoginTest::leagueListFollowsTheRealm()
+void AppLoginTest::realmChangeAbandonsTheEarlierLeagueRequest()
 {
     static const QByteArray pc = R"([{"id":"Standard","realm":"pc"},{"id":"Hardcore","realm":"pc"}])";
     static const QByteArray xbox
@@ -2483,13 +2487,155 @@ void AppLoginTest::leagueListFollowsTheRealm()
     QCOMPARE(items(), sony_leagues);
     QCOMPARE(league.currentText(), QString(AppFixture::kLeague));
 
-    // The answer for the realm left behind arrives late, and changes nothing.
+    // The abandoned request's answer is let go, and changes nothing.
     QCOMPARE(fixture.network->release(), qsizetype(1));
     QTest::qWait(100);
     QCOMPARE(items(), sony_leagues);
     QCOMPARE(league.currentText(), QString(AppFixture::kLeague));
     QVERIFY(league.isEnabled());
     QCOMPARE(error.text(), QString());
+
+    QCOMPARE(surprises(fixture), QString());
+}
+
+namespace {
+
+    // A league list of one realm, in the shape json::readLeagueList reads
+    // (see realmChangeAbandonsTheEarlierLeagueRequest).
+    QByteArray leagueList(const QString &realm)
+    {
+        return QString(R"([{"id":"Standard","realm":"%1"},{"id":"Hardcore","realm":"%1"}])")
+            .arg(realm)
+            .toUtf8();
+    }
+
+    // The realm of a league list request, or nothing for another request.
+    std::optional<QString> leagueRealm(const QUrl &url)
+    {
+        if ((url.host() != "api.pathofexile.com") || (url.path() != "/leagues")) {
+            return std::nullopt;
+        }
+        return QUrlQuery(url).queryItemValue("realm");
+    }
+
+} // namespace
+
+// A league list that could not be had blocks Login, and the next realm's list
+// (#287), once it arrives, takes the error away and gives Login back.
+void AppLoginTest::leagueListFailureIsClearedByTheNextRealm()
+{
+    AppFixture fixture([](AppFixture &f) {
+        storeToken(f, kStoredAccess, kStoredRefresh);
+        f.network->answer(kTokenUrl, tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh)));
+        f.network->answer([](QNetworkAccessManager::Operation,
+                             const QUrl &url) -> std::optional<ScriptedNetwork::Answer> {
+            const auto realm = leagueRealm(url);
+            if (realm == "xbox") {
+                return ScriptedNetwork::Answer{.status = 503,
+                                               .error = QNetworkReply::ServiceUnavailableError};
+            }
+            if (realm) {
+                return ScriptedNetwork::Answer{.body = leagueList(*realm)};
+            }
+            return std::nullopt;
+        });
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &realm = child<QComboBox>(dialog, "realmComboBox");
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled() && league.isEnabled(); }, 10000));
+
+    realm.setCurrentText("xbox");
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
+    QVERIFY2(error.text().startsWith("Error requesting leagues"), qPrintable(error.text()));
+    QVERIFY(!login.isEnabled());
+
+    realm.setCurrentText("sony");
+    QVERIFY(QTest::qWaitFor([&] { return league.isEnabled(); }, 10000));
+    QCOMPARE(league.currentText(), QString(AppFixture::kLeague));
+    QVERIFY(error.isHidden());
+    QCOMPARE(error.text(), QString());
+    QVERIFY(login.isEnabled());
+
+    QCOMPARE(surprises(fixture), QString());
+}
+
+// A league list that cannot be read is said, and blocks Login, as a failed
+// request does; choosing the realm again asks again.
+void AppLoginTest::unreadableLeagueListIsAnError()
+{
+    auto xbox_requests = std::make_shared<int>(0);
+    AppFixture fixture([xbox_requests](AppFixture &f) {
+        storeToken(f, kStoredAccess, kStoredRefresh);
+        f.network->answer(kTokenUrl, tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh)));
+        f.network->answer(
+            [xbox_requests](QNetworkAccessManager::Operation,
+                            const QUrl &url) -> std::optional<ScriptedNetwork::Answer> {
+                const auto realm = leagueRealm(url);
+                if ((realm == "xbox") && (++*xbox_requests == 1)) {
+                    return ScriptedNetwork::Answer{.body = "<html>Maintenance</html>"};
+                }
+                if (realm) {
+                    return ScriptedNetwork::Answer{.body = leagueList(*realm)};
+                }
+                return std::nullopt;
+            });
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &realm = child<QComboBox>(dialog, "realmComboBox");
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled() && league.isEnabled(); }, 10000));
+
+    realm.setCurrentText("xbox");
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
+    QVERIFY2(error.text().startsWith("Error requesting leagues"), qPrintable(error.text()));
+    QVERIFY(!login.isEnabled());
+    QVERIFY(!league.isEnabled());
+
+    // The user chooses the same realm again.
+    emit realm.activated(realm.currentIndex());
+    QVERIFY(QTest::qWaitFor([&] { return league.isEnabled(); }, 10000));
+    QCOMPARE(*xbox_requests, 2);
+    QVERIFY(error.isHidden());
+    QVERIFY(login.isEnabled());
+
+    QCOMPARE(surprises(fixture), QString());
+}
+
+// Login waits while the league list of a newly chosen realm is on its way, and
+// is offered again once it is in.
+void AppLoginTest::loginWaitsForTheLeagueList()
+{
+    AppFixture fixture([](AppFixture &f) {
+        storeToken(f, kStoredAccess, kStoredRefresh);
+        f.network->answer(kTokenUrl, tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh)));
+        f.network->answer([](QNetworkAccessManager::Operation,
+                             const QUrl &url) -> std::optional<ScriptedNetwork::Answer> {
+            const auto realm = leagueRealm(url);
+            if (!realm) {
+                return std::nullopt;
+            }
+            return ScriptedNetwork::Answer{.body = leagueList(*realm), .hold = (realm == "xbox")};
+        });
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &realm = child<QComboBox>(dialog, "realmComboBox");
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled() && league.isEnabled(); }, 10000));
+
+    realm.setCurrentText("xbox");
+    QVERIFY(!login.isEnabled());
+    QTest::qWait(100);
+    QVERIFY(!login.isEnabled());
+
+    QCOMPARE(fixture.network->release(), qsizetype(1));
+    QVERIFY(QTest::qWaitFor([&] { return league.isEnabled(); }, 10000));
+    QVERIFY(login.isEnabled());
 
     QCOMPARE(surprises(fixture), QString());
 }
