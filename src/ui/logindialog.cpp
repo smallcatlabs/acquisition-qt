@@ -67,9 +67,8 @@ LoginDialog::LoginDialog(QSettings &settings,
         ui->loggingLevelComboBox->addItem(to_qstring(static_cast<spdlog::level::level_enum>(level)));
     }
 
-    // Hide the error message by default
-    ui->errorLabel->setText("");
-    ui->errorLabel->hide();
+    // No error stands yet, so the label is hidden.
+    ShowErrors();
     ui->errorLabel->setStyleSheet("QLabel {color: red;}");
     // An error can quote the server (a refused login's description), so it
     // is shown as written, never rendered as rich text.
@@ -250,41 +249,26 @@ void LoginDialog::OnLeaguesReceived()
         return;
     }
 
-    // Get the league from settings.ini
-    const QString saved_league = m_settings.value("league").toString();
-    spdlog::trace("LoginDialog::OnLeaguesReceived() loaded leage from settings: {}", saved_league);
-
-    bool use_saved_league = false;
-
     // Refilling the box for another realm must not reach OnLeagueChanged:
     // clearing it would save an empty league.
     const QSignalBlocker blocker(ui->leagueComboBox);
     ui->leagueComboBox->clear();
-    for (auto &league : *leagues) {
-        // Add the league to the combo box.
+    for (const auto &league : *leagues) {
         ui->leagueComboBox->addItem(league.id);
-
-        // Set the current league if it matches the saved league.
-        if (0 == saved_league.compare(league.id, Qt::CaseInsensitive)) {
-            use_saved_league = true;
-        }
     }
     ui->leagueComboBox->setEnabled(true);
     // editable so private-league ids (absent from the public list) can be typed
     ui->leagueComboBox->setEditable(true);
 
-    // If we found a match for the save league use it. If we didn't, then
-    // we need to clear the setting, since the list of leagues may have
-    // changed since the last time acquisition was run.
-    if (use_saved_league || !saved_league.isEmpty()) {
+    // The saved league is shown even when this list lacks it: it may be a
+    // private league. With none saved, the box shows the list's first league,
+    // and nothing is saved: the setting is written only from the box, when
+    // the user picks a league (OnLeagueChanged) or logs in (#480).
+    const QString saved_league = m_settings.value("league").toString();
+    if (!saved_league.isEmpty()) {
         spdlog::trace("LoginDialog::OnLeaguesReceived() setting league to saved value: {}",
                       saved_league);
         ui->leagueComboBox->setCurrentText(saved_league);
-    } else {
-        const auto league = leagues->front().name.value_or("Standard");
-        spdlog::trace("LoginDialog::OnLeaguesReceived() setting league to default value: {}",
-                      league);
-        m_settings.setValue("league", league);
     }
 
     // Now that leagues have been received, start listening for changes. A
@@ -295,14 +279,9 @@ void LoginDialog::OnLeaguesReceived()
             &LoginDialog::OnLeagueChanged,
             Qt::UniqueConnection);
 
-    // The list is in: an error left by an earlier request is over, and is
-    // no longer shown unless another error has taken its place.
-    const bool error_shown = !m_leagues_error.isEmpty()
-                             && (ui->errorLabel->text() == m_leagues_error);
+    // The list is in: an error left by an earlier request is over.
     m_leagues_error.clear();
-    if (error_shown) {
-        ClearError();
-    }
+    ShowErrors();
     UpdateLoginButton();
 }
 
@@ -310,7 +289,9 @@ void LoginDialog::LeaguesRequestError(const QString &error, const QByteArray &re
 {
     spdlog::error("League reply was: {}", reply);
     m_leagues_error = "Error requesting leagues: " + error;
-    DisplayError(m_leagues_error);
+    spdlog::error("LoginDialog: {}", m_leagues_error);
+    ShowErrors();
+    UpdateLoginButton();
 }
 
 void LoginDialog::OnAuthenticateButtonClicked()
@@ -540,8 +521,8 @@ void LoginDialog::OnThemeChanged(const QString &theme)
 void LoginDialog::DisplayError(const QString &error)
 {
     spdlog::error("LoginDialog: {}", error);
-    ui->errorLabel->setText(error);
-    ui->errorLabel->show();
+    m_login_error = error;
+    ShowErrors();
 
     // OnLoginButtonClicked() disables the button while a login is in flight;
     // an error ends the attempt.
@@ -549,12 +530,28 @@ void LoginDialog::DisplayError(const QString &error)
     UpdateLoginButton();
 }
 
-// The error label shows nothing, or the league list's error while it stands:
-// Login stays unavailable for that reason, and the label says so.
+// The user tries again: the last attempt's error is over. The league list's
+// error is not: Login stays unavailable for that reason, and the label still
+// says so.
 void LoginDialog::ClearError()
 {
-    ui->errorLabel->setText(m_leagues_error);
-    ui->errorLabel->setHidden(m_leagues_error.isEmpty());
+    m_login_error.clear();
+    ShowErrors();
+}
+
+// The error label's text is set only here, from the errors that stand
+// (#480): the last attempt's, then the league list's, so neither hides the
+// other.
+void LoginDialog::ShowErrors()
+{
+    QStringList errors;
+    for (const QString &error : {m_login_error, m_leagues_error}) {
+        if (!error.isEmpty()) {
+            errors << error;
+        }
+    }
+    ui->errorLabel->setText(errors.join('\n'));
+    ui->errorLabel->setHidden(errors.isEmpty());
 }
 
 // Login is offered exactly when there is a token and the realm's league list

@@ -65,6 +65,7 @@ private:
     void DisplayError(const QString &error);
     void DisplayAuthenticationError(const QString &error);
     void ClearError();
+    void ShowErrors();
     void UpdateLoginButton();
 
     QSettings &m_settings;
@@ -80,6 +81,9 @@ private:
     QPointer<QNetworkReply> m_leagues_reply;
     // Why the last league list could not be had; empty once one is in.
     QString m_leagues_error;
+    // Why the last sign-in or login attempt failed; empty until one does,
+    // and again once the user tries again.
+    QString m_login_error;
 
     Ui::LoginDialog *ui;
 };
