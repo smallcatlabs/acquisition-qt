@@ -157,11 +157,26 @@ your own, because the forum shop is not known to read their words.
 A note word followed by a hyphen and more text, such as `chaos-each`, is read
 as the word before the hyphen.
 
-The *Price* column sorts by currency first: Mirror of Kalandra highest, then
-Divine Orb, Exalted Orb, and so on down to Chromatic Orb. The currencies only
-read from notes have no rank of their own yet; they sort below those, in the
-order of the second table. Silver Coin, which is no longer in the game, sorts
-below every other currency.
+The *Price* column sorts by currency first, most valuable first:
+
+1. Mirror of Kalandra, Divine Orb, Exceptional Eldritch Ichor, Exceptional
+   Eldritch Ember, Grand Eldritch Ember, Orb of Annulment, Grand Eldritch
+   Ichor, Gemcutter's Prism, Chromatic Orb, Greater Eldritch Ember, Exalted
+   Orb, Chaos Orb, Orb of Regret, Glassblower's Bauble, Orb of Scouring, Orb
+   of Chance, Vaal Orb, Greater Eldritch Ichor, Lesser Eldritch Ember, Orb of
+   Augmentation, Regal Orb, Lesser Eldritch Ichor, Orb of Alteration,
+   Armourer's Scrap, Orb of Fusing, Blacksmith's Whetstone, Orb of Alchemy,
+   Blessed Orb, Portal Scroll, Orb of Transmutation, Scroll of Wisdom,
+   Jeweller's Orb.
+2. The four Goddess offerings, which have no market value of their own:
+   Tribute, Gift, Dedication, then Offering.
+3. The ones that are no longer in the game or can no longer be used for a
+   price: Infused Engineer's Orb, Engineer's Orb, Facetor's Lens, Silver
+   Coin, Perandus Coin and Cartographer's Chisel.
+
+The order is fixed in the application. It follows the values in the challenge
+league on November 27, 2026, and is only approximate: values move over time
+and differ between leagues.
 
 A price in a currency this version does not know (stored by a newer
 version, say) is shown but not posted to the forum shop.
