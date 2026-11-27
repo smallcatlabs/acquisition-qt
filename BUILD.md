@@ -385,14 +385,25 @@ push, not on the Windows machine. There is no live directory on it, so
 ## Formatting
 
 The C++ files under `src/` and `tests/` follow `.clang-format`, and the test
-workflow fails a pull request whose files differ from the output of
-clang-format **23.1.5**. Other versions format some constructs differently, so
-use that one; `pipx install clang-format==23.1.5` provides it. To format the
-tree:
+workflow fails a pull request whose files differ from the output of the
+clang-format version pinned in `pyproject.toml`. Other versions format some
+constructs differently, so use that one. [uv](https://docs.astral.sh/uv/)
+installs it into `.venv/` in the clone, not system-wide:
 
 ```sh
-git ls-files -z 'src/*.cpp' 'src/*.h' 'tests/*.cpp' 'tests/*.h' | xargs -0 clang-format -i
+uv sync                  # once, and again after pyproject.toml or uv.lock changes
+uv run clang-format --version
 ```
+
+To format the tree:
+
+```sh
+git ls-files -z 'src/*.cpp' 'src/*.h' 'tests/*.cpp' 'tests/*.h' | xargs -0 uv run clang-format -i
+```
+
+To change the version, edit the pin in `pyproject.toml`, run `uv lock`, and
+reformat the tree in the same pull request. The runner pool's image carries
+its own clang-format, which then needs the same version ("Where CI runs").
 
 `// clang-format off/on` blocks are left alone. Commits that only reformat are
 listed in `.git-blame-ignore-revs`; run
@@ -518,7 +529,7 @@ the apt packages, the locale and clang-format already installed.
   dependency downloads as usual.
 - On the pool, the steps that install Qt and packages are skipped, and
   `Check runner image` fails at once if the image's Qt or clang-format does not
-  match the versions pinned in `tests.yml`. Refresh the image, or stop the
+  match the versions pinned in `tests.yml` and `pyproject.toml`. Refresh the image, or stop the
   pool.
 - Both jobs build through ccache. On the pool the runner image carries warm
   caches, built from `master` when the image was last refreshed (weekly):

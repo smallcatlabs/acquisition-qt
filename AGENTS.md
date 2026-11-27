@@ -98,9 +98,10 @@ for the change in hand:
   maintainer merges and decides which release a change rides in; do not bump
   the version unless asked.
 - When UI behaviour changes, update `docs/user/`.
-- The C++ tree is checked against `.clang-format` in CI with a pinned
-  clang-format version (`BUILD.md`, "Formatting"); format with that
-  version, respect existing `// clang-format off/on` blocks, and keep
+- The C++ tree is checked against `.clang-format` in CI with the
+  clang-format version pinned in `pyproject.toml` (`BUILD.md`,
+  "Formatting"); format with that version (`uv sync`, then
+  `uv run clang-format`), respect existing `// clang-format off/on` blocks, and keep
   nearby naming and organization.
 - Prefer existing Qt and local helper patterns over new abstractions.
 - Keep generated logs, `settings.ini`, OAuth tokens, and other user-local

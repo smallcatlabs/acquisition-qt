@@ -1,0 +1,19 @@
+# Acquisition is a C++ application; this file only pins the developer tools
+# that come from PyPI, so that `uv sync` installs them into .venv/ in this
+# clone and `uv run <tool>` runs them (BUILD.md, "Formatting"). It is the one
+# place their versions are pinned: CI installs from uv.lock, and the test
+# workflow's "Check runner image" step reads the clang-format version here.
+[project]
+name = "acquisition-dev-tools"
+version = "0"
+requires-python = ">=3.10"
+
+[dependency-groups]
+dev = [
+    # Formatting depends on the version; change it only together with a
+    # reformat of the tree.
+    "clang-format==23.1.5",
+]
+
+[tool.uv]
+package = false

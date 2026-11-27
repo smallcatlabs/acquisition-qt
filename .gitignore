@@ -10,6 +10,9 @@
 /build*/
 /out/
 
+# The developer tools uv installs from pyproject.toml (BUILD.md, "Formatting").
+/.venv/
+
 # Acquisitions installers are currently built here.
 /deploy/
 /Output/
