@@ -155,9 +155,14 @@ private:
         Busy,
         PageShortfall,
         SessionRejected,
-        SubmissionFailed
+        SubmissionFailed,
+        TemplateWithoutItems
     };
     void Warn(Notice notice, bool automatic, const QString &message, int detail = 0);
+
+    // A template without "[items]" posts no items (#485). The user is told,
+    // by Warn's rule, and the template is posted as they wrote it.
+    void WarnIfTemplateHasNoItems(bool automatic);
 
     // The admission gate both submission paths ask first: the buyouts
     // loaded (fail-closed, #250), the shop's own settings read (#295),

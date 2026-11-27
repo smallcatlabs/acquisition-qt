@@ -376,6 +376,13 @@ void Shop::SetShopTemplate(const QString &shop_template)
     m_shop_template = shop_template;
     m_stored.Set("shop_template", shop_template);
     DropWaitingCapture();
+    if (!shop_template.contains(kShopTemplateItems)) {
+        emit UserWarning("Your shop template does not contain [items], so no items will be "
+                         "posted to your forum shop."
+                         "\n\n"
+                         "Add [items] where the list of items should go, using the "
+                         "Shop --> 'Edit Shop Template' menu item.");
+    }
 }
 
 void Shop::OnRefreshFinished(const RefreshOutcome &outcome)
@@ -413,6 +420,21 @@ void Shop::Warn(Notice notice, bool automatic, const QString &message, int detai
     if (!automatic || m_warned.insert({notice, detail}).second) {
         emit UserWarning(message);
     }
+}
+
+void Shop::WarnIfTemplateHasNoItems(bool automatic)
+{
+    if (m_shop_template.contains(kShopTemplateItems)) {
+        return;
+    }
+    spdlog::warn("Shop: the template has no [items], so the post will list no items");
+    Warn(Notice::TemplateWithoutItems,
+         automatic,
+         "Your shop template does not contain [items], so your forum shop is being "
+         "updated without any items."
+         "\n\n"
+         "Add [items] where the list of items should go, using the "
+         "Shop --> 'Edit Shop Template' menu item, and update the shop again.");
 }
 
 bool Shop::ReadyToPost(bool automatic)
@@ -465,6 +487,7 @@ void Shop::SubmitAutomaticShop()
     if (!ReadyToPost(true)) {
         return;
     }
+    WarnIfTemplateHasNoItems(true);
 
     // Automatic admission captures BEFORE applying the busy policy (M2
     // D8/R3-1): while a job is active, the newest clean capture becomes —
@@ -496,6 +519,8 @@ void Shop::SubmitShopToForum(bool force)
              "finished.");
         return;
     }
+
+    WarnIfTemplateHasNoItems(false);
 
     // The complete submission input is captured by value here, at request
     // time (M2 D8/R2-1): an update legally started after this point can

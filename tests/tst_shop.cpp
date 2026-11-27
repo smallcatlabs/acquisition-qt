@@ -140,6 +140,10 @@ private slots:
     // was refused; an automatic one hears each reason once per session.
     void automaticRefusalWarnsOncePerReason();
     void manualRequestWhileUpdatingTellsTheUser();
+    // #485: a template without [items] posts no items. The user is told
+    // when the template is set and when it is posted.
+    void templateWithoutItemsWarnsWhenSet();
+    void templateWithoutItemsWarnsWhenPosted();
     void rejectedSessionReportsAutoUpdateOff();
     // tst_mainwindow has no shop test to sit beside, so the menu check
     // lives here with the main-window fixture.
@@ -1317,6 +1321,53 @@ void ShopTest::manualRequestWhileUpdatingTellsTheUser()
     QCOMPARE(fixture.rateLimiter->futureCount(), size_t(1));
     QCOMPARE(warnings.count(), 1);
     QVERIFY(warnings.first().first().toString().contains("already"));
+}
+
+void ShopTest::templateWithoutItemsWarnsWhenSet()
+{
+    ShopFixture fixture;
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+
+    fixture.shop->SetShopTemplate("WTS, message me in game");
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY(warnings.last().first().toString().contains("[items]"));
+    // The template is the user's and is kept as typed.
+    QCOMPARE(fixture.shop->shop_template(), QString("WTS, message me in game"));
+
+    fixture.shop->SetShopTemplate("WTS [items] message me in game");
+    QCOMPARE(warnings.count(), 1);
+}
+
+void ShopTest::templateWithoutItemsWarnsWhenPosted()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    publishPricedItem(fixture, "item-a", 1);
+    fixture.shop->SetShopTemplate("WTS, message me in game");
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+
+    // The user asks: told, and the post goes out as the template says.
+    QString posted;
+    fixture.shop->SubmitShopToForum(true);
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY(warnings.last().first().toString().contains("[items]"));
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+    completeForumSubmission(fixture, 0, &posted);
+    QCOMPARE(posted, QString("WTS, message me in game"));
+
+    // Two automatic updates: told once.
+    fixture.shop->SetAutoUpdate(true);
+    for (int i = 0; i < 2; ++i) {
+        fixture.shop->OnRefreshFinished(RefreshOutcome{CompletedRefresh{}});
+        fixture.rateLimiter->resolve(1 + i, kStashIndexJson);
+        drainEvents();
+    }
+    QCOMPARE(warnings.count(), 2);
+
+    // The user asks again: told again.
+    fixture.shop->SubmitShopToForum(true);
+    QCOMPARE(warnings.count(), 3);
 }
 
 void ShopTest::rejectedSessionReportsAutoUpdateOff()

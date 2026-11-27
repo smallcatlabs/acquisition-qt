@@ -78,3 +78,8 @@ These situations stop or limit a post, and Acquisition tells you about each:
 default is simply `[items]`. Anything else you type — a greeting, contact
 details, rules — is kept, and `[items]` is replaced with the generated list.
 The template is applied to every thread.
+
+A template without `[items]` lists no items: the thread gets the template's
+text and nothing else. Acquisition warns you when you save such a template and
+each time you update the shop by hand; an automatic update warns once per
+session. The update still goes ahead.
