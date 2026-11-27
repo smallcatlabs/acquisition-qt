@@ -131,7 +131,8 @@ public:
     // The rank from the table; 0 for no currency.
     int AsRank() const;
     // What the Price column sorts on first: by rank, the unranked currencies
-    // in table order below every ranked one, and no currency below all.
+    // in table order below every ranked one, Silver Coin below those, and
+    // no currency below all.
     int SortKey() const;
 };
 

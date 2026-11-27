@@ -157,10 +157,11 @@ your own, because the forum shop is not known to read their words.
 A note word followed by a hyphen and more text, such as `chaos-each`, is read
 as the word before the hyphen.
 
-The *Price* column sorts by currency first: Silver Coin highest, then Mirror
-of Kalandra, Divine Orb, Exalted Orb, and so on down to Chromatic Orb. The
-currencies only read from notes have no rank of their own yet; they sort
-below all the others, in the order of the second table.
+The *Price* column sorts by currency first: Mirror of Kalandra highest, then
+Divine Orb, Exalted Orb, and so on down to Chromatic Orb. The currencies only
+read from notes have no rank of their own yet; they sort below those, in the
+order of the second table. Silver Coin, which is no longer in the game, sorts
+below every other currency.
 
 A price in a currency this version does not know (stored by a newer
 version, say) is shown but not posted to the forum shop.

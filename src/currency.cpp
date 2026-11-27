@@ -13,6 +13,12 @@ namespace {
     // ranks when they are known.
     constexpr int kUnrankedRank = 0;
 
+    // Silver Coins are no longer in the game (#38). They keep their row, so
+    // that a stored price in them still reads, and sort below every other
+    // currency in case they return: with this rank the row orders them, and
+    // theirs comes before every unranked currency's.
+    constexpr int kRemovedRank = 0;
+
     // Empty but not null: a tag is bound into NOT NULL columns, and "no
     // currency" has always been stored as "".
     const QString kEmpty("");
@@ -31,7 +37,8 @@ const CurrencyTable &CurrencyTable::Default()
     // (trade-ground-truth T9). A Jeweller's price is written with the game's
     // word and stored under its old tag (#426); the other eighteen are
     // written with their tags. Ranks are the old ones, except that Divine
-    // ranks above Exalted since the 3.25 swap (#38). Wisdom values are the
+    // ranks above Exalted since the 3.25 swap, and Silver Coin, once the
+    // highest, is the lowest (#38). Wisdom values are the
     // currency dialog's (Scroll of Wisdom equivalents). Only the first 19
     // are choosable for a price: nothing says the forum reads the others'
     // words (T32: the trade site does not read `facetors` at all).
@@ -55,7 +62,7 @@ const CurrencyTable &CurrencyTable::Default()
         {"vaal", "Vaal Orb", {"vaal"}, 14, 0, true},
         {"coin", "Perandus Coin", {"coin", "coins", "perandus", "p", "shekel"}, 6, 0, true},
         {"mirror", "Mirror of Kalandra", {"mirror", "mir"}, 18, 0, true},
-        {"silver", "Silver Coin", {"silver"}, 19, 0, true},
+        {"silver", "Silver Coin", {"silver"}, kRemovedRank, 0, true},
         // Added from T9, to read notes: the tag is the game's word.
         {"annul", "Orb of Annulment", {"annul"}, kUnrankedRank, 0, false},
         {"aug", "Orb of Augmentation", {"aug"}, kUnrankedRank, 0, false},
@@ -175,6 +182,7 @@ int Currency::SortKey() const
         return -1;
     }
     // Ranks differ between ranked currencies, so the row only orders the
-    // unranked ones among themselves (kUnrankedRank), in table order.
+    // ones at rank 0 among themselves, in table order: Silver Coin
+    // (kRemovedRank), then the unranked ones (kUnrankedRank).
     return (info->rank * 1000) + (static_cast<int>(type) - 1);
 }
