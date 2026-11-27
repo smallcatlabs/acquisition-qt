@@ -356,6 +356,30 @@ month" and "2 months ago" for posts days old; five Runegrafts and a
 Wombgift from the same tabs offered on the exchange at 4321 blessed.
 T8 and T12 at nine rows.
 
+**T35. A vestigial item's implicit line carries the `vestigial` flag,
+and the trade site counts that line as an implicit stat and in the
+pseudo totals.** [SITE — Confirmed for the 20 items read and the Item
+Rarity line; November 27, 2026]
+The public search API, without a login, in Covens and in Standard, with
+the Miscellaneous filter `Vestigial: Yes` (10,000 or more results in
+each). The first ten results of each were fetched: all 20 have
+`"vestigial": true` on the item and a `typeLine` beginning "Vestigial "
+(19 unique, one rare); 18 of their 24 implicit lines carry
+`"flags": {"vestigial": true}` and none of their 105 explicit lines
+does. The flagged lines are ordinary modifiers ("+30% to Item Rarity",
+"+2% to all maximum Resistances", "10% increased Strength", "Socketed
+Gems are Supported by Level 10 Chance to Poison Support", "Rampage"),
+each with a `stat.implicit.…` hash. In Covens, with `Vestigial: Yes`:
+`implicit.stat_3917489142` (Item Rarity) at 30 or more finds 10,000 or
+more items; the same with `pseudo.pseudo_increased_rarity` at most 29
+finds none, and so does the same with that pseudo stat excluded. The
+copy text of one (`extended.text`) prints the vestigial line where an
+implicit goes, between the item level and the explicit lines, with no
+mark. Not established: what the stash API sends for such an item (the
+one captured, Enshrouded Boots, has the item flag and no mod lines; the
+trade reply's mod objects carry `domain`, `hash` and `mods` keys the
+stash type does not have), and what an Enshrouded item becomes.
+
 ### The in-game price dialog
 
 **T9. The in-game price dialog offers 39 currencies; for each, the word

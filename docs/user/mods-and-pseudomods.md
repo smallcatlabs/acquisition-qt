@@ -74,9 +74,9 @@ Lines the game marks as desecrated are shown and searched like any other
 line. Lines the game marks as vestigial are shown in the item's
 tooltip, in a block of their own after the implicits. They are searched
 and count towards pseudomods like any other line, and are written with
-the implicits in the Path of Building text. What the game means by the
-mark is not yet known; until it is, such a line is taken to apply to the
-item.
+the implicits in the Path of Building text. The trade site treats them
+the same way: it finds a vestigial item by such a line as an implicit and
+counts the line in its pseudo totals.
 
 ## Pseudomods
 

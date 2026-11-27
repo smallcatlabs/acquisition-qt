@@ -363,9 +363,9 @@ void Item::LoadModifiers(const poe::Item &item)
         m_text_mods[section_key(section)] = std::move(sections[static_cast<size_t>(section)]);
     }
 
-    // Every section is counted, the vestigial one too: what the game means
-    // by that flag is not known, and until it is the line is taken to apply
-    // to the item (#360).
+    // Every section is counted, the vestigial one too: the trade site
+    // counts a vestigial line as an implicit stat and in its pseudo totals
+    // (#360; trade-ground-truth T35).
     for (const auto &[name, mods] : m_text_mods) {
         for (const auto &mod : mods) {
             AddModToTable(mod, m_mod_table, unnamed_lines());

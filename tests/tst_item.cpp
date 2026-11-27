@@ -422,8 +422,9 @@ void ItemTest::resonatorSocketsExportAsResonators()
 // #266: a mod flagged desecrated stays in the section of the array it
 // arrived in, and is searchable there. A mod flagged vestigial is kept in a
 // section of its own. Both were dropped.
-// #360: until more is known, a vestigial line is taken to apply to the
-// item, so it counts like any other line.
+// #360: a vestigial line applies to the item, so it counts like any other
+// line (trade-ground-truth T35). The lines here are written by hand: no
+// captured stash reply has one.
 void ItemTest::vestigialAndDesecratedModsAreKept()
 {
     loadRealStatTranslations();
