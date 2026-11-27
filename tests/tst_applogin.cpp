@@ -110,6 +110,7 @@ private slots:
     void unreadableLeagueListIsAnError();
     void emptyLeagueListIsAnError();
     void loginWaitsForTheLeagueList();
+    void signInErrorKeepsTheLeagueError();
 
 private:
     std::shared_ptr<spdlog::logger> m_previous_logger;
@@ -2682,6 +2683,60 @@ void AppLoginTest::loginWaitsForTheLeagueList()
     QCOMPARE(fixture.network->release(), qsizetype(1));
     QVERIFY(QTest::qWaitFor([&] { return league.isEnabled(); }, 10000));
     QVERIFY(login.isEnabled());
+
+    QCOMPARE(surprises(fixture), QString());
+}
+
+// A sign-in error that arrives while the league list's error stands is shown
+// with it: Login is still unavailable for that reason, and the label still
+// says so (#480).
+void AppLoginTest::signInErrorKeepsTheLeagueError()
+{
+    auto pc_requests = std::make_shared<int>(0);
+    AppFixture fixture([pc_requests](AppFixture &f) {
+        f.network->answer([pc_requests](QNetworkAccessManager::Operation,
+                                        const QUrl &url) -> std::optional<ScriptedNetwork::Answer> {
+            const auto realm = leagueRealm(url);
+            if (!realm) {
+                return std::nullopt;
+            }
+            if (++*pc_requests == 1) {
+                return ScriptedNetwork::Answer{.body = "[]"};
+            }
+            return ScriptedNetwork::Answer{.body = leagueList(*realm)};
+        });
+    });
+    LoginDialog &dialog = fixture.access().login();
+    auto &realm = child<QComboBox>(dialog, "realmComboBox");
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &error = child<QLabel>(dialog, "errorLabel");
+    auto &authenticate = child<QPushButton>(dialog, "authenticateButton");
+    const QString league_error = "Error requesting leagues: the list held no leagues";
+    const QString denied_error
+        = "Authentication failed: access_denied (The user denied the request)";
+
+    QVERIFY(QTest::qWaitFor([&] { return !error.isHidden(); }, 10000));
+    QCOMPARE(error.text(), league_error);
+
+    // The browser login is refused while the league error stands.
+    authenticate.click();
+    QCOMPARE(error.text(), league_error);
+    const auto authorize = checkAuthorizeUrl(m_browser.opened.last());
+    QVERIFY(authorize);
+    QUrlQuery denied;
+    denied.addQueryItem("error", "access_denied");
+    denied.addQueryItem("error_description", "The user denied the request");
+    denied.addQueryItem("state", authorize->state);
+    QVERIFY(deliverRedirect(authorize->redirect, denied).contains(kCallbackText));
+    QVERIFY(QTest::qWaitFor([&] { return error.text() != league_error; }, 10000));
+    QCOMPARE(error.text(), denied_error + "\n" + league_error);
+    QVERIFY(!error.isHidden());
+
+    // The list arrives: its error is over, and the sign-in error stays.
+    emit realm.activated(realm.currentIndex());
+    QVERIFY(QTest::qWaitFor([&] { return league.isEnabled(); }, 10000));
+    QCOMPARE(error.text(), denied_error);
+    QVERIFY(!error.isHidden());
 
     QCOMPARE(surprises(fixture), QString());
 }

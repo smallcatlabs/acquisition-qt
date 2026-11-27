@@ -323,7 +323,8 @@ acq_add_scenario_test(tst_applogin
     leagueListFailureIsClearedByTheNextRealm
     unreadableLeagueListIsAnError
     emptyLeagueListIsAnError
-    loginWaitsForTheLeagueList)
+    loginWaitsForTheLeagueList
+    signInErrorKeepsTheLeagueError)
 
 # Which tabs are open once a filter has come and gone (#387), on the real
 # Application; one scenario per process, as tst_applogin.
