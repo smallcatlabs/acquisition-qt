@@ -210,8 +210,8 @@ over its tab's price. A tab's name prices
 only the items in it that have no price of their own: an item you priced in
 Acquisition keeps that price, which you can still change and which the forum
 shop posts (the trade site lists the forum's price for it). An item that shows
-its tab's price from the name cannot be given a price of its own in
-Acquisition. Acquisition reads these prices from the game on every
+its tab's price from the name can be given a price of its own in Acquisition
+at any time. Acquisition reads these prices from the game on every
 refresh and does not store them, so they have no *Last Update*. A price you
 set in Acquisition is kept underneath: when the note or the priced tab name is
 removed in the game, your price shows again. A tab with a price of its own, set in

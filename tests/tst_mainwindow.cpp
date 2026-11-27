@@ -2450,14 +2450,15 @@ void MainWindowTest::priceCommitKeepsTheRemainingSelection()
     QCOMPARE(value->text(), QString("3"));
 
     // Alpha's price is cleared and it leaves; Charlie, priced by its tab's
-    // name, is locked and stays, selected, and the editor shows its price.
+    // name, stays, selected, and the editor shows that price, which it may
+    // replace with its own (#459).
     select({"Alpha Sword", "Charlie Sword"});
     applyBuyoutCommand(fixture, Buyout::BUYOUT_TYPE_INHERIT, Currency::CURRENCY_NONE, "");
     QCoreApplication::processEvents();
     QCOMPARE(sortedItemNames(*model, flat()), QStringList({"Bravo Sword", "Charlie Sword"}));
     QCOMPARE(selectedNames(), QStringList({"Charlie Sword"}));
     QCOMPARE(type->currentIndex(), int(Buyout::BUYOUT_TYPE_FIXED));
-    QVERIFY(!type->isEnabled());
+    QVERIFY(type->isEnabled());
     QCOMPARE(value->text(), QString("2"));
 }
 
@@ -5434,8 +5435,8 @@ void MainWindowTest::byItemHeaderIsNotPriceable()
 }
 
 // A price edit over a selection leaves every row priced in the game alone:
-// an item whose note holds a price, and a tab whose name does, together
-// with the items in that tab. The other rows take the price.
+// an item whose note holds a price, and a tab whose name does. The other
+// rows take the price, an item in that tab among them (#459).
 void MainWindowTest::priceEditSkipsGamePricedRows()
 {
     MainWindowFixture fixture;
@@ -5476,8 +5477,10 @@ void MainWindowTest::priceEditSkipsGamePricedRows()
     QVERIFY(manager.Effective(*noted).IsGameSet());
     QCOMPARE(manager.EffectiveTab(priced).buyout.value, 2.0);
     QVERIFY(manager.EffectiveTab(priced).IsGameSet());
-    QCOMPARE(manager.Effective(*inside).buyout.value, 2.0);
-    QVERIFY(manager.Effective(*inside).buyout.IsInherited());
+    // The item inside only showed its tab's name price, so it takes its
+    // own (#459).
+    QCOMPARE(manager.Effective(*inside).buyout.value, 7.0);
+    QCOMPARE(manager.Effective(*inside).source, PriceSource::ManualItem);
 }
 
 // Selects two unpriced items of one tab and returns them, the value box
@@ -6251,12 +6254,12 @@ void MainWindowTest::priceReadersInTheWindow()
         const char *row;
         const char *shown;
         bool editable;
-    } rows[] = {{named, "Named Sword", "2", false},
+    } rows[] = {// A tab's name prices it, but it may be given its own (#459).
+                {named, "Named Sword", "2", true},
                 {manual_tab, "Inherits Sword", "3", true},
                 {plain, "Noted Sword", "5", false},
                 {plain, "Own Sword", "7", true},
-                // Shown as editable, though a price edit on it is refused
-                // (its tab is named with a price): today's inconsistency.
+                // Its own price wins over its tab's name (#365).
                 {named, "Owned Sword", "8", true}};
     for (const auto &row : rows) {
         selectRow(fixture, row.tab.GetHeader(), row.row);

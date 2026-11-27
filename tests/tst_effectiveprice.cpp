@@ -204,6 +204,12 @@ namespace {
         // The edit rule is one predicate: the edit is made exactly when the
         // price in force says it may be (#459).
         QCOMPARE(result.applied == 1, effective.Editable());
+        // An edit made is the price in force: the item's own (#459).
+        if (result.applied == 1) {
+            const EffectivePrice edited = manager.Effective(*item);
+            QCOMPARE(edited.source, PriceSource::ManualItem);
+            QCOMPARE(edited.buyout.value, 9.0);
+        }
     }
 
 } // namespace
@@ -239,8 +245,10 @@ void EffectivePriceTest::readersAgree_data()
         << "b/o 5 chaos" << false << chaos << 5.0 << false << "null"   << true  << true  << true  << PS::Note       << false;
     QTest::newRow("manual item")              << "Dump"          << 0.0 << ""             << bo   << false
         << "b/o 7 chaos" << false << chaos << 7.0 << true  << "fixed" << true  << false << true  << PS::ManualItem << true;
+    // #459: a tab's name prices the item without locking it; a price of
+    // the item's own may be set, and then wins (#365).
     QTest::newRow("tab name")                 << "~price 2 chaos" << 0.0 << ""            << none << false
-        << "price 2 chaos" << true << chaos << 2.0 << false << "null"  << true  << true  << true  << PS::TabName    << false;
+        << "price 2 chaos" << true << chaos << 2.0 << false << "null"  << true  << false << true  << PS::TabName    << false;
     // Since #293 step 3 a price the game set (a note, a tab's name) has no
     // date: it is never stored, and the game does not say when it was set.
     // Since #293 step 2 the date of a price shown from the tab is the tab
@@ -263,7 +271,7 @@ void EffectivePriceTest::readersAgree_data()
     QTest::newRow("note, manual item")        << "Dump"          << 0.0 << "~b/o 5 chaos" << bo   << false
         << "b/o 5 chaos" << false << chaos << 5.0 << false << "null"   << true  << true  << true  << PS::Note       << false;
     QTest::newRow("tab name, manual tab")     << "~price 2 chaos" << 3.0 << ""            << none << false
-        << "price 2 chaos" << true << chaos << 2.0 << false << "null"  << true  << true  << true  << PS::TabName    << false;
+        << "price 2 chaos" << true << chaos << 2.0 << false << "null"  << true  << false << true  << PS::TabName    << false;
     QTest::newRow("no price")                 << "Dump"          << 0.0 << ""             << int(Buyout::BUYOUT_TYPE_NO_PRICE) << false
         << "no price"    << false << nokey << 0.0 << true  << "fixed" << true  << false << true  << PS::ManualItem << true;
     QTest::newRow("ignore")                   << "Dump"          << 0.0 << ""             << int(Buyout::BUYOUT_TYPE_IGNORE) << false
@@ -272,7 +280,7 @@ void EffectivePriceTest::readersAgree_data()
     QTest::newRow("note, delta")              << "Dump"          << 0.0 << "~b/o 5 chaos" << none << true
         << "b/o 5 chaos" << false << chaos << 5.0 << false << "null"   << true  << true  << true  << PS::Note       << false;
     QTest::newRow("tab name, delta")          << "~price 2 chaos" << 0.0 << ""            << none << true
-        << "price 2 chaos" << true << chaos << 2.0 << false << "null"  << true  << true  << true  << PS::TabName    << false;
+        << "price 2 chaos" << true << chaos << 2.0 << false << "null"  << true  << false << true  << PS::TabName    << false;
     QTest::newRow("manual tab, delta")        << "Dump"          << 3.0 << ""             << none << true
         << "b/o 3 chaos" << true  << chaos << 3.0 << true  << "fixed" << true  << false << true  << PS::ManualTab  << true;
     QTest::newRow("manual item, tab name, delta") << "~price 2 chaos" << 0.0 << ""        << bo   << true
