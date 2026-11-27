@@ -117,12 +117,15 @@ void ApplyBuyoutTest::leavesGamePricedTargetsAlone()
                                                  targets,
                                                  makeChaosBuyout(7.0));
 
-    QCOMPARE(result.applied, 0);
-    QCOMPARE(result.locked, 3);
+    // The note and the tab's name are locked. The item inside the tab only
+    // shows the name's price, so it is given its own, which wins (#459).
+    QCOMPARE(result.applied, 1);
+    QCOMPARE(result.locked, 2);
     QCOMPARE(result.not_saved, 0);
     QCOMPARE(f.buyouts.manager->Effective(*noted).buyout.value, 5.0);
     QCOMPARE(f.buyouts.manager->EffectiveTab(priced).buyout.value, 2.0);
-    QCOMPARE(f.buyouts.manager->Effective(*inside).buyout.value, 2.0);
+    QCOMPARE(f.buyouts.manager->Effective(*inside).source, PriceSource::ManualItem);
+    QCOMPARE(f.buyouts.manager->Effective(*inside).buyout.value, 7.0);
 }
 
 void ApplyBuyoutTest::countsWhatWasNotSaved()

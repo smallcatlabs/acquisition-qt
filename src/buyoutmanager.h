@@ -46,7 +46,8 @@ enum class PriceSource { None, Note, ManualItem, TabName, ManualTab, Unlistable 
 
 // A price and where it comes from. Whether it can be posted to the forum
 // or edited in Acquisition is decided from where it comes from: a price
-// the game set (a note or a tab name) is neither. The buyout's own source
+// the game set (a note or a tab name) is never posted, and cannot be edited
+// on the row it is set on (Editable). The buyout's own source
 // agrees: it is BUYOUT_SOURCE_GAME exactly when the game set the price.
 struct EffectivePrice
 {
@@ -61,8 +62,11 @@ struct EffectivePrice
     // force, an edit is refused, nothing is posted.
     bool CannotBeListed() const { return source == PriceSource::Unlistable; }
     // A price may be set in Acquisition: the one edit rule, for the price
-    // editor and for an edit made through ApplyBuyout.
-    bool Editable() const { return !IsGameSet() && !CannotBeListed(); }
+    // editor and for an edit made through ApplyBuyout. A price the game set
+    // on this row locks it (an item's note; a tab's name, for the tab). A
+    // tab's price shown on an item does not: a price of the item's own wins
+    // over its tab's name (T12, #365, #459).
+    bool Editable() const { return !CannotBeListed() && !(IsGameSet() && !buyout.inherited); }
     // The forum may carry it: set in Acquisition, and a price in a currency
     // the post can name, or "no price" (Buyout::IsPostable).
     bool IsPostable() const { return !IsGameSet() && buyout.IsPostable(); }
