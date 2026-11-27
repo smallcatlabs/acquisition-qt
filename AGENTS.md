@@ -6,6 +6,11 @@ maintained indefinitely. A Rust implementation is developed separately in
 `smallcatlabs/acquisition` (`docs/adr/0003-rewrite-vs-evolve.md`); nothing
 there binds work here.
 
+The application will support Path of Exile 2 (ruled in #303). Today it reads
+Path of Exile 1 only; #492 tracks the work. Item and storage changes carry a
+game coordinate beside realm and league, so PoE 2 can be added without
+redoing them.
+
 ## Build and Run
 
 Read `BUILD.md` before changing build, packaging, or platform setup.
