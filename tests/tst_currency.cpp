@@ -18,6 +18,7 @@ private slots:
     void existingCurrenciesKeepTagsNamesAndOrder();
     void existingRanksAreKept();
     void divineRanksAboveExalted();
+    void silverCoinSortsBelowEveryOtherCurrency();
     void comboCarriesTheTag();
     void comboOffersOnlyChoosableCurrencies();
     void gameWordsAreRecognised_data();
@@ -93,12 +94,13 @@ void CurrencyTest::existingCurrenciesKeepTagsNamesAndOrder()
     QVERIFY(!Currency().AsTag().isNull());
 }
 
-// Every rank stays as it was, except the one the maintainer ruled on (#38).
+// Every rank stays as it was, except the ones the maintainer ruled on (#38).
 void CurrencyTest::existingRanksAreKept()
 {
     for (const Existing &row : existing()) {
         if ((row.type == Currency::CURRENCY_DIVINE_ORB)
-            || (row.type == Currency::CURRENCY_EXALTED_ORB)) {
+            || (row.type == Currency::CURRENCY_EXALTED_ORB)
+            || (row.type == Currency::CURRENCY_SILVER_COIN)) {
             continue;
         }
         QCOMPARE(Currency(row.type).AsRank(), row.rank);
@@ -110,6 +112,23 @@ void CurrencyTest::divineRanksAboveExalted()
 {
     QVERIFY(Currency(Currency::CURRENCY_DIVINE_ORB).AsRank()
             > Currency(Currency::CURRENCY_EXALTED_ORB).AsRank());
+}
+
+// #38: Silver Coins are no longer in the game. A price in them sorts below
+// a price in any other currency, the ones only read from notes included,
+// and still above an item with no price.
+void CurrencyTest::silverCoinSortsBelowEveryOtherCurrency()
+{
+    const Currency silver(Currency::CURRENCY_SILVER_COIN);
+    const auto &table = CurrencyTable::Default();
+    for (size_t row = 0; row < table.size(); ++row) {
+        const Currency other = Currency::AtRow(row);
+        if (other == silver) {
+            continue;
+        }
+        QVERIFY2(silver.SortKey() < other.SortKey(), qPrintable(other.AsString()));
+    }
+    QVERIFY(silver.SortKey() > Currency().SortKey());
 }
 
 // The currency box says which currency each entry is by its tag, so code
