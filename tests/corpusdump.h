@@ -360,10 +360,6 @@ namespace corpus {
                     ++m_uncategorised_items;
                 }
                 for (const auto &[section, lines] : item->text_mods()) {
-                    if (section == QLatin1String("vestigialMods")) {
-                        // Shown and not counted (Item::LoadModifiers).
-                        continue;
-                    }
                     for (const QString &line : lines) {
                         ++m_mod_lines;
                         ModTable named;

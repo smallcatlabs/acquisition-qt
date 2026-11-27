@@ -422,6 +422,8 @@ void ItemTest::resonatorSocketsExportAsResonators()
 // #266: a mod flagged desecrated stays in the section of the array it
 // arrived in, and is searchable there. A mod flagged vestigial is kept in a
 // section of its own. Both were dropped.
+// #360: until more is known, a vestigial line is taken to apply to the
+// item, so it counts like any other line.
 void ItemTest::vestigialAndDesecratedModsAreKept()
 {
     loadRealStatTranslations();
@@ -438,8 +440,7 @@ void ItemTest::vestigialAndDesecratedModsAreKept()
         ]
     )json");
 
-    // Vestigial lines are kept and shown in a section of their own, but not
-    // counted: provisional until the maintainer rules on what the flag means.
+    // Vestigial lines are shown in a section of their own and counted.
     const auto &text = item->text_mods();
     QCOMPARE(text.at("implicitMods"), (std::vector<QString>{"+12 to maximum Life"}));
     QCOMPARE(text.at("explicitMods"),
@@ -447,13 +448,14 @@ void ItemTest::vestigialAndDesecratedModsAreKept()
                                    "0.26% of Physical Attack Damage Leeched as Life"}));
     QCOMPARE(text.at("vestigialMods"),
              (std::vector<QString>{"+30 to maximum Life", "+5 to maximum Life"}));
-    QCOMPARE(item->mod_table().at("+# to maximum Life"), 92.0);
+    QCOMPARE(item->mod_table().at("+# to maximum Life"), 127.0);
 
     const QString pob = item->POBformat();
-    QVERIFY2(pob.contains("\nImplicits: 1\n+12 to maximum Life\n"), qPrintable(pob));
-    QVERIFY2(pob.contains("\n+80 to maximum Life\n0.26% of Physical"), qPrintable(pob));
-    QVERIFY2(!pob.contains("+30 to maximum Life"), qPrintable(pob));
-    QVERIFY2(!pob.contains("+5 to maximum Life"), qPrintable(pob));
+    // Path of Building has no word for the flag. The lines go with the
+    // implicits, where the game documents the flag.
+    QVERIFY2(pob.contains("\nImplicits: 3\n+12 to maximum Life\n+30 to maximum Life\n"
+                          "+5 to maximum Life\n+80 to maximum Life\n0.26% of Physical"),
+             qPrintable(pob));
 }
 
 // A socket's attribute ("S", "D", "I", "G") and its colour ("R", "G", "B",
