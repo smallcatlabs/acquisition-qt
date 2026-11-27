@@ -79,15 +79,15 @@ to the build tree. Run it with a temporary data directory while testing:
 ### Memory and parallel jobs
 
 A translation unit of this project can need more than a gigabyte to compile
-(a test suite needed one to two when this was measured, #476), and a
-library's units all become ready at once. With Ninja the first-party sources
-compile in a job pool whose size follows memory instead of hardware threads:
-one job for every 3 GB of the machine's memory or, on Linux, of the memory
-limit of the control group the configure step runs in, whichever is smaller.
-Configuring prints the size:
+(a test suite needs 0.7 GB on average and up to 1.4 GB, with GCC 16 in a
+Debug build, #476), and a library's units all become ready at once. With
+Ninja the first-party sources compile in a job pool whose size follows memory
+instead of hardware threads: one job for every 2 GB of the machine's memory
+or, on Linux, of the memory limit of the control group the configure step
+runs in, whichever is smaller. Configuring prints the size:
 
 ```
--- First-party sources compile 10 at a time (31433 MB of memory); -DACQ_COMPILE_JOBS=<n> changes it.
+-- First-party sources compile 15 at a time (31433 MB of memory); -DACQ_COMPILE_JOBS=<n> changes it.
 ```
 
 Set the size yourself when that guess does not fit where the build runs:

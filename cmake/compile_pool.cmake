@@ -3,8 +3,9 @@
 # The Ninja job pool the first-party sources compile in (#476).
 #
 # A translation unit of this project can need more than a gigabyte to compile
-# (a test suite needs one to two), and a library's or the test executable's
-# units all become ready at the same moment. Ninja's default is one job per
+# (a test suite needs 0.7 GB on average and up to 1.4 GB; it was one to two
+# before #476 cut what the sources include), and a library's or the test
+# executable's units all become ready at the same moment. Ninja's default is one job per
 # hardware thread plus two, so on a machine with many threads and ordinary
 # memory those compiles together ask for more than the machine has.
 # acq_first_party() puts every first-party target's compiles in this pool, and
@@ -12,7 +13,7 @@
 # the links stay outside it.
 #
 # ACQ_COMPILE_JOBS is the size. Left empty, it is worked out here: one job
-# for every ACQ_COMPILE_GB (3) gigabytes of memory, where memory is the
+# for every ACQ_COMPILE_GB (2) gigabytes of memory, where memory is the
 # smaller of the machine's and, on Linux, the limit of the control group the
 # configure step runs in (a container or a systemd scope). Set it when that
 # guess is wrong for where the build runs: memory shared with other builds, a
@@ -25,8 +26,8 @@
 
 set(ACQ_COMPILE_JOBS "" CACHE STRING
     "How many first-party translation units compile at once (Ninja). Empty: \
-one for every 3 GB of memory.")
-set(ACQ_COMPILE_GB 3)
+one for every 2 GB of memory.")
+set(ACQ_COMPILE_GB 2)
 
 # The memory limit of the control group this process is in, in megabytes, or
 # an empty string when there is none to read (not Linux, cgroup v1, no limit).
