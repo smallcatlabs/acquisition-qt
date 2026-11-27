@@ -164,7 +164,7 @@ private slots:
     void everyFailureEndsInAStatusAndANotice_data();
     void everyFailureEndsInAStatusAndANotice();
     void editPageTransportFailureDoesNotBlameTheThread();
-    void expiredTokenRetriesAreBounded();
+    void rateLimitRetriesAreBounded();
     void rateLimitedPostRefetchesTheEditPage_data();
     void rateLimitedPostRefetchesTheEditPage();
     void longRateLimitFailsWithTheWait();
@@ -174,7 +174,10 @@ private slots:
     // heading, never a phrase somewhere in the page's text.
     void phraseInPostTextIsNotARejectedSession_data();
     void phraseInPostTextIsNotARejectedSession();
-    void loggedOutHeadingIsARejectedSession();
+    void loggedOutPageIsARejectedSession();
+    void anotherAccountsThreadIsNotARejectedSession();
+    void forumMessageIsShownInItsOwnWords_data();
+    void forumMessageIsShownInItsOwnWords();
     void automaticFailuresWarnOncePerKind();
     void unrecognisedErrorShowsNoPageText();
 
@@ -254,6 +257,34 @@ namespace {
     QByteArray afterEditPage()
     {
         return forumPage("after-edit-thread.html");
+    }
+
+    // The pages the maintainer captured on November 27, 2026 (#362), each a
+    // browser snapshot (see the comment in each file). What the forum
+    // answers an edit POST with when it does not save the post is the edit
+    // form again, with its message in a list after the content box.
+    const QByteArray kRateLimitMessage = "Rate limiting active. You must wait 30 seconds.";
+    const QByteArray kItemNotFoundMessage
+        = "Failed to find item. Did you specify the correct location and x y?";
+    QByteArray rateLimitedPage()
+    {
+        return forumPage("post-rate-limited.html");
+    }
+    QByteArray itemNotFoundPage()
+    {
+        return forumPage("post-item-not-found.html");
+    }
+    // The captured rate-limit reply with another message in place of the
+    // forum's: the one edit made to a capture, so that a test need not wait
+    // the forum's 30 seconds, or can show a message the forum has not sent.
+    QByteArray formReplyWith(const QByteArray &message)
+    {
+        QByteArray page = rateLimitedPage();
+        if (!page.contains(kRateLimitMessage)) {
+            qFatal("tst_shop: the rate-limit fixture does not hold its message");
+        }
+        page.replace(kRateLimitMessage, message);
+        return page;
     }
 
     // The scrubbed hash value in edit-thread.html, and its title as the
@@ -1187,32 +1218,21 @@ void ShopTest::healthyEmptyStoreStillPostsEmpty()
     QCOMPARE(warnings.count(), 0);
 }
 
-// The two replies below are NOT captures: no forum error page has been
-// captured (tests/fixtures/forum/ holds only the edit page and the page a
-// successful edit returns). Each is built from the shapes the parsing code
-// documents — an error list (<ul class="errors"> holding the message in an
-// <li>), a bare error class, and Util::GetCsrfToken's comment that the
-// hash input may itself carry class="input-error".
+// A reply that is not saved is never logged, and neither is its form's
+// security token. The first reply is the captured edit page, token and
+// all, as a POST's answer; the second is the same with a message the shop
+// has not seen, in the place the forum puts its messages.
 void ShopTest::forumErrorReplyIsNotLogged_data()
 {
     QTest::addColumn<QByteArray>("reply");
 
-    // An error marker with no list item: the catch-all that logged the
-    // whole page.
-    QTest::newRow("unrecognised marker")
-        << QByteArray("<form method=\"post\">\n"
-                      "<input type=\"hidden\" name=\"hash\" value=\"leaky-csrf-token\">\n"
-                      "<div class=\"errors\">Something the shop does not know.</div>\n"
-                      "</form>");
+    QTest::newRow("the edit form again") << editThreadPage();
 
-    // The hash input carries the error class, so a match starting at the
-    // first marker spans the token before reaching the list item.
-    QTest::newRow("error class on the hash input")
-        << QByteArray("<form method=\"post\">\n"
-                      "<input type=\"hidden\" name=\"hash\" class=\"input-error\" "
-                      "value=\"leaky-csrf-token\">\n"
-                      "<ul class=\"errors\"><li>Something the shop does not know.</li></ul>\n"
-                      "</form>");
+    QByteArray with_message = editThreadPage();
+    const QByteArray textarea_end = "</textarea>";
+    with_message.replace(textarea_end,
+                         textarea_end + "<ul><li>Something the shop does not know.</li></ul>");
+    QTest::newRow("the edit form with a message") << with_message;
 }
 
 void ShopTest::forumErrorReplyIsNotLogged()
@@ -1232,7 +1252,8 @@ void ShopTest::forumErrorReplyIsNotLogged()
     drainEvents();
 
     const QString logged = log.text();
-    QVERIFY2(!logged.contains("leaky-csrf-token"), qPrintable(logged));
+    QVERIFY(reply.contains(kEditPageHash));
+    QVERIFY2(!logged.contains(kEditPageHash), qPrintable(logged));
     QVERIFY2(!logged.contains("<form"), qPrintable(logged));
 }
 
@@ -1724,31 +1745,6 @@ void ShopTest::renderShopNeverPostsAGamePrice()
 
 namespace {
 
-    // Error replies to the edit POST. The maintainer has no capture of any
-    // forum error page. Each of these is the captured edit page with one
-    // element inserted after the form's opening <fieldset>: an error list
-    // in the shape Shop's parsing documents (an element whose class is
-    // "errors", holding the message in an <li>), with the message texts
-    // its checks look for. The inserted element, its position, and the
-    // message wording are derived from that code, not captured; everything
-    // around them is what the forum sent.
-    QByteArray editPageWithError(const QByteArray &error_element)
-    {
-        QByteArray page = editThreadPage();
-        const QByteArray anchor
-            = "<form method=\"POST\" class=\"t1&#x20;formForumThread\"><fieldset>";
-        const qsizetype at = page.indexOf(anchor);
-        if (at < 0) {
-            qFatal("tst_shop: the edit page fixture has no form to insert an error into");
-        }
-        page.insert(at + anchor.size(), "\n" + error_element);
-        return page;
-    }
-    QByteArray errorListPage(const QByteArray &message)
-    {
-        return editPageWithError("<ul class=\"errors\"><li>" + message + "</li></ul>");
-    }
-
     // Where in the conversation a failure arrives, and what arrives.
     enum class FailAt { StashIndex, StashIndexBody, EditPage, Post };
 
@@ -1819,18 +1815,15 @@ void ShopTest::everyFailureEndsInAStatusAndANotice_data()
     QTest::newRow("edit page without a title") << FailAt::EditPage << 200 << ok << no_title;
     QTest::newRow("post connection lost")
         << FailAt::Post << 0 << QNetworkReply::RemoteHostClosedError << QByteArray();
-    QTest::newRow("post failed to find item")
-        << FailAt::Post << 200 << ok << errorListPage("Failed to find item.");
+    QTest::newRow("post failed to find item") << FailAt::Post << 200 << ok << itemNotFoundPage();
     QTest::newRow("post unknown error")
-        << FailAt::Post << 200 << ok << errorListPage("Something the shop does not know.");
+        << FailAt::Post << 200 << ok << formReplyWith("Something the shop does not know.");
     QTest::newRow("post rate limit without a wait")
-        << FailAt::Post << 200 << ok << errorListPage("Rate limiting is in effect.");
-    QTest::newRow("post error marker without a message")
-        << FailAt::Post << 200 << ok
-        << editPageWithError("<div class=\"errors\">Something went wrong.</div>");
-    QTest::newRow("post input error")
-        << FailAt::Post << 200 << ok
-        << editPageWithError("<div class=\"input-error\">Something went wrong.</div>");
+        << FailAt::Post << 200 << ok << formReplyWith("Rate limiting active.");
+    QTest::newRow("edit page of another account's thread")
+        << FailAt::EditPage << 200 << ok << forumPage("permission-denied.html");
+    QTest::newRow("post answered with a notice page")
+        << FailAt::Post << 200 << ok << forumPage("permission-denied.html");
 
     // Replies with no known error that are not this thread's page either:
     // nothing shows the post was saved.
@@ -1900,13 +1893,12 @@ void ShopTest::editPageTransportFailureDoesNotBlameTheThread()
     QVERIFY2(server_notice.contains("503"), qPrintable(server_notice));
 }
 
-// The forum answering every POST with an expired token: each retry fetches
-// the edit page again for a fresh token, and after three attempts the job
-// fails. At most two requests per attempt.
-void ShopTest::expiredTokenRetriesAreBounded()
+// The forum limiting every POST: each retry waits as long as the forum
+// says, fetches the edit page again, and after three attempts the job
+// fails with the forum's last words. At most two requests per attempt.
+void ShopTest::rateLimitRetriesAreBounded()
 {
     ShopFixture fixture;
-    fixture.shop->SetRetryDelay(std::chrono::milliseconds(0));
     QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
     QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
     armForSubmission(fixture);
@@ -1914,11 +1906,11 @@ void ShopTest::expiredTokenRetriesAreBounded()
     fixture.rateLimiter->resolve(0, kStashIndexJson);
     drainEvents();
 
-    const QByteArray expired = errorListPage("Security token has expired.");
+    const QByteArray limited = formReplyWith("Rate limiting active. You must wait 1 seconds.");
     // Answer whatever the shop sends until it stops sending.
     for (int answered = 0; answered < 20; ++answered) {
         if (answered == fixture.networkManager->count()) {
-            QTest::qWait(1500);
+            QTest::qWait(3000);
             if (answered == fixture.networkManager->count()) {
                 break;
             }
@@ -1928,7 +1920,7 @@ void ShopTest::expiredTokenRetriesAreBounded()
                            200,
                            QNetworkReply::NoError,
                            sent.op == QNetworkAccessManager::GetOperation ? editThreadPage()
-                                                                          : expired);
+                                                                          : limited);
         drainEvents();
     }
 
@@ -1940,6 +1932,8 @@ void ShopTest::expiredTokenRetriesAreBounded()
     }
     QVERIFY2(!lastStatus(statuses).startsWith("Sending"), qPrintable(lastStatus(statuses)));
     QCOMPARE(warnings.count(), 1);
+    QVERIFY2(warnings.first().first().toString().contains("You must wait 1 seconds."),
+             qPrintable(warnings.first().first().toString()));
 }
 
 // A short wait the forum asks for is honoured, then the post starts over
@@ -1947,8 +1941,8 @@ void ShopTest::expiredTokenRetriesAreBounded()
 void ShopTest::rateLimitedPostRefetchesTheEditPage_data()
 {
     QTest::addColumn<QByteArray>("message");
-    QTest::newRow("seconds") << QByteArray("Rate limiting is in effect. You must wait 1 seconds.");
-    QTest::newRow("second") << QByteArray("Rate limiting is in effect. You must wait 1 second.");
+    QTest::newRow("seconds") << QByteArray("Rate limiting active. You must wait 1 seconds.");
+    QTest::newRow("second") << QByteArray("Rate limiting active. You must wait 1 second.");
 }
 
 void ShopTest::rateLimitedPostRefetchesTheEditPage()
@@ -1965,7 +1959,7 @@ void ShopTest::rateLimitedPostRefetchesTheEditPage()
     fixture.networkManager->sent(1).reply->finish({},
                                                   200,
                                                   QNetworkReply::NoError,
-                                                  errorListPage(message));
+                                                  formReplyWith(message));
     QTRY_COMPARE_WITH_TIMEOUT(fixture.networkManager->count(), 3, 5000);
     QCOMPARE(fixture.networkManager->sent(2).op, QNetworkAccessManager::GetOperation);
 
@@ -1986,7 +1980,7 @@ void ShopTest::longRateLimitFailsWithTheWait()
                      FailAt::Post,
                      200,
                      QNetworkReply::NoError,
-                     errorListPage("Rate limiting is in effect. You must wait 120 seconds."));
+                     formReplyWith("Rate limiting active. You must wait 120 seconds."));
 
     QCOMPARE(warnings.count(), 1);
     QVERIFY2(warnings.first().first().toString().contains("120 seconds"),
@@ -2068,10 +2062,9 @@ void ShopTest::phraseInPostTextIsNotARejectedSession()
     QCOMPARE(lastStatus(statuses), QString("Shop threads updated"));
 }
 
-// No logged-out page has been captured. This one is the captured edit
-// page with its heading and title replaced by the phrase, the shape the
-// session check looks for; the heading's shape is derived, not captured.
-void ShopTest::loggedOutHeadingIsARejectedSession()
+// The page the forum answers a logged-out request for the edit page with
+// (captured): the session is rejected.
+void ShopTest::loggedOutPageIsARejectedSession()
 {
     ShopFixture fixture;
     armForSubmission(fixture);
@@ -2081,16 +2074,76 @@ void ShopTest::loggedOutHeadingIsARejectedSession()
     fixture.rateLimiter->resolve(0, kStashIndexJson);
     drainEvents();
 
-    QByteArray page = editThreadPage();
-    const QByteArray heading = "<h1 class=\"topBar last layoutBoxTitle\">Edit Thread</h1>";
-    QVERIFY(page.contains(heading));
-    page.replace(heading, "<h1 class=\"topBar last layoutBoxTitle\">Login Required</h1>");
-    fixture.networkManager->sent(0).reply->finish({}, 200, QNetworkReply::NoError, page);
+    fixture.networkManager->sent(0).reply->finish({},
+                                                  200,
+                                                  QNetworkReply::NoError,
+                                                  forumPage("login-required.html"));
     drainEvents();
 
     QCOMPARE(rejected.count(), 1);
     QVERIFY(!fixture.shop->auto_update());
     QCOMPARE(fixture.networkManager->count(), 1);
+}
+
+// #362: the page the forum answers with for a thread another account
+// started (captured), sent while logged in. The session is fine: it was
+// taken for rejected, so a mistyped thread number cleared the POESESSID.
+// The user is told what the forum said.
+void ShopTest::anotherAccountsThreadIsNotARejectedSession()
+{
+    ShopFixture fixture;
+    armForSubmission(fixture);
+    fixture.shop->SetAutoUpdate(true);
+    QSignalSpy rejected(fixture.shop.get(), &Shop::PoeSessionRejected);
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    fixture.shop->SubmitShopToForum(true);
+    fixture.rateLimiter->resolve(0, kStashIndexJson);
+    drainEvents();
+
+    fixture.networkManager->sent(0).reply->finish({},
+                                                  200,
+                                                  QNetworkReply::NoError,
+                                                  forumPage("permission-denied.html"));
+    drainEvents();
+
+    QCOMPARE(rejected.count(), 0);
+    QVERIFY(fixture.shop->auto_update());
+    QCOMPARE(fixture.networkManager->count(), 1);
+    QCOMPARE(warnings.count(), 1);
+    const QString notice = warnings.first().first().toString();
+    QVERIFY2(notice.contains("Permission Denied"), qPrintable(notice));
+    QVERIFY2(notice.contains("You don't have permission to access this area."), qPrintable(notice));
+    QVERIFY2(notice.contains(kThread), qPrintable(notice));
+}
+
+// #362: a post the forum does not save comes back as the edit form with the
+// forum's message. Whatever it says is shown as the forum wrote it, and the
+// post is not tried again unless the message gives a wait.
+void ShopTest::forumMessageIsShownInItsOwnWords_data()
+{
+    QTest::addColumn<QByteArray>("reply");
+    QTest::addColumn<QString>("message");
+    QTest::newRow("item not found (captured)")
+        << itemNotFoundPage() << QString::fromUtf8(kItemNotFoundMessage);
+    QTest::newRow("a message the shop has never seen")
+        << formReplyWith("Posting is closed for maintenance.")
+        << QString("Posting is closed for maintenance.");
+}
+
+void ShopTest::forumMessageIsShownInItsOwnWords()
+{
+    QFETCH(QByteArray, reply);
+    QFETCH(QString, message);
+
+    ShopFixture fixture;
+    QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
+    failSubmissionAt(fixture, FailAt::Post, 200, QNetworkReply::NoError, reply);
+
+    QCOMPARE(warnings.count(), 1);
+    QVERIFY2(warnings.first().first().toString().contains(message),
+             qPrintable(warnings.first().first().toString()));
+    QTest::qWait(200);
+    QCOMPARE(fixture.networkManager->count(), 2);
 }
 
 // A manual request's notice never uses up an automatic one, and automatic
@@ -2131,16 +2184,16 @@ void ShopTest::automaticFailuresWarnOncePerKind()
     QCOMPARE(warnings.count(), 3);
 }
 
-// An error marker that is not an error list: the message must not be the
-// next list item somewhere later in the page (a real page has navigation
-// and footer lists; the captures have them trimmed away). The marker and
-// the later list are inserted into the captured edit page; derived.
+// The forum's message is read from the edit form only: a list elsewhere on
+// the page (a real page has navigation and footer lists, and the post
+// history shows the user's own posts) is never taken for one. The list
+// after the form is inserted into the captured edit page.
 void ShopTest::unrecognisedErrorShowsNoPageText()
 {
     ShopFixture fixture;
     QSignalSpy statuses(fixture.shop.get(), &Shop::StatusUpdate);
     QSignalSpy warnings(fixture.shop.get(), &Shop::UserWarning);
-    QByteArray reply = editPageWithError("<div class=\"input-error\">Check this field.</div>");
+    QByteArray reply = editThreadPage();
     const QByteArray form_end = "</form>";
     QVERIFY(reply.contains(form_end));
     reply.replace(form_end,
@@ -2150,7 +2203,7 @@ void ShopTest::unrecognisedErrorShowsNoPageText()
     QCOMPARE(warnings.count(), 1);
     const QString notice = warnings.first().first().toString() + lastStatus(statuses);
     QVERIFY2(!notice.contains("Unrelated"), qPrintable(notice));
-    QVERIFY2(notice.contains("does not recognise"), qPrintable(notice));
+    QVERIFY2(notice.contains("gave no reason"), qPrintable(notice));
 }
 
 // #278: with a POESESSID and no threads, Copy fetches the tab numbers,

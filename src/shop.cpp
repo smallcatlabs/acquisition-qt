@@ -49,36 +49,79 @@ namespace {
     // expired security token.
     constexpr std::chrono::milliseconds kEditToPostDelay{500};
 
-    // The forum's error messages: the items of a <ul class="errors">
-    // list. Only text inside such a list is ever used as a message: an
-    // element that merely carries an error class (an input can, the hash
-    // input among them) is followed by arbitrary page text, and the next
-    // list item after it may be navigation or another user's post (#315).
-    const QRegularExpression kErrorListRegex(R"regex(<ul\s+class="errors"[^>]*>(.*?)</ul>)regex",
-                                             QRegularExpression::CaseInsensitiveOption
-                                                 | QRegularExpression::DotMatchesEverythingOption);
-    const QRegularExpression kListItemRegex(R"regex(<li[^>]*>(.*?)</li>)regex",
-                                            QRegularExpression::CaseInsensitiveOption
-                                                | QRegularExpression::DotMatchesEverythingOption);
-
-    QStringList ErrorMessages(const QString &page)
+    // A forum page is read by its structure, never by a list of known
+    // messages (#362). There are three kinds:
+    //
+    //  - The edit form (a <form> holding the "content" box). As the answer
+    //    to a POST it means the post was not saved, and the forum's reasons
+    //    are the items of the lists inside the form: on the captured pages
+    //    a plain <ul> after the content box. Nothing outside the form is
+    //    ever read as a message: the rest of the page has navigation lists
+    //    and the user's own posts (#315).
+    //  - A notice: a page with no edit form whose heading (the
+    //    layoutBoxTitle <h1>) is followed by a sentence, such as "Login
+    //    Required" or "Permission Denied".
+    //  - Anything else, the thread's own page among them.
+    struct ForumPage
     {
+        bool has_edit_form{false};
+        // The forum's messages beside the form, as it wrote them.
         QStringList messages;
-        QRegularExpressionMatchIterator lists = kErrorListRegex.globalMatch(page);
-        while (lists.hasNext()) {
-            const QString list = lists.next().captured(1);
-            QRegularExpressionMatchIterator items = kListItemRegex.globalMatch(list);
-            while (items.hasNext()) {
-                messages.append(QTextDocumentFragment::fromHtml(items.next().captured(1))
-                                    .toPlainText()
-                                    .trimmed());
-            }
-        }
-        return messages;
+        // A page without the form: its heading and the sentence under it.
+        QString heading;
+        QString sentence;
+    };
+
+    const auto kHtmlOptions = QRegularExpression::CaseInsensitiveOption
+                              | QRegularExpression::DotMatchesEverythingOption;
+    const QRegularExpression kFormRegex(R"regex(<form\b[^>]*>(.*?)</form>)regex", kHtmlOptions);
+    const QRegularExpression kListRegex(R"regex(<ul\b[^>]*>(.*?)</ul>)regex", kHtmlOptions);
+    const QRegularExpression kListItemRegex(R"regex(<li\b[^>]*>(.*?)</li>)regex", kHtmlOptions);
+    const QRegularExpression kHeadingRegex(
+        R"regex(<h1\b[^>]*\blayoutBoxTitle\b[^>]*>(.*?)</h1>(.*))regex", kHtmlOptions);
+    const QRegularExpression kSentenceRegex(R"regex(<(h3|p)\b[^>]*>(.*?)</\1>)regex", kHtmlOptions);
+
+    QString PlainText(const QString &html)
+    {
+        return QTextDocumentFragment::fromHtml(html).toPlainText().simplified();
     }
 
-    const QRegularExpression kRateLimitRegex(R"regex(You must wait (\d+) seconds?\b)regex",
-                                             QRegularExpression::CaseInsensitiveOption);
+    ForumPage ReadPage(const QByteArray &body)
+    {
+        const QString page = QString::fromUtf8(body);
+        ForumPage result;
+        QRegularExpressionMatchIterator forms = kFormRegex.globalMatch(page);
+        while (forms.hasNext()) {
+            const QString form = forms.next().captured(1);
+            if (!form.contains("name=\"content\"")) {
+                continue;
+            }
+            result.has_edit_form = true;
+            QRegularExpressionMatchIterator lists = kListRegex.globalMatch(form);
+            while (lists.hasNext()) {
+                QRegularExpressionMatchIterator items = kListItemRegex.globalMatch(
+                    lists.next().captured(1));
+                while (items.hasNext()) {
+                    const QString message = PlainText(items.next().captured(1));
+                    if (!message.isEmpty()) {
+                        result.messages.append(message);
+                    }
+                }
+            }
+            return result;
+        }
+        const QRegularExpressionMatch heading = kHeadingRegex.match(page);
+        if (heading.hasMatch()) {
+            result.heading = PlainText(heading.captured(1));
+            result.sentence = PlainText(kSentenceRegex.match(heading.captured(2)).captured(2));
+        }
+        return result;
+    }
+
+    // The one thing read out of a message: how long the forum asks the
+    // poster to wait ("Rate limiting active. You must wait 30 seconds.").
+    const QRegularExpression kWaitRegex(R"regex(\bwait (\d+) seconds?\b)regex",
+                                        QRegularExpression::CaseInsensitiveOption);
 
     // What a forum reply carried, read once.
     struct ForumReply
@@ -97,21 +140,21 @@ namespace {
                 reply.readAll()};
     }
 
-    // The website may redirect an unauthenticated request to an error page
-    // whose final response is 200, so the status alone is not enough. The
-    // phrases count only as the page's own heading (the layoutBoxTitle
-    // <h1>) or the start of its <title>: the edit page carries the user's
-    // post and the thread view everyone's, and either may contain them.
-    // No logged-out page has been captured; this shape is derived from the
-    // headings and titles of the captured pages.
-    const QRegularExpression kSessionRejectedHeading(
-        R"regex(<h1[^>]*\blayoutBoxTitle\b[^>]*>\s*(?:Login Required|Permission Denied|Content Denied)\s*</h1>)regex"
-        R"regex(|<title>\s*(?:Login Required|Permission Denied|Content Denied))regex");
-
-    bool IsPoeSessionRejected(const ForumReply &reply)
+    // The forum answers a request without a session with a notice headed
+    // "Login Required" (captured, #362). No other notice says anything
+    // about the session: "Permission Denied" is what a logged-in account
+    // gets for a thread it did not start.
+    bool IsLoginRequired(const ForumPage &page)
     {
-        return reply.status == 401 || reply.status == 403
-               || kSessionRejectedHeading.match(QString::fromUtf8(reply.body)).hasMatch();
+        return !page.has_edit_form
+               && page.heading.compare("Login Required", Qt::CaseInsensitive) == 0;
+    }
+
+    // A notice in the forum's own words, for the user.
+    QString Quote(const ForumPage &page)
+    {
+        return page.sentence.isEmpty() ? QString("\"%1\"").arg(page.heading)
+                                       : QString("\"%1: %2\"").arg(page.heading, page.sentence);
     }
 
     using Cause = Shop::Failure::Cause;
@@ -179,7 +222,8 @@ namespace {
     std::variant<EditForm, Shop::Failure> ParseEditPage(const ForumReply &reply,
                                                         const QString &thread)
     {
-        if (IsPoeSessionRejected(reply)) {
+        const ForumPage page = ReadPage(reply.body);
+        if (reply.status == 401 || reply.status == 403 || IsLoginRequired(page)) {
             return SessionRejected("the forum edit page rejected the POESESSID");
         }
         if (reply.error != QNetworkReply::NoError) {
@@ -199,6 +243,13 @@ namespace {
                                  "Check the thread number.")
                              .arg(thread)
                              .arg(reply.status));
+        }
+        if (!page.has_edit_form && !page.heading.isEmpty()) {
+            return Error(Cause::ThreadNotEditable,
+                         QString("The forum would not open thread %1 for editing. It said: %2\n\n"
+                                 "Check the thread number, and that the thread was started by "
+                                 "the account the POESESSID belongs to.")
+                             .arg(thread, Quote(page)));
         }
         EditForm form;
         form.hash = Util::GetCsrfToken(reply.body, "hash");
@@ -220,8 +271,7 @@ namespace {
     struct Posted
     {};
 
-    // The forum asked for the POST to be made again: after `seconds`, or,
-    // when it is zero, after the shop's retry delay.
+    // The forum asked for the POST to be made again after `seconds`.
     struct RetryAfter
     {
         int seconds{0};
@@ -242,61 +292,50 @@ namespace {
             return Error(Cause::PostRefused,
                          QString("The forum refused the post (HTTP %1).").arg(reply.status));
         }
-        if (IsPoeSessionRejected(reply)) {
-            return SessionRejected("the forum answered the POST with an authentication page");
+        const ForumPage page = ReadPage(reply.body);
+        if (IsLoginRequired(page)) {
+            return SessionRejected("the forum answered the POST with its login page");
         }
 
-        // The forum lists its errors in a <ul class="errors">. One or more
-        // may be present; any that is not a request to retry fails the post.
-        // An error class anywhere else fails it without a message.
-        std::optional<RetryAfter> retry;
-        for (const QString &message : ErrorMessages(QString::fromUtf8(reply.body))) {
-            if (message.startsWith("Security token has expired.")) {
-                if (!retry) {
-                    retry = RetryAfter{0, message};
-                }
-            } else if (message.startsWith("Rate limiting", Qt::CaseInsensitive)) {
-                const int seconds = kRateLimitRegex.match(message).captured(1).toInt();
-                if (seconds == 0) {
-                    return Error(Cause::RateLimited,
-                                 "The forum is limiting posts but did not say for how long. Try "
-                                 "again in a few minutes.");
-                }
-                if (!retry || retry->seconds < seconds) {
-                    retry = RetryAfter{seconds, message};
-                }
-            } else if (message.startsWith("Failed to find item.", Qt::CaseInsensitive)) {
-                return Error(Cause::ItemNotFound,
-                             "The forum could not find one of your items; your stash has "
-                             "probably changed since the last refresh. Refresh your tabs and "
-                             "update the shop again.");
-            } else {
-                return Error(Cause::ForumError, "The forum reported an error: " + message);
+        // The edit form again: the post was not saved. The forum's own
+        // words are passed on as they are; the only thing read from them is
+        // a wait, which is honoured.
+        if (page.has_edit_form) {
+            if (page.messages.isEmpty()) {
+                return Error(Cause::ForumError,
+                             QString("The forum did not save the post for thread %1 and gave no "
+                                     "reason.")
+                                 .arg(thread));
             }
-        }
-        if (retry) {
-            return *retry;
-        }
-        if (reply.body.contains("class=\"errors\"")
-            || reply.body.contains("class=\"input-error\"")) {
+            const QString said = page.messages.join(" ");
+            const int seconds = kWaitRegex.match(said).captured(1).toInt();
+            if (seconds > 0) {
+                return RetryAfter{seconds, said};
+            }
             return Error(Cause::ForumError,
-                         "The forum reported an error the shop does not recognise.");
+                         QString("The forum did not save the post for thread %1. It said: \"%2\"")
+                             .arg(thread, said));
         }
-        // No known error is not enough: a saved edit answers with the
-        // thread's own page, which links to view-thread/<id> (written
-        // "&#x2F;" in the breadcrumb). The edit form coming back, an empty
-        // reply, or any other page means the post was not seen to save.
+
+        // A saved edit answers with the thread's own page, which links to
+        // view-thread/<id> (written "&#x2F;" in the breadcrumb). A notice,
+        // an empty reply, or any other page means the post was not seen to
+        // save.
         const QRegularExpression thread_link(
             QString(R"regex(view-thread(?:/|&#x2F;)%1(?![0-9]))regex")
                 .arg(QRegularExpression::escape(thread)));
-        if (reply.body.contains("name=\"hash\"")
-            || !thread_link.match(QString::fromUtf8(reply.body)).hasMatch()) {
-            return Error(Cause::UnexpectedPage,
-                         QString("The forum sent a page Acquisition did not expect, so the post "
-                                 "for thread %1 may not have been saved.")
-                             .arg(thread));
+        if (thread_link.match(QString::fromUtf8(reply.body)).hasMatch()) {
+            return Posted{};
         }
-        return Posted{};
+        if (!page.heading.isEmpty()) {
+            return Error(Cause::UnexpectedPage,
+                         QString("The forum did not save the post for thread %1. It said: %2")
+                             .arg(thread, Quote(page)));
+        }
+        return Error(Cause::UnexpectedPage,
+                     QString("The forum sent a page Acquisition did not expect, so the post "
+                             "for thread %1 may not have been saved.")
+                         .arg(thread));
     }
 
 } // namespace
@@ -808,10 +847,8 @@ void Shop::OnShopSubmitted(QNetworkReply *reply)
                                     .arg(retry->reason)));
             return;
         }
-        // The rate-limit wait is the forum's own, plus a second of margin.
-        const std::chrono::milliseconds delay = retry->seconds > 0
-                                                    ? std::chrono::seconds(retry->seconds + 1)
-                                                    : m_retry_delay;
+        // The wait is the forum's own, plus a second of margin.
+        const std::chrono::milliseconds delay = std::chrono::seconds(retry->seconds + 1);
         const ShopJob *retrying = &job;
         QTimer::singleShot(delay, this, [this, retrying]() {
             if (m_active_job.get() == retrying) {

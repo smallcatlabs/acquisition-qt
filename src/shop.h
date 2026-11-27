@@ -52,9 +52,6 @@ public:
     // posts as captured.
     void DropWaitingCapture();
     void SubmitShopToForum(bool force = false);
-    // How long to wait before fetching the edit page again after the forum
-    // said the security token had expired. Tests shorten it.
-    void SetRetryDelay(std::chrono::milliseconds delay) { m_retry_delay = delay; }
     bool auto_update() const { return m_auto_update; }
 
     QStringList threads() const { return m_threads; }
@@ -73,7 +70,6 @@ public:
             SiteError,
             ThreadNotEditable,
             PostRefused,
-            ItemNotFound,
             RateLimited,
             ForumError,
             UnexpectedPage,
@@ -224,7 +220,6 @@ private:
     QString m_shop_template;
     bool m_auto_update;
     std::set<std::pair<Notice, int>> m_warned;
-    std::chrono::milliseconds m_retry_delay{5000};
 
     // The submission desired state (M2 D8/R3-1): at most one active job and
     // at most one waiting automatic capture behind it — the newest clean

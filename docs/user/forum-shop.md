@@ -61,12 +61,23 @@ These situations stop or limit a post, and Acquisition tells you about each:
   until you close Acquisition but is not saved, so the saved ones are kept.
 - **The site or the forum does not take the update.** The status bar says
   "Forum shop not updated" and why: the site did not answer, a thread could
-  not be opened for editing, the forum could not find one of your items
-  (refresh your tabs and update again), or the forum reported an error. A
-  message gives the same reason each time you update by hand, and once per
+  not be opened for editing, or the forum did not save the post. When the
+  forum gives a reason, the message repeats it in the forum's own words. Two
+  you may see:
+  - *"Failed to find item. Did you specify the correct location and x y?"*
+    Your stash has probably changed since the last refresh. Refresh your
+    tabs and update again.
+  - *"Permission Denied: You don't have permission to access this area."*
+    The thread number belongs to a thread another account started. Check
+    the number under **Shop → Forum shop thread…**.
+
+  A message gives the same reason each time you update by hand, and once per
   session when the shop updates automatically. Threads already updated in
   that run keep their new content; the next update starts again from the
   first thread.
+- **You are no longer logged in.** If the forum answers with its "Login
+  Required" page, Acquisition clears the saved POESESSID and turns automatic
+  updates off. Enter a new one to update again.
 - **The forum asks you to wait.** For a wait of a minute or less, Acquisition
   waits and tries that thread again, starting from a fresh edit page; each
   thread gets at most three attempts in all. A longer wait stops the update,
