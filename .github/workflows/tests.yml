@@ -78,19 +78,30 @@ jobs:
     env:
       # Bound the saved cache; past this ccache evicts least-recently-used objects.
       CCACHE_MAXSIZE: 1G
-      # The pool's runner image carries these too; "Check runner image"
-      # compares them, so the workflow stays the one place they are pinned.
+      # The pool's runner image carries Qt too; "Check runner image"
+      # compares it, so the workflow stays the one place it is pinned.
+      # clang-format is pinned in pyproject.toml.
       QT_VERSION: 6.11.3
-      CLANG_FORMAT_VERSION: 23.1.5
 
     steps:
       - name: Checkout code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
+      # pyproject.toml is the one place the clang-format version is pinned.
+      - name: Read the clang-format pin
+        run: |
+          version=$(sed -n 's/^ *"clang-format==\([0-9.]*\)",$/\1/p' pyproject.toml)
+          if [ -z "$version" ]; then
+            echo "::error::pyproject.toml pins no clang-format version."
+            exit 1
+          fi
+          echo "CLANG_FORMAT_VERSION=$version" >> "$GITHUB_ENV"
+
       # On the pool, Qt, the apt packages, the locale and clang-format are in
       # the runner image, and the job has no sudo; the steps that install them
       # run on GitHub-hosted runners only. This fails at once, naming both
-      # versions, when the image no longer matches the pins above.
+      # versions, when the image no longer matches the pins (QT_VERSION above,
+      # clang-format in pyproject.toml).
       - name: Check runner image
         if: runner.environment == 'self-hosted'
         run: |
@@ -103,7 +114,7 @@ jobs:
             fail=1
           fi
           if ! clang-format --version | grep -qF "version ${CLANG_FORMAT_VERSION}"; then
-            echo "::error::The runner image has $(clang-format --version 2>&1 | head -n1); this workflow wants ${CLANG_FORMAT_VERSION}."
+            echo "::error::The runner image has $(clang-format --version 2>&1 | head -n1); pyproject.toml pins ${CLANG_FORMAT_VERSION}."
             fail=1
           fi
           if ! locale -a | grep -qiE '^de_DE\.utf-?8$'; then
@@ -130,9 +141,17 @@ jobs:
       # Formatting depends on the clang-format version, so the version is
       # pinned (BUILD.md, "Formatting"). Runs first so a formatting slip fails
       # in seconds, before the build.
+      - name: Setup uv
+        if: runner.environment == 'github-hosted'
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          enable-cache: false
+
       - name: Install clang-format
         if: runner.environment == 'github-hosted'
-        run: pipx install "clang-format==${CLANG_FORMAT_VERSION}"
+        run: |
+          uv sync --frozen
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Check formatting
         run: |
