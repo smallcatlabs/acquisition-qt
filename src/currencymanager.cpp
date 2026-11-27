@@ -17,7 +17,27 @@
 #include "util/json_glaze.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 
+namespace {
+
+    // Where the ratios are stored. The key before #38, "currency_items",
+    // holds ratios against the Exalted Orb; it is read once, to convert
+    // them, and left as it is: a version from before #38 still reads it,
+    // and would fail on an entry with a field it does not know.
+    const QString kItemsKey = "currency_items_divine";
+    const QString kExaltedItemsKey = "currency_items";
+
+} // namespace
+
 struct SerializedCurrency
+{
+    QString currency;
+    int count;
+    double chaos_ratio;
+    double divine_ratio;
+};
+
+// An entry of "currency_items".
+struct ExaltedCurrency
 {
     QString currency;
     int count;
@@ -32,7 +52,7 @@ CurrencyManager::CurrencyManager(QSettings &settings,
     , m_settings(settings)
     , m_data(datastore)
     , m_items_manager(items_manager)
-    , m_stored(datastore, {"currency_items", "currency_base"})
+    , m_stored(datastore, {kItemsKey, kExaltedItemsKey, "currency_base"})
 {
     for (const CurrencyInfo &row : CurrencyTable::Default().rows()) {
         if (row.wisdom > 0) {
@@ -46,15 +66,17 @@ CurrencyManager::CurrencyManager(QSettings &settings,
                       "saved this session: {}",
                       m_stored.error());
         MakeCurrencyItems();
-    } else if (m_stored.value("currency_items").isEmpty()) {
+    } else if (!m_stored.value(kItemsKey).isEmpty()) {
+        InitCurrency(m_stored.value(kItemsKey));
+    } else if (!m_stored.value(kExaltedItemsKey).isEmpty()) {
+        ConvertExaltedRatios(m_stored.value(kExaltedItemsKey));
+    } else {
         FirstInitCurrency();
         const QString base = m_stored.value("currency_base");
         if (!base.isEmpty()) {
             MigrateCurrency(base);
             spdlog::warn("Found old currency values, migrated them to the new system");
         }
-    } else {
-        InitCurrency(m_stored.value("currency_items"));
     }
 }
 
@@ -80,12 +102,12 @@ void CurrencyManager::Update()
 }
 
 const double EPS = 1e-6;
-double CurrencyManager::TotalExaltedValue()
+double CurrencyManager::TotalDivineValue()
 {
     double out = 0;
     for (const auto &currency : m_currencies) {
-        if (fabs(currency->exalt.value1) > EPS) {
-            out += currency->count / currency->exalt.value1;
+        if (fabs(currency->divine.value1) > EPS) {
+            out += currency->count / currency->divine.value1;
         }
     }
     return out;
@@ -146,10 +168,10 @@ void CurrencyManager::FirstInitCurrency()
     for (size_t row = 0; row < m_currencies.size(); ++row) {
         value += ";0";
     }
-    m_stored.Set("currency_items", Serialize(m_currencies));
+    m_stored.Set(kItemsKey, Serialize(m_currencies));
     m_data.Set("currency_last_value", value);
     m_settings.setValue("show_chaos", true);
-    m_settings.setValue("show_exalt", true);
+    m_settings.setValue("show_divine", true);
 }
 
 void CurrencyManager::MigrateCurrency(const QString &currency_base)
@@ -161,8 +183,14 @@ void CurrencyManager::MigrateCurrency(const QString &currency_base)
          ++i) {
         // We can't use the toDouble function from QT, because it encodes a double with a ","
         // Might be related to localisation issue, but anyway it's safer this way
-        m_currencies[static_cast<size_t>(i - 1)]->exalt.value1 = list[i].toDouble();
+        m_currencies[static_cast<size_t>(i - 1)]->divine.value1 = list[i].toDouble();
     }
+    // The old list is against the Exalted Orb too.
+    if (!RestateAgainstDivine()) {
+        spdlog::warn("The old currency values give no rate between the Exalted Orb and the "
+                     "Divine Orb, so the Divine ratios start at their defaults");
+    }
+    m_stored.Set(kItemsKey, Serialize(m_currencies));
     //Set to empty so we won't trigger it next time !
     m_stored.Set("currency_base", "");
 }
@@ -175,7 +203,7 @@ QString CurrencyManager::Serialize(const std::vector<std::shared_ptr<CurrencyIte
         SerializedCurrency c{.currency = currency->currency.AsTag(),
                              .count = currency->count,
                              .chaos_ratio = currency->chaos.value1,
-                             .exalt_ratio = currency->exalt.value1};
+                             .divine_ratio = currency->divine.value1};
         output.push_back(c);
     }
 
@@ -212,16 +240,74 @@ void CurrencyManager::Deserialize(const QString &string_data,
                 item = std::make_shared<CurrencyItem>(obj.count,
                                                       curr,
                                                       obj.chaos_ratio,
-                                                      obj.exalt_ratio);
+                                                      obj.divine_ratio);
                 break;
             }
         }
     }
 }
 
+void CurrencyManager::ConvertExaltedRatios(const QString &currency_items)
+{
+    MakeCurrencyItems();
+    const auto bytes = currency_items.toUtf8();
+    const std::string_view sv{bytes.constData(), size_t(bytes.size())};
+    const auto result = glz::read_json<std::vector<ExaltedCurrency>>(sv);
+    if (!result) {
+        // As before #38 for a list that cannot be parsed (one from before
+        // version 0.16, say): the defaults replace it.
+        const auto msg = glz::format_error(result.error(), sv);
+        spdlog::error("Error deserializing currency: {}", msg);
+    } else {
+        for (const auto &obj : *result) {
+            const Currency curr = Currency::FromTag(obj.currency);
+            for (auto &item : m_currencies) {
+                if (curr == item->currency) {
+                    item = std::make_shared<CurrencyItem>(obj.count,
+                                                          curr,
+                                                          obj.chaos_ratio,
+                                                          obj.exalt_ratio);
+                    break;
+                }
+            }
+        }
+        if (RestateAgainstDivine()) {
+            spdlog::info("The currency ratios against the Exalted Orb were restated against the "
+                         "Divine Orb");
+        } else {
+            spdlog::warn("The currency ratios against the Exalted Orb give no rate between it "
+                         "and the Divine Orb, so the Divine ratios start at their defaults");
+        }
+    }
+    m_stored.Set(kItemsKey, Serialize(m_currencies));
+    // The check box follows the one it replaces.
+    if (!m_settings.contains("show_divine") && m_settings.contains("show_exalt")) {
+        m_settings.setValue("show_divine", m_settings.value("show_exalt"));
+    }
+}
+
+bool CurrencyManager::RestateAgainstDivine()
+{
+    // What one Exalted Orb buys in Divine Orbs.
+    double rate = 0;
+    for (const auto &currency : m_currencies) {
+        if (currency->currency == Currency::CURRENCY_DIVINE_ORB) {
+            rate = currency->divine.value1;
+        }
+    }
+    const bool known = fabs(rate) > EPS;
+    for (auto &currency : m_currencies) {
+        // One Exalted Orb buys `value1` of this currency and `rate` Divine
+        // Orbs, so one Divine Orb buys `value1 / rate` of it. A currency
+        // that was not counted (0) stays uncounted.
+        currency->divine.value1 = known ? currency->divine.value1 / rate : 1;
+    }
+    return known;
+}
+
 void CurrencyManager::SaveCurrencyItems()
 {
-    m_stored.Set("currency_items", Serialize(m_currencies));
+    m_stored.Set(kItemsKey, Serialize(m_currencies));
 }
 
 void CurrencyManager::SaveCurrencyValue()
@@ -232,7 +318,7 @@ void CurrencyManager::SaveCurrencyValue()
     QString value = "";
     // Useless to save if every count is 0.
     bool empty = true;
-    value = QString::number(TotalExaltedValue());
+    value = QString::number(TotalDivineValue());
     for (auto &currency : m_currencies) {
         value += ";" + QString::number(currency->count);
         if (currency->count != 0) {

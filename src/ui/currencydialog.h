@@ -27,7 +27,7 @@ class CurrencyWidget : public QObject
     Q_OBJECT
 public slots:
     void Update();
-    void UpdateVisual(bool show_chaos, bool show_exalt);
+    void UpdateVisual(bool show_chaos, bool show_divine);
 
 public:
     CurrencyWidget(std::shared_ptr<CurrencyItem> currency, QWidget *parent);
@@ -36,8 +36,8 @@ public:
     QLabel *count;
     QDoubleSpinBox *chaos_ratio;
     QDoubleSpinBox *chaos_value;
-    QDoubleSpinBox *exalt_ratio;
-    QDoubleSpinBox *exalt_value;
+    QDoubleSpinBox *divine_ratio;
+    QDoubleSpinBox *divine_value;
 
 private:
     std::shared_ptr<CurrencyItem> m_currency;
@@ -50,12 +50,12 @@ public:
     CurrencyDialog(QSettings &settings, CurrencyManager &manager, QWidget *parent = nullptr);
     ~CurrencyDialog() override;
     bool ShowChaos() const;
-    bool ShowExalt() const;
+    bool ShowDivine() const;
 
 public slots:
     void Update();
     void UpdateVisual();
-    void UpdateVisibility(bool show_chaos, bool show_exalt);
+    void UpdateVisibility(bool show_chaos, bool show_divine);
     void UpdateTotalValue();
 
 private:
@@ -64,12 +64,12 @@ private:
     std::vector<CurrencyWidget *> m_currencies_widgets;
     std::unique_ptr<CurrencyLabels> m_headers;
     QVBoxLayout *m_layout;
-    QLabel *m_total_exalt_value;
+    QLabel *m_total_divine_value;
     QLabel *m_total_chaos_value;
     QLabel *m_total_wisdom_value;
     QCheckBox *m_show_chaos;
-    QCheckBox *m_show_exalt;
+    QCheckBox *m_show_divine;
     QFrame *m_separator;
-    QVBoxLayout *GenerateLayout(bool show_chaos, bool show_exalt);
+    QVBoxLayout *GenerateLayout(bool show_chaos, bool show_divine);
     void UpdateTotalWisdomValue();
 };
