@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // SPDX-FileCopyrightText: 2026 Tom Holz
 
+#include <QCheckBox>
 #include <QDoubleSpinBox>
+#include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -42,6 +44,11 @@ private slots:
     void failedReadOfTheOldListWritesNothing();
     void failedReadRecordsNoHistory();
     void failedReadOfTheLastValueRecordsNoDuplicate();
+
+    // #38: the dialog's second anchor is the Divine Orb.
+    void dialogIsAnchoredOnDivine();
+    void exaltedRatiosBecomeDivineRatios();
+    void exaltedRatiosWithNoDivineRateAreNotConverted();
 };
 
 namespace {
@@ -137,7 +144,7 @@ namespace {
 void CurrencyManagerTest::firstRunCountsWisdom()
 {
     CurrencyFixture fixture;
-    QVERIFY(fixture.buyouts.data->Get("currency_items").isEmpty());
+    QVERIFY(fixture.buyouts.data->Get("currency_items_divine").isEmpty());
     const ItemLocation tab = makeTestStashLocation("stash-285a", "Currency", 0);
     fixture.items.OnItemsRefreshed({makeStack("wisdom-285a", "Scroll of Wisdom", 10, 40, tab)},
                                    {tab},
@@ -169,7 +176,7 @@ void CurrencyManagerTest::ratioEditIsSavedAtOnce()
     QVERIFY(ratio);
     ratio->setValue(42.5);
 
-    QVERIFY(fixture.buyouts.data->Get("currency_items").contains("42.5"));
+    QVERIFY(fixture.buyouts.data->Get("currency_items_divine").contains("42.5"));
 }
 
 // #285: the history is keyed by a timestamp in seconds, so a second update
@@ -247,10 +254,10 @@ void CurrencyManagerTest::hiddenColumnsAreOwnedByTheDialog()
     CurrencyFixture fixture;
     CurrencyManager currency(fixture.settings, *fixture.buyouts.data, fixture.items);
     fixture.settings.setValue("show_chaos", false);
-    fixture.settings.setValue("show_exalt", false);
+    fixture.settings.setValue("show_divine", false);
     CurrencyDialog dialog(fixture.settings, currency);
 
-    // Four spin boxes a row: the chaos and exalt ratios and values.
+    // Four spin boxes a row: the chaos and divine ratios and values.
     const qsizetype rows = qsizetype(currency.currencies().size());
     QCOMPARE(dialog.findChildren<QDoubleSpinBox *>().size(), 4 * rows);
     QStringList labels;
@@ -258,7 +265,7 @@ void CurrencyManagerTest::hiddenColumnsAreOwnedByTheDialog()
         labels.append(label->text());
     }
     QVERIFY(labels.contains("Amount a chaos Orb can buy"));
-    QVERIFY(labels.contains("Total Exalted Orbs"));
+    QVERIFY(labels.contains("Total Divine Orbs"));
 }
 
 // A ratio typed into a spin box is saved when the edit is finished, not at
@@ -279,7 +286,7 @@ void CurrencyManagerTest::typedRatioIsSavedWhenFinished()
     QCOMPARE(rows.front()->name->text(), currency.currencies().at(0)->name);
     const auto savedRatio = [&fixture, &tag]() -> double {
         const auto saved = QJsonDocument::fromJson(
-            fixture.buyouts.data->Get("currency_items").toUtf8());
+            fixture.buyouts.data->Get("currency_items_divine").toUtf8());
         for (const auto &entry : saved.array()) {
             if (entry.toObject().value("currency").toString() == tag) {
                 return entry.toObject().value("chaos_ratio").toDouble();
@@ -309,6 +316,7 @@ void CurrencyManagerTest::typedRatioIsSavedWhenFinished()
 // the enum-based code (b34d4531's currencymanager.cpp and currency.cpp),
 // which wrote exactly these 20 fields: the exalted total with every ratio
 // at its default of 1 (3 + 2 + 7), then the counts in the old enum order.
+// Since #38 the total is in Divine Orbs: the same number at these ratios.
 void CurrencyManagerTest::historyOfExistingCurrenciesIsUnchanged()
 {
     CurrencyFixture fixture;
@@ -338,13 +346,15 @@ void CurrencyManagerTest::legacyRatioListSkipsNoCurrency()
     CurrencyManager currency(fixture.settings, *fixture.buyouts.data, fixture.items);
 
     QCOMPARE(currency.currencies().at(0)->currency, Currency::CURRENCY_ORB_OF_ALTERATION);
-    QCOMPARE(currency.currencies().at(0)->exalt.value1, 5.0);
+    QCOMPARE(currency.currencies().at(0)->divine.value1, 5.0);
     QCOMPARE(currency.currencies().at(1)->currency, Currency::CURRENCY_ORB_OF_FUSING);
-    QCOMPARE(currency.currencies().at(1)->exalt.value1, 7.0);
+    QCOMPARE(currency.currencies().at(1)->divine.value1, 7.0);
 }
 
 // Saved ratios as b34d4531 wrote them: one entry per old enum value,
-// "no currency" first with an empty tag. They load by tag.
+// "no currency" first with an empty tag. They load by tag, and the ones
+// against the Exalted Orb, which then bought 0.8 Divine Orbs, are restated
+// against the Divine Orb (#38).
 void CurrencyManagerTest::savedRatiosFromBeforeTheTableLoad()
 {
     CurrencyFixture fixture;
@@ -385,7 +395,7 @@ void CurrencyManagerTest::savedRatiosFromBeforeTheTableLoad()
         const bool alt = row->currency == Currency::CURRENCY_ORB_OF_ALTERATION;
         const bool divine = row->currency == Currency::CURRENCY_DIVINE_ORB;
         QCOMPARE(row->chaos.value1, alt ? 12.5 : 1.0);
-        QCOMPARE(row->exalt.value1, divine ? 0.8 : 1.0);
+        QCOMPARE(row->divine.value1, divine ? 1.0 : 1.25);
     }
 }
 
@@ -399,9 +409,9 @@ void CurrencyManagerTest::failedReadLeavesTheStoredCurrencyAlone()
     {
         // The user's ratios, saved when an earlier session ends.
         CurrencyManager earlier(fixture.settings, store, fixture.items);
-        earlier.currencies().at(0)->exalt.value1 = 12.5;
+        earlier.currencies().at(0)->divine.value1 = 12.5;
     }
-    const QString stored = store.Get("currency_items");
+    const QString stored = store.Get("currency_items_divine");
     QVERIFY(stored.contains("12.5"));
 
     // A second connection hides the table, so reading the store fails.
@@ -427,7 +437,7 @@ void CurrencyManagerTest::failedReadLeavesTheStoredCurrencyAlone()
     QSqlDatabase::database(connection).close();
     QSqlDatabase::removeDatabase(connection);
 
-    QCOMPARE(store.Get("currency_items"), stored);
+    QCOMPARE(store.Get("currency_items_divine"), stored);
 }
 
 // #295: on a first run (no currency_items), a failed read of the list from
@@ -443,6 +453,7 @@ void CurrencyManagerTest::failedReadOfTheOldListWritesNothing()
         CurrencyManager currency(fixture.settings, store, fixture.items);
     }
     QCOMPARE(real.Get("currency_items", "absent"), QString("absent"));
+    QCOMPARE(real.Get("currency_items_divine", "absent"), QString("absent"));
     QCOMPARE(real.Get("currency_base"), QString("0;5;7"));
 }
 
@@ -453,14 +464,14 @@ void CurrencyManagerTest::failedReadRecordsNoHistory()
     CurrencyFixture fixture;
     const ItemLocation tab = makeTestStashLocation("stash-295h", "Currency", 0);
     fixture.items.OnItemsRefreshed({makeStack("chaos-295h", "Chaos Orb", 3, 20, tab)}, {tab}, false);
-    QVERIFY(fixture.buyouts.data->Set("currency_items", "[]"));
-    OneKeyFails store(*fixture.buyouts.data, "currency_items");
+    QVERIFY(fixture.buyouts.data->Set("currency_items_divine", "[]"));
+    OneKeyFails store(*fixture.buyouts.data, "currency_items_divine");
     {
         CurrencyManager currency(fixture.settings, store, fixture.items);
         currency.Update();
     }
     QVERIFY(fixture.buyouts.data->GetAllCurrency().empty());
-    QCOMPARE(fixture.buyouts.data->Get("currency_items"), QString("[]"));
+    QCOMPARE(fixture.buyouts.data->Get("currency_items_divine"), QString("[]"));
 }
 
 // #295: when the last recorded value cannot be read, the update is not taken
@@ -500,6 +511,7 @@ void CurrencyManagerTest::failedReadOfTheLastValueRecordsNoDuplicate()
 // the currency's name (v0.15.2's Serialize); since v0.16 it is read as an
 // array, so a league file kept from then cannot be parsed. Its ratios are
 // replaced by the defaults, and from then on edits and history are saved.
+// Since #38 they are saved under their own key, and the old one is left.
 void CurrencyManagerTest::ratiosFromBeforeVersion016AreReplacedOnce()
 {
     CurrencyFixture fixture;
@@ -512,13 +524,121 @@ void CurrencyManagerTest::ratiosFromBeforeVersion016AreReplacedOnce()
     fixture.items.OnItemsRefreshed({makeStack("chaos-295v", "Chaos Orb", 3, 20, tab)}, {tab}, false);
     {
         CurrencyManager currency(fixture.settings, store, fixture.items);
-        currency.currencies().at(0)->exalt.value1 = 7;
+        currency.currencies().at(0)->divine.value1 = 7;
         currency.SaveCurrencyItems();
         currency.Update();
     }
-    const QString saved = store.Get("currency_items");
-    QVERIFY2(saved.startsWith("[") && saved.contains("\"exalt_ratio\":7"), qPrintable(saved));
+    const QString saved = store.Get("currency_items_divine");
+    QVERIFY2(saved.startsWith("[") && saved.contains("\"divine_ratio\":7"), qPrintable(saved));
+    QCOMPARE(store.Get("currency_items"), v015);
     QCOMPARE(store.GetAllCurrency().size(), size_t(1));
+}
+
+namespace {
+
+    // currency_items as the versions before the Divine anchor wrote it: one
+    // entry per currency the dialog covers, each with what one Exalted Orb
+    // buys. `exalted` gives the ratios that are not the default of 1.
+    QString exaltedRatios(const QHash<QString, double> &exalted)
+    {
+        QStringList entries;
+        for (const auto &row : CurrencyTable::Default().rows()) {
+            if (!row.choosable) {
+                continue;
+            }
+            entries.append(QString(R"({"currency":"%1","count":0,"chaos_ratio":1,"exalt_ratio":%2})")
+                               .arg(row.tag)
+                               .arg(exalted.value(row.tag, 1.0)));
+        }
+        return "[" + entries.join(",") + "]";
+    }
+
+    // The Divine ratio saved for a currency, -1 when there is none.
+    double savedDivineRatio(DataStore &store, const QString &tag)
+    {
+        const auto saved = QJsonDocument::fromJson(store.Get("currency_items_divine").toUtf8());
+        for (const auto &entry : saved.array()) {
+            const QJsonObject object = entry.toObject();
+            if ((object.value("currency").toString() == tag) && object.contains("divine_ratio")) {
+                return object.value("divine_ratio").toDouble();
+            }
+        }
+        return -1;
+    }
+
+} // namespace
+
+// #38: a Divine Orb has been worth more than an Exalted Orb since the two
+// swapped roles, so the dialog's ratios and its total are in Divine Orbs.
+void CurrencyManagerTest::dialogIsAnchoredOnDivine()
+{
+    CurrencyFixture fixture;
+    CurrencyManager currency(fixture.settings, *fixture.buyouts.data, fixture.items);
+    CurrencyDialog dialog(fixture.settings, currency);
+
+    QStringList labels;
+    for (const QLabel *label : dialog.findChildren<QLabel *>()) {
+        labels.append(label->text());
+    }
+    QVERIFY(labels.contains("Amount a Divine Orb can buy"));
+    QVERIFY(labels.contains("Value in Divine Orb"));
+    QVERIFY(labels.contains("Total Divine Orbs"));
+    // Only the Exalted Orb's own row still names it.
+    QCOMPARE(labels.filter("Exalted"), QStringList{"Exalted Orb"});
+    QStringList boxes;
+    for (const QCheckBox *box : dialog.findChildren<QCheckBox *>()) {
+        boxes.append(box->text());
+    }
+    QVERIFY2(boxes.contains("show divine ratio"), qPrintable(boxes.join(" | ")));
+}
+
+// #38: the ratios a user entered against the Exalted Orb are restated
+// against the Divine Orb, through their own Exalted-to-Divine rate. What
+// was stored stays where it was, for an older version to read.
+void CurrencyManagerTest::exaltedRatiosBecomeDivineRatios()
+{
+    CurrencyFixture fixture;
+    DataStore &store = *fixture.buyouts.data;
+    // One Exalted Orb buys a tenth of a Divine Orb, 15 Chaos Orbs and 60
+    // Orbs of Alteration; Perandus Coins are not counted.
+    const QString stored = exaltedRatios({{"divine", 0.1}, {"chaos", 15}, {"alt", 60}, {"coin", 0}});
+    QVERIFY(store.Set("currency_items", stored));
+    {
+        CurrencyManager currency(fixture.settings, store, fixture.items);
+    }
+
+    // So one Divine Orb buys ten times that.
+    QCOMPARE(savedDivineRatio(store, "divine"), 1.0);
+    QCOMPARE(savedDivineRatio(store, "exa"), 10.0);
+    QCOMPARE(savedDivineRatio(store, "chaos"), 150.0);
+    QCOMPARE(savedDivineRatio(store, "alt"), 600.0);
+    QCOMPARE(savedDivineRatio(store, "coin"), 0.0);
+    QCOMPARE(store.Get("currency_items"), stored);
+
+    // It is done once: a later session reads the Divine ratios, edited or
+    // not, and does not convert again.
+    {
+        CurrencyManager currency(fixture.settings, store, fixture.items);
+    }
+    QCOMPARE(savedDivineRatio(store, "chaos"), 150.0);
+}
+
+// #38: with no Exalted-to-Divine rate (the Divine Orb was not counted), the
+// Exalted ratios say nothing about a Divine Orb: the Divine ratios start at
+// their defaults, and the Exalted ones stay stored.
+void CurrencyManagerTest::exaltedRatiosWithNoDivineRateAreNotConverted()
+{
+    CurrencyFixture fixture;
+    DataStore &store = *fixture.buyouts.data;
+    const QString stored = exaltedRatios({{"divine", 0}, {"chaos", 15}});
+    QVERIFY(store.Set("currency_items", stored));
+    {
+        CurrencyManager currency(fixture.settings, store, fixture.items);
+    }
+
+    QCOMPARE(savedDivineRatio(store, "divine"), 1.0);
+    QCOMPARE(savedDivineRatio(store, "chaos"), 1.0);
+    QCOMPARE(store.Get("currency_items"), stored);
 }
 
 ACQ_TEST_MAIN(CurrencyManagerTest)

@@ -42,13 +42,15 @@ struct CurrencyItem
     int count;
     Currency currency;
     QString name;
-    CurrencyRatio exalt;
+    // What one Divine Orb buys of this currency. Until #38 the anchor was
+    // the Exalted Orb.
+    CurrencyRatio divine;
     CurrencyRatio chaos;
-    CurrencyItem(int co, Currency curr, double chaos_ratio, double exalt_ratio)
+    CurrencyItem(int co, Currency curr, double chaos_ratio, double divine_ratio)
         : count(co)
         , currency(curr)
         , name(curr.AsString())
-        , exalt(curr, Currency::CURRENCY_EXALTED_ORB, exalt_ratio, 1)
+        , divine(curr, Currency::CURRENCY_DIVINE_ORB, divine_ratio, 1)
         , chaos(curr, Currency::CURRENCY_CHAOS_ORB, chaos_ratio, 1) {};
 };
 
@@ -62,7 +64,7 @@ public:
     // Called from CurrencyManager::Update.
     void ParseSingleItem(const Item &item);
     const std::vector<std::shared_ptr<CurrencyItem>> &currencies() const { return m_currencies; }
-    double TotalExaltedValue();
+    double TotalDivineValue();
     double TotalChaosValue();
     int TotalWisdomValue();
     void Update();
@@ -92,9 +94,11 @@ private:
         int count;
     };
     std::vector<WisdomCount> m_wisdom;
-    // The ratios, and the list from before the JSON format that a first run
-    // migrates. When either could not be read (#295), the defaults stand in
-    // for this session and neither is written.
+    // The ratios, and what earlier versions stored: the ratios against the
+    // Exalted Orb (#38) and the list from before the JSON format, either of
+    // which a first run with this version converts. When any could not be
+    // read (#295), the defaults stand in for this session and none is
+    // written.
     StoredSettings m_stored;
     // A new item per choosable currency, with the default ratios.
     void MakeCurrencyItems();
@@ -103,6 +107,12 @@ private:
     //Migrate from old storage (csv-like serializing) to new one (using json)
     void MigrateCurrency(const QString &currency_base);
     void InitCurrency(const QString &currency_items);
+    // Reads the ratios stored against the Exalted Orb as Divine ratios (#38).
+    void ConvertExaltedRatios(const QString &currency_items);
+    // Restates every row's ratio, held against the Exalted Orb, against the
+    // Divine Orb. False, with the rows at their defaults, when the rows give
+    // no Exalted-to-Divine rate.
+    bool RestateAgainstDivine();
     QString Serialize(const std::vector<std::shared_ptr<CurrencyItem>> &currencies);
     void Deserialize(const QString &data, std::vector<std::shared_ptr<CurrencyItem>> &currencies);
     void Save();
