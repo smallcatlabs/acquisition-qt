@@ -130,9 +130,9 @@ public:
     const QString &AsWord() const;
     // The rank from the table; 0 for no currency.
     int AsRank() const;
-    // What the Price column sorts on first: by rank, the unranked currencies
-    // in table order below every ranked one, Silver Coin below those, and
-    // no currency below all.
+    // What the Price column sorts on first: by rank, then the currencies
+    // with no rank, then the ones no longer in the game, and no currency
+    // below all.
     int SortKey() const;
 };
 

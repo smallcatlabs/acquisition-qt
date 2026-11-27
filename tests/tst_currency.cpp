@@ -4,6 +4,8 @@
 #include <QComboBox>
 #include <QTest>
 
+#include <algorithm>
+
 #include "currency.h"
 #include "testsuite.h"
 #include "ui/widgetutil.h"
@@ -16,9 +18,7 @@ class CurrencyTest : public QObject
 
 private slots:
     void existingCurrenciesKeepTagsNamesAndOrder();
-    void existingRanksAreKept();
-    void divineRanksAboveExalted();
-    void silverCoinSortsBelowEveryOtherCurrency();
+    void currenciesSortByWorth();
     void comboCarriesTheTag();
     void comboOffersOnlyChoosableCurrencies();
     void gameWordsAreRecognised_data();
@@ -35,35 +35,33 @@ namespace {
         Currency::CurrencyType type;
         const char *tag;
         const char *name;
-        int rank;
     };
 
     // The 19 currencies the application has always had, in their order
     // (positional in the currency history), with the tags stored in users'
-    // databases and posted to the forum, their names, and their ranks
-    // before #38.
+    // databases and posted to the forum, and their names.
     const std::vector<Existing> &existing()
     {
         static const std::vector<Existing> rows = {
-            {Currency::CURRENCY_ORB_OF_ALTERATION, "alt", "Orb of Alteration", 2},
-            {Currency::CURRENCY_ORB_OF_FUSING, "fuse", "Orb of Fusing", 7},
-            {Currency::CURRENCY_ORB_OF_ALCHEMY, "alch", "Orb of Alchemy", 8},
-            {Currency::CURRENCY_CHAOS_ORB, "chaos", "Chaos Orb", 11},
-            {Currency::CURRENCY_GCP, "gcp", "Gemcutter's Prism", 15},
-            {Currency::CURRENCY_EXALTED_ORB, "exa", "Exalted Orb", 17},
-            {Currency::CURRENCY_CHROMATIC_ORB, "chrom", "Chromatic Orb", 1},
-            {Currency::CURRENCY_JEWELLERS_ORB, "jew", "Jeweller's Orb", 3},
-            {Currency::CURRENCY_ORB_OF_CHANCE, "chance", "Orb of Chance", 4},
-            {Currency::CURRENCY_CARTOGRAPHERS_CHISEL, "chisel", "Cartographer's Chisel", 5},
-            {Currency::CURRENCY_ORB_OF_SCOURING, "scour", "Orb of Scouring", 10},
-            {Currency::CURRENCY_BLESSED_ORB, "blessed", "Blessed Orb", 9},
-            {Currency::CURRENCY_ORB_OF_REGRET, "regret", "Orb of Regret", 12},
-            {Currency::CURRENCY_REGAL_ORB, "regal", "Regal Orb", 13},
-            {Currency::CURRENCY_DIVINE_ORB, "divine", "Divine Orb", 16},
-            {Currency::CURRENCY_VAAL_ORB, "vaal", "Vaal Orb", 14},
-            {Currency::CURRENCY_PERANDUS_COIN, "coin", "Perandus Coin", 6},
-            {Currency::CURRENCY_MIRROR_OF_KALANDRA, "mirror", "Mirror of Kalandra", 18},
-            {Currency::CURRENCY_SILVER_COIN, "silver", "Silver Coin", 19},
+            {Currency::CURRENCY_ORB_OF_ALTERATION, "alt", "Orb of Alteration"},
+            {Currency::CURRENCY_ORB_OF_FUSING, "fuse", "Orb of Fusing"},
+            {Currency::CURRENCY_ORB_OF_ALCHEMY, "alch", "Orb of Alchemy"},
+            {Currency::CURRENCY_CHAOS_ORB, "chaos", "Chaos Orb"},
+            {Currency::CURRENCY_GCP, "gcp", "Gemcutter's Prism"},
+            {Currency::CURRENCY_EXALTED_ORB, "exa", "Exalted Orb"},
+            {Currency::CURRENCY_CHROMATIC_ORB, "chrom", "Chromatic Orb"},
+            {Currency::CURRENCY_JEWELLERS_ORB, "jew", "Jeweller's Orb"},
+            {Currency::CURRENCY_ORB_OF_CHANCE, "chance", "Orb of Chance"},
+            {Currency::CURRENCY_CARTOGRAPHERS_CHISEL, "chisel", "Cartographer's Chisel"},
+            {Currency::CURRENCY_ORB_OF_SCOURING, "scour", "Orb of Scouring"},
+            {Currency::CURRENCY_BLESSED_ORB, "blessed", "Blessed Orb"},
+            {Currency::CURRENCY_ORB_OF_REGRET, "regret", "Orb of Regret"},
+            {Currency::CURRENCY_REGAL_ORB, "regal", "Regal Orb"},
+            {Currency::CURRENCY_DIVINE_ORB, "divine", "Divine Orb"},
+            {Currency::CURRENCY_VAAL_ORB, "vaal", "Vaal Orb"},
+            {Currency::CURRENCY_PERANDUS_COIN, "coin", "Perandus Coin"},
+            {Currency::CURRENCY_MIRROR_OF_KALANDRA, "mirror", "Mirror of Kalandra"},
+            {Currency::CURRENCY_SILVER_COIN, "silver", "Silver Coin"},
         };
         return rows;
     }
@@ -94,41 +92,86 @@ void CurrencyTest::existingCurrenciesKeepTagsNamesAndOrder()
     QVERIFY(!Currency().AsTag().isNull());
 }
 
-// Every rank stays as it was, except the ones the maintainer ruled on (#38).
-void CurrencyTest::existingRanksAreKept()
+// #38: the Price column's order of currencies, most valuable first, as the
+// maintainer ruled on November 27, 2026: the order of their values in the
+// current challenge league, from an economy snapshot taken that day, with
+// equal values ordered by their values in Standard.
+void CurrencyTest::currenciesSortByWorth()
 {
-    for (const Existing &row : existing()) {
-        if ((row.type == Currency::CURRENCY_DIVINE_ORB)
-            || (row.type == Currency::CURRENCY_EXALTED_ORB)
-            || (row.type == Currency::CURRENCY_SILVER_COIN)) {
-            continue;
-        }
-        QCOMPARE(Currency(row.type).AsRank(), row.rank);
-    }
-}
-
-// #38: since the 3.25 swap, a Divine Orb is worth more than an Exalted Orb.
-void CurrencyTest::divineRanksAboveExalted()
-{
-    QVERIFY(Currency(Currency::CURRENCY_DIVINE_ORB).AsRank()
-            > Currency(Currency::CURRENCY_EXALTED_ORB).AsRank());
-}
-
-// #38: Silver Coins are no longer in the game. A price in them sorts below
-// a price in any other currency, the ones only read from notes included,
-// and still above an item with no price.
-void CurrencyTest::silverCoinSortsBelowEveryOtherCurrency()
-{
-    const Currency silver(Currency::CURRENCY_SILVER_COIN);
+    const QStringList order = {
+        "Mirror of Kalandra",
+        "Divine Orb",
+        "Exceptional Eldritch Ichor",
+        "Exceptional Eldritch Ember",
+        "Grand Eldritch Ember",
+        "Orb of Annulment",
+        "Grand Eldritch Ichor",
+        "Gemcutter's Prism",
+        "Chromatic Orb",
+        "Greater Eldritch Ember",
+        "Exalted Orb",
+        "Chaos Orb",
+        "Orb of Regret",
+        "Glassblower's Bauble",
+        "Orb of Scouring",
+        "Orb of Chance",
+        "Vaal Orb",
+        "Greater Eldritch Ichor",
+        "Lesser Eldritch Ember",
+        "Orb of Augmentation",
+        "Regal Orb",
+        "Lesser Eldritch Ichor",
+        "Orb of Alteration",
+        "Armourer's Scrap",
+        "Orb of Fusing",
+        "Blacksmith's Whetstone",
+        "Orb of Alchemy",
+        "Blessed Orb",
+        "Portal Scroll",
+        "Orb of Transmutation",
+        "Scroll of Wisdom",
+        "Jeweller's Orb",
+        // Offered by the game's price dialog, but not currencies with a
+        // market value: below the ones that have one, the greater offering
+        // first (the table's later row).
+        "Tribute to the Goddess",
+        "Gift to the Goddess",
+        "Dedication to the Goddess",
+        "Offering to the Goddess",
+        // No longer in the game, or no longer something an item can be
+        // priced in: below every other, the table's later row first.
+        "Infused Engineer's Orb",
+        "Engineer's Orb",
+        "Facetor's Lens",
+        "Silver Coin",
+        "Perandus Coin",
+        "Cartographer's Chisel",
+    };
     const auto &table = CurrencyTable::Default();
-    for (size_t row = 0; row < table.size(); ++row) {
-        const Currency other = Currency::AtRow(row);
-        if (other == silver) {
-            continue;
-        }
-        QVERIFY2(silver.SortKey() < other.SortKey(), qPrintable(other.AsString()));
+    QCOMPARE(static_cast<size_t>(order.size()), table.size());
+
+    QStringList sorted;
+    for (const CurrencyInfo &row : table.rows()) {
+        sorted.append(row.name);
     }
-    QVERIFY(silver.SortKey() > Currency().SortKey());
+    const auto key = [&table](const QString &name) {
+        for (size_t row = 0; row < table.size(); ++row) {
+            if (table.at(row).name == name) {
+                return Currency::AtRow(row).SortKey();
+            }
+        }
+        return -1;
+    };
+    std::sort(sorted.begin(), sorted.end(), [&key](const QString &a, const QString &b) {
+        return key(a) > key(b);
+    });
+    QCOMPARE(sorted, order);
+
+    // No two share a key, and an item with no price sorts below them all.
+    for (qsizetype i = 1; i < order.size(); ++i) {
+        QVERIFY2(key(order[i - 1]) > key(order[i]), qPrintable(order[i]));
+    }
+    QVERIFY(key(order.last()) > Currency().SortKey());
 }
 
 // The currency box says which currency each entry is by its tag, so code
