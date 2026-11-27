@@ -30,9 +30,11 @@ namespace {
     QString SpoilerBuyout(const Buyout &bo)
     {
         QString out = "";
+        // The prefix ends with a space of its own (" ~b/o "), so none is
+        // added before the number: T22's title is " ~price 321 divine".
         out += "[spoiler=\"" + bo.BuyoutTypeAsPrefix();
         if (bo.IsPriced()) {
-            out += " " + QString::number(bo.value, 'g', 15) + " " + bo.CurrencyAsWord();
+            out += QString::number(bo.value, 'g', 15) + " " + bo.CurrencyAsWord();
         }
         out += "\"]";
         return out;
@@ -99,9 +101,9 @@ RenderedShop RenderShop(const ShopRenderInput &input)
                 data += item_string;
             }
         }
-        if (!data.isEmpty()) {
-            shop.pages.push_back(data);
-        }
+        // The last price spoiler is closed like every other (T22).
+        data += "[/spoiler]";
+        shop.pages.push_back(data);
     }
 
     for (auto &page : shop.pages) {

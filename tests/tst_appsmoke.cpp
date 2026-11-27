@@ -564,12 +564,12 @@ namespace {
 
     // The shop with the scene's Viper Suit at b/o 7 chaos and nothing else:
     // the website lists the item's tab as number 15, and it lies at 5, 2.
-    // The spaces in the price and the one closing tag for two spoilers are
-    // what the application posts today (#359).
+    // The shape is T22's: the price spoiler and the page spoiler are both
+    // closed, and the title has one space between its words (#359).
     constexpr const char *kShopWithViperSuit
-        = R"([spoiler][spoiler=" ~b/o  7 chaos"])"
+        = R"([spoiler][spoiler=" ~b/o 7 chaos"])"
           R"([linkItem location="Stash16" league="Hardcore" x="5" y="2" realm="pc"])"
-          R"([/spoiler])";
+          R"([/spoiler][/spoiler])";
 
     // What a shop scenario must end without: a request the script did not
     // answer, or a dialog other than the ones it expected.
@@ -674,7 +674,7 @@ void AppSmokeTest::manualShopUpdatePostsTheUsersPrices()
     QCOMPARE(AppFixture::formField(form, "title"), QString("GERWARIC's Standard Shop"));
     QCOMPARE(AppFixture::formField(form, "hash"), QString(kEditPageHash));
     QCOMPARE(AppFixture::formField(form, "notify_owner"), QString("0"));
-    QCOMPARE(AppFixture::formField(form, "submit"), QString("Submit"));
+    QCOMPARE(AppFixture::formField(form, "post_submit"), QString("Submit"));
     for (const char unencoded : {'[', ']', '"', ' ', '+', '\''}) {
         QVERIFY2(!form.contains(unencoded), form.constData());
     }

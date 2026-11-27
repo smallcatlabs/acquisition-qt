@@ -740,7 +740,7 @@ void Shop::SubmitNextShop(const QString &title, const QString &hash)
                                               {"content", content},
                                               {"notify_owner", "0"},
                                               {"hash", hash},
-                                              {"submit", "Submit"}});
+                                              {"post_submit", "Submit"}});
     QNetworkRequest request(QUrl(kPoeEditThread + job.threads[job.requests_completed]));
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
     request.setRawHeader("Cache-Control", "max-age=0");

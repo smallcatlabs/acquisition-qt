@@ -2373,7 +2373,7 @@ tooltip:
 hash: 67d0868383bebce0eeabe384777f44e8
 
 === forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
-[spoiler][spoiler=" ~b/o  1 chaos"]
+[spoiler][spoiler=" ~b/o 1 chaos"]
   [linkItem location="Flask" character="ExampleCharacter2" x="0" y="0" realm="pc"]
   [linkItem location="Weapon" character="ExampleCharacter2" x="0" y="0" realm="pc"]
   [linkItem location="Weapon" character="ExampleCharacter2" x="0" y="0" realm="pc"]
@@ -2433,4 +2433,4 @@ hash: 67d0868383bebce0eeabe384777f44e8
   [linkItem location="PassiveJewels" character="ExampleCharacter2" x="1" y="0" realm="pc"]
   [linkItem location="PassiveJewels" character="ExampleCharacter2" x="19" y="0" realm="pc"]
   [linkItem location="PassiveJewels" character="ExampleCharacter2" x="0" y="0" realm="pc"]
-  [linkItem location="PassiveJewels" character="ExampleCharacter2" x="6" y="0" realm="pc"][/spoiler]
+  [linkItem location="PassiveJewels" character="ExampleCharacter2" x="6" y="0" realm="pc"][/spoiler][/spoiler]
