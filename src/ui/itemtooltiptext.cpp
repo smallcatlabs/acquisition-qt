@@ -133,7 +133,7 @@ std::vector<QString> GenerateMods(const Item &item)
     }
 
     // There are spacers between enchants, implicits, vestigial mods (shown
-    // apart because they are not counted, #266) and the main section.
+    // apart so the flag can be seen, #266) and the main section.
     std::vector<QString> sections;
     if (!enchantMods.isEmpty()) {
         sections.push_back(enchantMods);

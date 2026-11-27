@@ -363,13 +363,10 @@ void Item::LoadModifiers(const poe::Item &item)
         m_text_mods[section_key(section)] = std::move(sections[static_cast<size_t>(section)]);
     }
 
+    // Every section is counted, the vestigial one too: what the game means
+    // by that flag is not known, and until it is the line is taken to apply
+    // to the item (#360).
     for (const auto &[name, mods] : m_text_mods) {
-        // Vestigial lines are shown but not counted. Provisional: what the
-        // game means by the flag is not known, and this keeps every number
-        // as it was before such lines were kept (#266).
-        if (name == section_key(ModSection::Vestigial)) {
-            continue;
-        }
         for (const auto &mod : mods) {
             AddModToTable(mod, m_mod_table, unnamed_lines());
         }
@@ -799,13 +796,19 @@ QString Item::POBformat() const
         pob << "\nLevelReq: " << lvl->second;
     }
 
+    // Path of Building has no word for a vestigial line. It is written
+    // with the implicits, where the game documents the flag (#360).
     const auto &implicitMods = m_text_mods.at("implicitMods");
     const auto &enchantMods = m_text_mods.at("enchantMods");
-    pob << "\nImplicits: " << (implicitMods.size() + enchantMods.size());
+    const auto &vestigialMods = m_text_mods.at("vestigialMods");
+    pob << "\nImplicits: " << (implicitMods.size() + enchantMods.size() + vestigialMods.size());
     for (const auto &mod : enchantMods) {
         pob << "\n{crafted}" << mod.toStdString();
     }
     for (const auto &mod : implicitMods) {
+        pob << "\n" << mod.toStdString();
+    }
+    for (const auto &mod : vestigialMods) {
         pob << "\n" << mod.toStdString();
     }
 
