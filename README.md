@@ -8,7 +8,9 @@ Acquisition is an inventory management tool for [Path of Exile](https://www.path
 
 Acquisition can run on Windows, macOS, Linux.
 
-Acquisition is being reimplemented in Rust at [smallcatlabs/acquisition](https://github.com/smallcatlabs/acquisition): a daemon, a CLI and an MCP server first, with a GUI to follow (see [ADR 0003](docs/adr/0003-rewrite-vs-evolve.md)). This repository is the Qt application, maintained and released until the replacement ships.
+Acquisition works with Path of Exile 1 today. Support for Path of Exile 2 is planned ([#492](https://github.com/smallcatlabs/acquisition-qt/issues/492)).
+
+Acquisition is being reimplemented in Rust at [smallcatlabs/acquisition](https://github.com/smallcatlabs/acquisition): a daemon, a CLI and an MCP server first, with a GUI to follow (see [ADR 0003](docs/adr/0003-rewrite-vs-evolve.md)). This repository is the Qt application, maintained and released indefinitely.
 
 You can download setup packages from [the releases page](https://github.com/smallcatlabs/acquisition-qt/releases).
 
