@@ -20,6 +20,7 @@ public:
 
     LoginDialog &login() const { return m_app.login(); }
     OAuthManager &oauth() const { return m_app.oauth_manager(); }
+    QSettings &settings() const { return m_app.settings(); }
 
     // True once the game data (RePoE) has been loaded, or given up on.
     bool gameDataLoaded() const { return m_app.repoe().IsInitialized(); }

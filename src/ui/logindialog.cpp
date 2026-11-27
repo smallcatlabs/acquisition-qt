@@ -249,41 +249,26 @@ void LoginDialog::OnLeaguesReceived()
         return;
     }
 
-    // Get the league from settings.ini
-    const QString saved_league = m_settings.value("league").toString();
-    spdlog::trace("LoginDialog::OnLeaguesReceived() loaded leage from settings: {}", saved_league);
-
-    bool use_saved_league = false;
-
     // Refilling the box for another realm must not reach OnLeagueChanged:
     // clearing it would save an empty league.
     const QSignalBlocker blocker(ui->leagueComboBox);
     ui->leagueComboBox->clear();
-    for (auto &league : *leagues) {
-        // Add the league to the combo box.
+    for (const auto &league : *leagues) {
         ui->leagueComboBox->addItem(league.id);
-
-        // Set the current league if it matches the saved league.
-        if (0 == saved_league.compare(league.id, Qt::CaseInsensitive)) {
-            use_saved_league = true;
-        }
     }
     ui->leagueComboBox->setEnabled(true);
     // editable so private-league ids (absent from the public list) can be typed
     ui->leagueComboBox->setEditable(true);
 
-    // If we found a match for the save league use it. If we didn't, then
-    // we need to clear the setting, since the list of leagues may have
-    // changed since the last time acquisition was run.
-    if (use_saved_league || !saved_league.isEmpty()) {
+    // The saved league is shown even when this list lacks it: it may be a
+    // private league. With none saved, the box shows the list's first league,
+    // and nothing is saved: the setting is written only from the box, when
+    // the user picks a league (OnLeagueChanged) or logs in (#480).
+    const QString saved_league = m_settings.value("league").toString();
+    if (!saved_league.isEmpty()) {
         spdlog::trace("LoginDialog::OnLeaguesReceived() setting league to saved value: {}",
                       saved_league);
         ui->leagueComboBox->setCurrentText(saved_league);
-    } else {
-        const auto league = leagues->front().name.value_or("Standard");
-        spdlog::trace("LoginDialog::OnLeaguesReceived() setting league to default value: {}",
-                      league);
-        m_settings.setValue("league", league);
     }
 
     // Now that leagues have been received, start listening for changes. A

@@ -111,6 +111,7 @@ private slots:
     void emptyLeagueListIsAnError();
     void loginWaitsForTheLeagueList();
     void signInErrorKeepsTheLeagueError();
+    void firstRunSavesTheLeagueOnlyOnceChosen();
 
 private:
     std::shared_ptr<spdlog::logger> m_previous_logger;
@@ -2737,6 +2738,41 @@ void AppLoginTest::signInErrorKeepsTheLeagueError()
     QVERIFY(QTest::qWaitFor([&] { return league.isEnabled(); }, 10000));
     QCOMPARE(error.text(), denied_error);
     QVERIFY(!error.isHidden());
+
+    QCOMPARE(surprises(fixture), QString());
+}
+
+// With no league saved, the box shows the realm's first league, and the
+// setting is left alone: it is written from the box, when the user picks a
+// league or logs in, so it is always the id the box shows (#480).
+void AppLoginTest::firstRunSavesTheLeagueOnlyOnceChosen()
+{
+    AppFixture fixture([](AppFixture &f) {
+        QSettings settings(f.dir.filePath("settings.ini"), QSettings::IniFormat);
+        settings.remove("league");
+        storeToken(f, kStoredAccess, kStoredRefresh);
+        f.network->answer(kTokenUrl, tokenAnswer(200, grantedToken(kFreshAccess, kFreshRefresh)));
+        f.network->answer([](QNetworkAccessManager::Operation,
+                             const QUrl &url) -> std::optional<ScriptedNetwork::Answer> {
+            const auto realm = leagueRealm(url);
+            if (!realm) {
+                return std::nullopt;
+            }
+            return ScriptedNetwork::Answer{.body = leagueList(*realm)};
+        });
+    });
+    LoginDialog &dialog = fixture.access().login();
+    QSettings &settings = fixture.access().settings();
+    auto &league = child<QComboBox>(dialog, "leagueComboBox");
+    auto &login = child<QPushButton>(dialog, "loginButton");
+
+    QVERIFY(QTest::qWaitFor([&] { return login.isEnabled() && league.isEnabled(); }, 10000));
+    QCOMPARE(league.currentText(), QString("Standard"));
+    QVERIFY(!settings.contains("league"));
+
+    // The user picks a league: that is saved.
+    league.setCurrentIndex(league.findText("Hardcore"));
+    QCOMPARE(settings.value("league").toString(), QString("Hardcore"));
 
     QCOMPARE(surprises(fixture), QString());
 }
