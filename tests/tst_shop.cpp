@@ -1031,7 +1031,7 @@ namespace {
         fixture.buyoutFixture.manager->Set(*item_b, makeChaosBuyout(1));
 
         const qsizetype item_length = tab.GetForumCode("pc", "Standard", 0).size();
-        const qsizetype header_length = QStringLiteral(R"([spoiler="~b/o 1 chaos"])").size();
+        const qsizetype header_length = QStringLiteral(R"([spoiler=" ~b/o 1 chaos"])").size();
         const qsizetype overhead = 19 + QStringLiteral("[/spoiler]").size();
         const qsizetype padding = 50000 - overhead - header_length - item_length - item_length / 2
                                   - QStringLiteral("[items]").size();
@@ -1254,11 +1254,17 @@ void ShopTest::formValuesArePercentEncoded()
 
     const auto form = postedForm(fixture.networkManager->sent(1));
     QVERIFY(form.value("content").startsWith("[spoiler][spoiler="));
-    QVERIFY(form.value("content").endsWith("[/spoiler] +1 & 50% %41 é"));
+    QVERIFY(form.value("content").endsWith("[/spoiler][/spoiler] +1 & 50% %41 é"));
     QCOMPARE(form.value("title"), QString("WTS +1 gems & 50% off"));
     QCOMPARE(form.value("hash"), QString(kEditPageHash));
     QCOMPARE(form.value("notify_owner"), QString("0"));
-    QCOMPARE(form.value("submit"), QString("Submit"));
+    QCOMPARE(form.value("post_submit"), QString("Submit"));
+    // #359: every field posted is a control the captured edit page names.
+    // The button is `post_submit`; the form has no control called `submit`.
+    for (const QString &name : form.keys()) {
+        const QByteArray control = "name=\"" + name.toUtf8() + "\"";
+        QVERIFY2(editThreadPage().contains(control), control.constData());
+    }
 }
 
 // Clean refreshes with automatic updates on and a precondition missing:
@@ -1415,12 +1421,9 @@ namespace {
         return copiedPages(fixture, kGoldenIndexJson, 0);
     }
 
-    // Note for every expected page below: today's renderer closes each
-    // price spoiler when the next price starts, but never closes the last
-    // one, so a page ends with a single "[/spoiler]" and the page spoiler
-    // the template wraps around it stays open. These tests pin that output
-    // unchanged across the renderer's move; the defect is reported, not
-    // fixed here.
+    // Every expected page below has T22's shape: each price spoiler is
+    // closed, the last one too, and then the page spoiler, so a page ends
+    // with two "[/spoiler]". A title has one space between its words (#359).
     QString stashLink(int stash_number, int x)
     {
         return QString(R"([linkItem location="Stash%1" league="Standard" x="%2" y="0" realm="pc"])")
@@ -1439,7 +1442,8 @@ void ShopTest::renderOnePage()
                                               makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)}},
                                             {tab});
     QCOMPARE(pages,
-             QStringList{R"([spoiler][spoiler=" ~b/o  1 chaos"])" + stashLink(1, 0) + "[/spoiler]"});
+             QStringList{R"([spoiler][spoiler=" ~b/o 1 chaos"])" + stashLink(1, 0)
+                         + "[/spoiler][/spoiler]"});
 }
 
 // T23: a post holds at most 50,000 characters. The template is padded so
@@ -1451,11 +1455,11 @@ void ShopTest::renderTwoPagesAtThePostLimit()
     const QStringList pages = copiedPages(fixture, kStashIndexJson, 0);
 
     const QString padding = fixture.shop->shop_template().mid(QStringLiteral("[items]").size());
-    const QString head = R"([spoiler][spoiler=" ~b/o  1 chaos"])";
-    // A page cut at the limit closes its price spoiler; the last page does
-    // not (see stashLink).
+    const QString head = R"([spoiler][spoiler=" ~b/o 1 chaos"])";
+    // Every page closes its price spoiler, the one cut at the limit and the
+    // last one alike.
     const QStringList expected{head + stashLink(1, 0) + "[/spoiler][/spoiler]" + padding,
-                               head + stashLink(1, 1) + "[/spoiler]" + padding};
+                               head + stashLink(1, 1) + "[/spoiler][/spoiler]" + padding};
     QCOMPARE(pages, expected);
     for (const QString &page : expected) {
         QVERIFY(page.size() <= 50000);
@@ -1481,20 +1485,20 @@ void ShopTest::renderGroupsMixedBuyouts()
         {tab});
     QCOMPARE(pages,
              QStringList{"[spoiler]"
-                         R"([spoiler=" ~b/o  1 chaos"])"
+                         R"([spoiler=" ~b/o 1 chaos"])"
                          + stashLink(1, 1) + stashLink(1, 5)
                          + "[/spoiler]"
-                           R"([spoiler=" ~b/o  2 chaos"])"
+                           R"([spoiler=" ~b/o 2 chaos"])"
                          + stashLink(1, 0)
                          + "[/spoiler]"
-                           R"([spoiler=" ~b/o  1.5 divine"])"
+                           R"([spoiler=" ~b/o 1.5 divine"])"
                          + stashLink(1, 3)
                          + "[/spoiler]"
-                           R"([spoiler=" ~price  1 chaos"])"
+                           R"([spoiler=" ~price 1 chaos"])"
                          + stashLink(1, 2)
                          + "[/spoiler]"
                            R"([spoiler=""])"
-                         + stashLink(1, 4) + "[/spoiler]"});
+                         + stashLink(1, 4) + "[/spoiler][/spoiler]"});
 }
 
 // #426. A Jeweller's price is posted as `jewellers`, the word the game
@@ -1511,8 +1515,8 @@ void ShopTest::renderWritesJewellersInFull()
                                             {tab});
     QCOMPARE(pages,
              QStringList{"[spoiler]"
-                         R"([spoiler=" ~b/o  5 jewellers"])"
-                         + stashLink(1, 0) + "[/spoiler]"});
+                         R"([spoiler=" ~b/o 5 jewellers"])"
+                         + stashLink(1, 0) + "[/spoiler][/spoiler]"});
 }
 
 // A character item links by its slot and the character's name (T7, T8).
@@ -1528,10 +1532,10 @@ void ShopTest::renderCharacterItem()
                                               makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)}},
                                             {inventory});
     QCOMPARE(pages,
-             QStringList{R"([spoiler][spoiler=" ~b/o  1 chaos"])"
+             QStringList{R"([spoiler][spoiler=" ~b/o 1 chaos"])"
                          R"([linkItem location="BodyArmour" character="I_Exist" x="0" y="0" )"
                          R"(realm="pc"])"
-                         "[/spoiler]"});
+                         "[/spoiler][/spoiler]"});
 }
 
 // A price read from the game is never posted (AGENTS.md, T15). An item in a
@@ -1556,8 +1560,8 @@ void ShopTest::renderLeavesOutGameAndUnindexedItems()
                                               makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)}},
                                             {first, second, unlisted});
     QCOMPARE(pages,
-             QStringList{R"([spoiler][spoiler=" ~b/o  1 chaos"])" + stashLink(1, 0)
-                         + stashLink(4, 0) + "[/spoiler]"});
+             QStringList{R"([spoiler][spoiler=" ~b/o 1 chaos"])" + stashLink(1, 0) + stashLink(4, 0)
+                         + "[/spoiler][/spoiler]"});
 }
 
 // The real edit page writes the title with hex character references, the
@@ -1656,7 +1660,8 @@ void ShopTest::renderShopNeverPostsAGamePrice()
 
     const RenderedShop shop = RenderShop(input);
     QCOMPARE(shop.pages,
-             QStringList{R"([spoiler][spoiler=" ~b/o  1 chaos"])" + stashLink(1, 0) + "[/spoiler]"});
+             QStringList{R"([spoiler][spoiler=" ~b/o 1 chaos"])" + stashLink(1, 0)
+                         + "[/spoiler][/spoiler]"});
     QVERIFY(!shop.pages.join("").contains("divine"));
     QCOMPARE(shop.unlinked.size(), size_t(1));
     QCOMPARE(shop.unlinked.front().location.id(), QString("stash00003"));
@@ -2351,7 +2356,8 @@ void ShopTest::renderWritesNoEmptyPriceGroup()
                                               makeBuyout(2, Buyout::BUYOUT_TYPE_BUYOUT)}},
                                             {first, unlisted});
     QCOMPARE(pages,
-             QStringList{R"([spoiler][spoiler=" ~b/o  1 chaos"])" + stashLink(1, 0) + "[/spoiler]"});
+             QStringList{R"([spoiler][spoiler=" ~b/o 1 chaos"])" + stashLink(1, 0)
+                         + "[/spoiler][/spoiler]"});
 
     // Nothing linkable at all: no page.
     ShopFixture alone;

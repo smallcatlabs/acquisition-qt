@@ -25,6 +25,9 @@ your stash directly. Acquisition writes and updates those threads for you.
   current buyouts. Each item is wrapped in a `[spoiler]` with its price prefix,
   and the whole list is placed where `[items]` appears in the template. If an
   update is still running, you are told to try again when it has finished.
+  The first update after upgrading to 0.18.12 rewrites every thread once, even
+  if no price changed: the markup itself changed (every spoiler is now closed,
+  and a price title has single spaces).
 - **Shop → Automatically update shop** (checkable) republishes after every
   refresh, but only if something changed since the last post. If no thread or
   no POESESSID is set, a warning says so once per session rather than after

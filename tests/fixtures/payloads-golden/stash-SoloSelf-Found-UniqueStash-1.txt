@@ -59,5 +59,5 @@ tooltip:
 hash: 0b82ccfa9a63e89398eacec1cce90fe9
 
 === forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
-[spoiler][spoiler=" ~b/o  1 chaos"]
-  [linkItem location="Stash1" league="Corpus" x="42" y="0" realm="pc"][/spoiler]
+[spoiler][spoiler=" ~b/o 1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="42" y="0" realm="pc"][/spoiler][/spoiler]
