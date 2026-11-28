@@ -677,7 +677,7 @@ add_custom_target(project_files SOURCES
     docs/design/network-ground-truth.md
     docs/design/network-redesign.md
     docs/design/network-redesign-phase5-verification.md
-    docs/design/network-redesign-reviews.md
+    docs/archive/network-redesign-reviews.md
     docs/README.md
 
 )

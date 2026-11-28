@@ -34,10 +34,10 @@ public slots:
     // scale, and the handler runs whether or not the dialog is visible.
     // Applying each one synchronously blocked the UI thread past a frame
     // (measured ~11.5 us per emission, ~23 ms per 2,000-entry burst;
-    // docs/design/m1-m2-result.md), so updates park in a latest-value map
-    // and land on a short non-resetting single-shot timer: the whole burst
-    // becomes one apply, and the widget is never more than the flush
-    // interval behind the queue.
+    // D10 in docs/design/items-pipeline-m2.md), so updates park in a
+    // latest-value map and land on a short non-resetting single-shot timer:
+    // the whole burst becomes one apply, and the widget is never more than
+    // the flush interval behind the queue.
     void OnQueueUpdate(const QString &policy_name, int queue_size);
 
 private:

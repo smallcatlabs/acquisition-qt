@@ -546,7 +546,7 @@ into per-policy lanes, “reorder to position N” loses a single meaning
 and cross-lane priority becomes a design decision; that is when N32 must
 be revisited. The comparison also intentionally preserves its superseded
 C++ premise: `docs/design/network-redesign.md` R7/D6 and
-`docs/design/network-redesign-reviews.md` (July 19 errata, the removed
+`docs/archive/network-redesign-reviews.md` (July 19 errata, the removed
 stale cancel-and-resubmit reprioritization claim). If those C++ documents
 are retired or the spike is hoisted into its own repository, carry this
 contrast with N32 so the old warning cannot outlive the shape that made
@@ -1134,6 +1134,6 @@ probe, blocking in a nested event loop (F5/N18); non-2xx or missing
   document (July 18, 2026): typed facade, coroutine pumps, the gate.
   Cites claims here by number; supersedes the paused F56–F59 fix
   shapes.
-- `docs/design/network-redesign-reviews.md` — the spec's review
+- `docs/archive/network-redesign-reviews.md` — the spec's review
   history (finding tables ER/IR/R4-\*/R5-\*, round narratives,
   revision log), split from the spec July 19, 2026.

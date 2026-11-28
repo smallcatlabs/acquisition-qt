@@ -47,7 +47,7 @@ independently assigned F64 to the userstore schema repair and F65 to
 the rate-limit policy-shape fix.)
 
 Found July 28, 2026, during M2 spec review round 6 (R6-5,
-`items-pipeline-m2-reviews.md`). Several long-standing stores key
+`docs/archive/items-pipeline-m2-reviews.md`). Several long-standing stores key
 stash/character locations by `ItemLocation::id()` alone, with no type
 qualifier: the worker's refresh selection set
 (`m_tabs_to_update.emplace(tab.id())`, `itemsmanagerworker.cpp:397`),

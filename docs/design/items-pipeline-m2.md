@@ -22,7 +22,7 @@ R6-3 gains the cross-tab reselection pin — see the reviews file's
 amendment entry. **IMPLEMENTED July 29–30, 2026** (stages 0–8 on a
 single branch; **PR #185 merged July 30**): M2-M2 ran at its stage-4
 checkpoint as required (R7-3), missed every budget, and was remedied
-by the source-keyed stores with a passing rerun (`m2-m2-result.md`).
+by the source-keyed stores with a passing rerun (`docs/archive/m2-m2-result.md`).
 **Superseded in part by M3** (implemented July 31, 2026): D9's
 consumer-side machinery — the throttled reset, its pins, and the
 restore path — is retired by the delta-native items model, with
@@ -39,7 +39,7 @@ this document's decisions. Decisions of the network redesign are always
 cited qualified ("network-redesign D6"). F-numbers are the findings
 register; `R1-*` (and later `R2-*`, …) are this spec's review-round
 findings, recorded with verdicts and resolutions in
-`items-pipeline-m2-reviews.md`; pinned test names are quoted in
+`docs/archive/items-pipeline-m2-reviews.md`; pinned test names are quoted in
 `camelCase`.
 
 ## Staleness preamble
@@ -849,7 +849,7 @@ M3 renegotiates the rest of the final-emit cascade; M2 does not.
 **Retired by M3 (July 31, 2026).** This decision and its machinery —
 the throttle, its pins, and the restore path — are superseded by the
 delta-native items model (`items-pipeline-m3.md`, D3, and the
-supersession record in `m1-m3-result.md` §S8); the text below is the
+supersession record in `docs/archive/m1-m3-result.md` §S8); the text below is the
 record of what M2 shipped and why. The stable `(type, id)` keying
 introduced here carries forward as M3's bucket keying.
 
@@ -1103,7 +1103,7 @@ status-widget handler time per 2,000-entry burst, over one 60 Hz
 frame, dialog visible or not. The prescribed coalesce was built in
 `RateLimitDialog` (latest-value-per-policy map, non-resetting
 single-shot flush timer, S = 100 ms) and the rerun passed with the
-burst at ~0.9 ms. Evidence and rerun: `m1-m2-result.md`.
+burst at ~0.9 ms. Evidence and rerun: `docs/archive/m1-m2-result.md`.
 
 ### D11. Deferrals, each with its reason
 
@@ -1376,7 +1376,7 @@ Design-review criteria (checked in review, not runnable):
   synchronous handler time per 2,000-entry burst (~95% the status
   dialog's per-emission `setText`, paid even with the dialog
   hidden) — so the prescribed coalesce was built and validated by
-  rerun (burst now ~0.9 ms). Evidence: `m1-m2-result.md`; pins in
+  rerun (burst now ~0.9 ms). Evidence: `docs/archive/m1-m2-result.md`; pins in
   `tst_ratelimitdialog`.
 - **M2-M2 (measurement, first implementation checkpoint — blocks M2
   completion, R2-3/R3-3/R4-1/R5-4/R7-3) — RESOLVED July 29, 2026:**
@@ -1398,7 +1398,7 @@ Design-review criteria (checked in review, not runnable):
   validation rerun passes every budget with more than an order of
   magnitude of headroom (0.234 ms @100k, 1.225 ms @1m). Full
   addendum, environment, attribution, and rerun tables:
-  `m2-m2-result.md` (beside this spec).
+  `docs/archive/m2-m2-result.md`.
 
 ## Input traceability
 
@@ -1425,7 +1425,7 @@ Review rounds 1–7 (R1-1…R1-9, R2-1…R2-4 plus four corrections,
 R3-1…R3-4 plus one wording correction, R4-1…R4-4 plus one record
 correction, R5-1…R5-7, R6-1…R6-6, R7-1…R7-4, July 27–28, 2026) are
 incorporated throughout — verdicts and resolutions in
-`items-pipeline-m2-reviews.md`, summarized in its revision log.
+`docs/archive/items-pipeline-m2-reviews.md`, summarized in its revision log.
 Round 4 (an in-repo audit) deleted the terminal-deferral machinery
 by renegotiating the clause it served (R4-4); round 5 keyed
 mid-refresh bucket rendering on stable identity (R5-1) and moved

@@ -6,7 +6,7 @@ M1-M3 — the performance/memory checkpoint in the acceptance
 criteria, gating M3 completion — **PASSED at the S7 formal gate**
 with Tom's go, after S5's By-Item merge miss was remedied (the A′
 translate-and-notify rebuild); full tables and the miss/remedy
-record: `m1-m3-result.md`. Frozen on Tom's decision after the round-3 reviewers
+record: `docs/archive/m1-m3-result.md`. Frozen on Tom's decision after the round-3 reviewers
 judged the spec at diminishing returns and the prescribed focused
 consistency check (key residency, activation ordering, nested
 batching) passed with only wording-level findings, folded into
@@ -45,8 +45,8 @@ By-Item (R3-1), invalidation now covers every resident key vector
 the snapshot's pricing sequence required to emit one batch (R3-4). Unlike M2, the pre-spec evidence is already in hand: the
 parent plan's "profile before choosing levers" obligation was
 discharged by the S1-M3 sort-profiling spike (July 30, 2026, branch
-`spike/m3-sort-profile`, evidence in `m3-sort-profile-result.md`
-beside this spec), and the lever hold point ran the same day. **At
+`spike/m3-sort-profile`, evidence in `docs/archive/m3-sort-profile-result.md`),
+and the lever hold point ran the same day. **At
 that hold point Tom selected: levers A and B both committed (D1, D2),
 the intended `(name, uid, hash)` tie-break order (D5, fixing F67 as a
 side effect), and the key-memory measurement run pre-freeze rather
@@ -62,7 +62,7 @@ this document's decisions; M2's decisions are cited qualified ("M2
 D9"), as are the network redesign's. F-numbers are the findings
 register (`docs/cleanup/findings.md`); `R1-*` (and later `R2-*`, …)
 are this spec's review-round findings, recorded with verdicts and
-resolutions in `items-pipeline-m3-reviews.md` from round 1; pinned
+resolutions in `docs/archive/items-pipeline-m3-reviews.md` from round 1; pinned
 test names are quoted in `camelCase`. "The spike" unqualified means
 S1-M3.
 
@@ -752,7 +752,7 @@ honest full rebuild affordable.
   July 31, 2026, after M3's implementation:** the measurement ran,
   the gate fired (~23 ms of synchronous status-widget handler time
   per 2,000-entry burst), and the prescribed D10 coalesce was built
-  and validated (`m1-m2-result.md`; resolution recorded at M2's
+  and validated (`docs/archive/m1-m2-result.md`; resolution recorded at M2's
   D10 and open-items entry).
 
 ## Acceptance criteria
@@ -977,7 +977,7 @@ Design-review criteria (checked in review, not runnable):
   resolution goes through the ordered stable-key map
   (`std::map`, `search.h` `m_row_by_key`), the deliberate S4 review
   round 1 (finding 6) design that retired the per-delta linear scan
-  — acceptance recorded in `m1-m3-result.md` §S4 review round 1.
+  — acceptance recorded in `docs/archive/m1-m3-result.md` §S4 review round 1.
   Structural delta ops — bucket insertion, removal, and metadata
   repositioning — additionally pay an O(tab-count) row-position
   remap, accepted in the same round. A buyout batch's By-Item cell
@@ -1018,7 +1018,7 @@ Design-review criteria (checked in review, not runnable):
   A (~10–40×), B (proportional to expanded set), and the By-Item
   worst case; measured the key-memory extension at the hold point
   (~286 B/item; ~266 MB naive at 1m). Evidence:
-  `m3-sort-profile-result.md`. Consumed by D1–D6 and the hold-point
+  `docs/archive/m3-sort-profile-result.md`. Consumed by D1–D6 and the hold-point
   record.
 - **M1-M3 (measurement, implementation checkpoint — blocks M3
   completion) — RESOLVED July 31, 2026:** the performance/memory
@@ -1039,8 +1039,7 @@ Design-review criteria (checked in review, not runnable):
   fully-expanded By-Tab 210.0 MB at 1m). S7 review round 1 made the
   gate harness fail loudly and debounced the per-delta deferred
   column resize it surfaced. Full tables, attribution, environment,
-  and the S5 miss/remedy record: `m1-m3-result.md` (beside this
-  spec).
+  and the S5 miss/remedy record: `docs/archive/m1-m3-result.md`.
 
 ## Input traceability
 
@@ -1065,7 +1064,7 @@ Design-review criteria (checked in review, not runnable):
 Every named input is consumed. Review rounds 1–3 (R1-1…R1-8,
 R2-1…R2-6, R3-1…R3-4, July 30, 2026, all eighteen accepted) are
 incorporated throughout — verdicts and resolutions in
-`items-pipeline-m3-reviews.md`, which also carries the revision
+`docs/archive/items-pipeline-m3-reviews.md`, which also carries the revision
 log. The rounds' structural theme: revision 1 specified the
 single-event grain; round 1 forced the sequence grain (source vs.
 display bucket, cross-delta selection state, snapshot-boundary

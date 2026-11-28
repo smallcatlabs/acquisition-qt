@@ -1,0 +1,4 @@
+# Search tools that read this file (ripgrep, and the agents built on it)
+# skip finished history by default. Git still tracks it, and a search
+# that names the directory still finds it: rg <pattern> docs/archive
+docs/archive/

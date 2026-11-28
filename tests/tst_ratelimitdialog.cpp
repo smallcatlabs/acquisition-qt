@@ -16,7 +16,8 @@
 #include "ratelimit/ratelimitpolicy.h"
 #include "testsuite.h"
 
-// Pins for the M1-M2/D10 queue-update coalesce (docs/design/m1-m2-result.md):
+// Pins for the M1-M2/D10 queue-update coalesce (D10 in
+// docs/design/items-pipeline-m2.md):
 // the batch submit emits QueueUpdate once per queued request in a single loop
 // turn, so the dialog parks the latest value per policy and applies it on a
 // short single-shot flush timer instead of touching the tree per emission.

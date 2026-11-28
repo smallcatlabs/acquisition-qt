@@ -3,7 +3,7 @@
 Status: implemented August 14, 2026, after the round-1 and round-2 reviews
 and UX validation. Deliberately minimal — this is not a frozen spec.
 Evidence: `legacy-buyout-import-investigation.md`; review findings cited as
-`R1-*` and `R2-*` from `legacy-buyout-import-reviews.md`.
+`R1-*` and `R2-*` from `docs/archive/legacy-buyout-import-reviews.md`.
 
 ## Goal
 
