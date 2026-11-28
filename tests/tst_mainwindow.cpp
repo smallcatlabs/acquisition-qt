@@ -191,6 +191,7 @@ private slots:
     // retirement. appliedDeltasLeaveActiveSearchClean (above) closed its
     // By-Item half here too.
     void byItemMergeMatchesFullSort();
+    void byItemTabPriceReordersItemsArrivedByDelta();
     void byItemRemovalOnlyDeltaErasesInPlace();
     void byItemSelectionSurvivesMerge();
     void byItemActivationDecidesDirtinessFirst();
@@ -4234,6 +4235,72 @@ void MainWindowTest::byItemMergeMatchesFullSort()
     // keyed-sorts the same collection; the merged order must equal it.
     fixture.window->OnSearchFormChange();
     QCOMPARE(visibleItemNames(*tree), merged);
+}
+
+// The items of one real stash reply, at the tab the reply names.
+static Items readPayloadStash(const QString &file, ItemLocation &location)
+{
+    QFile reply(QFINDTESTDATA("fixtures/payloads/" + file));
+    if (!reply.open(QIODevice::ReadOnly)) {
+        qFatal("readPayloadStash: cannot read %s", qPrintable(file));
+    }
+    const auto stash = json::readStash(reply.readAll());
+    if (!stash) {
+        qFatal("readPayloadStash: %s does not read as a stash", qPrintable(file));
+    }
+    location = ItemLocation(*stash);
+    Items items;
+    AppendWireItems(*stash, location, items);
+    return items;
+}
+
+// M3 D1 rule 4 / R3-2 in By-Item: a tab price set after a delta brought
+// new items into that tab reorders every item the tab prices, the
+// arrivals included. By-Item deltas leave the By-Tab buckets stale, so
+// the affected items must not be read from them.
+void MainWindowTest::byItemTabPriceReordersItemsArrivedByDelta()
+{
+    MainWindowFixture fixture;
+    auto *tree = fixture.window->findChild<QTreeView *>("treeView");
+    QVERIFY(tree);
+
+    ItemLocation tabA;
+    ItemLocation tabB;
+    const Items itemsA = readPayloadStash("stash-Standard-PremiumStash-3.json", tabA);
+    const Items itemsB = readPayloadStash("stash-Standard-PremiumStash-1.json", tabB);
+    QVERIFY(!itemsA.empty());
+    QVERIFY(itemsB.size() > 3);
+
+    // The first snapshot sees two of B's items; the rest arrive later.
+    Items items = itemsA;
+    items.push_back(itemsB[0]);
+    items.push_back(itemsB[1]);
+    fixture.itemsManager->OnItemsRefreshed(items, {tabA, tabB}, false);
+    switchToByItemView(fixture);
+    tree->header()->setSortIndicator(1, Qt::AscendingOrder);
+
+    // A refresh of B in By-Item brings the rest of its items.
+    fixture.itemsManager->OnTabRefreshed(tabB, itemsB);
+    const auto shown = static_cast<qsizetype>(itemsA.size() + itemsB.size());
+    QCOMPARE(visibleItemNames(*tree).size(), shown);
+
+    // The user prices tab B: every item in it now costs 7 chaos, and under
+    // Price ascending they all follow A's unpriced items.
+    fixture.buyoutFixture.manager->SetTab(tabB, makeChaosBuyout(7));
+    const QStringList reordered = visibleItemNames(*tree);
+    QStringList unpriced;
+    for (const auto &item : itemsA) {
+        unpriced.append(item->PrettyName());
+    }
+    QStringList leading = reordered.first(unpriced.size());
+    leading.sort();
+    unpriced.sort();
+    QCOMPARE(leading, unpriced);
+
+    // The from-scratch comparison: a full refilter keyed-sorts the same
+    // collection; the reordered view must equal it.
+    fixture.window->OnSearchFormChange();
+    QCOMPARE(reordered, visibleItemNames(*tree));
 }
 
 // M3 S5 (D4 rule 2, removal half): an empty replacement removes exactly
