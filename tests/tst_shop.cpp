@@ -1722,15 +1722,21 @@ void ShopTest::renderShopNeverPostsAGamePrice()
     input.realm = "pc";
     input.league = "Standard";
     input.tab_index = {{"stash00001", 0}};
-    input.items
-        = {{game->PrettyName(),
-            game->location(),
-            makeBuyout(5,
-                       Buyout::BUYOUT_TYPE_FIXED,
-                       CurrencyType::CURRENCY_DIVINE_ORB,
-                       Buyout::BUYOUT_SOURCE_GAME)},
-           {manual->PrettyName(), manual->location(), makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)},
-           {lost->PrettyName(), lost->location(), makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)}};
+    input.items = {{game->PrettyName(),
+                    game->location(),
+                    makeBuyout(5,
+                               Buyout::BUYOUT_TYPE_FIXED,
+                               CurrencyType::CURRENCY_DIVINE_ORB,
+                               Buyout::BUYOUT_SOURCE_GAME),
+                    game->id()},
+                   {manual->PrettyName(),
+                    manual->location(),
+                    makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT),
+                    manual->id()},
+                   {lost->PrettyName(),
+                    lost->location(),
+                    makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT),
+                    lost->id()}};
 
     const RenderedShop shop = RenderShop(input);
     QCOMPARE(shop.pages,

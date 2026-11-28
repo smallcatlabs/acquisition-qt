@@ -237,10 +237,14 @@ void BuyoutManagerTest::unknownStoredCurrencyIsShownButNotPosted()
 
     ShopRenderInput input;
     input.shop_template = kShopTemplateItems;
-    input.items = {ShopRenderItem{.pretty_name = "Unknown", .location = tab, .buyout = stored},
+    input.items = {ShopRenderItem{.pretty_name = "Unknown",
+                                  .location = tab,
+                                  .buyout = stored,
+                                  .id = unknown.id()},
                    ShopRenderItem{.pretty_name = "Chaos",
                                   .location = tab,
-                                  .buyout = fixture.manager->Get(chaos)}};
+                                  .buyout = fixture.manager->Get(chaos),
+                                  .id = chaos.id()}};
     // The index is keyed by the tab's id as the item's location carries it.
     input.tab_index[tab.id()] = 0;
     const QString pages = RenderShop(input).pages.join('\n');
