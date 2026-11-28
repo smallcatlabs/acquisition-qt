@@ -333,9 +333,9 @@ private:
     RateLimit::FetchError m_first_error;
     bool m_first_error_set{false};
 
-    // Deterministic per-source skips (D5, filled in when the skip policy
-    // lands); FinishUpdate emits them in CompletedRefresh. Reset at the
-    // next accepted update.
+    // Deterministic per-source skips (D5), recorded by OnStashReceived and
+    // OnCharacterReceived; FinishUpdate emits them in CompletedRefresh.
+    // Reset at the next accepted update.
     std::vector<SkippedSource> m_skipped_sources;
 
     // Held across the RefreshFinished emit (D4/R4-4): the worker is

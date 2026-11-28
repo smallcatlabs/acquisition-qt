@@ -12,7 +12,9 @@ this map and a header disagree, the header wins.
 
 ## Active
 
-Specs and registers that govern work here.
+Specs and registers that govern work here. Each frozen spec opens
+with "Current rules", a summary of what still binds, each rule citing
+its decision.
 
 - `design/network-redesign.md` — **frozen** spec (revision 11) for
   rate-limited networking: typed facade, coroutine pumps, gate.

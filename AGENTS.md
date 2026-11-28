@@ -125,9 +125,11 @@ for the change in hand:
 | UI | `src/ui/` | `docs/user/` | — |
 | Build, CI, release | `CMakeLists.txt`, `CMakePresets.json`, `.github/workflows/`, `installer.iss` | `BUILD.md` | `_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR` stays a global definition ahead of `FetchContent` (F78). `acquisition_core` links no Qt Widgets; widgets and `Application` live in `acquisition_gui` (the `core_boundary` test). |
 
-`docs/README.md` maps every document. The frozen specs remain full authority
-for the areas they cover; cite their decision numbers, the F-numbers, and the
-N- and T-claims instead of restating them.
+`docs/README.md` maps every document. Each frozen spec opens with "Current
+rules": read that first, and open a decision when you need its reasoning.
+The frozen specs remain full authority for the areas they cover; cite
+their decision numbers, the F-numbers, and the N- and T-claims instead
+of restating them.
 
 `assets/` holds the bundled icons and UI images. `deps/qdarkstyle/` is
 vendored; other third-party libraries are fetched by CMake.

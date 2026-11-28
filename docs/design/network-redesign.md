@@ -88,6 +88,111 @@ those files have moved on.
 
 ---
 
+## Current rules
+
+A summary for working on the code. The decisions below remain the
+authority; where this summary and a decision disagree, the decision
+wins.
+
+- What has not been seen in real traffic is contained: detect it, log
+  it loudly, capture it, fail the affected requests cleanly. Never
+  carry on with bad state. (Design principle)
+
+**Boundary and cancellation**
+
+- Every rate-limited call goes through `PoeApiClient` and returns
+  `QFuture<std::expected<T, FetchError>>`. Nothing above it sees a
+  `QNetworkRequest` or `QNetworkReply`. Errors are values: root
+  coroutines, `RunUpdate` and the parse continuation catch everything
+  and finish with one. (D1, D7)
+- Every promise reaches a final state. `CompleteRequest` settles an
+  entry once; the drain's guard settles an abandoned one as
+  `Internal`. (D2)
+- Never call `QFuture::cancel()`, `cancelChain()` or
+  `QNetworkReply::abort()`. The `std::stop_token` is the only
+  cancellation channel, and `Canceled` is an outcome, not a failure.
+  A stop callback only schedules work. (D1, D2; N25)
+- The pump checks the token at dequeue, after each sleep, after the
+  gate and after the reply lands. A stopped request already in flight
+  lands and is recorded before it completes `Canceled`. (D2)
+- Everything runs on the main thread (`RateLimiter::SubmitFuture`
+  asserts it). (D7)
+
+**Worker**
+
+- One `std::stop_source` per update; every call in it carries that
+  token. A terminal failure goes to `AbortUpdate()`. Each per-fetch
+  coroutine checks the token right after its `co_await`
+  (`ProcessIfLive`). (D2, D6)
+- The worker has no queue and no pacing: lists launch without awaiting
+  each other, and each list or parent reply launches its whole batch
+  in source order. Counters are set before the first launch. (D6; F56)
+- `m_fetch_tasks` owns every per-fetch task; `SweepTasks` runs queued
+  and destroys completed tasks only. (D6)
+
+**Pumps and the gate**
+
+- Each `RateLimitManager` drains a plain deque with an on-demand
+  `Drain()` task. A throw there fails the pump for the session: later
+  submissions fail fast with `Internal`. (D3; Exception policy)
+- Every landed reply records history and capture, and every 429 a
+  violation, before any stop or retry decision; headers are parsed
+  whatever the status. Only a full parse naming the pump's policy
+  updates it; a new shape under the same name clears history. (D3, D8)
+- Classification order: 429, other non-2xx (`Http`), a Qt error even
+  after a 2xx (`Network`), a clean 2xx with unusable headers
+  (`Protocol`). (D8)
+- A 429 is sent at most `MAX_ATTEMPTS` (3) times, waiting until
+  `max(now + Retry-After + 60 s + 1 s,
+  GetNextSafeSend)`. `ParseRetryAfter`
+  accepts integers from 0 to 900 only; anything else makes the 429
+  terminal `RateLimited`. (D3, D8; N12, N23)
+- The reply's owner (`ReplyGuard`) is installed at dispatch, before
+  the first await. (D3)
+- Every hub send acquires the `Gate`: 2 in flight, 250 ms between
+  dispatches, first in, first out. A HEAD takes the whole gate, and a
+  waiting HEAD blocks new permits. A permit is released when its reply
+  finishes, before the promise completes, and is never held across a
+  sleep. (D3, D4, D5; F5, F58, N18)
+- Every request the facade builds sets `kPoeApiTimeout`; the gate's
+  liveness depends on it. (D5, D7; F60)
+- Login, OAuth, forum posts and CDN traffic stay outside the hub. (D5)
+
+**Endpoint setup**
+
+- An endpoint goes Unknown, Probing, Established; entries park in
+  order behind the probe. No nested event loop. (D4; F5)
+- A HEAD 429 with an acceptable Retry-After establishes the pump with
+  a hold. Any other setup failure fails the parked entries with a
+  `FetchError` and starts a cooldown of at least 60 s, during which
+  submissions fail fast. Cancellation never aborts a probe or starts a
+  cooldown. Established is sticky. (D4; N16, N24)
+
+**Shutdown and build**
+
+- Shutdown is destruction in `UserSession` member order after
+  `a.exec()` returns: `Shop` and the worker, then `PoeApiClient`, then
+  the hub, and the `NetworkManager` last. Never destroy an owner while
+  the event loop runs. (Shutdown; D7)
+- `Shop` uses no coroutines; it takes futures with `.then(this, ...)`.
+  (D7)
+- QCoro is pinned at v0.13.0 with its examples and tests off. Never set
+  the global `BUILD_TESTING`. (Dependency: QCoro)
+
+**No longer applies**
+
+- The staleness preamble, the phase notes on temporary code, and every
+  "today" description of the old code (`SetupEndpoint`,
+  `RateLimitedReply`, `DiscardIfStale`, the generation tag): deleted.
+- The rules the spec reverses in its own text: discovery GET, the
+  `NameOnly` tier, degrade-and-proceed setup, log-and-continue on bad
+  headers, the `Http{429}` split, the shutdown stop token, abort at
+  shutdown.
+- Per-entry cancellation and reprioritization were never built.
+- "What gets deleted" lists `FakeRateLimiter`; it was kept. The
+  facade's own suite (`tst_poeapiclient`) and the shop and window
+  suites run over it, and the worker suite over `FakePoeApiClient`.
+
 ## The problem being solved
 
 Today there are two queues and two in-flight trackers stacked on top of
