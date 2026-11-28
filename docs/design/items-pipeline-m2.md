@@ -42,6 +42,102 @@ findings, recorded with verdicts and resolutions in
 `docs/archive/items-pipeline-m2-reviews.md`; pinned test names are quoted in
 `camelCase`.
 
+## Current rules
+
+A summary for working on the code. The decisions below remain the
+authority; where this summary and a decision disagree, the decision
+wins.
+
+**Signals and keys**
+
+- The persistence lane (`stashReceived`, `characterReceived`, the list
+  signals) and the presentation lane (`TabRefreshed`,
+  `ChildrenReconciled`) share no payload types. A delta never carries
+  wire bytes or `poe::*` objects. (D1, D3)
+- A delta covers one fetch source: a stash tab, a character, or one
+  Map/Unique child. A Map/Unique tab may mix child generations
+  mid-refresh. (D2)
+- Replacement and child reconciliation key on `FetchSourceKey`
+  `{type, fetch_id}` on both sides, never on `ItemLocation` equality,
+  which ignores `fetch_id`. (D3; F66 for the legacy bare-id stores)
+- `TabRefreshed` carries the source's complete replacement, emitted
+  right after `SourceKeyedItems::ReplaceSource` and before the counter
+  increment. An empty delta empties the source; it never deletes a
+  tab. (D3)
+- Each top-level parent reply emits one `ChildrenReconciled` with the
+  authoritative expected set (the parent plus its listed children).
+  Each consumer erases, from its own baseline, items under the
+  parent's id whose key is outside the set. (D3)
+- The cached load publishes one `ItemsRefreshed(..., true)` from
+  `ItemsManagerWorker::Seed` and does not stream. (D3)
+- Per-reply work stays O(delta): no whole-collection scan, and no call
+  to `ItemsManager::items()` or `SourceKeyedItems::Flat()`. (D3, D8)
+
+**Terminal event and failures**
+
+- `RefreshFinished` fires exactly once per accepted `Update()`: from
+  `FinishUpdate` after the final `ItemsRefreshed` and Idle, or from the
+  first `AbortUpdate`. (D4)
+- Every delta of an update precedes its `RefreshFinished` and nothing
+  of it follows. The ordering is the identity, so signals carry no
+  update id. (D4)
+- `Update()` inside the terminal fan-out is refused
+  (`m_delivering_terminal`); a chained restart is queued. (D4)
+- `FailedRefresh` carries the first terminal error
+  (`RecordFirstError`), reset at the next accepted update. (D4)
+- No rollback: applied deltas stay in worker memory, the published
+  copy, the datastore and the view. Nothing branches on
+  `StatusUpdate`. (D4)
+- A `Parse` failure on a content fetch is skipped: warn, record in
+  `CompletedRefresh::skipped`, count as received, emit no delta. Every
+  other content failure and every list failure is terminal. The final
+  status names the skip count. (D5)
+
+**Published state and pricing**
+
+- The published copy is the pre-update snapshot plus applied
+  replacements and reconciliations, in arrival order. Tab-list
+  changes, `RebaseItemLocations` (success only) and sorting happen at
+  the final `ItemsRefreshed`. (D6)
+- Mid-refresh, published order is unspecified. Buckets key on the
+  stable `(type, id)` and render the freshest metadata seen
+  (`LocationInventory`, fed by every delta). (D6)
+- `ItemsManager::ApplyScopedPricing` touches the delta's items and
+  only adds refresh locks. `ClearRefreshLocks` and tab-name prices
+  (`BuyoutManager::SetStashTabLocations`) stay in the final pass. (D7)
+
+**Shop**
+
+- Automatic submission runs from `Shop::OnRefreshFinished`, only on a
+  `CompletedRefresh` with no skips. Nothing connects the shop, the
+  currency manager or a whole-collection buyout pass to
+  `TabRefreshed`. (D8)
+- Each job captures its input by value at request time
+  (`Shop::CaptureJob`), owns its transport state, and renders its own
+  capture. Manual requests capture the current published state and
+  may be refused while a job is active. (D8)
+- At most one active job and one waiting automatic capture; the newest
+  clean capture replaces the waiting one. Success, including the
+  unchanged-hash no-post, drains it. Failure discards it. (D8)
+- Turning auto-update off or a local edit
+  (`Shop::DropWaitingCapture`) drops the waiting capture. A later
+  skipped or failed refresh does not. The active job is untouched. (D8)
+- Queue-status bursts are coalesced in `RateLimitDialog`; the rate
+  limiter is not touched. (D10)
+
+**No longer applies**
+
+- D9's UI side (the throttle, the restore contract, marking the
+  current search dirty) → M3 D3. Stable keying carries on.
+- D3's flat vector and its permitted linear erase → `SourceKeyedItems`
+  on both sides, the remedy M2-M2 required.
+- D7 steps 1–2, and D8's `MigrateBuyouts` and three buyout passes →
+  #290 and #293. Prices are read through `BuyoutManager::Effective`.
+- D7's exclusion of remove-only tabs from refresh locks → #148.
+- D8's preview-cache revisions and `ExpireShopData` → removed with the
+  preview cache (#278); the copy renders on demand.
+- The staleness preamble describes the code before M2.
+
 ## Staleness preamble
 
 Written against commit `d995840b` (master, July 27, 2026). The load-
