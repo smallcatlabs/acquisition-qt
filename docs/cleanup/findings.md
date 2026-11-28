@@ -77,6 +77,8 @@ non-exercise; the hook stands.)
 
 ### F74. The POESESSID cookie is not host-scoped — Likely
 
+Tracked as issue #498.
+
 Found August 8, 2026, during the credential-custody investigation
 (`docs/redesign/topics/credential-custody.md`, `redesign` branch).
 `NetworkManager::setPoeSessionId` installs the cookie domain-wide on
@@ -94,6 +96,8 @@ should break, but verify the legacy index still authenticates.
 
 ### F75. User-Agent does not follow GGG's documented format — Confirmed
 
+Tracked as issue #499.
+
 Found August 8, 2026, during the same investigation. GGG's developer
 docs require the prefix format
 `User-Agent: OAuth {clientId}/{version} (contact: {contact})`; the app
@@ -106,7 +110,8 @@ shape: add the `OAuth ` prefix.
 
 ### F77. No OAuth de-arming: refresh failure and bearer rejection are log-only — Confirmed
 
-Related: issue #259 (refresh failures are not distinguished for the user).
+Tracked as issue #500. Related: #259 (refresh failures are not
+distinguished for the user) and #402 (a stored token rejected at start).
 
 Found August 8, 2026, during the same investigation.
 A refresh that fails mid-session only writes log lines: no de-arming, no
