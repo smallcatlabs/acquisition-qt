@@ -41,9 +41,9 @@ Q_MOC_INCLUDE("ratelimit/ratelimitpolicy.h")
 // returning to Unknown under a cooldown. The first submission for an
 // unknown endpoint parks and fires the HEAD asynchronously (the old nested
 // event loop is gone — F5); submissions arriving mid-setup park behind it
-// in order. Setup failures fail the parked requests cleanly with errored
-// replies instead of killing the application (the FatalError paths are
-// deleted).
+// in order. Setup failures complete the parked requests cleanly with
+// FetchError values instead of killing the application (the FatalError
+// paths are deleted).
 class RateLimiter : public QObject
 {
     Q_OBJECT
@@ -210,11 +210,6 @@ private:
     // Probing endpoints and their parked entries, in submission order.
     std::map<QString, std::deque<ParkedEntry>> m_probing;
 
-    // Probe task handles (owned, never fire-and-forget). Completed handles
-    // are swept when a new probe starts; a live handle is never destroyed
-    // mid-session (S1-1).
-    std::list<QCoro::Task<>> m_probe_tasks;
-
     // Endpoints under a setup-failure cooldown (D4): submissions inside
     // the window fail fast with the recorded failure, no probe sent.
     std::map<QString, SetupFailure> m_cooldowns;
@@ -224,4 +219,10 @@ private:
     std::map<const QString, RateLimitManager *> m_manager_by_endpoint;
 
     unsigned int m_violation_count{0};
+
+    // Probe task handles (owned, never fire-and-forget). Completed handles
+    // are swept when a new probe starts; a live handle is never destroyed
+    // mid-session (S1-1). Declared LAST so they destruct FIRST, before any
+    // member a detached frame could observe (shutdown step 1).
+    std::list<QCoro::Task<>> m_probe_tasks;
 };

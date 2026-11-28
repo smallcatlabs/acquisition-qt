@@ -1044,6 +1044,10 @@ object per line, `v` = schema version (currently 1):
 - `kind: "head"` — every setup probe, recorded *before* validation so
   degraded HEAD replies (N20) are captured: endpoint, URL, status,
   error, headers.
+- `kind: "pump_failed"` — a policy pump that entered the terminal
+  failed state (the exception policy in `network-redesign.md`): policy,
+  the exception's `error` text, the number of queued requests `dropped`
+  with it, and the UTC `time`.
 
 Every normal refresh session with the setting on becomes research
 data. Saturation sessions on a many-tab account are the most valuable

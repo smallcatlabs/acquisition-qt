@@ -53,6 +53,19 @@ void NetworkCapture::RecordReply(const QString &policy_name,
     Append(std::move(record));
 }
 
+void NetworkCapture::RecordPumpFailure(const QString &policy_name,
+                                       const QString &error,
+                                       qsizetype dropped)
+{
+    QJsonObject record;
+    record["kind"] = "pump_failed";
+    record["policy"] = policy_name;
+    record["error"] = error;
+    record["dropped"] = static_cast<qint64>(dropped);
+    record["time"] = QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs);
+    Append(std::move(record));
+}
+
 void NetworkCapture::Append(QJsonObject record)
 {
     if (!m_file.isOpen()) {

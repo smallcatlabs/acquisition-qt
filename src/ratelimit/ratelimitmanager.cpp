@@ -17,7 +17,6 @@
 #include "ratelimit/ratelimitpolicy.h"
 #include "ratelimit/scheduler.h"
 #include "ratelimit/stopsleep.h"
-#include "util/fatalerror.h"
 #include "util/networkmanager.h"
 #include "util/spdlog_qt.h" // IWYU pragma: keep
 #include "util/util.h"
@@ -86,12 +85,14 @@ void RateLimitManager::HoldUntil(std::chrono::milliseconds until)
     }
 }
 
-const RateLimitPolicy &RateLimitManager::policy()
+const RateLimitPolicy *RateLimitManager::policy() const
 {
-    if (!m_policy) {
-        FatalError("The rate limit manager's policy is null!");
-    }
-    return *m_policy;
+    return m_policy.get();
+}
+
+QString RateLimitManager::policyName() const
+{
+    return m_policy ? m_policy->name() : QString("<no policy>");
 }
 
 int RateLimitManager::msecToNextSend() const
@@ -124,7 +125,7 @@ RateLimitManager::Observation RateLimitManager::Update(QNetworkReply *reply)
         spdlog::log(level,
                     "Rate Limit Policy: not updating '{}': the reply's rate-limit headers "
                     "failed to parse: {}",
-                    m_policy ? m_policy->name() : QString("<no policy>"),
+                    policyName(),
                     parsed.error());
         return Observation::Unparseable;
     }
@@ -177,7 +178,7 @@ RateLimitManager::Observation RateLimitManager::Update(QNetworkReply *reply)
         m_history_size = history_size;
     }
 
-    emit PolicyUpdated(policy());
+    emit PolicyUpdated(*m_policy);
 
     // Entries queued before the policy arrived can drain now.
     if (!m_draining && !m_failed && !m_queue.empty()) {
@@ -204,7 +205,7 @@ void RateLimitManager::Enqueue(std::unique_ptr<RateLimitedRequest> entry)
         // the caller gets a completion, never a promise that never settles.
         spdlog::error("The rate limit pump for '{}' is in the terminal failed state; refusing "
                       "the request for {}",
-                      m_policy ? m_policy->name() : QString("<no policy>"),
+                      policyName(),
                       entry->endpoint);
         CompleteRequest(*entry,
                         RateLimit::FetchError::Kind::Internal,
@@ -229,6 +230,7 @@ QCoro::Task<> RateLimitManager::Drain()
 {
     // No exception ever escapes a root coroutine (IR4/R5-1): the catch-all
     // is what implements the terminal failed state.
+    QString failure;
     try {
         while (!m_queue.empty()) {
             auto entry = std::move(m_queue.front());
@@ -254,19 +256,28 @@ QCoro::Task<> RateLimitManager::Drain()
         }
     } catch (const std::exception &e) {
         m_failed = true;
+        failure = QString::fromUtf8(e.what());
         spdlog::error("The rate limit pump for '{}' FAILED with an exception: {} — {} queued "
                       "requests dropped; later submissions will be refused",
-                      m_policy ? m_policy->name() : QString("<no policy>"),
+                      policyName(),
                       e.what(),
                       m_queue.size());
     } catch (...) {
         m_failed = true;
+        failure = QStringLiteral("unknown exception");
         spdlog::error("The rate limit pump for '{}' FAILED with an unknown exception — {} queued "
                       "requests dropped; later submissions will be refused",
-                      m_policy ? m_policy->name() : QString("<no policy>"),
+                      policyName(),
                       m_queue.size());
     }
     if (m_failed) {
+        // Captured as well as logged (the exception policy): the first real
+        // occurrence of an unexpected event is what the capture is for.
+        if (m_capture) {
+            m_capture->RecordPumpFailure(policyName(),
+                                         failure,
+                                         static_cast<qsizetype>(m_queue.size()));
+        }
         // Fail the remaining entries fast — each with a real completion, so
         // no caller is left awaiting a promise that never settles.
         for (auto &entry : m_queue) {

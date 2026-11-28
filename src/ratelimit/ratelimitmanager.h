@@ -93,7 +93,16 @@ public:
     // different set of counters.
     Observation Update(QNetworkReply *reply);
 
-    const RateLimitPolicy &policy();
+    // The installed policy; null until the first Update() installs one.
+    // The hub only establishes a pump by updating it from the HEAD reply
+    // that named its policy, so an established pump always has one, but a
+    // pump never aborts the application over it (D4: FatalError leaves the
+    // hub; "contain the unexpected").
+    const RateLimitPolicy *policy() const;
+
+    // The installed policy's name, or "<no policy>" before one is installed:
+    // for labels and log lines, which must not need a policy.
+    QString policyName() const;
 
     // Hold the next send until no earlier than the given deadline on the
     // scheduler's clock — the D4 HEAD-429 case: the hub establishes (or
@@ -174,10 +183,6 @@ private:
     // Requests that are waiting to be processed by the drain.
     std::deque<std::unique_ptr<RateLimitedRequest>> m_queue;
 
-    // The drain task handle (owned member, never fire-and-forget). Only
-    // replaced while no drain is running — replacing it then destroys a
-    // completed frame, never detaches a live one (S1-1).
-    QCoro::Task<> m_drain_task;
     bool m_draining = false;
 
     // Set when the drain's catch-all trips: the pump failed terminally and
@@ -198,4 +203,11 @@ private:
     // least delay necessary to stay compliant.
     std::deque<RateLimit::Event> m_history;
     size_t m_history_size{0};
+
+    // The drain task handle (owned member, never fire-and-forget). Only
+    // replaced while no drain is running — replacing it then destroys a
+    // completed frame, never detaches a live one (S1-1). Declared LAST so it
+    // destructs FIRST, before any member a detached frame could observe
+    // (shutdown step 1).
+    QCoro::Task<> m_drain_task;
 };

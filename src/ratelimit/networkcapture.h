@@ -43,6 +43,11 @@ public:
                      const QNetworkReply *reply,
                      const QDateTime &received);
 
+    // Record a pump entering the terminal failed state (the exception
+    // policy: logged loudly and captured): the policy, what was thrown, and
+    // how many queued requests were failed with it.
+    void RecordPumpFailure(const QString &policy_name, const QString &error, qsizetype dropped);
+
     // Append one record as a line of JSON, stamping the schema version and
     // rotating the file at the size cap.
     void Append(QJsonObject record);
