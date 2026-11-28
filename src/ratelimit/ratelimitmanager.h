@@ -183,10 +183,6 @@ private:
     // Requests that are waiting to be processed by the drain.
     std::deque<std::unique_ptr<RateLimitedRequest>> m_queue;
 
-    // The drain task handle (owned member, never fire-and-forget). Only
-    // replaced while no drain is running — replacing it then destroys a
-    // completed frame, never detaches a live one (S1-1).
-    QCoro::Task<> m_drain_task;
     bool m_draining = false;
 
     // Set when the drain's catch-all trips: the pump failed terminally and
@@ -207,4 +203,11 @@ private:
     // least delay necessary to stay compliant.
     std::deque<RateLimit::Event> m_history;
     size_t m_history_size{0};
+
+    // The drain task handle (owned member, never fire-and-forget). Only
+    // replaced while no drain is running — replacing it then destroys a
+    // completed frame, never detaches a live one (S1-1). Declared LAST so it
+    // destructs FIRST, before any member a detached frame could observe
+    // (shutdown step 1).
+    QCoro::Task<> m_drain_task;
 };
