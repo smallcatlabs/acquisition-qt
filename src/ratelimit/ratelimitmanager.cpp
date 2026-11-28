@@ -229,6 +229,7 @@ QCoro::Task<> RateLimitManager::Drain()
 {
     // No exception ever escapes a root coroutine (IR4/R5-1): the catch-all
     // is what implements the terminal failed state.
+    QString failure;
     try {
         while (!m_queue.empty()) {
             auto entry = std::move(m_queue.front());
@@ -254,6 +255,7 @@ QCoro::Task<> RateLimitManager::Drain()
         }
     } catch (const std::exception &e) {
         m_failed = true;
+        failure = QString::fromUtf8(e.what());
         spdlog::error("The rate limit pump for '{}' FAILED with an exception: {} — {} queued "
                       "requests dropped; later submissions will be refused",
                       m_policy ? m_policy->name() : QString("<no policy>"),
@@ -261,12 +263,20 @@ QCoro::Task<> RateLimitManager::Drain()
                       m_queue.size());
     } catch (...) {
         m_failed = true;
+        failure = QStringLiteral("unknown exception");
         spdlog::error("The rate limit pump for '{}' FAILED with an unknown exception — {} queued "
                       "requests dropped; later submissions will be refused",
                       m_policy ? m_policy->name() : QString("<no policy>"),
                       m_queue.size());
     }
     if (m_failed) {
+        // Captured as well as logged (the exception policy): the first real
+        // occurrence of an unexpected event is what the capture is for.
+        if (m_capture) {
+            m_capture->RecordPumpFailure(m_policy ? m_policy->name() : QString("<no policy>"),
+                                         failure,
+                                         static_cast<qsizetype>(m_queue.size()));
+        }
         // Fail the remaining entries fast — each with a real completion, so
         // no caller is left awaiting a promise that never settles.
         for (auto &entry : m_queue) {

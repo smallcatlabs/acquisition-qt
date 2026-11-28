@@ -90,6 +90,7 @@ private slots:
     void observationUpdatesPolicyOnErrorReplies();
     void retrySleepIsPermitFree();
     void senderExceptionFailsPumpTerminally();
+    void pumpFailureIsCaptured();
     void protocolErrorOnUnparseableCleanReply();
     void cancelBeforeDequeueCompletesCanceled();
     void cancelDuringPacingSleepCompletesCanceled();
@@ -1067,6 +1068,55 @@ void RateLimitManagerTest::senderExceptionFailsPumpTerminally()
     QCOMPARE(after.kind(), RateLimit::FetchError::Kind::Internal);
     advanceAndSettle(scheduler, 1s);
     QCOMPARE(after.completions, 1);
+}
+
+void RateLimitManagerTest::pumpFailureIsCaptured()
+{
+    // The exception policy (IR4/R5-1): a pump in the terminal failed state is
+    // logged loudly AND captured. The first real occurrence of a
+    // never-observed event is what the capture exists for ("contain the
+    // unexpected"), so the failure leaves one record in it.
+    QTemporaryDir capture_dir;
+    QVERIFY(capture_dir.isValid());
+    const QString capture_path = capture_dir.filePath("capture.jsonl");
+
+    FakeScheduler scheduler;
+    RateLimit::Gate gate{scheduler};
+    NetworkCapture capture{capture_path};
+    RateLimitManager manager{[](QNetworkRequest &) -> QNetworkReply * {
+                                 throw std::runtime_error("sender exploded");
+                             },
+                             scheduler,
+                             gate,
+                             &capture};
+    installPolicy(manager, "10:60:60", "0:60:0");
+
+    Caller victim;
+    Caller queued;
+    victim.attach(manager.QueueRequest(kEndpoint, request("one"), victim.token()));
+    queued.attach(manager.QueueRequest(kEndpoint, request("two"), queued.token()));
+    advanceAndSettle(scheduler, std::chrono::milliseconds(kNormalBufferMsec));
+    QCOMPARE(victim.kind(), RateLimit::FetchError::Kind::Internal);
+
+    // No reply ever landed, so the failure is the only record.
+    QFile capture_file(capture_path);
+    QVERIFY(capture_file.open(QIODevice::ReadOnly));
+    const QList<QByteArray> lines = capture_file.readAll().split('\n');
+    QCOMPARE(lines.size(), 2); // one record plus the trailing newline
+    const QJsonObject record = QJsonDocument::fromJson(lines[0]).object();
+    QCOMPARE(record["kind"].toString(), QString("pump_failed"));
+    QCOMPARE(record["policy"].toString(), QString(kPolicyName));
+    QCOMPARE(record["error"].toString(), QString("sender exploded"));
+    QCOMPARE(record["dropped"].toInt(), 1);
+    QVERIFY(QDateTime::fromString(record["time"].toString(), Qt::ISODateWithMs).isValid());
+
+    // Later refusals are not new events: they log, but add no record.
+    Caller after;
+    after.attach(manager.QueueRequest(kEndpoint, request("after"), after.token()));
+    settle(scheduler);
+    QCOMPARE(after.kind(), RateLimit::FetchError::Kind::Internal);
+    capture_file.seek(0);
+    QCOMPARE(capture_file.readAll().count('\n'), 1);
 }
 
 void RateLimitManagerTest::protocolErrorOnUnparseableCleanReply()
