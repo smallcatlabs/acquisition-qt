@@ -41,9 +41,9 @@ Q_MOC_INCLUDE("ratelimit/ratelimitpolicy.h")
 // returning to Unknown under a cooldown. The first submission for an
 // unknown endpoint parks and fires the HEAD asynchronously (the old nested
 // event loop is gone — F5); submissions arriving mid-setup park behind it
-// in order. Setup failures fail the parked requests cleanly with errored
-// replies instead of killing the application (the FatalError paths are
-// deleted).
+// in order. Setup failures complete the parked requests cleanly with
+// FetchError values instead of killing the application (the FatalError
+// paths are deleted).
 class RateLimiter : public QObject
 {
     Q_OBJECT
