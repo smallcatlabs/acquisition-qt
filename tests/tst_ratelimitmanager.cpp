@@ -72,6 +72,7 @@ private slots:
     void policyShapeChangeClearsHistory();
     void nameMismatchLeavesPolicyUntouched();
     void queueBeforePolicyInstallDrainsOnInstall();
+    void policyBeforeInstallIsNotFatal();
     void okPolicySendsAfterNormalBuffer();
     void queueDrainsFifoWithGateSpacing();
     void saturatedPolicyWaitsPeriodPlusBucket_data();
@@ -289,9 +290,9 @@ void RateLimitManagerTest::updateInstallsPolicyFromHeadReply()
     installPolicy(rig.manager, "30:60:60", "0:60:0");
 
     QCOMPARE(policy_updates, 1);
-    QCOMPARE(rig.manager.policy().name(), QString(kPolicyName));
-    QCOMPARE(rig.manager.policy().status(), RateLimit::Status::OK);
-    QCOMPARE(rig.manager.policy().maximum_hits(), 30);
+    QCOMPARE(rig.manager.policy()->name(), QString(kPolicyName));
+    QCOMPARE(rig.manager.policy()->status(), RateLimit::Status::OK);
+    QCOMPARE(rig.manager.policy()->maximum_hits(), 30);
     // Installing a policy alone never sends anything.
     QCOMPARE(rig.sender.count(), 0);
 }
@@ -312,7 +313,7 @@ void RateLimitManagerTest::updateAdoptsChangedPolicyDefinition()
     installPolicy(rig.manager, "5:60:60", "0:60:0");
 
     QCOMPARE(policy_updates, 2);
-    QCOMPARE(rig.manager.policy().maximum_hits(), 5);
+    QCOMPARE(rig.manager.policy()->maximum_hits(), 5);
 }
 
 void RateLimitManagerTest::policyShapeChangeClearsHistory()
@@ -370,9 +371,24 @@ void RateLimitManagerTest::nameMismatchLeavesPolicyUntouched()
     drainEvents();
     QCOMPARE(c1.completions, 1);
     QCOMPARE(c1.last_status(), 200);
-    QCOMPARE(rig.manager.policy().name(), QString(kPolicyName));
-    QCOMPARE(rig.manager.policy().maximum_hits(), 10);
+    QCOMPARE(rig.manager.policy()->name(), QString(kPolicyName));
+    QCOMPARE(rig.manager.policy()->maximum_hits(), 10);
     QCOMPARE(policy_updates, 0);
+}
+
+void RateLimitManagerTest::policyBeforeInstallIsNotFatal()
+{
+    // D4: FatalError leaves the hub. A pump asked for its policy before one
+    // is installed used to abort the process; the hub's callers (the
+    // submit trace and the status update) only need a label, so they ask
+    // for the name, which a pump always has.
+    Rig rig;
+    QVERIFY(rig.manager.policy() == nullptr);
+    QCOMPARE(rig.manager.policyName(), QString("<no policy>"));
+
+    installPolicy(rig.manager, "10:60:60", "0:60:0");
+    QVERIFY(rig.manager.policy() != nullptr);
+    QCOMPARE(rig.manager.policyName(), QString(kPolicyName));
 }
 
 void RateLimitManagerTest::queueBeforePolicyInstallDrainsOnInstall()
@@ -535,7 +551,7 @@ void RateLimitManagerTest::saturatedPolicyWaitsPeriodPlusBucket()
     rig.sender.sent(0).reply->finish(policyHeaders(limit, full_state), 200);
     drainEvents();
     QCOMPARE(c1.completions, 1);
-    QCOMPARE(rig.manager.policy().status(), RateLimit::Status::BORDERLINE);
+    QCOMPARE(rig.manager.policy()->status(), RateLimit::Status::BORDERLINE);
 
     // The saturated policy schedules the next request a full
     // period-plus-bucket out, announced via Paused, and sends nothing in
@@ -615,7 +631,7 @@ void RateLimitManagerTest::headerlessNetworkFailureSurfacesReplyAndAdvances()
     QCOMPARE(c1.last_status(), 0);
     QCOMPARE(c1.last_error(), QNetworkReply::ConnectionRefusedError);
     QCOMPARE(c1.kind(), RateLimit::FetchError::Kind::Network);
-    QCOMPARE(rig.manager.policy().status(), RateLimit::Status::OK);
+    QCOMPARE(rig.manager.policy()->status(), RateLimit::Status::OK);
 
     advanceAndSettle(rig.scheduler, kGateSpacing);
     QCOMPARE(rig.sender.count(), 2);
@@ -967,7 +983,7 @@ void RateLimitManagerTest::observationUpdatesPolicyOnErrorReplies()
     drainEvents();
     QCOMPARE(c1.completions, 1);
     QCOMPARE(c1.last_status(), 500);
-    QCOMPARE(rig.manager.policy().maximum_hits(), 20);
+    QCOMPARE(rig.manager.policy()->maximum_hits(), 20);
 
     // A 2xx whose transport failed mid-body (Qt reports both a status and
     // an error): completes as a failure, still updates the policy.
@@ -979,7 +995,7 @@ void RateLimitManagerTest::observationUpdatesPolicyOnErrorReplies()
     drainEvents();
     QCOMPARE(c2.completions, 1);
     QCOMPARE(c2.last_error(), QNetworkReply::RemoteHostClosedError);
-    QCOMPARE(rig.manager.policy().maximum_hits(), 25);
+    QCOMPARE(rig.manager.policy()->maximum_hits(), 25);
 }
 
 void RateLimitManagerTest::retrySleepIsPermitFree()
@@ -1145,7 +1161,7 @@ void RateLimitManagerTest::protocolErrorOnUnparseableCleanReply()
     QCOMPARE(c1.kind(), RateLimit::FetchError::Kind::Protocol);
     // The policy is left exactly as it was — nothing was adopted from the
     // unusable reply.
-    QCOMPARE(rig.manager.policy().maximum_hits(), 10);
+    QCOMPARE(rig.manager.policy()->maximum_hits(), 10);
 
     // Self-healing: the next request goes out and succeeds normally.
     Caller c2;
@@ -1365,7 +1381,7 @@ void RateLimitManagerTest::cancelInFlightLetsReplyLandAndRecordsViolation()
 
     // The violation was recorded from the landed reply...
     QCOMPARE(violation_spy.count(), 1);
-    QCOMPARE(rig.manager.policy().status(), RateLimit::Status::VIOLATION);
+    QCOMPARE(rig.manager.policy()->status(), RateLimit::Status::VIOLATION);
     // ...and the caller sees Canceled, not RateLimited: the retry decision
     // is never reached.
     QCOMPARE(victim.completions, 1);

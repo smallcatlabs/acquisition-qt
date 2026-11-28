@@ -93,7 +93,16 @@ public:
     // different set of counters.
     Observation Update(QNetworkReply *reply);
 
-    const RateLimitPolicy &policy();
+    // The installed policy; null until the first Update() installs one.
+    // The hub only establishes a pump by updating it from the HEAD reply
+    // that named its policy, so an established pump always has one, but a
+    // pump never aborts the application over it (D4: FatalError leaves the
+    // hub; "contain the unexpected").
+    const RateLimitPolicy *policy() const;
+
+    // The installed policy's name, or "<no policy>" before one is installed:
+    // for labels and log lines, which must not need a policy.
+    QString policyName() const;
 
     // Hold the next send until no earlier than the given deadline on the
     // scheduler's clock — the D4 HEAD-429 case: the hub establishes (or

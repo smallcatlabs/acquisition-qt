@@ -63,7 +63,7 @@ QFuture<RateLimit::FetchOutcome> RateLimiter::SubmitFuture(const QString &endpoi
     if (it != m_manager_by_endpoint.end()) {
         RateLimitManager &manager = *it->second;
         spdlog::trace("Rate Limit policy {} is handling '{}': {}",
-                      manager.policy().name(),
+                      manager.policyName(),
                       endpoint,
                       network_request.url().toString());
         return manager.QueueRequest(endpoint, network_request, std::move(token));
@@ -517,7 +517,7 @@ void RateLimiter::SendStatusUpdate()
         // Rounded up, so a live pause never reads as zero.
         const int seconds = (soonest_msec + 999) / 1000;
         m_reporting_pause = true;
-        emit Paused(seconds, soonest->policy().name());
+        emit Paused(seconds, soonest->policyName());
         return;
     }
 
