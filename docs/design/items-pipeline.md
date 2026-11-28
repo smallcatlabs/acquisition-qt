@@ -266,9 +266,9 @@ operations (By-Tab) and a flat sorted merge (By-Item), the final
 snapshot is a row-level reconciliation, and M2's D9 throttle is
 retired with its pins superseded by the recorded map. Measurements
 (all budgets passed at 100k and ~1m; the S5 miss and its A′ remedy):
-`m1-m3-result.md`. The M1-M2 status-widget burst measurement ran
+`docs/archive/m1-m3-result.md`. The M1-M2 status-widget burst measurement ran
 July 31, 2026: the D10 gate fired and the prescribed UI-side coalesce
-was built and validated (`m1-m2-result.md`).
+was built and validated (`docs/archive/m1-m2-result.md`).
 
 Follow-up input routed here by M3's D7 (blocks nothing; the one
 open pipeline follow-up): **filter-loop optimization.** With the
@@ -281,7 +281,7 @@ attribution) before a lever is chosen — M3 deliberately chose none
 
 The "profile before choosing levers" obligation below was discharged
 July 30, 2026 by the S1-M3 sort-profiling spike
-(`m3-sort-profile-result.md`; throwaway branch `spike/m3-sort-profile`,
+(`docs/archive/m3-sort-profile-result.md`; throwaway branch `spike/m3-sort-profile`,
 never merged) and the same-day lever hold point, whose decisions the
 spec records. The inputs below are kept as written; the spec's
 traceability table maps each to its consuming decision.

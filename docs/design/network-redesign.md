@@ -55,7 +55,7 @@ dead and drove reported progress non-monotonic (P-STATUS), so the frozen text,
 not the code, was wrong. No code or observable-behavior change. The finding
 tables (ER, IR, R4-\*,
 R5-\*, R6-\*, R7, S1, S2), the round narratives, the reversal records,
-and the revision log live in `network-redesign-reviews.md`; this
+and the revision log live in `docs/archive/network-redesign-reviews.md`; this
 spec records only current decisions and cites finding IDs inline
 where a decision's shape came from a review. The spike is throwaway
 evidence, not production code; production code against this spec
@@ -145,7 +145,7 @@ implementation-readiness review then applied it once more to the
 simplification's own output (IR1: log-and-continue on degraded
 headers turned out to be silent continuation on bad state — it is now
 a clean error). The reversals are recorded in the sections they touch
-and in the review history (`network-redesign-reviews.md`).
+and in the review history (`docs/archive/network-redesign-reviews.md`).
 
 ## Layer contracts
 
@@ -1494,7 +1494,7 @@ tests in the same PR.
 
 The full review history — the finding tables (ER, IR, R4-\*, R5-\*)
 whose IDs this spec cites inline, the round narratives, and the
-revision log — lives in `network-redesign-reviews.md` (split out of
+revision log — lives in `docs/archive/network-redesign-reviews.md` (split out of
 this file's Appendix B at revision 5; the appendix's earlier
 evolution is in this file's git history). New review rounds and
 revision-log entries append there; this spec records only current
