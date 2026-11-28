@@ -290,17 +290,31 @@ std::vector<int> Search::InvalidateBuyoutOrder(const BuyoutChangeSet &changes, i
     // the rule-5 repaint. A changed tab price is a change to the price of
     // every item that shows it (BuyoutManager::Effective falls back to the
     // tab's), so a changed tab's items are affected too. They are found
-    // through the By-Tab buckets, which are kept in both view modes and
-    // hold the same visible items as the flat bucket.
+    // through the By-Tab buckets while those are maintained. By-Item
+    // deltas maintain only the flat bucket and leave the By-Tab buckets
+    // stale (S5), missing the items that arrived since; the changed tab's
+    // items are then found in the flat bucket, the one bucket By-Item
+    // shows, which the rebuild below walks anyway.
     bool every_bucket = changes.everything;
     std::set<LocationInventory::Key> affected_tabs;
     std::set<QString> ids = changes.item_ids;
     if (!every_bucket && !changes.tab_ids.empty()) {
-        for (const Bucket &bucket : m_bucket_by_tab) {
-            if (changes.tab_ids.count(bucket.location().id()) > 0) {
-                affected_tabs.insert(LocationInventory::KeyFor(bucket.location()));
+        if (m_tab_buckets_stale) {
+            for (const Bucket &bucket : m_bucket_by_item) {
                 for (const auto &item : bucket.items()) {
-                    ids.insert(item->id());
+                    if (changes.tab_ids.count(item->location().id()) > 0) {
+                        affected_tabs.insert(LocationInventory::KeyFor(item->location()));
+                        ids.insert(item->id());
+                    }
+                }
+            }
+        } else {
+            for (const Bucket &bucket : m_bucket_by_tab) {
+                if (changes.tab_ids.count(bucket.location().id()) > 0) {
+                    affected_tabs.insert(LocationInventory::KeyFor(bucket.location()));
+                    for (const auto &item : bucket.items()) {
+                        ids.insert(item->id());
+                    }
                 }
             }
         }
