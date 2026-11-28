@@ -317,7 +317,7 @@ namespace corpus {
                            Currency::CURRENCY_CHAOS_ORB,
                            QDateTime::fromSecsSinceEpoch(1, QTimeZone::UTC));
         for (const auto &item : items) {
-            input.items.push_back({item->PrettyName(), item->location(), price});
+            input.items.push_back({item->PrettyName(), item->location(), price, item->id()});
             input.tab_index[item->location().id()] = 0;
         }
         const RenderedShop shop = RenderShop(input);

@@ -4,6 +4,7 @@
 #include "shoprender.h"
 
 #include <algorithm>
+#include <tuple>
 
 #include "util/util.h"
 
@@ -51,44 +52,55 @@ RenderedShop RenderShop(const ShopRenderInput &input)
     // together. A stash item whose tab the index does not list cannot be
     // linked; it is left out here, before the price groups are formed, so
     // a price none of whose items can be linked writes no spoiler.
-    std::vector<const ShopRenderItem *> postable;
+    struct Postable
+    {
+        const ShopRenderItem *item;
+        QString link;
+    };
+    std::vector<Postable> postable;
     postable.reserve(input.items.size());
     for (const auto &item : input.items) {
         if (!item.buyout.IsPostable()) {
             continue;
         }
-        if ((item.location.type() == ItemLocationType::STASH)
-            && !input.tab_index.contains(item.location.id())) {
+        const ItemLocation &loc = item.location;
+        if (loc.type() == ItemLocationType::CHARACTER) {
+            postable.push_back({&item, loc.GetForumCode(input.realm, input.league, 0)});
+        } else if (const auto index = input.tab_index.find(loc.id());
+                   index != input.tab_index.end()) {
+            postable.push_back({&item, loc.GetForumCode(input.realm, input.league, index->second)});
+        } else {
             shop.unlinked.push_back(item);
-            continue;
         }
-        postable.push_back(&item);
     }
-    std::stable_sort(postable.begin(),
-                     postable.end(),
-                     [](const ShopRenderItem *a, const ShopRenderItem *b) {
-                         return buyoutLess(a->buyout, b->buyout);
-                     });
+    // Within a price, items follow their name, their id and then their
+    // link, never the order they were captured in: mid-refresh that order
+    // is the published copy's, which is unspecified (M2 D6), and an order
+    // that changed with it would change the post and its hash. Name and id
+    // are the refreshed item list's own order (Item::operator<); two items
+    // equal in all three render the same text, so the order is total on
+    // what the post holds.
+    std::sort(postable.begin(), postable.end(), [](const Postable &a, const Postable &b) {
+        if (buyoutLess(a.item->buyout, b.item->buyout)) {
+            return true;
+        }
+        if (buyoutLess(b.item->buyout, a.item->buyout)) {
+            return false;
+        }
+        return std::tie(a.item->pretty_name, a.item->id, a.link)
+               < std::tie(b.item->pretty_name, b.item->id, b.link);
+    });
 
     if (!postable.empty()) {
-        Buyout current_bo = postable[0]->buyout;
+        Buyout current_bo = postable[0].item->buyout;
         data += SpoilerBuyout(current_bo);
-        for (const auto *item : postable) {
+        for (const auto &[item, item_string] : postable) {
             const Buyout &bo = item->buyout;
             if (bo.type != current_bo.type || bo.currency != current_bo.currency
                 || bo.value != current_bo.value) {
                 current_bo = bo;
                 data += "[/spoiler]";
                 data += SpoilerBuyout(current_bo);
-            }
-            const ItemLocation &loc = item->location;
-            QString item_string;
-            if (loc.type() == ItemLocationType::CHARACTER) {
-                item_string = loc.GetForumCode(input.realm, input.league, 0);
-            } else {
-                item_string = loc.GetForumCode(input.realm,
-                                               input.league,
-                                               input.tab_index.at(loc.id()));
             }
             const size_t n = data.size() + item_string.size() + input.shop_template.size()
                              + kSpoilerOverhead + QStringLiteral("[/spoiler]").size();
