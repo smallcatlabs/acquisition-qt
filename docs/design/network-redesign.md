@@ -189,6 +189,9 @@ wins.
   headers, the `Http{429}` split, the shutdown stop token, abort at
   shutdown.
 - Per-entry cancellation and reprioritization were never built.
+- "What gets deleted" lists `FakeRateLimiter`; it was kept. The
+  facade's own suite (`tst_poeapiclient`) and the shop and window
+  suites run over it, and the worker suite over `FakePoeApiClient`.
 
 ## The problem being solved
 

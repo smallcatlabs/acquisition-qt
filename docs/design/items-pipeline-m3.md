@@ -119,7 +119,9 @@ wins.
   once, whatever the item intersection (`ApplyBucketMetadata`). (D3)
 - In an unfiltered search an empty delta empties a bucket and never
   removes it; deleted tabs leave at the final snapshot. A filtered
-  search drops a bucket a delta empties. (D3)
+  search drops a bucket a delta empties. A bucket whose kind changes
+  between folder and tab leaves at once and is inserted anew. (D3;
+  `folder-tree.md` D5)
 - After a refresh, the active search reconciles against the published
   state once, by row operations (`Search::ReconcileFinalSnapshot`). (D3)
 - Per delta: O(delta + affected bucket + log tabs), plus an O(tabs)
