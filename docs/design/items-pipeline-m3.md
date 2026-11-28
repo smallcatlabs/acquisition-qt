@@ -66,6 +66,101 @@ resolutions in `docs/archive/items-pipeline-m3-reviews.md` from round 1; pinned
 test names are quoted in `camelCase`. "The spike" unqualified means
 S1-M3.
 
+## Current rules
+
+A summary for working on the code. The decisions below remain the
+authority; where this summary and a decision disagree, the decision
+wins.
+
+**Keys and sorting**
+
+- A sort never calls `Column::lt` per comparison. `Bucket::Sort` and
+  the merges order `ItemSortKey`s built by `Column::key`. A key is the
+  comparator's own tuple plus the `(PrettyName, uid, hash)` suffix, so
+  order is defined once, in the comparators. Keys carry no wire or
+  `poe::*` types. (D1, D5)
+- `Item::operator<` ties on `(name, uid, hash)`. (D5; F67;
+  `keyedOrderMatchesComparatorOrder`)
+- Key residency and sorted validity are separate. Keys live only for
+  the active search's materialized buckets: an expanded By-Tab bucket
+  or the By-Item flat bucket. Collapse, deactivation
+  (`Search::EvictResidentKeys`) and leaving a view mode evict keys;
+  order and the sorted flag persist. Whatever consumes keys hydrates
+  missing ones first; nothing builds keys ahead of need. (D1, D2)
+- Activation: a dirty search refilters once; a clean By-Item search
+  hydrates its flat bucket's keys (`Search::HydrateFlatBucketKeys`).
+  (D1, D4)
+- Only visible order is paid for. A collapsed bucket keeps arrival
+  order with its flag cleared and is sorted on expansion if invalid
+  (`ItemsModel::OnBucketExpanded`). The flat bucket is always sorted.
+  (D2)
+- A column switch evicts every key vector and clears every flag; a
+  direction flip clears flags and re-sorts materialized buckets on
+  their resident keys (`ItemsModel::sort`). (D1, D2)
+- A search is filtered when any filter is active. Filtered searches
+  are default-expanded and hide empty buckets. (D2 rule 5, amended)
+
+**Refresh path**
+
+- No refresh-driven path resets the model. Resets happen only in
+  `Search::FilterItems` and `Search::SetViewMode`. (D3, D6;
+  `noModelResetDuringRefresh`)
+- The active search applies each delta as bucket-scoped row operations
+  (`Search::ApplyTabDelta`): remove exactly the rows of the delta's
+  `FetchSourceKey`, insert the arrivals that pass
+  `MatchesActiveFilters`. Sibling sources are untouched; there is no
+  item-level diff. A visible bucket merges sorted arrivals into its
+  order; a collapsed one appends and clears its flag. (D3)
+- By-Item applies a delta as one source-scoped erase plus a sorted
+  merge in one pass (`Bucket::ReplaceSourceRows`), notified as
+  contiguous row batches; the result equals a full keyed sort. (D4;
+  `byItemMergeMatchesFullSort`)
+- Bucket metadata (rename, move, colour, new empty tab) applies at
+  once, whatever the item intersection (`ApplyBucketMetadata`). (D3)
+- In an unfiltered search an empty delta empties a bucket and never
+  removes it; deleted tabs leave at the final snapshot. A filtered
+  search drops a bucket a delta empties. (D3)
+- After a refresh, the active search reconciles against the published
+  state once, by row operations (`Search::ReconcileFinalSnapshot`). (D3)
+- Per delta: O(delta + affected bucket + log tabs), plus an O(tabs)
+  remap for structural changes. Indexes are kept incrementally. (D3)
+- A delta the active search processed leaves it clean; a skipped one
+  marks it dirty. Background searches are marked dirty by every delta
+  and snapshot, and refilter on activation. (D3)
+- Child indexes carry the bucket's serial, never its row
+  (`Search::rowForSerial`). (D3; `folder-tree.md`)
+- Selection intent is the current item's stable id: a removal during a
+  refresh keeps it, a later delta showing the id re-adopts it, and
+  every `RefreshFinished` outcome closes the window. Other selected
+  rows stay selected while their item stays in its tab. (D3)
+
+**Buyouts**
+
+- Every change to buyout lookup state reports through
+  `BuyoutManager::RecordChange`. Commands and pricing passes hold a
+  `BuyoutBatch`; only the outermost batch emits `BuyoutsChanged`, so
+  one command is one model update. The snapshot's pricing in
+  `ItemsManager` runs inside one batch. (D1 rule 4)
+- A buyout batch repaints affected Price and Date cells under any sort
+  column, and reorders only when Price or Date sorts, after rebuilding
+  the affected resident keys (`Search::InvalidateBuyoutOrder`). (D1)
+- With a price-dependent filter active, a price change is followed by
+  one row-operation reconciliation after the command returns, or at the
+  end of a running refresh (`ReconcileAfterPriceChange`). (D1, #268)
+
+**No longer applies**
+
+- "A bucket is a top-level row": in By-Tab, `folder-tree.md` nests tab
+  buckets under folder rows. Character buckets and the flat bucket stay
+  top-level.
+- M2 D9's delta throttle and intersection sets: deleted.
+- "Filtered means one item was excluded" (R1-8): replaced by "any
+  filter active".
+- The buyout functions D1 rule 4 names (`MigrateItem`,
+  `MigrateBuyouts`, `ApplyAutoTabBuyouts`, `ApplyAutoItemBuyouts`):
+  removed in #290 and #293.
+- The staleness preamble describes the code before M3.
+
 ## Staleness preamble
 
 Written against commit `3549b214` (master, July 30, 2026 — the M2
