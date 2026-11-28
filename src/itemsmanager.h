@@ -51,9 +51,9 @@ public slots:
                           const std::vector<ItemLocation> &tabs,
                           bool initial_refresh);
     // Streaming delta application (items-pipeline M2, D3/D6): each worker
-    // delta is applied to the published copy — one predicate-only erase by
-    // FetchSourceKey (the permitted linear pass, R1-2) plus an append —
-    // priced for the delta's items only (D7), and re-emitted for the UI.
+    // delta replaces its source in the published copy
+    // (SourceKeyedItems::ReplaceSource, no whole-collection pass), is
+    // priced for the delta's items only (D7), and is re-emitted for the UI.
     void OnTabRefreshed(const ItemLocation &location, const Items &items);
     // An aggregate child reconciliation applies the authoritative expected
     // set to OUR OWN baseline (R5-2/R6-2): items under the parent's stable
