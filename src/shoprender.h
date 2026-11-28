@@ -21,6 +21,9 @@ struct ShopRenderItem
     QString pretty_name;
     ItemLocation location;
     Buyout buyout;
+    // The item's API id, which orders items that share a price and a name
+    // as the refreshed item list does (Item::operator<).
+    QString id;
 };
 
 // Everything a rendered shop depends on, as plain values.

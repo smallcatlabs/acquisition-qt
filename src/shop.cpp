@@ -578,7 +578,7 @@ ShopRenderInput Shop::CaptureInput() const
     input.realm = m_identity.realm();
     input.league = m_identity.league();
     for (const auto &[item, bo] : m_buyout_manager.PostablePrices(m_items_manager.items())) {
-        input.items.push_back({item->PrettyName(), item->location(), bo});
+        input.items.push_back({item->PrettyName(), item->location(), bo, item->id()});
     }
     return input;
 }

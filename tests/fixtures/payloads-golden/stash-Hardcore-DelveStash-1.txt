@@ -55,6 +55,6 @@ hash: e9551f44b2aef14408d39b014fd81338
 
 === forum shop with every item at ~b/o 1 chaos: 1 page(s), 0 unlinked
 [spoiler][spoiler=" ~b/o 1 chaos"]
+  [linkItem location="Stash1" league="Corpus" x="32" y="0" realm="pc"]
   [linkItem location="Stash1" league="Corpus" x="27" y="0" realm="pc"]
-  [linkItem location="Stash1" league="Corpus" x="10" y="0" realm="pc"]
-  [linkItem location="Stash1" league="Corpus" x="32" y="0" realm="pc"][/spoiler][/spoiler]
+  [linkItem location="Stash1" league="Corpus" x="10" y="0" realm="pc"][/spoiler][/spoiler]

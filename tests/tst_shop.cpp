@@ -15,6 +15,7 @@
 #include <QStandardPaths>
 #include <QUrlQuery>
 
+#include <algorithm>
 #include <memory>
 #include <sstream>
 
@@ -158,6 +159,7 @@ private slots:
     void renderCharacterItem();
     void renderLeavesOutGameAndUnindexedItems();
     void renderShopNeverPostsAGamePrice();
+    void renderShopIgnoresInputOrder();
     void captureNeverTakesANoteOrTabNamePrice();
 
     // #258: one failure exit, and a bounded conversation with the forum.
@@ -1720,15 +1722,21 @@ void ShopTest::renderShopNeverPostsAGamePrice()
     input.realm = "pc";
     input.league = "Standard";
     input.tab_index = {{"stash00001", 0}};
-    input.items
-        = {{game->PrettyName(),
-            game->location(),
-            makeBuyout(5,
-                       Buyout::BUYOUT_TYPE_FIXED,
-                       CurrencyType::CURRENCY_DIVINE_ORB,
-                       Buyout::BUYOUT_SOURCE_GAME)},
-           {manual->PrettyName(), manual->location(), makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)},
-           {lost->PrettyName(), lost->location(), makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT)}};
+    input.items = {{game->PrettyName(),
+                    game->location(),
+                    makeBuyout(5,
+                               Buyout::BUYOUT_TYPE_FIXED,
+                               CurrencyType::CURRENCY_DIVINE_ORB,
+                               Buyout::BUYOUT_SOURCE_GAME),
+                    game->id()},
+                   {manual->PrettyName(),
+                    manual->location(),
+                    makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT),
+                    manual->id()},
+                   {lost->PrettyName(),
+                    lost->location(),
+                    makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT),
+                    lost->id()}};
 
     const RenderedShop shop = RenderShop(input);
     QCOMPARE(shop.pages,
@@ -1741,6 +1749,37 @@ void ShopTest::renderShopNeverPostsAGamePrice()
     // A game price alone renders nothing at all.
     input.items.erase(input.items.begin() + 1, input.items.end());
     QVERIFY(RenderShop(input).pages.isEmpty());
+}
+
+// M2 D6: the published copy's order mid-refresh is unspecified and must
+// never reach the forum post. Items sharing a price render in an order of
+// their own, so the same items and prices captured in another order give
+// the same pages and the same hash, and no needless post.
+void ShopTest::renderShopIgnoresInputOrder()
+{
+    const ItemLocation tab = makeTestStashLocation();
+    const ItemLocation other = makeTestStashLocation("stash00002", "Other Tab", 1);
+    const Buyout one = makeBuyout(1, Buyout::BUYOUT_TYPE_BUYOUT);
+    std::vector<ShopRenderItem> items;
+    for (const auto &item : {makeShopItem("a", tab, 2),
+                             makeShopItem("b", tab, 0),
+                             makeShopItem("c", other, 1),
+                             makeShopItem("d", tab, 1)}) {
+        items.push_back({item->PrettyName(), item->location(), one, item->id()});
+    }
+
+    ShopRenderInput input;
+    input.shop_template = "[items]";
+    input.realm = "pc";
+    input.league = "Standard";
+    input.tab_index = {{"stash00001", 0}, {"stash00002", 1}};
+    input.items = items;
+    const RenderedShop forward = RenderShop(input);
+    std::ranges::reverse(input.items);
+    const RenderedShop reversed = RenderShop(input);
+
+    QCOMPARE(reversed.pages, forward.pages);
+    QCOMPARE(reversed.hash, forward.hash);
 }
 
 namespace {
